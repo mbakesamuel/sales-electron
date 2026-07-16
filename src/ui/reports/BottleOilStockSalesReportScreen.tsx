@@ -1,0 +1,392 @@
+import { useEffect, useState } from "preact/hooks";
+import { getAuthenticatedReports } from "../auth/reports.ts";
+import type {
+  BottleOilSalesRow,
+  BottleOilSalesSection,
+  BottleOilStockSalesReport,
+  BottleOilStockSection,
+} from "../../shared/reports.types.ts";
+import { ReportFooter } from "./ReportFooter.tsx";
+import { ReportHeader } from "./ReportHeader.tsx";
+import "./StockCommitmentReport.css";
+
+function formatReportDate(iso: string): string {
+  const date = new Date(`${iso}T00:00:00`);
+  return date.toLocaleDateString("en-GB");
+}
+
+function formatShortReportDate(iso: string): string {
+  const date = new Date(`${iso}T00:00:00`);
+  const day = date.getDate();
+  const month = date.getMonth() + 1;
+  const year = String(date.getFullYear()).slice(-2);
+  return `${day}/${month}/${year}`;
+}
+
+function formatQty(value: number | null | undefined): string {
+  if (value == null) {
+    return "";
+  }
+  if (value === 0) {
+    return "0";
+  }
+  const rounded = Math.round(value);
+  return rounded.toLocaleString("en-US");
+}
+
+function formatKg(value: number | null | undefined): string {
+  if (value == null) {
+    return "";
+  }
+  if (value === 0) {
+    return "0";
+  }
+  const rounded = Math.round(value);
+  return rounded.toLocaleString("en-US");
+}
+
+function formatPercent(value: number): string {
+  return `${value.toFixed(2)}%`;
+}
+
+function formatFcfa(value: number): string {
+  return Math.round(value).toLocaleString("en-US");
+}
+
+function handlePrint(): void {
+  document.body.classList.add("scr-print-mode");
+  window.addEventListener(
+    "afterprint",
+    () => {
+      document.body.classList.remove("scr-print-mode");
+    },
+    { once: true },
+  );
+  window.print();
+}
+
+function buildCsv(report: BottleOilStockSalesReport): string {
+  const lines: string[] = [
+    `Company:,${report.settings.companyName}`,
+    report.settings.department
+      ? `Department:,${report.settings.department}`
+      : "",
+    `AS AT:,${formatReportDate(report.asAtIso)}`,
+    "",
+    report.stockSection.title,
+    ["", ...report.stockSection.columns.map((column) => column.unitLabel)].join(
+      ",",
+    ),
+  ];
+
+  for (const row of report.stockSection.rows) {
+    lines.push([row.salesPointName, ...row.unitCounts].join(","));
+  }
+
+  lines.push("");
+  lines.push(
+    [
+      "",
+      ...report.stockSection.columns.map((column) => column.kgLabel),
+      "TOTAL (KGs)",
+    ].join(","),
+  );
+  for (const row of report.stockSection.rows) {
+    lines.push([row.salesPointName, ...row.kgCounts, row.rowTotalKg].join(","));
+  }
+
+  lines.push("", report.salesSection.title);
+  lines.push(
+    [
+      "",
+      ...report.salesSection.columns.map((column) => column.label),
+      "TOTAL (KGs)",
+    ].join(","),
+  );
+
+  for (const row of report.salesSection.rows) {
+    if (row.kind === "percentage" || row.kind === "value_percentage") {
+      lines.push(
+        [
+          row.label,
+          ...row.kgs.map(formatPercent),
+          formatPercent(row.rowTotalKg),
+        ].join(","),
+      );
+      continue;
+    }
+    if (row.kind === "value") {
+      lines.push(
+        [
+          row.label,
+          ...row.values.map(formatFcfa),
+          formatFcfa(row.rowTotalValue),
+        ].join(","),
+      );
+      continue;
+    }
+    lines.push(
+      [row.label, ...row.kgs.map(formatKg), formatKg(row.rowTotalKg)].join(","),
+    );
+  }
+
+  return lines.join("\n");
+}
+
+function downloadCsv(report: BottleOilStockSalesReport): void {
+  const blob = new Blob([buildCsv(report)], {
+    type: "text/csv;charset=utf-8;",
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `bottle-oil-stock-sales-${report.asAtIso}.csv`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function StockSection({ section }: { section: BottleOilStockSection }) {
+  return (
+    <div class="scr-bottled-block bos-stock-section">
+      <p class="bos-section-heading">Stock in Units</p>
+      <table class="scr-table scr-bottled-table bos-stock-matrix">
+        <colgroup>
+          <col class="bos-stock-label-col" />
+          {section.columns.map((column) => (
+            <col key={`unit-col-${column.id}`} class="bos-stock-pack-col" />
+          ))}
+          <col class="bos-stock-total-col" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th />
+            {section.columns.map((column) => (
+              <th key={`unit-${column.id}`}>{column.unitLabel}</th>
+            ))}
+            <th aria-hidden="true" />
+          </tr>
+        </thead>
+        <tbody>
+          {section.rows.map((row) => (
+            <tr
+              key={`units-${row.salesPointName}`}
+              class={row.kind === "total" ? "scr-row scr-row-total" : "scr-row"}
+            >
+              <td class="scr-row-label">{row.salesPointName}</td>
+              {row.unitCounts.map((count, index) => (
+                <td key={`unit-${row.salesPointName}-${index}`} class="scr-num">
+                  {formatQty(count)}
+                </td>
+              ))}
+              <td aria-hidden="true" />
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <p>Stock in Kgs</p>
+
+      <table class="scr-table scr-bottled-table bos-stock-matrix">
+        <colgroup>
+          <col class="bos-stock-label-col" />
+          {section.columns.map((column) => (
+            <col key={`kg-col-${column.id}`} class="bos-stock-pack-col" />
+          ))}
+          <col class="bos-stock-total-col" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th />
+            {section.columns.map((column) => (
+              <th key={`kg-${column.id}`}>{column.kgLabel}</th>
+            ))}
+            <th>TOTAL (KGs)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {section.rows.map((row) => (
+            <tr
+              key={`kgs-${row.salesPointName}`}
+              class={row.kind === "total" ? "scr-row scr-row-total" : "scr-row"}
+            >
+              <td class="scr-row-label">{row.salesPointName}</td>
+              {row.kgCounts.map((kg, index) => (
+                <td key={`kg-${row.salesPointName}-${index}`} class="scr-num">
+                  {formatKg(kg)}
+                </td>
+              ))}
+              <td class="scr-num scr-total-cell">{formatKg(row.rowTotalKg)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function renderSalesCell(
+  row: BottleOilSalesRow,
+  value: number,
+  columnIndex: number,
+): string {
+  if (row.kind === "percentage" || row.kind === "value_percentage") {
+    return formatPercent(value);
+  }
+  if (row.kind === "value") {
+    return formatFcfa(row.values[columnIndex] ?? 0);
+  }
+  return formatKg(value);
+}
+
+function renderSalesTotal(row: BottleOilSalesRow): string {
+  if (row.kind === "percentage" || row.kind === "value_percentage") {
+    return formatPercent(row.rowTotalKg);
+  }
+  if (row.kind === "value") {
+    return formatFcfa(row.rowTotalValue);
+  }
+  return formatKg(row.rowTotalKg);
+}
+
+/* sales section component */
+function SalesSection({ section }: { section: BottleOilSalesSection }) {
+  return (
+    <div class="scr-bottled-block">
+      <p class="bos-section-heading">Bottle Oil Sales By Product todate</p>
+      <table class="scr-table scr-bottled-table bos-stock-matrix">
+        <colgroup>
+          <col class="bos-stock-label-col" />
+          {section.columns.map((column) => (
+            <col key={`sales-col-${column.id}`} class="bos-stock-pack-col" />
+          ))}
+          <col class="bos-stock-total-col" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th />
+            {section.columns.map((column) => (
+              <th key={column.id}>{column.label}</th>
+            ))}
+            <th>TOTAL (KGs)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {section.rows.map((row, index) => (
+            <tr
+              key={`${row.label}-${index}`}
+              class={
+                row.kind === "total" ||
+                row.kind === "percentage" ||
+                row.kind === "value" ||
+                row.kind === "value_percentage"
+                  ? "scr-row scr-row-total"
+                  : "scr-row"
+              }
+            >
+              <td class="scr-row-label">{row.label}</td>
+              {row.kgs.map((kg, columnIndex) => (
+                <td key={`${row.label}-${columnIndex}`} class="scr-num">
+                  {renderSalesCell(row, kg, columnIndex)}
+                </td>
+              ))}
+              <td class="scr-num scr-total-cell">{renderSalesTotal(row)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function BottleOilStockSalesReportScreen() {
+  const [report, setReport] = useState<BottleOilStockSalesReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadReport() {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await getAuthenticatedReports().getBottleOilStockSales();
+        if (!cancelled) {
+          setReport(data);
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Failed to load report.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadReport();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <p class="scr-status">Loading bottle oil stock &amp; sales report...</p>
+    );
+  }
+
+  if (error) {
+    return <p class="scr-status scr-status-error">{error}</p>;
+  }
+
+  if (!report) {
+    return <p class="scr-status">No report data available.</p>;
+  }
+
+  return (
+    <div class="scr-page">
+      <div class="scr-toolbar no-print">
+        <button type="button" class="scr-btn" onClick={handlePrint}>
+          Print
+        </button>
+        <button
+          type="button"
+          class="scr-btn scr-btn-secondary"
+          onClick={() => downloadCsv(report)}
+        >
+          Export CSV
+        </button>
+        <button
+          type="button"
+          class="scr-btn scr-btn-secondary"
+          onClick={() => {
+            void getAuthenticatedReports()
+              .getBottleOilStockSales()
+              .then(setReport);
+          }}
+        >
+          Refresh
+        </button>
+      </div>
+
+      <div class="scr-document">
+        <ReportHeader
+          companyName={report.settings.companyName}
+          department={report.settings.department ?? null}
+          serviceName={report.settings.serviceName ?? null}
+          title={`BOTTLE OIL STOCK AND SALES TODATE AS AT ${formatShortReportDate(report.asAtIso)}`}
+        />
+
+        <StockSection section={report.stockSection} />
+        <SalesSection section={report.salesSection} />
+        <ReportFooter />
+      </div>
+    </div>
+  );
+}

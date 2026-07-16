@@ -1,0 +1,164 @@
+.sale-print-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(16, 24, 40, 0.45);
+}
+
+.sale-print-modal {
+  width: min(820px, 100%);
+  max-height: min(90svh, 900px);
+  overflow: auto;
+  border-radius: 14px;
+  background: #fff;
+  padding: 20px;
+}
+
+.sale-print-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.sale-print-document {
+  color: #111827;
+}
+
+.sale-print-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.sale-print-header h2 {
+  margin: 0 0 4px;
+}
+
+.sale-print-header p {
+  margin: 0;
+  color: #4b5563;
+  font-size: 13px;
+}
+
+.sale-print-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.sale-print-section {
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.sale-print-section h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.sale-print-section ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.sale-print-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.sale-print-table th,
+.sale-print-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+}
+
+.sale-print-cat {
+  color: #6b7280;
+}
+
+.sale-print-totals {
+  max-width: 320px;
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.sale-print-totals div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sale-print-total {
+  font-weight: 700;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 8px;
+}
+
+@media print {
+  body.sale-print-mode {
+    background: #fff !important;
+  }
+
+  body.sale-print-mode * {
+    visibility: hidden;
+  }
+
+  body.sale-print-mode .sale-print-document,
+  body.sale-print-mode .sale-print-document * {
+    visibility: visible;
+  }
+
+  body.sale-print-mode .sale-print-document {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    color: #000;
+    background: #fff;
+  }
+
+  body.sale-print-mode .no-print {
+    display: none !important;
+  }
+
+  body.sale-print-mode .sale-print-backdrop,
+  body.sale-print-mode .sale-print-modal,
+  body.sale-print-mode .home-layout,
+  body.sale-print-mode .home-main,
+  body.sale-print-mode .home-content {
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    max-height: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  body.sale-print-mode .sale-print-header p,
+  body.sale-print-mode .sale-print-cat {
+    color: #000 !important;
+  }
+}

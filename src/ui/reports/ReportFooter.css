@@ -1,0 +1,44 @@
+.report-footer {
+  margin-top: 36px;
+  padding-top: 8px;
+  font-family: "Arial Narrow", Arial, sans-serif;
+  font-size: 12px;
+  color: #111827;
+}
+
+.report-footer-signature {
+  margin-left: auto;
+  width: min(280px, 42%);
+  text-align: center;
+}
+
+.report-footer-label {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.report-footer-space {
+  height: 64px;
+}
+
+.report-footer-line {
+  margin: 0 12px;
+  border-bottom: 1px solid #111827;
+}
+
+.report-footer-name {
+  margin: 6px 0 0;
+  font-size: 12px;
+}
+
+@media print {
+  body.scr-print-mode .report-footer {
+    color: #000;
+  }
+
+  body.scr-print-mode .report-footer-line {
+    border-bottom-color: #000;
+  }
+}

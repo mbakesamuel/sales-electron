@@ -1,0 +1,2 @@
+-- Applied programmatically in db/index.ts (applySalesPointSimplifyMigration).
+-- Removes SalesPoint period columns and adds createdAt/updatedAt.

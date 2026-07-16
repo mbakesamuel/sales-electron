@@ -1,0 +1,146 @@
+.mdr-page {
+  max-width: 100%;
+}
+
+.mdr-document {
+  overflow-x: auto;
+}
+
+.mdr-table {
+  width: 100%;
+  min-width: 960px;
+  table-layout: fixed;
+  font-size: 12px;
+  line-height: 1.15;
+  border-collapse: collapse;
+}
+
+.mdr-table th,
+.mdr-table td {
+  white-space: nowrap;
+  padding: 1px 4px !important;
+  line-height: 1.15;
+  height: 16px;
+  vertical-align: middle;
+}
+
+/* Same label width on every category section so month columns line up. */
+.mdr-label-col,
+.mdr-table tbody td:first-child {
+  width: 200px;
+  min-width: 200px;
+  max-width: 200px;
+  box-sizing: border-box;
+  white-space: normal;
+  text-align: left !important;
+  word-break: break-word;
+}
+
+.mdr-label-col {
+  vertical-align: bottom;
+}
+
+.mdr-section {
+  overflow-x: auto;
+  margin-top: 10px;
+}
+
+.mdr-footnote {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: #4b5563;
+  text-transform: none;
+}
+
+.mdr-avg-row td {
+  font-style: italic;
+}
+
+.mdr-budget-block {
+  margin-top: 18px;
+  overflow-x: auto;
+}
+
+.mdr-budget-table {
+  min-width: 920px;
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 12px;
+  line-height: 1.1;
+  color: black;
+}
+
+.mdr-budget-table .mdr-budget-corner,
+.mdr-budget-table .mdr-budget-row-label {
+  width: 88px;
+  text-align: left;
+  font-weight: 700;
+  text-transform: lowercase;
+  color: black;
+  background: var(--border);
+}
+
+.mdr-budget-table th,
+.mdr-budget-table td {
+  border: 1px solid black;
+  padding: 1px 4px;
+  height: 15px;
+  white-space: nowrap;
+  text-align: center;
+  vertical-align: middle;
+  font-weight: 400;
+}
+
+.mdr-budget-table thead th {
+  background: var(--border);
+  font-weight: 700;
+  text-transform: none;
+}
+
+.mdr-budget-table .mdr-budget-to-date td {
+  font-weight: 700;
+  color: black;
+}
+
+.mdr-budget-table .mdr-budget-pct td {
+  font-weight: 400;
+  color: black;
+}
+
+.mdr-budget-table .mdr-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.mdr-budget-table .mdr-budget-variance {
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+@media print {
+  body.mdr-print-landscape .mdr-table,
+  body.mdr-print-landscape .mdr-budget-table {
+    font-size: 12px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  body.mdr-print-landscape .mdr-table th,
+  body.mdr-print-landscape .mdr-table td,
+  body.mdr-print-landscape .mdr-budget-table th,
+  body.mdr-print-landscape .mdr-budget-table td {
+    padding: 0 3px !important;
+    height: 12px;
+  }
+
+  body.mdr-print-landscape .mdr-document {
+    overflow: visible;
+  }
+
+  body.mdr-print-landscape .mdr-section,
+  body.mdr-print-landscape .mdr-budget-block {
+    overflow: visible;
+    page-break-inside: avoid;
+  }
+}

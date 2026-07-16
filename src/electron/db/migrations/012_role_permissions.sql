@@ -1,0 +1,1 @@
+-- Applied programmatically in db/index.ts (applyRolePermissionsMigration).

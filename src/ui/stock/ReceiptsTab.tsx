@@ -1,0 +1,530 @@
+import { useState } from "preact/hooks";
+import { getElectronApi } from "../auth/client.ts";
+import type {
+  ProductOption,
+  ReceiptDetail,
+  ReceiptListRow,
+  SalesPointOption,
+  StorageLocationOption,
+} from "../../shared/stock.types.ts";
+import { ConfirmDialog, DocDialog, ReviewKeyValue, ReviewLineTable, StatusBadge } from "./StockDialogs.tsx";
+import { ReceiptLineEditor, type ReceiptLineDraft } from "./LineEditors.tsx";
+import { defaultLocationId, formatDate, formatDateTime, locationsForSalesPoint, trimQty, utcIsoDateToday } from "./stockUtils.ts";
+
+interface ReceiptsTabProps {
+  rows: ReceiptListRow[];
+  salesPoints: SalesPointOption[];
+  storageLocations: StorageLocationOption[];
+  products: ProductOption[];
+  scopedSalesPointId: number | null;
+  canPost: boolean;
+  canCancel: boolean;
+  canDraft: boolean;
+  userId: string;
+  onOk: (text: string) => void;
+  onErr: (text: string) => void;
+}
+
+export function ReceiptsTab(props: ReceiptsTabProps) {
+  const { rows, salesPoints, storageLocations, products, scopedSalesPointId, userId } = props;
+  const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [salesPointId, setSalesPointId] = useState<string>(
+    scopedSalesPointId != null ? String(scopedSalesPointId) : "",
+  );
+  const [supplierLabel, setSupplierLabel] = useState("");
+  const [receivedAt, setReceivedAt] = useState(utcIsoDateToday());
+  const [notes, setNotes] = useState("");
+  const [lines, setLines] = useState<ReceiptLineDraft[]>(() => [
+    {
+      productId: "",
+      qty: "",
+      storageLocationId: defaultLocationId(storageLocations, scopedSalesPointId ?? ""),
+    },
+  ]);
+  const [pendingCancel, setPendingCancel] = useState<ReceiptListRow | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [lookupNo, setLookupNo] = useState("");
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const [reviewDetail, setReviewDetail] = useState<ReceiptDetail | null>(null);
+  const [reviewBusy, setReviewBusy] = useState(false);
+
+  function resetForm() {
+    setEditingId(null);
+    const sp = scopedSalesPointId != null ? String(scopedSalesPointId) : "";
+    setSalesPointId(sp);
+    setSupplierLabel("");
+    setReceivedAt(utcIsoDateToday());
+    setNotes("");
+    setLines([
+      { productId: "", qty: "", storageLocationId: defaultLocationId(storageLocations, sp) },
+    ]);
+  }
+
+  function onSalesPointChange(nextId: string) {
+    setSalesPointId(nextId);
+    const defLoc = defaultLocationId(storageLocations, nextId);
+    setLines((prev) =>
+      prev.map((l) => ({
+        ...l,
+        storageLocationId: locationsForSalesPoint(storageLocations, nextId).some(
+          (loc) => String(loc.id) === l.storageLocationId,
+        )
+          ? l.storageLocationId
+          : defLoc,
+      })),
+    );
+  }
+
+  function openCreate() {
+    resetForm();
+    setOpen(true);
+  }
+
+  async function onSave(event: Event) {
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await getElectronApi().stock.saveReceipt({
+        userId,
+        id: editingId,
+        salesPointId: Number.parseInt(salesPointId, 10),
+        supplierLabel,
+        receivedAt,
+        notes: notes || null,
+        lines: lines
+          .filter((l) => l.productId && l.qty && l.storageLocationId)
+          .map((l) => ({
+            productId: Number.parseInt(l.productId, 10),
+            qty: l.qty,
+            storageLocationId: Number.parseInt(l.storageLocationId, 10),
+          })),
+      });
+      if (res.ok === false) {
+        props.onErr(res.error);
+        return;
+      }
+      props.onOk(
+        editingId ? `Receipt ${res.documentNo} updated.` : `Receipt ${res.documentNo} drafted.`,
+      );
+      setOpen(false);
+      resetForm();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onPost(id: string) {
+    setBusy(true);
+    try {
+      const res = await getElectronApi().stock.postReceipt({ userId, receiptId: id });
+      if (res.ok === false) {
+        props.onErr(res.error);
+        return;
+      }
+      props.onOk("Receipt posted; balances updated.");
+      if (reviewDetail?.id === id) setReviewDetail(null);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onCancel() {
+    if (!pendingCancel) return;
+    const id = pendingCancel.id;
+    setPendingCancel(null);
+    setBusy(true);
+    try {
+      const res = await getElectronApi().stock.cancelReceipt({ userId, receiptId: id });
+      if (res.ok === false) {
+        props.onErr(res.error);
+        return;
+      }
+      props.onOk("Receipt cancelled.");
+      if (reviewDetail?.id === id) setReviewDetail(null);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function openReviewById(id: string) {
+    setReviewBusy(true);
+    try {
+      const res = await getElectronApi().stock.loadReceiptForReview({ userId, receiptId: id });
+      if (res.ok === false) {
+        props.onErr(res.error);
+        return;
+      }
+      setReviewDetail(res.detail);
+    } finally {
+      setReviewBusy(false);
+    }
+  }
+
+  function populateFormFromDetail(detail: ReceiptDetail) {
+    setEditingId(detail.id);
+    setSalesPointId(String(detail.salesPointId));
+    setSupplierLabel(detail.supplierLabel);
+    setReceivedAt(
+      detail.receivedAtIso.length > 10 ? detail.receivedAtIso.slice(0, 10) : detail.receivedAtIso,
+    );
+    setNotes(detail.notes ?? "");
+    setLines(
+      detail.lines.length > 0
+        ? detail.lines.map((l) => ({
+            productId: String(l.productId),
+            qty: l.qty,
+            storageLocationId: String(l.storageLocationId),
+          }))
+        : [
+            {
+              productId: "",
+              qty: "",
+              storageLocationId: defaultLocationId(storageLocations, detail.salesPointId),
+            },
+          ],
+    );
+    setOpen(true);
+  }
+
+  async function openEditById(id: string) {
+    setReviewBusy(true);
+    try {
+      const res = await getElectronApi().stock.loadReceiptForReview({ userId, receiptId: id });
+      if (res.ok === false) {
+        props.onErr(res.error);
+        return;
+      }
+      if (res.detail.status !== "DRAFT") {
+        props.onErr("Only draft receipts can be edited.");
+        return;
+      }
+      setReviewDetail(null);
+      populateFormFromDetail(res.detail);
+    } finally {
+      setReviewBusy(false);
+    }
+  }
+
+  async function onLookup(event: Event) {
+    event.preventDefault();
+    if (lookupBusy) return;
+    const n = lookupNo.trim();
+    if (!n) return;
+    setLookupBusy(true);
+    try {
+      const res = await getElectronApi().stock.findReceiptByNumber({ userId, receiptNo: n });
+      if (res.ok === false) {
+        props.onErr(res.error);
+        return;
+      }
+      setReviewDetail(res.detail);
+      setLookupNo("");
+    } finally {
+      setLookupBusy(false);
+    }
+  }
+
+  return (
+    <section class="stock-section">
+      <div class="stock-section-header">
+        <div>
+          <h2>Stock receipts</h2>
+          {props.canPost ? (
+            <p class="stock-hint">
+              Pull a draft voucher by its number to cross-check the lines before posting.
+            </p>
+          ) : (
+            <p class="stock-hint">
+              Draft a receipt, then submit it to your supervisor for posting.
+            </p>
+          )}
+        </div>
+        <div class="stock-header-actions">
+          {props.canPost ? (
+            <form onSubmit={onLookup} class="stock-lookup-row" aria-label="Pull voucher by number">
+              <input
+                value={lookupNo}
+                onInput={(event) => setLookupNo((event.currentTarget as HTMLInputElement).value)}
+                placeholder="SR-2026-000001"
+                class="stock-lookup-input"
+                aria-label="Receipt number"
+              />
+              <button
+                type="submit"
+                class="stock-btn-secondary"
+                disabled={lookupBusy || !lookupNo.trim()}
+              >
+                {lookupBusy ? "…" : "Pull voucher"}
+              </button>
+            </form>
+          ) : null}
+          {props.canDraft ? (
+            <button type="button" class="stock-btn-primary" onClick={openCreate}>
+              New receipt
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <div class="stock-table-wrap">
+        <table class="stock-table">
+          <thead>
+            <tr>
+              <th>Receipt #</th>
+              <th>Date</th>
+              <th>Sales point</th>
+              <th>Supplier</th>
+              <th class="stock-num">Total qty</th>
+              <th>Status</th>
+              <th>Created by</th>
+              <th>Posted by</th>
+              <th class="stock-actions-col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={9} class="stock-empty-cell">
+                  No receipts recorded yet.
+                  {props.canDraft ? (
+                    <>
+                      {" "}
+                      Use <span class="stock-strong">New receipt</span> to create one.
+                    </>
+                  ) : null}
+                </td>
+              </tr>
+            ) : (
+              rows.map((r) => (
+                <tr key={r.id}>
+                  <td class="stock-mono">{r.receiptNo}</td>
+                  <td class="stock-nowrap">{formatDate(r.receivedAtIso)}</td>
+                  <td>{r.salesPointName}</td>
+                  <td>{r.supplierLabel}</td>
+                  <td class="stock-num">{trimQty(r.totalQty)}</td>
+                  <td>
+                    <StatusBadge status={r.status} />
+                  </td>
+                  <td class="stock-muted">
+                    <div>{r.createdByName}</div>
+                    <div class="stock-subtext">{formatDateTime(r.createdAtIso)}</div>
+                  </td>
+                  <td class="stock-muted">
+                    {r.postedByName ? (
+                      <>
+                        <div>{r.postedByName}</div>
+                        <div class="stock-subtext">{formatDateTime(r.postedAtIso)}</div>
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td class="stock-actions-col">
+                    <div class="stock-actions-cell">
+                    <button
+                      type="button"
+                      disabled={reviewBusy}
+                      onClick={() => void openReviewById(r.id)}
+                      class="stock-btn-secondary stock-btn-small"
+                      title="View lines"
+                    >
+                      Review
+                    </button>
+                    {r.status === "DRAFT" ? (
+                      <button
+                        type="button"
+                        disabled={busy || reviewBusy}
+                        onClick={() => void openEditById(r.id)}
+                        class="stock-btn-secondary stock-btn-small"
+                        title="Correct draft"
+                      >
+                        Edit
+                      </button>
+                    ) : null}
+                    {r.status === "DRAFT" && props.canPost ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void onPost(r.id)}
+                        class="stock-btn-primary stock-btn-small"
+                      >
+                        Post
+                      </button>
+                    ) : null}
+                    {r.status === "DRAFT" || (r.status === "POSTED" && props.canCancel) ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setPendingCancel(r)}
+                        class="stock-btn-danger stock-btn-small"
+                      >
+                        {r.status === "DRAFT" ? "Delete" : "Cancel"}
+                      </button>
+                    ) : null}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {reviewDetail ? (
+        <DocDialog title={`Review receipt ${reviewDetail.receiptNo}`} wide onClose={() => setReviewDetail(null)}>
+          <div class="stock-review">
+            <div class="stock-review-top">
+              <StatusBadge status={reviewDetail.status} />
+            </div>
+
+            <div class="stock-review-grid">
+              <ReviewKeyValue label="Sales point">{reviewDetail.salesPointName}</ReviewKeyValue>
+              <ReviewKeyValue label="Received on">{formatDate(reviewDetail.receivedAtIso)}</ReviewKeyValue>
+              <ReviewKeyValue label="Supplier">{reviewDetail.supplierLabel}</ReviewKeyValue>
+              <ReviewKeyValue label="Drafted by">
+                {reviewDetail.createdByName}
+                <span class="stock-subtext"> {formatDateTime(reviewDetail.createdAtIso)}</span>
+              </ReviewKeyValue>
+              {reviewDetail.postedByName ? (
+                <ReviewKeyValue label="Posted by">
+                  {reviewDetail.postedByName}
+                  <span class="stock-subtext"> {formatDateTime(reviewDetail.postedAtIso)}</span>
+                </ReviewKeyValue>
+              ) : null}
+              {reviewDetail.notes ? (
+                <ReviewKeyValue label="Notes">{reviewDetail.notes}</ReviewKeyValue>
+              ) : null}
+            </div>
+
+            <ReviewLineTable lines={reviewDetail.lines} />
+
+            <div class="stock-modal-actions">
+              <button type="button" class="stock-btn-secondary" onClick={() => setReviewDetail(null)}>
+                Close
+              </button>
+              {reviewDetail.status === "DRAFT" || (reviewDetail.status === "POSTED" && props.canCancel) ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setPendingCancel(reviewDetail)}
+                  class="stock-btn-danger"
+                >
+                  {reviewDetail.status === "DRAFT" ? "Delete draft" : "Cancel receipt"}
+                </button>
+              ) : null}
+              {reviewDetail.status === "DRAFT" ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void openEditById(reviewDetail.id)}
+                  class="stock-btn-secondary"
+                  title="Correct the draft before posting"
+                >
+                  Edit draft
+                </button>
+              ) : null}
+              {reviewDetail.status === "DRAFT" && props.canPost ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void onPost(reviewDetail.id)}
+                  class="stock-btn-primary"
+                >
+                  Post receipt
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </DocDialog>
+      ) : null}
+
+      {open ? (
+        <DocDialog title={editingId ? "Edit receipt" : "New receipt"} wide onClose={() => setOpen(false)}>
+          <form onSubmit={onSave} class="stock-form">
+            {scopedSalesPointId == null ? (
+              <label class="stock-form-row">
+                <span class="stock-form-label">Sales point</span>
+                <select
+                  class="stock-form-control"
+                  value={salesPointId}
+                  onChange={(event) => onSalesPointChange((event.currentTarget as HTMLSelectElement).value)}
+                  required
+                >
+                  <option value="">Select…</option>
+                  {salesPoints.map((sp) => (
+                    <option key={sp.id} value={sp.id}>
+                      {sp.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            <label class="stock-form-row">
+              <span class="stock-form-label">Received on</span>
+              <input
+                type="date"
+                class="stock-form-control"
+                value={receivedAt}
+                onInput={(event) => setReceivedAt((event.currentTarget as HTMLInputElement).value)}
+                required
+              />
+            </label>
+            <label class="stock-form-row">
+              <span class="stock-form-label">Supplier label</span>
+              <input
+                class="stock-form-control"
+                value={supplierLabel}
+                onInput={(event) => setSupplierLabel((event.currentTarget as HTMLInputElement).value)}
+                placeholder="Name of the supplier - Mill or sales point name"
+                required
+              />
+            </label>
+            <label class="stock-form-row">
+              <span class="stock-form-label">Notes</span>
+              <input
+                class="stock-form-control"
+                value={notes}
+                onInput={(event) => setNotes((event.currentTarget as HTMLInputElement).value)}
+                placeholder="Notes about the receipt"
+              />
+            </label>
+
+            <ReceiptLineEditor
+              products={products}
+              lines={lines}
+              onChange={setLines}
+              locationOptions={locationsForSalesPoint(storageLocations, salesPointId)}
+              defaultLocationId={defaultLocationId(storageLocations, salesPointId)}
+            />
+
+            <div class="stock-modal-actions">
+              <button type="submit" disabled={busy} class="stock-btn-primary">
+                {editingId ? "Save changes" : "Create draft"}
+              </button>
+              <button type="button" onClick={() => setOpen(false)} disabled={busy} class="stock-btn-secondary">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </DocDialog>
+      ) : null}
+
+      {pendingCancel ? (
+        <ConfirmDialog
+          title={pendingCancel.status === "DRAFT" ? "Delete this receipt?" : "Cancel posted receipt?"}
+          description={
+            pendingCancel.status === "DRAFT"
+              ? `Draft receipt ${pendingCancel.receiptNo} will be removed.`
+              : `Receipt ${pendingCancel.receiptNo} is already posted. Cancelling will write compensating movements that reverse every line. This cannot be undone.`
+          }
+          confirmLabel={pendingCancel.status === "DRAFT" ? "Delete" : "Cancel receipt"}
+          busy={busy}
+          onCancel={() => setPendingCancel(null)}
+          onConfirm={onCancel}
+        />
+      ) : null}
+    </section>
+  );
+}

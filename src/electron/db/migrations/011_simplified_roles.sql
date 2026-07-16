@@ -1,0 +1,2 @@
+-- Applied programmatically in db/index.ts (applySimplifiedRolesMigration).
+-- Replaces legacy role/permission tables with five fixed User.role values.

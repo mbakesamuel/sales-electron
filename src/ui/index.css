@@ -1,0 +1,711 @@
+:root,
+html[data-theme="agro"] {
+  --text: #4a5c3a;
+  --text-h: #1c2b14;
+  --text-muted: #6b7d58;
+  --bg: #f4f7eb;
+  --bg-elevated: #fffdf5;
+  --bg-soft: #eef4df;
+  --border: #d7e2c4;
+  --border-strong: #b9c9a0;
+  --code-bg: #e8f0d4;
+  --accent: #2f7d32;
+  --accent-hover: #256628;
+  --accent-fg: #ffffff;
+  --accent-bg: rgba(47, 125, 50, 0.12);
+  --accent-border: rgba(47, 125, 50, 0.45);
+  --accent-soft: #e8f5e9;
+  --highlight: #c5a017;
+  --highlight-bg: rgba(197, 160, 23, 0.18);
+  --social-bg: rgba(238, 244, 223, 0.7);
+  --danger: #c62828;
+  --shadow:
+    rgba(40, 55, 28, 0.1) 0 10px 15px -3px, rgba(40, 55, 28, 0.05) 0 4px 6px -2px;
+  --shell-sidebar: #fffdf5;
+  --shell-main: #f4f7eb;
+  --shell-header: #fffdf5;
+  --shell-content: transparent;
+  --nav-hover: #eef4df;
+  --nav-active: #e3f2e4;
+  --nav-active-text: #1b5e20;
+
+  --sans: "Segoe UI", system-ui, sans-serif;
+  --heading: "Segoe UI Semibold", "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, Consolas, monospace;
+
+  font: 18px/145% var(--sans);
+  letter-spacing: 0.18px;
+  color-scheme: light;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  @media (max-width: 1024px) {
+    font-size: 16px;
+  }
+}
+
+html[data-theme="dark"] {
+  --text: #d2d8cc;
+  --text-h: #f5f7f2;
+  --text-muted: #b0baa6;
+  --bg: #0e1110;
+  --bg-elevated: #1b201c;
+  --bg-soft: #232a24;
+  --border: #2f3831;
+  --border-strong: #445045;
+  --code-bg: #232a24;
+  --accent: #9ccc65;
+  --accent-hover: #aed581;
+  --accent-fg: #0e1110;
+  --accent-bg: rgba(156, 204, 101, 0.14);
+  --accent-border: rgba(156, 204, 101, 0.4);
+  --accent-soft: #24301f;
+  --highlight: #e6c34a;
+  --highlight-bg: rgba(230, 195, 74, 0.14);
+  --social-bg: rgba(27, 32, 28, 0.8);
+  --danger: #ef5350;
+  --shadow:
+    rgba(0, 0, 0, 0.5) 0 12px 24px -8px, rgba(0, 0, 0, 0.35) 0 4px 8px -2px;
+  --shell-sidebar: #141916;
+  --shell-main: #101412;
+  --shell-header: #171c18;
+  --shell-content: #151a16;
+  --nav-hover: #222922;
+  --nav-active: #2a3328;
+  --nav-active-text: #d4ecc0;
+  color-scheme: dark;
+}
+
+/* Dark mode: pull remaining blue CTAs onto the lime accent. */
+html[data-theme="dark"] button[class*="btn-primary"],
+html[data-theme="dark"] .scr-btn:not(.scr-btn-secondary),
+html[data-theme="dark"] .table-data-add-btn,
+html[data-theme="dark"] .customers-btn-primary,
+html[data-theme="dark"] .customers-tab.is-active,
+html[data-theme="dark"] .customers-link-btn-primary,
+html[data-theme="dark"] .company-settings-primary-btn,
+html[data-theme="dark"] .sbb-btn-primary,
+html[data-theme="dark"] .cfm-btn-primary,
+html[data-theme="dark"] .login-button {
+  background: var(--accent) !important;
+  background-color: var(--accent) !important;
+  color: var(--accent-fg) !important;
+  border-color: transparent !important;
+}
+
+html[data-theme="dark"] button[class*="btn-primary"]:hover:not(:disabled),
+html[data-theme="dark"] .scr-btn:not(.scr-btn-secondary):hover:not(:disabled),
+html[data-theme="dark"] .table-data-add-btn:hover:not(:disabled),
+html[data-theme="dark"] .customers-btn-primary:hover:not(:disabled),
+html[data-theme="dark"] .company-settings-primary-btn:hover:not(:disabled),
+html[data-theme="dark"] .sbb-btn-primary:hover:not(:disabled),
+html[data-theme="dark"] .cfm-btn-primary:hover:not(:disabled),
+html[data-theme="dark"] .login-button:hover:not(:disabled) {
+  background: var(--accent-hover) !important;
+  background-color: var(--accent-hover) !important;
+}
+
+html[data-theme="dark"] button[class*="btn-secondary"],
+html[data-theme="dark"] .scr-btn-secondary,
+html[data-theme="dark"] .sales-btn-secondary,
+html[data-theme="dark"] .stock-btn-secondary,
+html[data-theme="dark"] .customers-btn-secondary,
+html[data-theme="dark"] .form-dialog-btn-secondary {
+  background: var(--bg-elevated) !important;
+  color: var(--text-h) !important;
+  border-color: var(--border-strong) !important;
+}
+
+html[data-theme="dark"] .sales-link-btn,
+html[data-theme="dark"] .customers-link-btn,
+html[data-theme="dark"] .customers-link-btn-primary,
+html[data-theme="dark"] a.sales-link-btn {
+  color: var(--accent) !important;
+}
+
+html[data-theme="dark"] .sales-tab.is-active,
+html[data-theme="dark"] .stock-tab.is-active {
+  background: var(--nav-active) !important;
+  color: var(--nav-active-text) !important;
+  border-color: var(--accent-border) !important;
+}
+
+html[data-theme="dark"] input[type="checkbox"],
+html[data-theme="dark"] input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+/* Dark mode: control labels + form chrome (fixes dark-on-dark). */
+html[data-theme="dark"] .sales-field,
+html[data-theme="dark"] .sales-field > span,
+html[data-theme="dark"] .sales-invoice-grid .sales-field > span:first-child,
+html[data-theme="dark"] .sales-payment-grid .sales-field > span:first-child,
+html[data-theme="dark"] .sales-filter-label,
+html[data-theme="dark"] .stock-field,
+html[data-theme="dark"] .stock-form-label,
+html[data-theme="dark"] .stock-review-label,
+html[data-theme="dark"] .form-dialog-label,
+html[data-theme="dark"] .form-dialog-checkbox-label,
+html[data-theme="dark"] .form-dialog-title,
+html[data-theme="dark"] .cfm-label,
+html[data-theme="dark"] .cfm-toggle-label,
+html[data-theme="dark"] .cfm-review-label,
+html[data-theme="dark"] .cfm-step-label,
+html[data-theme="dark"] .cfm-title,
+html[data-theme="dark"] .company-settings-field > span,
+html[data-theme="dark"] .company-settings-theme-fieldset legend,
+html[data-theme="dark"] .customers-view-label,
+html[data-theme="dark"] .customers-stat-label,
+html[data-theme="dark"] .table-data-view label,
+html[data-theme="dark"] .permissions-screen label {
+  color: var(--text-h) !important;
+}
+
+html[data-theme="dark"] .sales-muted,
+html[data-theme="dark"] .sales-hint,
+html[data-theme="dark"] .sales-subtext,
+html[data-theme="dark"] .stock-muted,
+html[data-theme="dark"] .stock-hint,
+html[data-theme="dark"] .stock-subtext,
+html[data-theme="dark"] .stock-header-subtitle,
+html[data-theme="dark"] .form-dialog-subtitle,
+html[data-theme="dark"] .cfm-subtitle,
+html[data-theme="dark"] .cfm-hint,
+html[data-theme="dark"] .cfm-toggle-desc,
+html[data-theme="dark"] .cfm-review-title,
+html[data-theme="dark"] .company-settings-theme-hint,
+html[data-theme="dark"] .company-settings-heading p,
+html[data-theme="dark"] .customers-muted,
+html[data-theme="dark"] .table-data-meta,
+html[data-theme="dark"] .scr-status {
+  color: var(--text-muted) !important;
+}
+
+html[data-theme="dark"] .sales-field input,
+html[data-theme="dark"] .sales-field select,
+html[data-theme="dark"] .sales-field textarea,
+html[data-theme="dark"] .sales-filters input,
+html[data-theme="dark"] .sales-filters select,
+html[data-theme="dark"] .stock-field input,
+html[data-theme="dark"] .stock-field select,
+html[data-theme="dark"] .stock-field textarea,
+html[data-theme="dark"] input.stock-form-control,
+html[data-theme="dark"] select.stock-form-control,
+html[data-theme="dark"] textarea.stock-form-control,
+html[data-theme="dark"] .stock-lookup-input,
+html[data-theme="dark"] .form-dialog-input,
+html[data-theme="dark"] .form-dialog-control select,
+html[data-theme="dark"] .form-dialog-control textarea,
+html[data-theme="dark"] .cfm-input,
+html[data-theme="dark"] .cfm-select,
+html[data-theme="dark"] .cfm-textarea,
+html[data-theme="dark"] .company-settings-input,
+html[data-theme="dark"] .company-settings-search input,
+html[data-theme="dark"] .customers-screen input,
+html[data-theme="dark"] .customers-screen select,
+html[data-theme="dark"] .customers-screen textarea,
+html[data-theme="dark"] .table-data-view input,
+html[data-theme="dark"] .table-data-view select,
+html[data-theme="dark"] .login-field input {
+  background: var(--bg-soft) !important;
+  color: var(--text-h) !important;
+  border-color: var(--border-strong) !important;
+}
+
+html[data-theme="dark"] .sales-field input::placeholder,
+html[data-theme="dark"] .stock-field input::placeholder,
+html[data-theme="dark"] .form-dialog-input::placeholder,
+html[data-theme="dark"] .cfm-input::placeholder,
+html[data-theme="dark"] .company-settings-input::placeholder,
+html[data-theme="dark"] .login-field input::placeholder {
+  color: var(--text-muted) !important;
+  opacity: 0.85;
+}
+
+html[data-theme="dark"] .sales-field input:disabled,
+html[data-theme="dark"] .sales-field select:disabled,
+html[data-theme="dark"] .stock-field input:disabled,
+html[data-theme="dark"] .stock-field select:disabled,
+html[data-theme="dark"] .form-dialog-input:disabled,
+html[data-theme="dark"] .cfm-input:disabled,
+html[data-theme="dark"] .cfm-select:disabled {
+  color: var(--text-muted) !important;
+  opacity: 0.75;
+}
+
+html[data-theme="dark"] .table-data-view,
+html[data-theme="dark"] .table-data-view th,
+html[data-theme="dark"] .table-data-view td,
+html[data-theme="dark"] .table-data-empty,
+html[data-theme="dark"] .table-data-view .sales-muted {
+  color: var(--text-h) !important;
+}
+
+html[data-theme="dark"] .table-data-empty,
+html[data-theme="dark"] .table-data-view [class*="muted"],
+html[data-theme="dark"] .table-data-view [class*="meta"],
+html[data-theme="dark"] .table-data-view [class*="hint"] {
+  color: var(--text-muted) !important;
+}
+
+html[data-theme="dark"] .form-dialog-panel,
+html[data-theme="dark"] .cfm-panel,
+html[data-theme="dark"] .cfm-body,
+html[data-theme="dark"] .cfm-footer,
+html[data-theme="dark"] .cfm-header,
+html[data-theme="dark"] .stock-modal-panel,
+html[data-theme="dark"] .sale-print-modal {
+  background: var(--bg-elevated) !important;
+  color: var(--text-h) !important;
+  border-color: var(--border) !important;
+}
+
+html[data-theme="dark"] .form-dialog-close,
+html[data-theme="dark"] .cfm-close,
+html[data-theme="dark"] .stock-modal-close {
+  background: var(--bg-soft) !important;
+  color: var(--text-h) !important;
+  border-color: var(--border-strong) !important;
+}
+
+html[data-theme="dark"] .sales-panel,
+html[data-theme="dark"] .sales-table-wrap,
+html[data-theme="dark"] .stock-table-wrap,
+html[data-theme="dark"] .stock-section,
+html[data-theme="dark"] .customers-screen,
+html[data-theme="dark"] .customers-screen-header,
+html[data-theme="dark"] .company-settings-screen,
+html[data-theme="dark"] .company-settings-header,
+html[data-theme="dark"] .company-settings-table-card,
+html[data-theme="dark"] .permissions-screen,
+html[data-theme="dark"] .table-data-view {
+  color: var(--text) !important;
+}
+
+html[data-theme="dark"] .sales-table th,
+html[data-theme="dark"] .sales-table td,
+html[data-theme="dark"] .stock-table th,
+html[data-theme="dark"] .stock-table td,
+html[data-theme="dark"] .company-settings-table th,
+html[data-theme="dark"] .company-settings-table td,
+html[data-theme="dark"] .customers-table th,
+html[data-theme="dark"] .customers-table td,
+html[data-theme="dark"] .table-data-view th,
+html[data-theme="dark"] .table-data-view td,
+html[data-theme="dark"] .cfm-review-value,
+html[data-theme="dark"] .cfm-toggle-text,
+html[data-theme="dark"] .stock-strong,
+html[data-theme="dark"] .sales-strong {
+  color: var(--text-h) !important;
+}
+
+html[data-theme="dark"] .stock-form-label {
+  background: var(--bg-soft) !important;
+  border-color: var(--border) !important;
+  color: var(--text-h) !important;
+}
+
+html[data-theme="dark"] .cfm-input-prefix,
+html[data-theme="dark"] .cfm-section-title,
+html[data-theme="dark"] .cfm-step-btn,
+html[data-theme="dark"] .cfm-review-title {
+  color: var(--text-muted) !important;
+}
+
+html[data-theme="dark"] .cfm-step-btn.is-active,
+html[data-theme="dark"] .cfm-step-btn.is-done {
+  color: var(--accent) !important;
+}
+
+html[data-theme="dark"] .permissions-matrix th,
+html[data-theme="dark"] .permissions-matrix td {
+  color: var(--text-h) !important;
+  border-color: var(--border) !important;
+}
+
+html[data-theme="dark"] .permissions-matrix th {
+  background: var(--bg-soft) !important;
+}
+
+html[data-theme="dark"] .permissions-select {
+  background: var(--bg-soft) !important;
+  color: var(--text-h) !important;
+  border-color: var(--border-strong) !important;
+}
+
+html[data-theme="dark"] .sales-pending-toggle,
+html[data-theme="dark"] .sales-tab:not(.is-active),
+html[data-theme="dark"] .stock-tab:not(.is-active),
+html[data-theme="dark"] .customers-tab:not(.is-active),
+html[data-theme="dark"] .company-settings-theme-option {
+  color: var(--text) !important;
+  background: var(--bg-elevated) !important;
+  border-color: var(--border) !important;
+}
+
+/* Dark mode: tables + table controls */
+html[data-theme="dark"] .sales-table-wrap,
+html[data-theme="dark"] .stock-table-wrap,
+html[data-theme="dark"] .company-settings-table-card,
+html[data-theme="dark"] .table-data-scroll,
+html[data-theme="dark"] .table-data-empty,
+html[data-theme="dark"] .customers-table-scroll,
+html[data-theme="dark"] .permissions-matrix-wrap {
+  background: var(--bg-elevated) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+
+html[data-theme="dark"] .sales-table,
+html[data-theme="dark"] .stock-table,
+html[data-theme="dark"] .company-settings-table,
+html[data-theme="dark"] .customers-table,
+html[data-theme="dark"] .table-data-grid,
+html[data-theme="dark"] .permissions-matrix,
+html[data-theme="dark"] .sales-items-table {
+  color: var(--text-h) !important;
+}
+
+html[data-theme="dark"] .sales-table th,
+html[data-theme="dark"] .sales-table td,
+html[data-theme="dark"] .stock-table th,
+html[data-theme="dark"] .stock-table td,
+html[data-theme="dark"] .company-settings-table th,
+html[data-theme="dark"] .company-settings-table td,
+html[data-theme="dark"] .customers-table th,
+html[data-theme="dark"] .customers-table td,
+html[data-theme="dark"] .table-data-grid th,
+html[data-theme="dark"] .table-data-grid td,
+html[data-theme="dark"] .permissions-matrix th,
+html[data-theme="dark"] .permissions-matrix td,
+html[data-theme="dark"] .sales-items-table th,
+html[data-theme="dark"] .sales-items-table td {
+  color: var(--text-h) !important;
+  border-color: var(--border) !important;
+}
+
+html[data-theme="dark"] .sales-table thead th,
+html[data-theme="dark"] .stock-table thead th,
+html[data-theme="dark"] .company-settings-table th,
+html[data-theme="dark"] .customers-table thead,
+html[data-theme="dark"] .customers-table th,
+html[data-theme="dark"] .table-data-grid th,
+html[data-theme="dark"] .permissions-matrix th,
+html[data-theme="dark"] .sales-items-table thead th,
+html[data-theme="dark"] .sales-list-table tfoot td,
+html[data-theme="dark"] .sales-items-table tfoot td {
+  background: var(--bg-soft) !important;
+  color: var(--text-h) !important;
+}
+
+html[data-theme="dark"] .sales-table tbody tr:hover,
+html[data-theme="dark"] .stock-table tbody tr:hover,
+html[data-theme="dark"] .company-settings-table tbody tr:hover,
+html[data-theme="dark"] .customers-table tbody tr:hover,
+html[data-theme="dark"] .table-data-grid tbody tr:hover,
+html[data-theme="dark"] .sales-items-table tbody tr:nth-child(even),
+html[data-theme="dark"] .company-settings-table tbody tr:nth-child(even) {
+  background: var(--nav-hover) !important;
+}
+
+html[data-theme="dark"] .customers-table tbody tr.is-selected {
+  background: var(--accent-bg) !important;
+}
+
+html[data-theme="dark"] .sales-empty,
+html[data-theme="dark"] .sales-empty-cell,
+html[data-theme="dark"] .stock-empty-cell,
+html[data-theme="dark"] .customers-table-empty,
+html[data-theme="dark"] .table-data-empty,
+html[data-theme="dark"] .table-data-loading-cell,
+html[data-theme="dark"] .table-data-count,
+html[data-theme="dark"] .table-data-description,
+html[data-theme="dark"] .table-data-pagination,
+html[data-theme="dark"] .customers-pagination,
+html[data-theme="dark"] .company-settings-table td small,
+html[data-theme="dark"] .company-settings-toolbar > span {
+  color: var(--text-muted) !important;
+}
+
+html[data-theme="dark"] .table-data-action-btn,
+html[data-theme="dark"] .table-data-pagination-actions button,
+html[data-theme="dark"] .sales-btn-small,
+html[data-theme="dark"] .stock-btn-small,
+html[data-theme="dark"] .customers-page-btn,
+html[data-theme="dark"] .company-settings-sort,
+html[data-theme="dark"] .sales-row-actions .sales-btn-secondary {
+  background: var(--bg-soft) !important;
+  color: var(--text-h) !important;
+  border-color: var(--border-strong) !important;
+}
+
+html[data-theme="dark"] .table-data-action-btn:hover:not(:disabled),
+html[data-theme="dark"] .table-data-pagination-actions button:hover:not(:disabled),
+html[data-theme="dark"] .sales-btn-small:hover:not(:disabled),
+html[data-theme="dark"] .stock-btn-small:hover:not(:disabled),
+html[data-theme="dark"] .customers-page-btn:hover:not(:disabled),
+html[data-theme="dark"] .company-settings-sort:hover {
+  background: var(--nav-hover) !important;
+  color: var(--text-h) !important;
+}
+
+html[data-theme="dark"] .customers-page-btn.is-active,
+html[data-theme="dark"] .customers-sort-icon.is-active,
+html[data-theme="dark"] .company-settings-sort svg.is-active {
+  color: var(--accent) !important;
+  background: var(--accent-bg) !important;
+}
+
+html[data-theme="dark"] .customers-table th.is-sortable:hover,
+html[data-theme="dark"] .customers-sort-icon,
+html[data-theme="dark"] .company-settings-sort > span {
+  color: var(--text-muted) !important;
+}
+
+html[data-theme="dark"] .customers-pagination {
+  background: var(--bg-soft) !important;
+  border-color: var(--border) !important;
+}
+
+html[data-theme="dark"] .table-data-action-danger,
+html[data-theme="dark"] .customers-link-btn-danger,
+html[data-theme="dark"] .sales-link-btn-danger {
+  color: var(--danger) !important;
+  border-color: rgba(239, 83, 80, 0.45) !important;
+  background: transparent !important;
+}
+
+html[data-theme="dark"] .customers-link-btn-muted {
+  color: var(--text-muted) !important;
+}
+
+html[data-theme="dark"] .customers-actions-menu,
+html[data-theme="dark"] .customers-actions-item {
+  background: var(--bg-elevated) !important;
+  color: var(--text-h) !important;
+  border-color: var(--border) !important;
+}
+
+html[data-theme="dark"] .customers-actions-divider {
+  background: var(--border) !important;
+}
+
+html[data-theme="dark"] .company-settings-logo,
+html[data-theme="dark"] .company-settings-logo-placeholder {
+  background: var(--bg-soft) !important;
+  color: var(--text-muted) !important;
+}
+
+html[data-theme="dark"] .company-settings-actions button,
+html[data-theme="dark"] .customers-actions-trigger {
+  background: var(--bg-soft) !important;
+  color: var(--text-h) !important;
+  border-color: var(--border-strong) !important;
+}
+
+html[data-theme="dark"] .company-settings-actions button:hover,
+html[data-theme="dark"] .customers-actions-trigger:hover,
+html[data-theme="dark"] .customers-actions-item:hover {
+  background: var(--nav-hover) !important;
+  color: var(--text-h) !important;
+}
+
+html[data-theme="dark"] .sales-table input,
+html[data-theme="dark"] .sales-table select,
+html[data-theme="dark"] .stock-table input,
+html[data-theme="dark"] .stock-table select,
+html[data-theme="dark"] .table-data-search input {
+  background: var(--bg-soft) !important;
+  color: var(--text-h) !important;
+  border-color: var(--border-strong) !important;
+}
+
+html[data-theme="dark"] .table-data-search input:focus {
+  outline-color: var(--accent-border) !important;
+  border-color: var(--accent) !important;
+}
+
+html[data-theme="dark"] .sales-status,
+html[data-theme="dark"] .stock-badge {
+  border-color: var(--border) !important;
+}
+
+/* Dark mode: remaining light semantic / soft surfaces */
+html[data-theme="dark"] .customers-screen-header,
+html[data-theme="dark"] .customers-stat-card,
+html[data-theme="dark"] .customers-card,
+html[data-theme="dark"] .customers-search-wrap,
+html[data-theme="dark"] .customers-search,
+html[data-theme="dark"] .customers-pagination,
+html[data-theme="dark"] .sales-panel,
+html[data-theme="dark"] .sales-filters,
+html[data-theme="dark"] .sales-totals,
+html[data-theme="dark"] .stock-section,
+html[data-theme="dark"] .stock-section-header,
+html[data-theme="dark"] .stock-toolbar,
+html[data-theme="dark"] .stock-filters,
+html[data-theme="dark"] .stock-modal-panel,
+html[data-theme="dark"] .company-settings-header,
+html[data-theme="dark"] .company-settings-table-card,
+html[data-theme="dark"] .company-settings-stat,
+html[data-theme="dark"] .permissions-card,
+html[data-theme="dark"] .table-data-toolbar,
+html[data-theme="dark"] .table-data-card,
+html[data-theme="dark"] .scr-card,
+html[data-theme="dark"] .report-card,
+html[data-theme="dark"] .report-header {
+  background: var(--bg-elevated) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+
+html[data-theme="dark"] .customers-stat-icon-blue,
+html[data-theme="dark"] .customers-stat-icon-violet,
+html[data-theme="dark"] .customers-stat-icon-emerald,
+html[data-theme="dark"] .customers-stat-icon-amber,
+html[data-theme="dark"] .customers-avatar,
+html[data-theme="dark"] .customers-badge,
+html[data-theme="dark"] .customers-badge-blue,
+html[data-theme="dark"] .customers-badge-violet,
+html[data-theme="dark"] .customers-badge-emerald,
+html[data-theme="dark"] .customers-badge-amber,
+html[data-theme="dark"] .customers-badge-slate,
+html[data-theme="dark"] .cfm-step-rail,
+html[data-theme="dark"] .cfm-section,
+html[data-theme="dark"] .company-settings-logo,
+html[data-theme="dark"] .company-settings-logo-placeholder {
+  background: var(--bg-soft) !important;
+  border-color: var(--border) !important;
+  color: var(--text-h) !important;
+}
+
+html[data-theme="dark"] .stock-banner-ok,
+html[data-theme="dark"] .sales-banner-ok,
+html[data-theme="dark"] .sales-status-validated {
+  background: rgba(156, 204, 101, 0.12) !important;
+  border-color: rgba(156, 204, 101, 0.35) !important;
+  color: var(--accent) !important;
+}
+
+html[data-theme="dark"] .stock-banner-error,
+html[data-theme="dark"] .stock-error,
+html[data-theme="dark"] .sales-error,
+html[data-theme="dark"] .sales-banner-error,
+html[data-theme="dark"] .customers-error,
+html[data-theme="dark"] .form-dialog-error,
+html[data-theme="dark"] .table-data-error,
+html[data-theme="dark"] .stock-btn-danger,
+html[data-theme="dark"] .customers-actions-item-danger {
+  background: rgba(239, 83, 80, 0.12) !important;
+  border-color: rgba(239, 83, 80, 0.35) !important;
+  color: #ff8a80 !important;
+}
+
+html[data-theme="dark"] .sales-status-pending,
+html[data-theme="dark"] .stock-badge-amber {
+  background: rgba(230, 195, 74, 0.14) !important;
+  border-color: rgba(230, 195, 74, 0.35) !important;
+  color: var(--highlight) !important;
+}
+
+html[data-theme="dark"] .home-main-content,
+html[data-theme="dark"] .home-content,
+html[data-theme="dark"] .overview-card,
+html[data-theme="dark"] .overview-panel {
+  background: var(--shell-content) !important;
+  color: var(--text) !important;
+}
+
+html[data-theme="dark"] .mdr-table th,
+html[data-theme="dark"] .mdr-table thead,
+html[data-theme="dark"] .scr-table th,
+html[data-theme="dark"] .weekly-table th {
+  background: var(--bg-soft) !important;
+  color: var(--text-h) !important;
+  border-color: var(--border) !important;
+}
+
+html[data-theme="dark"] .mdr-table td,
+html[data-theme="dark"] .scr-table td,
+html[data-theme="dark"] .weekly-table td {
+  background: var(--bg-elevated) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+}
+
+html {
+  height: 100%;
+  overflow: hidden;
+}
+
+#app {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  text-align: left;
+  border: none;
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  background: var(--bg);
+  color: var(--text);
+}
+
+h1,
+h2 {
+  font-family: var(--heading);
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+h1 {
+  font-size: 56px;
+  letter-spacing: -1.68px;
+  margin: 32px 0;
+  @media (max-width: 1024px) {
+    font-size: 36px;
+    margin: 20px 0;
+  }
+}
+h2 {
+  font-size: 24px;
+  line-height: 118%;
+  letter-spacing: -0.24px;
+  margin: 0 0 8px;
+  @media (max-width: 1024px) {
+    font-size: 20px;
+  }
+}
+p {
+  margin: 0;
+}
+
+code,
+.counter {
+  font-family: var(--mono);
+  display: inline-flex;
+  border-radius: 4px;
+  color: var(--text-h);
+}
+
+code {
+  font-size: 15px;
+  line-height: 135%;
+  padding: 4px 8px;
+  background: var(--code-bg);
+}

@@ -1,0 +1,227 @@
+.table-data-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.table-data-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.table-data-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.table-data-add-btn {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.table-data-add-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.table-data-add-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.table-data-toolbar-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.table-data-description {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.table-data-count {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.table-data-search {
+  min-width: 240px;
+}
+
+.table-data-search input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.table-data-search input:focus {
+  outline: 2px solid #bfdbfe;
+  border-color: #60a5fa;
+}
+
+.table-data-error {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #b42318;
+}
+
+.table-data-empty {
+  padding: 32px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  text-align: center;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.table-data-actions-col {
+  width: 140px;
+}
+
+.table-data-actions-cell {
+  white-space: nowrap;
+}
+
+.table-data-action-btn {
+  padding: 4px 8px;
+  margin-right: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-h);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.table-data-action-btn:hover:not(:disabled) {
+  background: var(--bg-soft);
+}
+
+.table-data-action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.table-data-action-danger {
+  color: #b42318;
+  border-color: #fecdca;
+}
+
+.table-data-action-danger:hover:not(:disabled) {
+  background: #fef2f2;
+}
+
+.table-data-scroll {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-elevated);
+}
+
+.table-data-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table-data-grid th,
+.table-data-grid td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.table-data-grid th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-soft);
+  color: var(--text-h);
+  font-weight: 600;
+  z-index: 1;
+}
+
+.table-data-grid tbody tr:hover {
+  background: var(--bg-soft);
+}
+
+.table-data-grid td {
+  color: var(--text-muted);
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.table-data-loading-cell {
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.table-data-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.table-data-pagination-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.table-data-pagination-actions button {
+  padding: 8px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  color: var(--text-h);
+  font: inherit;
+  cursor: pointer;
+}
+
+.table-data-pagination-actions button:hover:not(:disabled) {
+  background: var(--bg-soft);
+}
+
+.table-data-pagination-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

@@ -1,0 +1,8 @@
+.app-loading {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  overflow: auto;
+  color: var(--text);
+}

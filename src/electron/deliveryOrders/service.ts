@@ -1,0 +1,949 @@
+import type {
+  DeliveryOrdersFormOptions,
+  DeliveryOrdersListFilters,
+  DeliveryOrdersListResult,
+  DeliveryOrderMutationResult,
+  DeliveryOrderTaxPreview,
+  LoadedDeliveryOrderView,
+  PendingDeliveryOrderRow,
+  SaveDeliveryOrderInput,
+  SaveDeliveryOrderResult,
+  StockOnHandPreviewResult,
+  TaxPreviewResult,
+  UnitPricePreviewResult,
+  ValidationQueuePage,
+} from "../../shared/deliveryOrders.types.js";
+import {
+  normalizeTaxRateDecimal,
+  resolveCustomerTaxProfile,
+  resolveVatApplies,
+} from "../../shared/taxRules.js";
+import { assertRouteWrite, canPerformAction } from "../auth/permissions/service.js";
+import { getDatabase } from "../db/index.js";
+import { resolveUnitPriceExTax } from "../pricing/resolveUnitPrice.js";
+import { parseAmount } from "../sales/money.js";
+import { loadTaxRatesAsOf } from "../tax/resolveRates.js";
+import { allocateDeliveryOrderNo } from "./doNo.js";
+import { assertDateInOpenMonth } from "../financialYears/service.js";
+
+function nowIso(): string {
+  return new Date().toISOString().slice(0, 19).replace("T", " ");
+}
+
+function roundMoney2(value: number): string {
+  return (Math.round(value * 100) / 100).toFixed(2);
+}
+
+function todayIsoDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getVatRateDecimal(): string {
+  return String(loadTaxRatesAsOf(todayIsoDate()).vatRate);
+}
+
+
+function formatProductSummary(lines: Array<{ productName: string }>): string {
+  if (lines.length === 0) {
+    return "";
+  }
+
+  if (lines.length === 1) {
+    return lines[0].productName;
+  }
+
+  return `${lines[0].productName} +${lines.length - 1} more`;
+}
+
+function parseCustomerId(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const parsed =
+    typeof value === "number" ? value : Number.parseInt(String(value).trim(), 10);
+
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getCustomerTaxInfo(customerId: number | string): {
+  customerTypeId: string | null;
+  residency: string;
+  taxpayerId: string | null;
+  taxRegimeKind: string | null;
+} | null {
+  const row = getDatabase()
+    .prepare(
+      `SELECT c.customerTypeId, c.residency, c.taxpayerId, tr.kind AS taxRegimeKind
+       FROM Customer c
+       LEFT JOIN TaxRegime tr ON tr.id = c.taxRegimeId
+       WHERE c.id = ?`,
+    )
+    .get(customerId) as
+    | {
+        customerTypeId: string | null;
+        residency: string;
+        taxpayerId: string | null;
+        taxRegimeKind: string | null;
+      }
+    | undefined;
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    customerTypeId: row.customerTypeId,
+    residency: row.residency,
+    taxpayerId: row.taxpayerId,
+    taxRegimeKind: row.taxRegimeKind,
+  };
+}
+
+function buildTaxPreview(
+  customer: {
+    residency: string | null | undefined;
+    taxRegimeKind: string | null | undefined;
+    taxpayerId: string | null | undefined;
+  },
+  asOfDate: string,
+): DeliveryOrderTaxPreview {
+  const rates = loadTaxRatesAsOf(asOfDate);
+  const profile = resolveCustomerTaxProfile({
+    residency: customer.residency,
+    taxRegimeKind: customer.taxRegimeKind,
+    taxpayerId: customer.taxpayerId,
+    rates,
+  });
+  return {
+    vatRate: profile.vatApplies ? String(normalizeTaxRateDecimal(rates.vatRate)) : "0",
+    vatPercentLabel: (profile.vatRate * 100).toFixed(2),
+    otherRate: String(profile.salesTaxRate),
+    otherPercentLabel: (profile.salesTaxRate * 100).toFixed(2),
+    otherLabel: profile.salesTaxRate > 0 ? profile.salesTaxLabel : null,
+  };
+}
+
+export function getDeliveryOrdersFormOptions(): DeliveryOrdersFormOptions {
+  const db = getDatabase();
+
+  const customers = db
+    .prepare(
+      `SELECT c.id, c.name, c.residency, c.taxpayerId, tr.kind AS taxRegimeKind
+       FROM Customer c
+       LEFT JOIN TaxRegime tr ON tr.id = c.taxRegimeId
+       WHERE COALESCE(c.isPosPlaceholder, 0) = 0
+       ORDER BY c.name ASC
+       LIMIT 200`,
+    )
+    .all() as Array<{
+    id: number;
+    name: string;
+    residency: string;
+    taxpayerId: string | null;
+    taxRegimeKind: string | null;
+  }>;
+
+  const products = db
+    .prepare(
+      `SELECT productId, productName FROM Product ORDER BY productName ASC LIMIT 200`,
+    )
+    .all() as DeliveryOrdersFormOptions["products"];
+
+  const salesPoints = db
+    .prepare(`SELECT id, name FROM SalesPoint ORDER BY name ASC LIMIT 200`)
+    .all() as DeliveryOrdersFormOptions["salesPoints"];
+
+  const paymentMethods = db
+    .prepare(
+      `SELECT id, code, name, kind FROM PaymentMethodDefinition
+       WHERE isActive = 1 AND kind IN ('SIMPLE', 'CHEQUE')
+       ORDER BY sortOrder ASC, name ASC`,
+    )
+    .all() as DeliveryOrdersFormOptions["paymentMethods"];
+
+  const company = db
+    .prepare(`SELECT companyName, vatRate FROM CompanySettings WHERE id = 'default'`)
+    .get() as { companyName: string; vatRate: string } | undefined;
+
+  const rates = loadTaxRatesAsOf(todayIsoDate());
+  const companyVatRate = String(rates.vatRate);
+
+  return {
+    customers: customers.map((customer) => {
+      const tax = resolveCustomerTaxProfile({
+        residency: customer.residency,
+        taxRegimeKind: customer.taxRegimeKind,
+        taxpayerId: customer.taxpayerId,
+        rates,
+      });
+      return {
+        id: customer.id,
+        name: customer.name,
+        vatApplies: tax.vatApplies,
+        salesTaxRate: tax.salesTaxRate,
+        residency: customer.residency,
+        taxpayerId: customer.taxpayerId,
+        taxRegimeKind: customer.taxRegimeKind,
+      };
+    }),
+    products,
+    salesPoints,
+    paymentMethods,
+    companyName: company?.companyName ?? "Sales Electron",
+    vatRateDecimal: companyVatRate,
+  };
+}
+
+export function previewDeliveryOrderTaxes(
+  customerId: number | string,
+  dateIssued: string,
+): TaxPreviewResult {
+  const cid = parseCustomerId(customerId);
+  if (cid == null) {
+    return { ok: false, error: "Customer is required." };
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIssued.trim())) {
+    return { ok: false, error: "Date issued must be YYYY-MM-DD." };
+  }
+
+  const info = getCustomerTaxInfo(cid);
+  if (!info) {
+    return { ok: false, error: "Customer not found." };
+  }
+
+  return { ok: true, preview: buildTaxPreview(info, dateIssued.trim()) };
+}
+
+export function previewProductUnitPrice(
+  customerId: number | string,
+  productId: number,
+  dateIssued: string,
+): UnitPricePreviewResult {
+  const cid = parseCustomerId(customerId);
+  if (cid == null) {
+    return { ok: false, error: "Customer not found." };
+  }
+
+  const info = getCustomerTaxInfo(cid);
+  if (!info) {
+    return { ok: false, error: "Customer not found." };
+  }
+
+  const price = resolveUnitPriceExTax(
+    productId,
+    info.customerTypeId,
+    dateIssued.trim(),
+  );
+  if (!price.ok) {
+    return { ok: false, error: price.error };
+  }
+
+  return { ok: true, unitPriceExTax: price.unitPriceExTax };
+}
+
+export function previewStockOnHand(
+  salesPointId: number,
+  productId: number,
+): StockOnHandPreviewResult {
+  if (!Number.isFinite(salesPointId) || salesPointId <= 0) {
+    return { ok: false, error: "Sales point is required." };
+  }
+
+  if (!Number.isFinite(productId) || productId <= 0) {
+    return { ok: false, error: "Product is required." };
+  }
+
+  const rows = getDatabase()
+    .prepare(
+      `SELECT qty FROM StockBalance WHERE salesPointId = ? AND productId = ?`,
+    )
+    .all(salesPointId, productId) as Array<{ qty: string }>;
+
+  const total = rows.reduce((sum, row) => sum + parseAmount(row.qty), 0);
+  return { ok: true, onHand: String(total) };
+}
+
+function mapLoadedOrder(order: Record<string, unknown>): LoadedDeliveryOrderView {
+  const db = getDatabase();
+  const lines = db
+    .prepare(
+      `SELECT dd.*, p.productName
+       FROM DeliveryOrderDetails dd
+       INNER JOIN Product p ON p.productId = dd.productId
+       WHERE dd.deliveryOrderId = ?
+       ORDER BY dd.id ASC`,
+    )
+    .all(order.id) as Array<Record<string, unknown>>;
+
+  const payments = db
+    .prepare(
+      `SELECT pay.*, pm.code AS methodCode, pm.name AS methodName, pm.kind
+       FROM DeliveryOrderPaymentDetails pay
+       INNER JOIN PaymentMethodDefinition pm ON pm.id = pay.paymentMethodId
+       WHERE pay.deliveryOrderId = ?
+       ORDER BY pay.id ASC`,
+    )
+    .all(order.id) as Array<Record<string, unknown>>;
+
+  return {
+    id: Number(order.id),
+    deliveryOrderNo: String(order.deliveryOrderNo),
+    customerId: Number(order.customerId),
+    customerName: String(order.customerName),
+    vatApplies: resolveVatApplies(
+      order.residency != null ? String(order.residency) : null,
+    ),
+    dateIssued: String(order.dateIssued).slice(0, 10),
+    orderRef: order.orderRef ? String(order.orderRef) : null,
+    salesPointId: Number(order.salesPointId),
+    salesPointName: String(order.salesPointName),
+    status: order.status as LoadedDeliveryOrderView["status"],
+    createdByName: order.createdByName ? String(order.createdByName) : null,
+    validatedByName: order.validatedByName ? String(order.validatedByName) : null,
+    validatedAtIso: order.validatedAt ? String(order.validatedAt) : null,
+    lines: lines.map((line) => ({
+      productId: Number(line.productId),
+      productName: String(line.productName),
+      orderQty: Number(line.orderQty),
+      orderUnit: String(line.orderUnit ?? "kg"),
+      unitPrice: String(line.unitPrice ?? "0"),
+      lineSubtotalExTax: String(line.lineSubtotalExTax ?? "0"),
+      vatAmount: String(line.vatAmount ?? "0"),
+      otherTaxAmount: String(line.otherTaxAmount ?? "0"),
+      amount: String(line.amount ?? "0"),
+    })),
+    payments: payments.map((payment) => ({
+      paymentMethodId: String(payment.paymentMethodId),
+      methodCode: String(payment.methodCode),
+      methodName: String(payment.methodName),
+      kind: payment.kind as LoadedDeliveryOrderView["payments"][number]["kind"],
+      paymentDate: String(payment.paymentDate).slice(0, 10),
+      chequeNo: payment.chequeNo ? String(payment.chequeNo) : "",
+      bank: payment.bank ? String(payment.bank) : "",
+      cashReceiptNo: payment.cashReceiptNo ? String(payment.cashReceiptNo) : "",
+      receiptDate: payment.receiptDate ? String(payment.receiptDate).slice(0, 10) : "",
+    })),
+  };
+}
+
+export function loadDeliveryOrderByNo(rawNo: string): LoadedDeliveryOrderView | null {
+  const deliveryOrderNo = rawNo.trim();
+  if (!deliveryOrderNo) {
+    return null;
+  }
+
+  const order = getDatabase()
+    .prepare(
+      `SELECT d.*, c.name AS customerName, c.residency,
+              sp.name AS salesPointName,
+              cu.name AS createdByName, vu.name AS validatedByName
+       FROM DeliveryOrder d
+       INNER JOIN Customer c ON c.id = d.customerId
+       INNER JOIN SalesPoint sp ON sp.id = d.salesPointId
+       LEFT JOIN User cu ON cu.id = d.createdByUserId
+       LEFT JOIN User vu ON vu.id = d.validatedByUserId
+       WHERE d.deliveryOrderNo = ?`,
+    )
+    .get(deliveryOrderNo) as Record<string, unknown> | undefined;
+
+  if (!order) {
+    return null;
+  }
+
+  return mapLoadedOrder(order);
+}
+
+export function listPendingDeliveryOrders(): PendingDeliveryOrderRow[] {
+  const rows = getDatabase()
+    .prepare(
+      `SELECT d.deliveryOrderNo, d.dateIssued, c.name AS customerName,
+              COALESCE(SUM(CAST(dd.amount AS REAL)), 0) AS totalAmount
+       FROM DeliveryOrder d
+       INNER JOIN Customer c ON c.id = d.customerId
+       LEFT JOIN DeliveryOrderDetails dd ON dd.deliveryOrderId = d.id
+       WHERE d.status = 'PENDING'
+       GROUP BY d.id
+       ORDER BY d.dateIssued DESC, d.deliveryOrderNo DESC
+       LIMIT 200`,
+    )
+    .all() as Array<{
+    deliveryOrderNo: string;
+    dateIssued: string;
+    customerName: string;
+    totalAmount: number;
+  }>;
+
+  return rows.map((row) => ({
+    deliveryOrderNo: row.deliveryOrderNo,
+    dateIssued: row.dateIssued.slice(0, 10),
+    customerName: row.customerName,
+    totalLabel:
+      row.totalAmount > 0
+        ? `${Math.round(row.totalAmount).toLocaleString()} XAF`
+        : "",
+  }));
+}
+
+export function listDeliveryOrders(
+  filters: DeliveryOrdersListFilters = {},
+): DeliveryOrdersListResult {
+  const db = getDatabase();
+  const q = String(filters.q ?? "").trim();
+  const period = filters.period ?? "month";
+  const params: unknown[] = [];
+  const whereParts: string[] = [];
+
+  if (q) {
+    whereParts.push(`d.deliveryOrderNo LIKE ?`);
+    params.push(`%${q}%`);
+  }
+
+  let periodLabel = "All time";
+  const now = new Date();
+  if (period === "month") {
+    whereParts.push(`strftime('%Y', d.dateIssued) = ?`);
+    whereParts.push(`strftime('%m', d.dateIssued) = ?`);
+    params.push(String(now.getFullYear()), String(now.getMonth() + 1).padStart(2, "0"));
+    periodLabel = "Current month";
+  } else if (period === "year") {
+    whereParts.push(`strftime('%Y', d.dateIssued) = ?`);
+    params.push(String(now.getFullYear()));
+    periodLabel = "Current year";
+  }
+
+  const whereClause = whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
+
+  const rows = db
+    .prepare(
+      `SELECT d.id, d.deliveryOrderNo, d.dateIssued, d.status,
+              c.name AS customerName, sp.name AS salesPointName
+       FROM DeliveryOrder d
+       INNER JOIN Customer c ON c.id = d.customerId
+       INNER JOIN SalesPoint sp ON sp.id = d.salesPointId
+       ${whereClause}
+       ORDER BY d.dateIssued DESC, d.deliveryOrderNo DESC
+       LIMIT 300`,
+    )
+    .all(...params) as Array<Record<string, unknown>>;
+
+  let totalQty = 0;
+  let totalAmount = 0;
+  const listRows: DeliveryOrdersListResult["rows"] = [];
+
+  for (const row of rows) {
+    const details = db
+      .prepare(
+        `SELECT dd.orderQty, dd.amount, p.productName
+         FROM DeliveryOrderDetails dd
+         INNER JOIN Product p ON p.productId = dd.productId
+         WHERE dd.deliveryOrderId = ?
+         ORDER BY dd.id ASC`,
+      )
+      .all(row.id) as Array<{
+      orderQty: number;
+      amount: string | null;
+      productName: string;
+    }>;
+
+    let rowQty = 0;
+    let rowAmount = 0;
+    for (const detail of details) {
+      rowQty += detail.orderQty;
+      rowAmount += parseAmount(detail.amount ?? "0");
+    }
+
+    totalQty += rowQty;
+    totalAmount += rowAmount;
+
+    listRows.push({
+      id: Number(row.id),
+      deliveryOrderNo: String(row.deliveryOrderNo),
+      dateIssuedIso: String(row.dateIssued).slice(0, 10),
+      salesPointName: String(row.salesPointName),
+      customerName: String(row.customerName),
+      productSummary: formatProductSummary(details),
+      status: row.status as DeliveryOrdersListResult["rows"][number]["status"],
+      totalQtyLabel: rowQty.toLocaleString(),
+      totalAmountXaf:
+        rowAmount > 0
+          ? `${Math.round(rowAmount).toLocaleString()} XAF`
+          : "",
+    });
+  }
+
+  return {
+    rows: listRows,
+    totals: {
+      count: listRows.length,
+      totalQtyLabel: totalQty.toLocaleString(),
+      totalAmountXaf:
+        totalAmount > 0 ? `${Math.round(totalAmount).toLocaleString()} XAF` : "",
+    },
+    periodLabel,
+  };
+}
+
+export function listValidationQueue(): ValidationQueuePage {
+  const db = getDatabase();
+  const totalPending = (
+    db
+      .prepare(`SELECT COUNT(*) AS count FROM DeliveryOrder WHERE status = 'PENDING'`)
+      .get() as { count: number }
+  ).count;
+
+  const rows = db
+    .prepare(
+      `SELECT d.id, d.deliveryOrderNo, d.dateIssued,
+              c.name AS customerName, sp.name AS salesPointName,
+              COALESCE(SUM(CAST(dd.amount AS REAL)), 0) AS totalAmount
+       FROM DeliveryOrder d
+       INNER JOIN Customer c ON c.id = d.customerId
+       INNER JOIN SalesPoint sp ON sp.id = d.salesPointId
+       LEFT JOIN DeliveryOrderDetails dd ON dd.deliveryOrderId = d.id
+       WHERE d.status = 'PENDING'
+       GROUP BY d.id
+       ORDER BY d.dateIssued ASC, d.deliveryOrderNo ASC
+       LIMIT 200`,
+    )
+    .all() as Array<Record<string, unknown>>;
+
+  return {
+    totalPending,
+    rows: rows.map((row) => ({
+      id: Number(row.id),
+      deliveryOrderNo: String(row.deliveryOrderNo),
+      dateIssuedIso: String(row.dateIssued).slice(0, 10),
+      salesPointName: String(row.salesPointName),
+      customerName: String(row.customerName),
+      totalAmountXaf:
+        Number(row.totalAmount) > 0
+          ? `${Math.round(Number(row.totalAmount)).toLocaleString()} XAF`
+          : "",
+    })),
+  };
+}
+
+export function saveDeliveryOrder(input: SaveDeliveryOrderInput): SaveDeliveryOrderResult {
+  const db = getDatabase();
+
+  if (!input.userId) {
+    return { ok: false, error: "Login required." };
+  }
+
+  const role = db
+    .prepare(`SELECT role FROM User WHERE id = ?`)
+    .get(input.userId) as { role: string } | undefined;
+
+  if (!role) {
+    return { ok: false, error: "User not found." };
+  }
+
+  try {
+    assertRouteWrite(role.role, "delivery-orders");
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Permission denied.",
+    };
+  }
+
+  const customerId = parseCustomerId(input.customerId);
+  if (customerId == null) {
+    return { ok: false, error: "Customer is required." };
+  }
+
+  if (!Number.isFinite(input.salesPointId)) {
+    return { ok: false, error: "Collection point is required." };
+  }
+
+  const dateIssued = input.dateIssued.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIssued)) {
+    return { ok: false, error: "Invalid date issued." };
+  }
+
+  let postingPeriod;
+  try {
+    postingPeriod = assertDateInOpenMonth(dateIssued);
+  } catch (periodError) {
+    return {
+      ok: false,
+      error:
+        periodError instanceof Error
+          ? periodError.message
+          : "Open a financial month before posting.",
+    };
+  }
+
+  const taxInfo = getCustomerTaxInfo(customerId);
+  if (!taxInfo) {
+    return { ok: false, error: "Customer not found." };
+  }
+
+  const taxPreview = buildTaxPreview(taxInfo, dateIssued);
+  const vatRate = parseAmount(taxPreview.vatRate);
+  const otherRate = parseAmount(taxPreview.otherRate);
+
+  const activeLines = input.lines.filter(
+    (line) => line.productId && Number.parseInt(String(line.orderQty), 10) > 0,
+  );
+
+  if (activeLines.length === 0) {
+    return { ok: false, error: "Add at least one line item." };
+  }
+
+  const preparedLines: Array<{
+    productId: number;
+    orderQty: number;
+    orderUnit: string | null;
+    unitPrice: string;
+    lineSubtotalExTax: string;
+    vatRate: string;
+    vatAmount: string;
+    otherTaxLabel: string | null;
+    otherTaxAmount: string;
+    amount: string;
+  }> = [];
+
+  for (const line of activeLines) {
+    const orderQty = Number.parseInt(String(line.orderQty), 10);
+    if (!Number.isFinite(orderQty) || orderQty <= 0) {
+      return { ok: false, error: "Quantity must be a positive whole number." };
+    }
+
+    const unitPrice = resolveUnitPriceExTax(
+      line.productId,
+      taxInfo.customerTypeId,
+      dateIssued,
+    );
+    if (!unitPrice.ok) {
+      return { ok: false, error: unitPrice.error };
+    }
+
+    const unit = parseAmount(unitPrice.unitPriceExTax);
+    const lineNet = orderQty * unit;
+    const vatAmount = lineNet * vatRate;
+    const otherTaxAmount = lineNet * otherRate;
+    const amount = lineNet + vatAmount + otherTaxAmount;
+
+    preparedLines.push({
+      productId: line.productId,
+      orderQty,
+      orderUnit: line.orderUnit?.trim() || "kg",
+      unitPrice: roundMoney2(unit),
+      lineSubtotalExTax: roundMoney2(lineNet),
+      vatRate: taxPreview.vatRate,
+      vatAmount: roundMoney2(vatAmount),
+      otherTaxLabel: taxPreview.otherLabel,
+      otherTaxAmount: roundMoney2(otherTaxAmount),
+      amount: roundMoney2(amount),
+    });
+  }
+
+  const commercialService = db
+    .prepare(`SELECT id, name, phone, address FROM CommercialService WHERE isActive = 1 LIMIT 1`)
+    .get() as { id: string; name: string; phone: string | null; address: string | null } | undefined;
+
+  const timestamp = nowIso();
+  const financialYear = postingPeriod.financialYear;
+  const financialMonth = postingPeriod.calendarMonth;
+
+  if (input.id != null) {
+    const existing = db
+      .prepare(`SELECT id, status, deliveryOrderNo FROM DeliveryOrder WHERE id = ?`)
+      .get(input.id) as { id: number; status: string; deliveryOrderNo: string } | undefined;
+
+    if (!existing) {
+      return { ok: false, error: "Delivery order not found." };
+    }
+
+    if (existing.status === "VALIDATED") {
+      return { ok: false, error: "Validated delivery orders cannot be edited." };
+    }
+
+    const tx = db.transaction(() => {
+      db.prepare(
+        `UPDATE DeliveryOrder
+         SET customerId = ?, dateIssued = ?, orderRef = ?, salesPointId = ?,
+             financialYear = ?, financialMonth = ?, postingCalendarYear = ?,
+             commercialServiceId = ?, issuerPhoneSnapshot = ?,
+             issuerAddressSnapshot = ?, commercialServiceNameSnapshot = ?
+         WHERE id = ?`,
+      ).run(
+        customerId,
+        dateIssued,
+        input.orderRef?.trim() || null,
+        input.salesPointId,
+        financialYear,
+        financialMonth,
+        financialYear,
+        commercialService?.id ?? null,
+        commercialService?.phone ?? null,
+        commercialService?.address ?? null,
+        commercialService?.name ?? null,
+        input.id,
+      );
+
+      db.prepare(`DELETE FROM DeliveryOrderDetails WHERE deliveryOrderId = ?`).run(input.id);
+      db.prepare(`DELETE FROM DeliveryOrderPaymentDetails WHERE deliveryOrderId = ?`).run(
+        input.id,
+      );
+
+      insertLinesAndPayments(db, input.id!, preparedLines, input.payments, dateIssued);
+    });
+
+    try {
+      tx();
+      return { ok: true, id: existing.id, deliveryOrderNo: existing.deliveryOrderNo };
+    } catch (error) {
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : "Could not update delivery order.",
+      };
+    }
+  }
+
+  const deliveryOrderNo = allocateDeliveryOrderNo(db);
+
+  const tx = db.transaction(() => {
+    const result = db
+      .prepare(
+        `INSERT INTO DeliveryOrder (
+          deliveryOrderNo, dateIssued, customerId, orderRef, salesPointId,
+          financialYear, financialMonth, postingCalendarYear, createdByUserId,
+          status, commercialServiceId, issuerPhoneSnapshot, issuerAddressSnapshot,
+          commercialServiceNameSnapshot
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?, ?, ?)`,
+      )
+      .run(
+        deliveryOrderNo,
+        dateIssued,
+        customerId,
+        input.orderRef?.trim() || null,
+        input.salesPointId,
+        financialYear,
+        financialMonth,
+        financialYear,
+        input.userId,
+        commercialService?.id ?? null,
+        commercialService?.phone ?? null,
+        commercialService?.address ?? null,
+        commercialService?.name ?? null,
+      );
+
+    const orderId = Number(result.lastInsertRowid);
+    insertLinesAndPayments(db, orderId, preparedLines, input.payments, dateIssued);
+    return orderId;
+  });
+
+  try {
+    const orderId = tx();
+    return { ok: true, id: orderId, deliveryOrderNo };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Could not create delivery order.",
+    };
+  }
+}
+
+function insertLinesAndPayments(
+  db: ReturnType<typeof getDatabase>,
+  orderId: number,
+  lines: Array<{
+    productId: number;
+    orderQty: number;
+    orderUnit: string | null;
+    unitPrice: string;
+    lineSubtotalExTax: string;
+    vatRate: string;
+    vatAmount: string;
+    otherTaxLabel: string | null;
+    otherTaxAmount: string;
+    amount: string;
+  }>,
+  payments: SaveDeliveryOrderInput["payments"],
+  defaultPaymentDate: string,
+): void {
+  const insertLine = db.prepare(
+    `INSERT INTO DeliveryOrderDetails (
+      deliveryOrderId, productId, orderQty, orderUnit, unitPrice,
+      lineSubtotalExTax, vatRate, vatAmount, otherTaxLabel, otherTaxAmount, amount
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+
+  for (const line of lines) {
+    insertLine.run(
+      orderId,
+      line.productId,
+      line.orderQty,
+      line.orderUnit,
+      line.unitPrice,
+      line.lineSubtotalExTax,
+      line.vatRate,
+      line.vatAmount,
+      line.otherTaxLabel,
+      line.otherTaxAmount,
+      line.amount,
+    );
+  }
+
+  const insertPayment = db.prepare(
+    `INSERT INTO DeliveryOrderPaymentDetails (
+      deliveryOrderId, paymentDate, chequeNo, bank, cashReceiptNo, receiptDate, paymentMethodId
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  );
+
+  for (const payment of payments) {
+    if (!payment.paymentMethodId) {
+      continue;
+    }
+
+    insertPayment.run(
+      orderId,
+      payment.paymentDate || defaultPaymentDate,
+      payment.chequeNo?.trim() || null,
+      payment.bank?.trim() || null,
+      payment.cashReceiptNo?.trim() || null,
+      payment.receiptDate || null,
+      payment.paymentMethodId,
+    );
+  }
+}
+
+export function deleteDeliveryOrder(
+  orderId: number,
+  userId: string,
+): DeliveryOrderMutationResult {
+  const db = getDatabase();
+  const role = db
+    .prepare(`SELECT role FROM User WHERE id = ?`)
+    .get(userId) as { role: string } | undefined;
+
+  if (!role) {
+    return { ok: false, error: "User not found." };
+  }
+
+  try {
+    assertRouteWrite(role.role, "delivery-orders");
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Permission denied.",
+    };
+  }
+
+  const existing = db
+    .prepare(`SELECT id, status FROM DeliveryOrder WHERE id = ?`)
+    .get(orderId) as { id: number; status: string } | undefined;
+
+  if (!existing) {
+    return { ok: false, error: "Delivery order not found." };
+  }
+
+  if (existing.status === "VALIDATED") {
+    return { ok: false, error: "Validated delivery orders cannot be deleted." };
+  }
+
+  db.prepare(`DELETE FROM DeliveryOrder WHERE id = ?`).run(orderId);
+  return { ok: true };
+}
+
+export function validateDeliveryOrder(
+  orderId: number,
+  userId: string,
+): DeliveryOrderMutationResult {
+  const db = getDatabase();
+  const user = db
+    .prepare(`SELECT role FROM User WHERE id = ?`)
+    .get(userId) as { role: string } | undefined;
+
+  if (!user || !canPerformAction(user.role, "validate_delivery_orders")) {
+    return { ok: false, error: "You do not have permission to validate delivery orders." };
+  }
+
+  const existing = db
+    .prepare(`SELECT id, status FROM DeliveryOrder WHERE id = ?`)
+    .get(orderId) as { id: number; status: string } | undefined;
+
+  if (!existing) {
+    return { ok: false, error: "Delivery order not found." };
+  }
+
+  if (existing.status === "VALIDATED") {
+    return { ok: true };
+  }
+
+  db.prepare(
+    `UPDATE DeliveryOrder
+     SET status = 'VALIDATED', validatedAt = ?, validatedByUserId = ?
+     WHERE id = ?`,
+  ).run(nowIso(), userId, orderId);
+
+  return { ok: true };
+}
+
+export function cancelValidatedDeliveryOrder(
+  orderId: number,
+  userId: string,
+  reason: string,
+): DeliveryOrderMutationResult {
+  const trimmedReason = reason.trim();
+  if (!trimmedReason) {
+    return { ok: false, error: "Cancellation reason is required." };
+  }
+
+  const db = getDatabase();
+  const user = db
+    .prepare(`SELECT role FROM User WHERE id = ?`)
+    .get(userId) as { role: string } | undefined;
+
+  if (!user || !canPerformAction(user.role, "cancel_validated_delivery_order")) {
+    return { ok: false, error: "Only admins and managers can cancel a validated delivery order." };
+  }
+
+  const existing = db
+    .prepare(`SELECT id, status FROM DeliveryOrder WHERE id = ?`)
+    .get(orderId) as { id: number; status: string } | undefined;
+
+  if (!existing) {
+    return { ok: false, error: "Delivery order not found." };
+  }
+
+  if (existing.status !== "VALIDATED") {
+    return { ok: false, error: "Only validated delivery orders can be cancelled." };
+  }
+
+  db.prepare(
+    `UPDATE DeliveryOrder
+     SET status = 'REJECTED', cancelledAt = ?, cancelledByUserId = ?, cancelReason = ?
+     WHERE id = ?`,
+  ).run(nowIso(), userId, trimmedReason, orderId);
+
+  return { ok: true };
+}
+
+export function validateManyDeliveryOrders(
+  orderIds: number[],
+  userId: string,
+): { ok: true; validated: number; errors: Array<{ id: number; error: string }> } | { ok: false; error: string } {
+  const uniqueIds = [...new Set(orderIds.filter((id) => Number.isFinite(id)))];
+  if (uniqueIds.length === 0) {
+    return { ok: false, error: "Select at least one delivery order." };
+  }
+
+  let validated = 0;
+  const errors: Array<{ id: number; error: string }> = [];
+
+  for (const id of uniqueIds) {
+    const result = validateDeliveryOrder(id, userId);
+    if (result.ok) {
+      validated += 1;
+    } else {
+      errors.push({ id, error: result.error });
+    }
+  }
+
+  return { ok: true, validated, errors };
+}

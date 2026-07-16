@@ -1,0 +1,271 @@
+.scr-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100%;
+}
+
+.scr-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.scr-btn {
+  border: 1px solid var(--accent-hover);
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.scr-btn-secondary {
+  background: var(--bg-elevated);
+  color: var(--text-h);
+  border-color: var(--border-strong);
+}
+
+.scr-btn:hover {
+  background: var(--accent-hover);
+}
+
+.scr-status {
+  margin: 0;
+  color: #4b5563;
+}
+
+.scr-status-error {
+  color: #b91c1c;
+}
+
+.scr-document {
+  background: var(--bg-elevated);
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 20px 24px 28px;
+  color: var(--text-h);
+  font-family: "Arial Narrow", Arial, sans-serif;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.report-header-meta .scr-meta-line,
+.report-header-meta .scr-as-at,
+.report-header-meta .scr-generated {
+  margin: 0;
+}
+
+.scr-meta-line,
+.scr-as-at,
+.scr-generated {
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.scr-meta-label {
+  font-weight: 700;
+}
+
+.scr-as-at {
+  margin-top: 8px;
+}
+
+.scr-as-at-date {
+  color: #2563eb;
+  font-weight: 700;
+}
+
+.scr-generated {
+  margin-top: 4px;
+  color: #374151;
+}
+
+.scr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  line-height: 1.15;
+}
+
+.scr-table th,
+.scr-table td {
+  border: 1px solid #111827;
+  padding: 5px 4px;
+  line-height: 1.15;
+  vertical-align: middle;
+}
+
+.scr-table th {
+  font-weight: 700;
+  text-align: center;
+}
+
+.scr-table td:first-child,
+.scr-table th:first-child {
+  text-align: left;
+}
+
+.scr-table td:nth-child(2) {
+  text-align: left;
+}
+
+.scr-num {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.scr-row-header td {
+  font-weight: 700;
+  background: var(--bg-soft);
+}
+
+.scr-row-total td {
+  font-weight: 700;
+  border-top: 2px solid #111827;
+}
+
+.scr-row-indent td:first-child {
+  padding-left: 18px;
+}
+
+.scr-bottled-block {
+  margin-top: 18px;
+  border-top: 3px solid #111827;
+  padding-top: 12px;
+}
+
+/* Keep sales-point columns aligned across product-category sections. */
+.scr-category-matrix {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.scr-category-matrix th:first-child,
+.scr-category-matrix td:first-child {
+  width: 22%;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.scr-section-title {
+  text-align: left !important;
+  font-size: 16px;
+}
+
+.scr-bottled-table th:not(.scr-section-title) {
+  min-width: 90px;
+}
+
+/* Stock report: loose / bottled / other products share column widths. */
+.sr-report-matrix {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.sr-report-matrix .sr-col-label {
+  width: 28%;
+}
+
+.sr-report-matrix .sr-col-last {
+  width: 18%;
+}
+
+/* Bottle oil report: units, kgs, and sales tables share the same column widths. */
+.bos-stock-matrix {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.bos-stock-matrix .bos-stock-label-col {
+  width: 18%;
+}
+
+.bos-stock-matrix .bos-stock-total-col {
+  width: 14%;
+}
+
+.bos-section-heading {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.scr-row-label td {
+  font-weight: 700;
+}
+
+.scr-total-cell {
+  font-weight: 700;
+}
+
+@media print {
+  body.scr-print-mode {
+    background: #fff !important;
+  }
+
+  body.scr-print-mode * {
+    visibility: hidden;
+  }
+
+  body.scr-print-mode .scr-document,
+  body.scr-print-mode .scr-document * {
+    visibility: visible;
+  }
+
+  body.scr-print-mode .scr-document {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    background: #fff !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body.scr-print-mode .scr-document * {
+    color: #000 !important;
+    box-shadow: none !important;
+  }
+
+  body.scr-print-mode .scr-document th,
+  body.scr-print-mode .scr-document td,
+  body.scr-print-mode .scr-document .sbc-sticky-col,
+  body.scr-print-mode .scr-document .sbc-product-group,
+  body.scr-print-mode .scr-document .sbc-month-head {
+    background: #fff !important;
+    border-color: #333 !important;
+  }
+
+  body.scr-print-mode .no-print {
+    display: none !important;
+  }
+
+  body.scr-print-mode .home-layout,
+  body.scr-print-mode .home-main,
+  body.scr-print-mode .home-content,
+  body.scr-print-mode .scr-page {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+    background-image: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+  }
+
+  body.scr-print-mode .scr-as-at-date {
+    color: #000 !important;
+  }
+
+  body.scr-print-mode .report-header-meta .scr-generated {
+    color: #000 !important;
+  }
+}

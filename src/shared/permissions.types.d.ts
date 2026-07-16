@@ -1,0 +1,43 @@
+import type { RouteAccess } from "./roles.ts";
+export declare const PERMISSION_ACTIONS: readonly ["validate_sales", "validate_delivery_orders", "cancel_validated_delivery_order", "manage_permissions"];
+export type PermissionActionKey = (typeof PERMISSION_ACTIONS)[number];
+export interface RolePermissionsSnapshot {
+    routes: Record<string, RouteAccess>;
+    actions: Record<PermissionActionKey, boolean>;
+}
+export interface PermissionMatrixRow {
+    routeId: string;
+    label: string;
+    sectionId: string;
+}
+export interface PermissionMatrix {
+    roles: string[];
+    roleLabels: Record<string, string>;
+    routes: PermissionMatrixRow[];
+    routeAccess: Record<string, Record<string, RouteAccess>>;
+    actions: Array<{
+        key: PermissionActionKey;
+        label: string;
+    }>;
+    actionAccess: Record<string, Record<PermissionActionKey, boolean>>;
+}
+export interface SavePermissionMatrixInput {
+    authToken: string;
+    routeAccess: Record<string, Record<string, RouteAccess>>;
+    actionAccess: Record<string, Record<PermissionActionKey, boolean>>;
+}
+export interface AuthSessionResponse {
+    user: import("./database.types.js").AuthUser;
+    permissions: RolePermissionsSnapshot;
+}
+export interface PermissionsApi {
+    getSnapshot(token: string): Promise<RolePermissionsSnapshot | null>;
+    getMatrix(token: string): Promise<PermissionMatrix | {
+        error: string;
+    }>;
+    saveMatrix(input: SavePermissionMatrixInput): Promise<{
+        ok: true;
+    } | {
+        error: string;
+    }>;
+}

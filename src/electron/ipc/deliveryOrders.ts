@@ -1,0 +1,156 @@
+import { ipcMain } from "electron";
+import type {
+  DeliveryOrdersFormOptions,
+  DeliveryOrdersListFilters,
+  DeliveryOrdersListResult,
+  DeliveryOrderMutationResult,
+  LoadedDeliveryOrderView,
+  PendingDeliveryOrderRow,
+  SaveDeliveryOrderInput,
+  SaveDeliveryOrderResult,
+  StockOnHandPreviewResult,
+  TaxPreviewResult,
+  UnitPricePreviewResult,
+  ValidationQueuePage,
+} from "../../shared/deliveryOrders.types.js";
+import {
+  cancelValidatedDeliveryOrder,
+  deleteDeliveryOrder,
+  getDeliveryOrdersFormOptions,
+  listDeliveryOrders,
+  listPendingDeliveryOrders,
+  listValidationQueue,
+  loadDeliveryOrderByNo,
+  previewDeliveryOrderTaxes,
+  previewProductUnitPrice,
+  previewStockOnHand,
+  saveDeliveryOrder,
+  validateDeliveryOrder,
+  validateManyDeliveryOrders,
+} from "../deliveryOrders/service.js";
+
+export function registerDeliveryOrdersHandlers(): void {
+  ipcMain.handle("deliveryOrders:getFormOptions", (): DeliveryOrdersFormOptions => {
+    return getDeliveryOrdersFormOptions();
+  });
+
+  ipcMain.handle(
+    "deliveryOrders:loadByNo",
+    (_event, deliveryOrderNo: string): LoadedDeliveryOrderView | null => {
+      if (typeof deliveryOrderNo !== "string") {
+        return null;
+      }
+
+      return loadDeliveryOrderByNo(deliveryOrderNo);
+    },
+  );
+
+  ipcMain.handle("deliveryOrders:listPending", (): PendingDeliveryOrderRow[] => {
+    return listPendingDeliveryOrders();
+  });
+
+  ipcMain.handle(
+    "deliveryOrders:listOrders",
+    (_event, filters: DeliveryOrdersListFilters): DeliveryOrdersListResult => {
+      return listDeliveryOrders(filters ?? {});
+    },
+  );
+
+  ipcMain.handle(
+    "deliveryOrders:save",
+    (_event, input: SaveDeliveryOrderInput): SaveDeliveryOrderResult => {
+      if (!input?.userId) {
+        return { ok: false, error: "Login required." };
+      }
+
+      return saveDeliveryOrder(input);
+    },
+  );
+
+  ipcMain.handle(
+    "deliveryOrders:deleteOrder",
+    (_event, payload: { orderId: number; userId: string }): DeliveryOrderMutationResult => {
+      if (typeof payload?.orderId !== "number" || !payload?.userId) {
+        return { ok: false, error: "Invalid delivery order." };
+      }
+
+      return deleteDeliveryOrder(payload.orderId, payload.userId);
+    },
+  );
+
+  ipcMain.handle(
+    "deliveryOrders:validateOrder",
+    (_event, payload: { orderId: number; userId: string }): DeliveryOrderMutationResult => {
+      if (!payload?.orderId || !payload.userId) {
+        return { ok: false, error: "Invalid request." };
+      }
+
+      return validateDeliveryOrder(payload.orderId, payload.userId);
+    },
+  );
+
+  ipcMain.handle(
+    "deliveryOrders:cancelValidated",
+    (
+      _event,
+      payload: { orderId: number; userId: string; reason: string },
+    ): DeliveryOrderMutationResult => {
+      if (!payload?.orderId || !payload.userId) {
+        return { ok: false, error: "Invalid request." };
+      }
+
+      return cancelValidatedDeliveryOrder(payload.orderId, payload.userId, payload.reason);
+    },
+  );
+
+  ipcMain.handle(
+    "deliveryOrders:previewTaxes",
+    (_event, payload: { customerId: string; dateIssued: string }): TaxPreviewResult => {
+      if (!payload?.customerId || !payload?.dateIssued) {
+        return { ok: false, error: "Customer and date are required." };
+      }
+
+      return previewDeliveryOrderTaxes(payload.customerId, payload.dateIssued);
+    },
+  );
+
+  ipcMain.handle(
+    "deliveryOrders:previewUnitPrice",
+    (
+      _event,
+      payload: { customerId: string; productId: number; dateIssued: string },
+    ): UnitPricePreviewResult => {
+      if (!payload?.customerId || !payload?.productId || !payload?.dateIssued) {
+        return { ok: false, error: "Customer, product, and date are required." };
+      }
+
+      return previewProductUnitPrice(payload.customerId, payload.productId, payload.dateIssued);
+    },
+  );
+
+  ipcMain.handle(
+    "deliveryOrders:previewStockOnHand",
+    (_event, payload: { salesPointId: number; productId: number }): StockOnHandPreviewResult => {
+      if (typeof payload?.salesPointId !== "number" || typeof payload?.productId !== "number") {
+        return { ok: false, error: "Sales point and product are required." };
+      }
+
+      return previewStockOnHand(payload.salesPointId, payload.productId);
+    },
+  );
+
+  ipcMain.handle("deliveryOrders:listValidationQueue", (): ValidationQueuePage => {
+    return listValidationQueue();
+  });
+
+  ipcMain.handle(
+    "deliveryOrders:validateMany",
+    (_event, payload: { orderIds: number[]; userId: string }) => {
+      if (!payload?.userId || !Array.isArray(payload.orderIds)) {
+        return { ok: false, error: "Invalid request." };
+      }
+
+      return validateManyDeliveryOrders(payload.orderIds, payload.userId);
+    },
+  );
+}

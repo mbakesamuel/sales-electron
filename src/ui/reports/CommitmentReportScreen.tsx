@@ -1,0 +1,209 @@
+import { useEffect, useState } from "preact/hooks";
+import { getAuthenticatedReports } from "../auth/reports.ts";
+import type { CommitmentReport, CommitmentReportSection } from "../../shared/reports.types.ts";
+import { ReportFooter } from "./ReportFooter.tsx";
+import { ReportHeader } from "./ReportHeader.tsx";
+import "./StockCommitmentReport.css";
+
+function formatReportDate(iso: string): string {
+  const date = new Date(`${iso}T00:00:00`);
+  return date.toLocaleDateString("en-GB");
+}
+
+function formatShortReportDate(iso: string): string {
+  const date = new Date(`${iso}T00:00:00`);
+  const day = date.getDate();
+  const month = date.getMonth() + 1;
+  const year = String(date.getFullYear()).slice(-2);
+  return `${day}/${month}/${year}`;
+}
+
+function formatQty(value: number | null | undefined): string {
+  if (value == null) {
+    return "";
+  }
+  if (value === 0) {
+    return "0";
+  }
+  const rounded = Math.round(value);
+  if (rounded < 0) {
+    return `(${Math.abs(rounded).toLocaleString("en-US")})`;
+  }
+  return rounded.toLocaleString("en-US");
+}
+
+function handlePrint(): void {
+  document.body.classList.add("scr-print-mode");
+  window.addEventListener(
+    "afterprint",
+    () => {
+      document.body.classList.remove("scr-print-mode");
+    },
+    { once: true },
+  );
+  window.print();
+}
+
+function buildCsv(report: CommitmentReport): string {
+  const lines: string[] = [
+    `Company:,${report.settings.companyName}`,
+    report.settings.department ? `Department:,${report.settings.department}` : "",
+    `AS AT:,${formatReportDate(report.asAtIso)}`,
+    "",
+  ].filter((line) => line.length > 0);
+
+  for (const section of report.sections) {
+    lines.push(`${section.sectionLetter}. ${section.title}`);
+    lines.push(["CUSTOMER", ...section.salesPointNames, "TOTAL"].join(","));
+    for (const row of section.rows) {
+      lines.push([row.label, ...row.quantities, row.rowTotal].join(","));
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
+function downloadCsv(report: CommitmentReport): void {
+  const blob = new Blob([buildCsv(report)], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `commitment-report-${report.asAtIso}.csv`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function CommitmentSection({ section }: { section: CommitmentReportSection }) {
+  return (
+    <div class="scr-bottled-block">
+      <table class="scr-table scr-category-matrix">
+        <thead>
+          <tr>
+            <th colSpan={section.salesPointNames.length + 2} class="scr-section-title">
+              {section.sectionLetter}. {section.title}
+            </th>
+          </tr>
+          <tr>
+            <th>CUSTOMER</th>
+            {section.salesPointNames.map((name) => (
+              <th key={name}>{name}</th>
+            ))}
+            <th>TOTAL</th>
+          </tr>
+        </thead>
+        <tbody>
+          {section.rows.map((row, index) => (
+            <tr
+              key={`${section.sectionLetter}-${index}`}
+              class={row.kind === "total" ? "scr-row scr-row-total" : "scr-row"}
+            >
+              <td>{row.label}</td>
+              {row.quantities.map((qty, qtyIndex) => (
+                <td key={`${index}-${qtyIndex}`} class="scr-num">
+                  {formatQty(qty)}
+                </td>
+              ))}
+              <td class="scr-num">{formatQty(row.rowTotal)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function CommitmentReportScreen() {
+  const [report, setReport] = useState<CommitmentReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadReport() {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await getAuthenticatedReports().getCommitmentReport();
+        if (!cancelled) {
+          setReport(data);
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(loadError instanceof Error ? loadError.message : "Failed to load report.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadReport();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (loading) {
+    return <p class="scr-status">Loading commitment report...</p>;
+  }
+
+  if (error) {
+    return <p class="scr-status scr-status-error">{error}</p>;
+  }
+
+  if (!report) {
+    return <p class="scr-status">No report data available.</p>;
+  }
+
+  return (
+    <div class="scr-page">
+      <div class="scr-toolbar no-print">
+        <button type="button" class="scr-btn" onClick={handlePrint}>
+          Print
+        </button>
+        <button type="button" class="scr-btn scr-btn-secondary" onClick={() => downloadCsv(report)}>
+          Export CSV
+        </button>
+        <button
+          type="button"
+          class="scr-btn scr-btn-secondary"
+          onClick={() => {
+            void getAuthenticatedReports().getCommitmentReport().then(setReport);
+          }}
+        >
+          Refresh
+        </button>
+      </div>
+
+      <div class="scr-document">
+        <ReportHeader
+          companyName={report.settings.companyName}
+          department={report.settings.department ?? null}
+          serviceName={report.settings.serviceName ?? null}
+          title={`COMMITMENTS AS AT ${formatShortReportDate(report.asAtIso)}`}
+          meta={
+             <>
+              <p class="scr-as-at">
+                AS at{" "}
+                <span class="scr-as-at-date">{formatShortReportDate(report.asAtIso)}</span>
+              </p>
+              <p class="scr-generated">{formatReportDate(report.asAtIso)}</p>
+            </>
+          }
+        />
+
+        {report.sections.length === 0 ? (
+          <p class="scr-status">No product categories configured.</p>
+        ) : (
+          report.sections.map((section) => (
+            <CommitmentSection key={section.sectionLetter} section={section} />
+          ))
+        )}
+        <ReportFooter />
+      </div>
+    </div>
+  );
+}

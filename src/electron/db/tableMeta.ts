@@ -1,0 +1,234 @@
+import { randomBytes } from "node:crypto";
+import { getDatabase } from "./index.js";
+
+export const BLOCKED_TABLES = new Set([
+  "schema_migrations",
+  "AuthSession",
+  "MobileRefreshToken",
+  "RoleRoutePermission",
+  "RoleActionPermission",
+]);
+
+export const HIDDEN_COLUMNS = new Set([
+  "passwordHash",
+  "passwordPlain",
+  "tokenHash",
+]);
+
+export const AUTO_MANAGED_COLUMNS = new Set(["createdAt", "updatedAt"]);
+
+export interface SqlColumnInfo {
+  cid: number;
+  name: string;
+  type: string;
+  notnull: number;
+  dflt_value: string | null;
+  pk: number;
+}
+
+export interface ColumnMeta {
+  name: string;
+  type: string;
+  isPrimaryKey: boolean;
+  isRequired: boolean;
+  isAutoIncrement: boolean;
+  isEditableOnCreate: boolean;
+  isEditableOnUpdate: boolean;
+  isHidden: boolean;
+  isBoolean: boolean;
+  defaultValue: string | null;
+  allowsNull: boolean;
+}
+
+export interface TableSchema {
+  table: string;
+  primaryKeyColumns: string[];
+  columns: ColumnMeta[];
+}
+
+export function quoteIdentifier(name: string): string {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+    throw new Error("Invalid identifier");
+  }
+
+  return `"${name.replace(/"/g, '""')}"`;
+}
+
+export function assertMutableTable(table: string): void {
+  if (BLOCKED_TABLES.has(table)) {
+    throw new Error("This table cannot be modified");
+  }
+
+  const row = getDatabase()
+    .prepare(
+      `SELECT name FROM sqlite_master
+       WHERE type = 'table' AND name = ?`,
+    )
+    .get(table) as { name: string } | undefined;
+
+  if (!row) {
+    throw new Error(`Table "${table}" was not found`);
+  }
+}
+
+function getCreateSql(table: string): string {
+  const row = getDatabase()
+    .prepare(
+      `SELECT sql FROM sqlite_master
+       WHERE type = 'table' AND name = ?`,
+    )
+    .get(table) as { sql: string } | undefined;
+
+  return row?.sql ?? "";
+}
+
+function isAutoIncrementColumn(
+  table: string,
+  column: SqlColumnInfo,
+): boolean {
+  if (column.pk !== 1) {
+    return false;
+  }
+
+  const createSql = getCreateSql(table).toUpperCase();
+  const columnName = column.name.toUpperCase();
+
+  return (
+    column.type.toUpperCase().includes("INT") &&
+    createSql.includes("AUTOINCREMENT") &&
+    createSql.includes(columnName)
+  );
+}
+
+function isBooleanColumn(name: string, type: string): boolean {
+  if (!type.toUpperCase().includes("INT")) {
+    return false;
+  }
+
+  return /^(is|has)[A-Z]/.test(name) || name === "allowed";
+}
+
+function hasDefaultValue(defaultValue: string | null): boolean {
+  return defaultValue !== null && defaultValue !== undefined;
+}
+
+export function getSqlColumnInfo(table: string): SqlColumnInfo[] {
+  assertMutableTable(table);
+  const quotedTable = quoteIdentifier(table);
+
+  return getDatabase()
+    .prepare(`PRAGMA table_info(${quotedTable})`)
+    .all() as SqlColumnInfo[];
+}
+
+export function getVisibleColumnNames(table: string): string[] {
+  return getSqlColumnInfo(table)
+    .map((column) => column.name)
+    .filter((name) => !HIDDEN_COLUMNS.has(name));
+}
+
+export function buildTableSchema(table: string): TableSchema {
+  const sqlColumns = getSqlColumnInfo(table);
+  const primaryKeyColumns = sqlColumns
+    .filter((column) => column.pk > 0)
+    .sort((left, right) => left.pk - right.pk)
+    .map((column) => column.name);
+
+  const columns: ColumnMeta[] = sqlColumns.map((column) => {
+    const isHidden = HIDDEN_COLUMNS.has(column.name);
+    const isAutoIncrement = isAutoIncrementColumn(table, column);
+    const isPrimaryKey = column.pk > 0;
+    const isAutoManaged = AUTO_MANAGED_COLUMNS.has(column.name);
+    const isRequired =
+      column.notnull === 1 &&
+      !hasDefaultValue(column.dflt_value) &&
+      !isAutoIncrement;
+
+    const isEditableOnCreate =
+      !isHidden &&
+      !isAutoIncrement &&
+      !isAutoManaged &&
+      column.name !== "updatedAt";
+
+    const isEditableOnUpdate =
+      !isHidden &&
+      !isAutoIncrement &&
+      !isAutoManaged &&
+      !isPrimaryKey;
+
+    return {
+      name: column.name,
+      type: column.type,
+      isPrimaryKey,
+      isRequired,
+      isAutoIncrement,
+      isEditableOnCreate,
+      isEditableOnUpdate,
+      isHidden,
+      isBoolean: isBooleanColumn(column.name, column.type),
+      defaultValue: column.dflt_value,
+      allowsNull: column.notnull === 0,
+    };
+  });
+
+  if (table === "User") {
+    columns.push({
+      name: "password",
+      type: "PASSWORD",
+      isPrimaryKey: false,
+      isRequired: false,
+      isAutoIncrement: false,
+      isEditableOnCreate: true,
+      isEditableOnUpdate: true,
+      isHidden: false,
+      isBoolean: false,
+      defaultValue: null,
+      allowsNull: true,
+    });
+  }
+
+  return {
+    table,
+    primaryKeyColumns,
+    columns,
+  };
+}
+
+export function createTextPrimaryKey(): string {
+  const time = Date.now().toString(36);
+  const random = randomBytes(8).toString("hex");
+  return `c${time}${random}`;
+}
+
+export function normalizeDefaultValue(defaultValue: string | null): string | null {
+  if (defaultValue === null) {
+    return null;
+  }
+
+  const trimmed = defaultValue.trim();
+  if (
+    (trimmed.startsWith("'") && trimmed.endsWith("'")) ||
+    (trimmed.startsWith('"') && trimmed.endsWith('"'))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+
+  return trimmed;
+}
+
+export function extractPrimaryKey(
+  row: Record<string, unknown>,
+  primaryKeyColumns: string[],
+): Record<string, unknown> {
+  const primaryKey: Record<string, unknown> = {};
+
+  for (const column of primaryKeyColumns) {
+    if (!(column in row)) {
+      throw new Error(`Missing primary key column "${column}"`);
+    }
+
+    primaryKey[column] = row[column];
+  }
+
+  return primaryKey;
+}

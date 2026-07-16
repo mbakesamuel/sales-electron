@@ -1,0 +1,412 @@
+import { useEffect, useState } from "preact/hooks";
+import { getAuthenticatedReports } from "../auth/reports.ts";
+import type {
+  BottledWeeklyIssuesReport,
+  BottledWeeklyMethodMetricRow,
+} from "../../shared/reports.types.ts";
+import { ReportFooter } from "./ReportFooter.tsx";
+import { ReportHeader } from "./ReportHeader.tsx";
+import "./StockCommitmentReport.css";
+import "./BottledWeeklyIssuesReport.css";
+
+function formatReportDate(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB");
+}
+
+function formatShortReportDate(iso: string): string {
+  const date = new Date(`${iso}T00:00:00`);
+  return `${date.getDate()}/${date.getMonth() + 1}/${String(date.getFullYear()).slice(-2)}`;
+}
+
+function formatQty(value: number | null | undefined): string {
+  if (value == null) return "";
+  if (value === 0) return "0";
+  return Math.round(value).toLocaleString("en-US");
+}
+
+function formatFcfa(value: number | null | undefined): string {
+  if (value == null) return "";
+  if (value === 0) return "0";
+  return Math.round(value).toLocaleString("en-US");
+}
+
+function formatPercent(value: number): string {
+  return `${value.toFixed(2)}%`;
+}
+
+function formatAvgPrice(value: number | null): string {
+  if (value == null) return "";
+  return Math.round(value).toLocaleString("en-US");
+}
+
+function handlePrint(): void {
+  document.body.classList.add("scr-print-mode");
+  window.addEventListener(
+    "afterprint",
+    () => {
+      document.body.classList.remove("scr-print-mode");
+    },
+    { once: true },
+  );
+  window.print();
+}
+
+function mtdDisplay(row: BottledWeeklyMethodMetricRow): string {
+  return row.kind === "kgs"
+    ? formatQty(row.monthToDateKg)
+    : formatFcfa(row.monthToDateValue);
+}
+
+function weekValueDisplay(row: BottledWeeklyMethodMetricRow): string {
+  return row.kind === "kgs" ? formatFcfa(row.weekValue) : formatFcfa(row.weekTotal);
+}
+
+function buildCsv(report: BottledWeeklyIssuesReport): string {
+  const lines: string[] = [
+    `Company:,${report.settings.companyName}`,
+    report.settings.department ? `Department:,${report.settings.department}` : "",
+    report.settings.serviceName ? `Service:,${report.settings.serviceName}` : "",
+    `Title:,${report.reportTitle}`,
+    `Week:,${report.weekFromIso} to ${report.weekToIso}`,
+    "",
+    "DETAIL",
+    [
+      "MONTH",
+      "METHOD",
+      "METRIC",
+      ...report.detail.dayColumns.map((column) => column.label),
+      "TOTAL",
+      "VALUE FCFA",
+      "MONTH TO DATE",
+    ].join(","),
+  ];
+
+  for (const method of report.detail.methods) {
+    for (const row of method.rows) {
+      lines.push(
+        [
+          report.detail.monthLabel,
+          method.label,
+          row.label,
+          ...row.dayValues.map((value) =>
+            row.kind === "kgs" ? formatQty(value) : formatFcfa(value),
+          ),
+          row.kind === "kgs" ? formatQty(row.weekTotal) : formatFcfa(row.weekTotal),
+          weekValueDisplay(row),
+          mtdDisplay(row),
+        ].join(","),
+      );
+    }
+  }
+
+  lines.push("", "SUMMARY");
+  lines.push(
+    "ROW,WEEK KGS,WEEK FCFA,MTD KGS,MTD FCFA,YTD KGS,YTD FCFA,AVG PRICE",
+  );
+  for (const row of report.summary.rows) {
+    lines.push(
+      [
+        row.label,
+        row.id === "pct" ? formatPercent(row.week.kgs) : formatQty(row.week.kgs),
+        row.id === "pct" ? formatPercent(row.week.value) : formatFcfa(row.week.value),
+        row.id === "pct"
+          ? formatPercent(row.monthToDate.kgs)
+          : formatQty(row.monthToDate.kgs),
+        row.id === "pct"
+          ? formatPercent(row.monthToDate.value)
+          : formatFcfa(row.monthToDate.value),
+        row.id === "pct" ? formatPercent(row.yearToDate.kgs) : formatQty(row.yearToDate.kgs),
+        row.id === "pct"
+          ? formatPercent(row.yearToDate.value)
+          : formatFcfa(row.yearToDate.value),
+        formatAvgPrice(row.averagePrice),
+      ].join(","),
+    );
+  }
+
+  lines.push("", "COMPARE");
+  lines.push(
+    `METHOD,${report.compare.currentColumn.label},%,${report.compare.priorColumn.label},%`,
+  );
+  for (const row of report.compare.rows) {
+    lines.push(
+      [
+        row.label,
+        formatQty(row.currentKg),
+        formatPercent(row.currentPct),
+        formatQty(row.priorKg),
+        formatPercent(row.priorPct),
+      ].join(","),
+    );
+  }
+
+  return lines.filter((line) => line !== "").join("\n");
+}
+
+function downloadCsv(report: BottledWeeklyIssuesReport): void {
+  const blob = new Blob([buildCsv(report)], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `bottled-weekly-issues-${report.asAtIso}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+export function BottledWeeklyIssuesReportScreen() {
+  const [report, setReport] = useState<BottledWeeklyIssuesReport | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await getAuthenticatedReports().getBottledWeeklyIssues();
+        if (!cancelled) setReport(data);
+      } catch (loadError) {
+        if (!cancelled) {
+          setReport(null);
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Failed to load bottled weekly issues report.",
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (loading) return <p class="scr-status">Loading bottled weekly issues...</p>;
+  if (error) return <p class="scr-status scr-status-error">{error}</p>;
+  if (!report) return <p class="scr-status">No report data available.</p>;
+
+  const dayColSpan = report.detail.dayColumns.length;
+
+  return (
+    <div class="scr-page">
+      <div class="scr-toolbar no-print">
+        <button type="button" class="scr-btn" onClick={handlePrint}>
+          Print
+        </button>
+        <button
+          type="button"
+          class="scr-btn scr-btn-secondary"
+          onClick={() => downloadCsv(report)}
+        >
+          Export CSV
+        </button>
+        <button
+          type="button"
+          class="scr-btn scr-btn-secondary"
+          onClick={() => {
+            void getAuthenticatedReports().getBottledWeeklyIssues().then(setReport);
+          }}
+        >
+          Refresh
+        </button>
+      </div>
+
+      <div class="scr-document bwi-document">
+        <ReportHeader
+          companyName={report.settings.companyName}
+          department={report.settings.department ?? null}
+          serviceName={report.settings.serviceName ?? null}
+          title={report.reportTitle}
+          meta={
+            <>
+              <p class="scr-meta-line">
+                <span class="scr-meta-label">WEEK:</span>{" "}
+                {formatShortReportDate(report.weekFromIso)} –{" "}
+                {formatShortReportDate(report.weekToIso)}
+              </p>
+              <p class="scr-as-at">
+                AS at{" "}
+                <span class="scr-as-at-date">{formatShortReportDate(report.asAtIso)}</span>
+              </p>
+              <p class="scr-generated">{formatReportDate(report.asAtIso)}</p>
+            </>
+          }
+        />
+
+        <div class="scr-bottled-block">
+          <table class="scr-table bwi-detail-table">
+            <thead>
+              <tr>
+                <th>MONTH</th>
+                <th>METHOD PAYMT</th>
+                <th>METRIC</th>
+                {report.detail.dayColumns.map((column) => (
+                  <th key={column.id}>{column.label}</th>
+                ))}
+                <th>TOTAL</th>
+                <th>VALUE FCFA</th>
+                <th>MONTH TO DATE</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.detail.methods.map((method, methodIndex) =>
+                method.rows.map((row, rowIndex) => (
+                  <tr key={`${method.method}-${row.kind}`} class="scr-row">
+                    {methodIndex === 0 && rowIndex === 0 ? (
+                      <td
+                        class="scr-row-label"
+                        rowSpan={report.detail.methods.length * 2 + 2}
+                      >
+                        {report.detail.monthLabel}
+                      </td>
+                    ) : null}
+                    {rowIndex === 0 ? (
+                      <td class="scr-row-label" rowSpan={2}>
+                        {method.label}
+                      </td>
+                    ) : null}
+                    <td class="scr-row-label">{row.label}</td>
+                    {row.dayValues.map((value, index) => (
+                      <td key={`${method.method}-${row.kind}-${index}`} class="scr-num">
+                        {row.kind === "kgs" ? formatQty(value) : formatFcfa(value)}
+                      </td>
+                    ))}
+                    <td class="scr-num scr-total-cell">
+                      {row.kind === "kgs"
+                        ? formatQty(row.weekTotal)
+                        : formatFcfa(row.weekTotal)}
+                    </td>
+                    <td class="scr-num">{weekValueDisplay(row)}</td>
+                    <td class="scr-num">{mtdDisplay(row)}</td>
+                  </tr>
+                )),
+              )}
+              {report.detail.totals.map((row, rowIndex) => (
+                <tr key={`total-${row.kind}`} class="scr-row scr-row-total">
+                  {rowIndex === 0 ? (
+                    <td class="scr-row-label" rowSpan={2}>
+                      TOTAL
+                    </td>
+                  ) : null}
+                  <td class="scr-row-label">{row.label}</td>
+                  {row.dayValues.map((value, index) => (
+                    <td key={`total-${row.kind}-${index}`} class="scr-num">
+                      {row.kind === "kgs" ? formatQty(value) : formatFcfa(value)}
+                    </td>
+                  ))}
+                  <td class="scr-num scr-total-cell">
+                    {row.kind === "kgs"
+                      ? formatQty(row.weekTotal)
+                      : formatFcfa(row.weekTotal)}
+                  </td>
+                  <td class="scr-num">{weekValueDisplay(row)}</td>
+                  <td class="scr-num">{mtdDisplay(row)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="scr-bottled-block">
+          <table class="scr-table bwi-summary-table">
+            <thead>
+              <tr>
+                <th rowSpan={2}>{report.summary.title}</th>
+                <th colSpan={2}>WEEK</th>
+                <th colSpan={2}>MONTH TO DATE</th>
+                <th colSpan={2}>YEAR TO DATE</th>
+                <th rowSpan={2}>AVERAGE PRICE FCFA/KG</th>
+              </tr>
+              <tr>
+                <th>KGS</th>
+                <th>FCFA</th>
+                <th>KGS</th>
+                <th>FCFA</th>
+                <th>KGS</th>
+                <th>FCFA</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.summary.rows.map((row) => (
+                <tr
+                  key={row.id}
+                  class={row.id === "actual" ? "scr-row scr-row-total" : "scr-row"}
+                >
+                  <td class="scr-row-label">{row.label}</td>
+                  <td class="scr-num">
+                    {row.id === "pct"
+                      ? formatPercent(row.week.kgs)
+                      : formatQty(row.week.kgs)}
+                  </td>
+                  <td class="scr-num">
+                    {row.id === "pct"
+                      ? formatPercent(row.week.value)
+                      : formatFcfa(row.week.value)}
+                  </td>
+                  <td class="scr-num">
+                    {row.id === "pct"
+                      ? formatPercent(row.monthToDate.kgs)
+                      : formatQty(row.monthToDate.kgs)}
+                  </td>
+                  <td class="scr-num">
+                    {row.id === "pct"
+                      ? formatPercent(row.monthToDate.value)
+                      : formatFcfa(row.monthToDate.value)}
+                  </td>
+                  <td class="scr-num">
+                    {row.id === "pct"
+                      ? formatPercent(row.yearToDate.kgs)
+                      : formatQty(row.yearToDate.kgs)}
+                  </td>
+                  <td class="scr-num">
+                    {row.id === "pct"
+                      ? formatPercent(row.yearToDate.value)
+                      : formatFcfa(row.yearToDate.value)}
+                  </td>
+                  <td class="scr-num">{formatAvgPrice(row.averagePrice)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="scr-bottled-block">
+          <table class="scr-table bwi-compare-table">
+            <thead>
+              <tr>
+                <th>METHOD</th>
+                <th>{report.compare.currentColumn.label}</th>
+                <th>%</th>
+                <th>{report.compare.priorColumn.label}</th>
+                <th>%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.compare.rows.map((row) => (
+                <tr
+                  key={row.method}
+                  class={row.method === "TOTAL" ? "scr-row scr-row-total" : "scr-row"}
+                >
+                  <td class="scr-row-label">{row.label}</td>
+                  <td class="scr-num">{formatQty(row.currentKg)}</td>
+                  <td class="scr-num">{formatPercent(row.currentPct)}</td>
+                  <td class="scr-num">{formatQty(row.priorKg)}</td>
+                  <td class="scr-num">{formatPercent(row.priorPct)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {dayColSpan === 0 ? (
+          <p class="scr-status">No weekday columns in the current week window.</p>
+        ) : null}
+        <ReportFooter />
+      </div>
+    </div>
+  );
+}

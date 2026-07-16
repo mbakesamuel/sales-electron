@@ -1,0 +1,30 @@
+.confirm-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 4px;
+}
+
+.confirm-dialog-btn-danger {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  background: #dc2626;
+  color: #fff;
+}
+
+.confirm-dialog-btn-danger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.confirm-dialog-btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

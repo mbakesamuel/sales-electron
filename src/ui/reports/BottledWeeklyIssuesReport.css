@@ -1,0 +1,10 @@
+.bwi-document .bwi-detail-table th,
+.bwi-document .bwi-summary-table th,
+.bwi-document .bwi-compare-table th {
+  white-space: nowrap;
+}
+
+.bwi-document .bwi-summary-table th[colspan],
+.bwi-document .bwi-detail-table td[rowspan] {
+  vertical-align: middle;
+}

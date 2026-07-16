@@ -1,0 +1,18 @@
+.financial-months-screen .customers-table th {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.financial-months-screen .customers-table td {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.financial-months-screen .customers-name-primary {
+  margin: 0;
+}
+
+.financial-months-screen .customers-btn {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
