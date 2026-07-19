@@ -6,7 +6,7 @@ import {
   salesBudgetCrosstabCellKey,
   type SalesBudgetPhaseResult,
 } from "../../shared/salesBudgetPhase.js";
-import { loadReportCompanySettings } from "./companySettings.js";
+import { loadReportCompanySettings, loadReportComments } from "./companySettings.js";
 import { loadSalesBudgetCrosstabContext } from "./salesBudgetCrosstabShared.js";
 
 export function getSalesBudgetWeeklyCrosstabReport(
@@ -148,5 +148,6 @@ export function getSalesBudgetWeeklyCrosstabReport(
     colTotals,
     grandTotal,
     generatedAtIso: new Date().toISOString(),
+    comments: loadReportComments("sales-budget-weekly-crosstab"),
   };
 }

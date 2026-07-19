@@ -1,0 +1,151 @@
+.dash-root {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  height: 100%;
+  min-height: 0;
+  padding: 0.65rem 0.9rem 0.75rem;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.dash-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.dash-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-h);
+  line-height: 1.2;
+}
+
+.dash-subtitle {
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.25;
+}
+
+.dash-refresh {
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 0.3rem 0.7rem;
+  background: var(--bg-elevated);
+  color: var(--text-h);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.dash-refresh:hover:not(:disabled) {
+  background: var(--nav-hover);
+}
+
+.dash-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dash-sections {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.55rem;
+}
+
+.dash-section {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.45rem 0.65rem 0.5rem;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.dash-section-title {
+  flex-shrink: 0;
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--text-h);
+  line-height: 1.2;
+}
+
+.dash-section-meta {
+  flex-shrink: 0;
+  margin: 0.1rem 0 0.35rem;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
+.dash-chart {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.dash-chart canvas {
+  max-height: 100% !important;
+}
+
+.dash-status {
+  margin: 1.5rem;
+  color: var(--text-muted);
+}
+
+.dash-status-error {
+  color: #b91c1c;
+}
+
+.dash-empty {
+  margin: 2rem 1.5rem;
+  max-width: 32rem;
+}
+
+.dash-empty h2 {
+  margin: 0 0 0.5rem;
+  color: var(--text-h);
+}
+
+.dash-empty p {
+  margin: 0 0 1rem;
+  color: var(--text-muted);
+}
+
+@media (max-height: 720px) {
+  .dash-root {
+    gap: 0.4rem;
+    padding: 0.45rem 0.65rem 0.5rem;
+  }
+
+  .dash-sections {
+    gap: 0.4rem;
+  }
+
+  .dash-section {
+    padding: 0.35rem 0.5rem 0.4rem;
+  }
+
+  .dash-section-meta {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .dash-chart-pie {
+    max-width: none;
+  }
+}

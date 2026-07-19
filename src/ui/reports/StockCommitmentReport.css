@@ -424,6 +424,7 @@
 
   body.scr-print-mode .report-header,
   body.scr-print-mode .report-footer,
+  body.scr-print-mode .scr-comments,
   body.scr-print-mode .scr-row-total,
   body.scr-print-mode .scr-document tr {
     break-inside: avoid;

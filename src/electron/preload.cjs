@@ -30,8 +30,8 @@ contextBridge.exposeInMainWorld("api", {
     createSale: (input) => ipcRenderer.invoke("sales:createSale", input),
     validateSale: (payload) => ipcRenderer.invoke("sales:validateSale", payload),
     deleteSale: (payload) => ipcRenderer.invoke("sales:deleteSale", payload),
-    listAvailableDeliveryOrders: (salesPointId) =>
-      ipcRenderer.invoke("sales:listAvailableDeliveryOrders", salesPointId),
+    listAvailableDeliveryOrders: (payload) =>
+      ipcRenderer.invoke("sales:listAvailableDeliveryOrders", payload),
     lookupDeliveryOrder: (payload) =>
       ipcRenderer.invoke("sales:lookupDeliveryOrder", payload),
     loadSalePrintById: (saleId) =>
@@ -66,6 +66,12 @@ contextBridge.exposeInMainWorld("api", {
     upsertBatch: (input) => ipcRenderer.invoke("carryForward:upsertBatch", input),
     delete: (input) => ipcRenderer.invoke("carryForward:delete", input),
   },
+  carryForwardStock: {
+    getFormOptions: () => ipcRenderer.invoke("carryForwardStock:getFormOptions"),
+    list: () => ipcRenderer.invoke("carryForwardStock:list"),
+    listOnHand: (input) => ipcRenderer.invoke("carryForwardStock:listOnHand", input),
+    upsertBatch: (input) => ipcRenderer.invoke("carryForwardStock:upsertBatch", input),
+  },
   reports: {
     getStockCommitment: (authToken) =>
       ipcRenderer.invoke("reports:getStockCommitment", authToken),
@@ -77,14 +83,20 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("reports:getBottleOilStockSales", authToken),
     getBottledWeeklyIssues: (authToken, estimateBasis) =>
       ipcRenderer.invoke("reports:getBottledWeeklyIssues", authToken, estimateBasis),
-    getWeeklyDeliveries: (authToken) =>
-      ipcRenderer.invoke("reports:getWeeklyDeliveries", authToken),
+    getWeeklyDeliveries: (authToken, weekMondayIso) =>
+      ipcRenderer.invoke("reports:getWeeklyDeliveries", authToken, weekMondayIso),
     getMonthlyDelivery: (half, authToken) =>
       ipcRenderer.invoke("reports:getMonthlyDelivery", half, authToken),
     getSalesBudgetMonthlyCrosstab: (authToken, reportYear) =>
       ipcRenderer.invoke("reports:getSalesBudgetMonthlyCrosstab", authToken, reportYear),
     getSalesBudgetWeeklyCrosstab: (authToken, reportYear) =>
       ipcRenderer.invoke("reports:getSalesBudgetWeeklyCrosstab", authToken, reportYear),
+    saveReportComments: (authToken, input) =>
+      ipcRenderer.invoke("reports:saveReportComments", authToken, input),
+  },
+  dashboard: {
+    getSummary: (authToken) =>
+      ipcRenderer.invoke("dashboard:getSummary", authToken),
   },
   financialYears: {
     listYears: (authToken) =>

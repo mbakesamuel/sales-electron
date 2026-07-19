@@ -43,6 +43,8 @@ export interface StockCommitmentReport {
     /** Totals for all non-bottled product sections; shown before bottled block. */
     looseGrandTotal: StockCommitmentReportRow | null;
     bottledSection: StockCommitmentBottledSection | null;
+    /** Company-wide comments; null when empty (section hidden on the report). */
+    comments: string | null;
 }
 export interface StockReportLocationRow {
     salesPointName: string | null;
@@ -107,6 +109,7 @@ export interface StockReport {
     generatedAtIso: string;
     sections: StockReportSection[];
     oilGrandTotalKg: number;
+    comments: string | null;
 }
 export interface CommitmentReportRow {
     label: string;
@@ -133,6 +136,7 @@ export interface CommitmentReport {
     columnTotals: number[];
     /** Sum of all section grand totals. */
     grandTotal: number;
+    comments: string | null;
 }
 export interface BottleOilStockPackColumn {
     id: string;
@@ -181,6 +185,7 @@ export interface BottleOilStockSalesReport {
     generatedAtIso: string;
     stockSection: BottleOilStockSection;
     salesSection: BottleOilSalesSection;
+    comments: string | null;
 }
 export interface WeeklyDeliveriesLooseRow {
     label: string;
@@ -211,15 +216,29 @@ export interface WeeklyDeliveriesMiscRow {
     label: string;
     quantityKg: number;
 }
+export interface WeeklyDeliveriesMiscSection {
+    title: string;
+    rows: WeeklyDeliveriesMiscRow[];
+}
+export interface WeeklyDeliveriesWeekChoice {
+    /** Monday of the ISO week (selection key). */
+    weekMondayIso: string;
+    weekFromIso: string;
+    weekToIso: string;
+    label: string;
+}
 export interface WeeklyDeliveriesReport {
     settings: ReportCompanySettings;
     asAtIso: string;
+    weekMondayIso: string;
     weekFromIso: string;
     weekToIso: string;
+    weekChoices: WeeklyDeliveriesWeekChoice[];
     generatedAtIso: string;
     looseSection: WeeklyDeliveriesLooseSection;
     bottledSection: WeeklyDeliveriesBottledSection;
-    miscRows: WeeklyDeliveriesMiscRow[];
+    miscSection: WeeklyDeliveriesMiscSection;
+    comments: string | null;
 }
 export interface MonthlyDeliveryCell {
     tons: number;
@@ -254,6 +273,7 @@ export interface MonthlyDeliveryReport {
     kernelPkBudgetSection: MonthlyDeliveryBudgetSection;
     /** Palm oil + PKO + PKC with G.TOTAL (includes P. KERNEL FCFA) and variance. */
     budgetSection: MonthlyDeliveryBudgetSection;
+    comments: string | null;
 }
 export interface MonthlyDeliveryBudgetMetric {
     id: string;
@@ -273,6 +293,16 @@ export interface MonthlyDeliveryBudgetSection {
 }
 /** Bottled palm oil weekly issues by payment method (Mon–Fri week). */
 export type BottledWeeklyPaymentMethod = "CASH" | "CREDIT" | "PRO";
+/**
+ * How week ESTM kg is taken from monthly phased budget
+ * (same day-share idea as sales budget weekly phasing).
+ */
+export type BottledWeeklyEstimateBasis = "working-days" | "iso-week";
+export declare const BOTTLED_WEEKLY_ESTIMATE_BASIS_OPTIONS: ReadonlyArray<{
+    id: BottledWeeklyEstimateBasis;
+    label: string;
+    hint: string;
+}>;
 export interface BottledWeeklyDayColumn {
     id: string;
     label: string;
@@ -343,9 +373,15 @@ export interface BottledWeeklyIssuesReport {
     yearFromIso: string;
     generatedAtIso: string;
     reportTitle: string;
+    /** Basis used for week ESTM (aligned with sales-budget day phasing). */
+    estimateBasis: BottledWeeklyEstimateBasis;
+    estimateBasisLabel: string;
+    /** Days of the chosen week window that fall in the open month. */
+    estimateWeekDaysInMonth: number;
     detail: BottledWeeklyDetailSection;
     summary: BottledWeeklySummarySection;
     compare: BottledWeeklyCompareSection;
+    comments: string | null;
 }
 export interface SalesBudgetMonthlyCrosstabRow {
     productCatId: number;
@@ -363,6 +399,7 @@ export interface SalesBudgetMonthlyCrosstabReport {
     colTotals: number[];
     grandTotal: number;
     generatedAtIso: string;
+    comments: string | null;
 }
 export interface SalesBudgetWeeklyCrosstabWeekMeta {
     label: string;
@@ -393,4 +430,5 @@ export interface SalesBudgetWeeklyCrosstabReport {
     colTotals: number[];
     grandTotal: number;
     generatedAtIso: string;
+    comments: string | null;
 }

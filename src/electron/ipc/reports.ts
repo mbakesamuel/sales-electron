@@ -20,6 +20,10 @@ import { getSalesBudgetWeeklyCrosstabReport } from "../reports/salesBudgetWeekly
 import { getStockCommitmentReport } from "../reports/stockCommitment.js";
 import { getStockReport } from "../reports/stockReport.js";
 import { getWeeklyDeliveriesReport } from "../reports/weeklyDeliveriesReport.js";
+import {
+  saveReportComments,
+  type SaveReportCommentsResult,
+} from "../reports/companySettings.js";
 
 function parseReportYear(value: unknown): number | undefined {
   if (value == null || value === "") {
@@ -76,9 +80,17 @@ export function registerReportsHandlers(): void {
 
   ipcMain.handle(
     "reports:getWeeklyDeliveries",
-    (_event, authToken: string): WeeklyDeliveriesReport => {
+    (
+      _event,
+      authToken: string,
+      weekMondayIso?: unknown,
+    ): WeeklyDeliveriesReport => {
       const user = requireAuthUser(authToken);
-      return getWeeklyDeliveriesReport(user.id);
+      const monday =
+        typeof weekMondayIso === "string" && /^\d{4}-\d{2}-\d{2}$/.test(weekMondayIso)
+          ? weekMondayIso
+          : null;
+      return getWeeklyDeliveriesReport(user.id, monday);
     },
   );
 
@@ -106,6 +118,18 @@ export function registerReportsHandlers(): void {
     (_event, authToken: string, reportYear?: unknown): SalesBudgetWeeklyCrosstabReport => {
       const user = requireAuthUser(authToken);
       return getSalesBudgetWeeklyCrosstabReport(user.id, parseReportYear(reportYear));
+    },
+  );
+
+  ipcMain.handle(
+    "reports:saveReportComments",
+    (
+      _event,
+      authToken: string,
+      input: { reportId: string; text: string | null },
+    ): SaveReportCommentsResult => {
+      requireAuthUser(authToken);
+      return saveReportComments(input.reportId, input.text);
     },
   );
 }

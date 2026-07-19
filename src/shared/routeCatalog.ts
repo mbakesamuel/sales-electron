@@ -75,6 +75,12 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
   },
   { id: "stock-balance", label: "Stock balance", sectionId: "inventory", table: "StockBalance" },
   {
+    id: "carry-forward-stock",
+    label: "Carry-forward stock",
+    sectionId: "inventory",
+    table: "StockBalance",
+  },
+  {
     id: "stock-commitment-report",
     label: "Stock & commitment report",
     sectionId: "reports",
@@ -178,6 +184,12 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
   {
     id: "company-settings",
     label: "Company settings",
+    sectionId: "organization",
+    table: "CompanySettings",
+  },
+  {
+    id: "report-settings",
+    label: "Report settings",
     sectionId: "organization",
     table: "CompanySettings",
   },

@@ -9,6 +9,7 @@ import type {
   OpenPostingPeriod,
   OpenYearResult,
 } from "../../shared/financialYears.types.ts";
+import type { DashboardSummary } from "../../shared/dashboard.types.ts";
 import type {
   BottleOilStockSalesReport,
   BottledWeeklyIssuesReport,
@@ -135,7 +136,10 @@ interface ReportsApi {
     authToken: string,
     estimateBasis?: import("../../shared/reports.types").BottledWeeklyEstimateBasis,
   ): Promise<BottledWeeklyIssuesReport>;
-  getWeeklyDeliveries(authToken: string): Promise<WeeklyDeliveriesReport>;
+  getWeeklyDeliveries(
+    authToken: string,
+    weekMondayIso?: string,
+  ): Promise<WeeklyDeliveriesReport>;
   getMonthlyDelivery(half: 1 | 2, authToken: string): Promise<MonthlyDeliveryReport>;
   getSalesBudgetMonthlyCrosstab(
     authToken: string,
@@ -145,6 +149,14 @@ interface ReportsApi {
     authToken: string,
     reportYear?: number,
   ): Promise<SalesBudgetWeeklyCrosstabReport>;
+  saveReportComments(
+    authToken: string,
+    input: { reportId: string; text: string | null },
+  ): Promise<{ ok: true; comments: string | null } | { ok: false; error: string }>;
+}
+
+interface DashboardApi {
+  getSummary(authToken: string): Promise<DashboardSummary>;
 }
 
 interface FinancialYearsApi {
@@ -185,8 +197,22 @@ export interface ElectronAppApi {
       input: import("../../shared/carryForward.types.ts").DeleteCarryForwardInput,
     ): Promise<import("../../shared/carryForward.types.ts").CarryForwardDeleteResult>;
   };
+  carryForwardStock: {
+    getFormOptions(): Promise<
+      import("../../shared/carryForwardStock.types.ts").CarryForwardStockFormOptions
+    >;
+    list(): Promise<import("../../shared/carryForwardStock.types.ts").CarryForwardStockRow[]>;
+    listOnHand(input: {
+      salesPointId: number;
+      productId: number;
+    }): Promise<import("../../shared/carryForwardStock.types.ts").CarryForwardStockOnHandRow[]>;
+    upsertBatch(
+      input: import("../../shared/carryForwardStock.types.ts").UpsertCarryForwardStockBatchInput,
+    ): Promise<import("../../shared/carryForwardStock.types.ts").CarryForwardStockBatchResult>;
+  };
   stock: StockApi;
   reports: ReportsApi;
+  dashboard: DashboardApi;
   financialYears: FinancialYearsApi;
   dialog: {
     confirm(message: string): boolean;

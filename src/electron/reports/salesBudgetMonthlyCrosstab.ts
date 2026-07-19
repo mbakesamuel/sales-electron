@@ -4,7 +4,7 @@ import {
   calendarMonthToFiscal,
   computeMonthlyBudgetQtyKgByFiscalMonth,
 } from "../../shared/salesBudgetPhase.js";
-import { loadReportCompanySettings } from "./companySettings.js";
+import { loadReportCompanySettings, loadReportComments } from "./companySettings.js";
 import { loadSalesBudgetCrosstabContext } from "./salesBudgetCrosstabShared.js";
 
 export function getSalesBudgetMonthlyCrosstabReport(
@@ -76,5 +76,6 @@ export function getSalesBudgetMonthlyCrosstabReport(
     colTotals,
     grandTotal,
     generatedAtIso: new Date().toISOString(),
+    comments: loadReportComments("sales-budget-monthly-crosstab"),
   };
 }

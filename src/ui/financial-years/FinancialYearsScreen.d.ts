@@ -1,5 +1,6 @@
 import "../components/FormDialog.css";
 import "../customers/CustomersScreen.css";
+import "./FinancialMonthsScreen.css";
 interface FinancialYearsScreenProps {
     readOnly?: boolean;
 }

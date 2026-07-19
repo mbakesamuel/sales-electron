@@ -664,6 +664,68 @@ function deliveryOrderHasSourceKind(database: Database.Database): boolean {
   return getTableColumns(database, "DeliveryOrder").has("sourceKind");
 }
 
+function stockAdjustmentHasSourceKind(database: Database.Database): boolean {
+  return getTableColumns(database, "StockAdjustment").has("sourceKind");
+}
+
+function companySettingsHasHideZeroReportRows(database: Database.Database): boolean {
+  return getTableColumns(database, "CompanySettings").has("hideZeroReportRows");
+}
+
+function companySettingsHasStockCommitmentComments(database: Database.Database): boolean {
+  return getTableColumns(database, "CompanySettings").has("stockCommitmentReportComments");
+}
+
+function companySettingsHasReportCommentsJson(database: Database.Database): boolean {
+  return getTableColumns(database, "CompanySettings").has("reportCommentsJson");
+}
+
+function migrateLegacyStockCommitmentComments(database: Database.Database): void {
+  if (!companySettingsHasReportCommentsJson(database)) {
+    return;
+  }
+  const row = database
+    .prepare(
+      `SELECT reportCommentsJson, stockCommitmentReportComments
+       FROM CompanySettings
+       WHERE id = 'default'`,
+    )
+    .get() as
+    | {
+        reportCommentsJson: string | null;
+        stockCommitmentReportComments: string | null;
+      }
+    | undefined;
+  if (!row) {
+    return;
+  }
+  const legacy = row.stockCommitmentReportComments?.trim() ?? "";
+  if (!legacy) {
+    return;
+  }
+  let map: Record<string, string> = {};
+  try {
+    const parsed = JSON.parse(row.reportCommentsJson || "{}") as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      map = parsed as Record<string, string>;
+    }
+  } catch {
+    map = {};
+  }
+  const existing = map["stock-commitment-report"]?.trim() ?? "";
+  if (existing) {
+    return;
+  }
+  map["stock-commitment-report"] = legacy;
+  database
+    .prepare(
+      `UPDATE CompanySettings
+       SET reportCommentsJson = ?, updatedAt = datetime('now')
+       WHERE id = 'default'`,
+    )
+    .run(JSON.stringify(map));
+}
+
 function applyUserDropServiceFactoryMigration(database: Database.Database): void {
   if (userSchemaIsCurrent(database)) {
     return;
@@ -869,6 +931,37 @@ function runMigrations(database: Database.Database): void {
     }
 
     if (fileName === "026_delivery_order_source_kind.sql" && deliveryOrderHasSourceKind(database)) {
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (fileName === "029_stock_adjustment_source_kind.sql" && stockAdjustmentHasSourceKind(database)) {
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (
+      fileName === "031_report_settings_hide_zero.sql" &&
+      companySettingsHasHideZeroReportRows(database)
+    ) {
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (
+      fileName === "033_stock_commitment_report_comments.sql" &&
+      companySettingsHasStockCommitmentComments(database)
+    ) {
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (fileName === "034_report_comments_json.sql") {
+      if (!companySettingsHasReportCommentsJson(database)) {
+        const sql = readFileSync(path.join(getMigrationsDir(), fileName), "utf8");
+        database.exec(sql);
+      }
+      migrateLegacyStockCommitmentComments(database);
       database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
       continue;
     }

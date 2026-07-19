@@ -6,6 +6,8 @@ import type {
   BottledWeeklyMethodMetricRow,
 } from "../../shared/reports.types.ts";
 import { BOTTLED_WEEKLY_ESTIMATE_BASIS_OPTIONS } from "../../shared/reports.types.ts";
+import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
+import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
 import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import "./StockCommitmentReport.css";
@@ -28,14 +30,6 @@ function writeStoredEstimateBasis(basis: BottledWeeklyEstimateBasis): void {
   } catch {
     /* ignore quota / private mode */
   }
-}
-function formatReportDate(iso: string): string {
-  return new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB");
-}
-
-function formatShortReportDate(iso: string): string {
-  const date = new Date(`${iso}T00:00:00`);
-  return `${date.getDate()}/${date.getMonth() + 1}/${String(date.getFullYear()).slice(-2)}`;
 }
 
 function formatQty(value: number | null | undefined): string {
@@ -188,7 +182,7 @@ export function BottledWeeklyIssuesReportDocument({
         department={report.settings.department ?? null}
         serviceName={report.settings.serviceName ?? null}
         title={report.reportTitle}
-        meta={
+       /*  meta={
           <>
             <p class="scr-meta-line">
               <span class="scr-meta-label">WEEK:</span>{" "}
@@ -201,7 +195,7 @@ export function BottledWeeklyIssuesReportDocument({
             </p>
             <p class="scr-generated">{formatReportDate(report.asAtIso)}</p>
           </>
-        }
+        } */
       />
 
       <div class="scr-bottled-block">
@@ -377,6 +371,7 @@ export function BottledWeeklyIssuesReportDocument({
       {dayColSpan === 0 ? (
         <p class="scr-status">No weekday columns in the current week window.</p>
       ) : null}
+      <ReportCommentsSection comments={report.comments} />
       <ReportFooter />
     </div>
   );
@@ -463,6 +458,15 @@ export function BottledWeeklyIssuesReportScreen() {
         >
           Export CSV
         </button>
+        <ReportCommentsEditor
+          reportId="bottled-weekly-issues-report"
+          comments={report.comments}
+          onSaved={() => {
+            void getAuthenticatedReports()
+              .getBottledWeeklyIssues(estimateBasis)
+              .then(setReport);
+          }}
+        />
         <button
           type="button"
           class="scr-btn scr-btn-secondary"

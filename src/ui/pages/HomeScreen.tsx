@@ -18,6 +18,7 @@ import { LocationsScreen } from "../locations/LocationsScreen.tsx";
 import { SalesPointsScreen } from "../sales-points/SalesPointsScreen.tsx";
 import { CommercialServicesScreen } from "../commercial-services/CommercialServicesScreen.tsx";
 import { CompanySettingsScreen } from "../company-settings/CompanySettingsScreen.tsx";
+import { ReportSettingsScreen } from "../reports/ReportSettingsScreen.tsx";
 import { StorageLocationsScreen } from "../storage-locations/StorageLocationsScreen.tsx";
 import { TaxRegimesScreen } from "../tax/TaxRegimesScreen.tsx";
 import { TaxRatesScreen } from "../tax/TaxRatesScreen.tsx";
@@ -27,6 +28,7 @@ import { FinancialMonthsScreen } from "../financial-years/FinancialMonthsScreen.
 import { SalesScreen } from "../sales/SalesScreen.tsx";
 import { DeliveryOrdersScreen } from "../delivery-orders/DeliveryOrdersScreen.tsx";
 import { CarryForwardCommitmentsScreen } from "../commitments/CarryForwardCommitmentsScreen.tsx";
+import { CarryForwardStockScreen } from "../stock/CarryForwardStockScreen.tsx";
 import { StockScreen } from "../stock/StockScreen.tsx";
 import { BottleOilStockSalesReportScreen } from "../reports/BottleOilStockSalesReportScreen.tsx";
 import { BottledWeeklyIssuesReportScreen } from "../reports/BottledWeeklyIssuesReportScreen.tsx";
@@ -62,6 +64,7 @@ import { SidebarChevron, SidebarIcon } from "../navigation/SidebarIcon.tsx";
 import { ConfirmDialog } from "../components/ConfirmDialog.tsx";
 import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import type { OpenPostingPeriod } from "../../shared/financialYears.types.ts";
+import { DashboardScreen } from "../dashboard/DashboardScreen.tsx";
 import "./HomeScreen.css";
 
 interface HomeScreenProps {
@@ -125,6 +128,16 @@ function RouteContent({
   if (route.id === "carry-forward-commitments") {
     return (
       <CarryForwardCommitmentsScreen
+        user={user}
+        permissions={permissions}
+        readOnly={readOnly}
+      />
+    );
+  }
+
+  if (route.id === "carry-forward-stock") {
+    return (
+      <CarryForwardStockScreen
         user={user}
         permissions={permissions}
         readOnly={readOnly}
@@ -214,6 +227,10 @@ function RouteContent({
 
   if (route.id === "company-settings") {
     return <CompanySettingsScreen readOnly={readOnly} />;
+  }
+
+  if (route.id === "report-settings") {
+    return <ReportSettingsScreen readOnly={readOnly} />;
   }
 
   if (route.id === "locations") {
@@ -355,6 +372,7 @@ export function HomeScreen({
     "sales-points",
     "commercial-services",
     "company-settings",
+    "report-settings",
     "locations",
     "storage-locations",
     "tax-regimes",
@@ -364,6 +382,7 @@ export function HomeScreen({
     "financial-months",
     "role-permissions",
     "carry-forward-commitments",
+    "carry-forward-stock",
   ]);
 
   return (
@@ -460,7 +479,9 @@ export function HomeScreen({
         />
       ) : null}
 
-      <main class="home-main">
+      <main
+        class={`home-main${activeRouteId === DEFAULT_ROUTE_ID ? " home-main--dashboard" : ""}`}
+      >
         <header class="home-topbar no-print">
           <div class="home-topbar-period">
             <span>
@@ -486,7 +507,11 @@ export function HomeScreen({
           </header>
         ) : null}
 
-        {activeRouteId !== DEFAULT_ROUTE_ID ? (
+        {activeRouteId === DEFAULT_ROUTE_ID ? (
+          <section class="home-content">
+            <DashboardScreen />
+          </section>
+        ) : (
           <section class="home-content">
             <RouteContent
               route={activeRoute}
@@ -496,7 +521,7 @@ export function HomeScreen({
               onNavigate={(routeId) => selectRoute(routeId, "products")}
             />
           </section>
-        ) : null}
+        )}
 
         <footer class="home-bottombar no-print">
           <span>ISD 2026</span>

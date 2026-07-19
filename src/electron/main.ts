@@ -4,11 +4,13 @@ import { fileURLToPath } from "node:url";
 import { closeDatabase, initDatabase } from "./db/index.js";
 import { registerDeliveryOrdersHandlers } from "./ipc/deliveryOrders.js";
 import { registerCarryForwardHandlers } from "./ipc/carryForward.js";
+import { registerCarryForwardStockHandlers } from "./ipc/carryForwardStock.js";
 import { registerAuthHandlers } from "./ipc/auth.js";
 import { registerDatabaseHandlers } from "./ipc/database.js";
 import { registerPermissionsHandlers } from "./ipc/permissions.js";
 import { registerSalesHandlers } from "./ipc/sales.js";
 import { registerReportsHandlers } from "./ipc/reports.js";
+import { registerDashboardHandlers } from "./ipc/dashboard.js";
 import { registerStockHandlers } from "./ipc/stock.js";
 import { registerFinancialYearsHandlers } from "./ipc/financialYears.js";
 import { registerDialogHandlers } from "./ipc/dialog.js";
@@ -65,8 +67,8 @@ async function loadDevUrl(mainWindow: BrowserWindow): Promise<void> {
 
 function createWindow(): BrowserWindow {
   const mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1000,
+    height: 800,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -102,8 +104,10 @@ app.whenReady().then(() => {
   registerSalesHandlers();
   registerDeliveryOrdersHandlers();
   registerCarryForwardHandlers();
+  registerCarryForwardStockHandlers();
   registerStockHandlers();
   registerReportsHandlers();
+  registerDashboardHandlers();
   registerFinancialYearsHandlers();
   registerPermissionsHandlers();
   registerDialogHandlers();

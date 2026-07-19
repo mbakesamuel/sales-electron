@@ -4,8 +4,18 @@ export declare function getAuthenticatedReports(): {
     getCommitmentReport: () => Promise<import("../../shared/reports.types.ts").CommitmentReport>;
     getBottleOilStockSales: () => Promise<import("../../shared/reports.types.ts").BottleOilStockSalesReport>;
     getBottledWeeklyIssues: (estimateBasis?: import("../../shared/reports.types.ts").BottledWeeklyEstimateBasis) => Promise<import("../../shared/reports.types.ts").BottledWeeklyIssuesReport>;
-    getWeeklyDeliveries: () => Promise<import("../../shared/reports.types.ts").WeeklyDeliveriesReport>;
+    getWeeklyDeliveries: (weekMondayIso?: string) => Promise<import("../../shared/reports.types.ts").WeeklyDeliveriesReport>;
     getMonthlyDelivery: (half: 1 | 2) => Promise<import("../../shared/reports.types.ts").MonthlyDeliveryReport>;
     getSalesBudgetMonthlyCrosstab: (reportYear?: number) => Promise<import("../../shared/reports.types.ts").SalesBudgetMonthlyCrosstabReport>;
     getSalesBudgetWeeklyCrosstab: (reportYear?: number) => Promise<import("../../shared/reports.types.ts").SalesBudgetWeeklyCrosstabReport>;
+    saveReportComments: (input: {
+        reportId: string;
+        text: string | null;
+    }) => Promise<{
+        ok: true;
+        comments: string | null;
+    } | {
+        ok: false;
+        error: string;
+    }>;
 };

@@ -6,6 +6,8 @@ import type {
   BottleOilStockSalesReport,
   BottleOilStockSection,
 } from "../../shared/reports.types.ts";
+import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
+import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
 import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import "./StockCommitmentReport.css";
@@ -314,6 +316,7 @@ export function BottleOilStockSalesReportDocument({
 
       <StockSection section={report.stockSection} />
       <SalesSection section={report.salesSection} />
+      <ReportCommentsSection comments={report.comments} />
       <ReportFooter />
     </div>
   );
@@ -383,6 +386,13 @@ export function BottleOilStockSalesReportScreen() {
         >
           Export CSV
         </button>
+        <ReportCommentsEditor
+          reportId="bottle-oil-stock-sales-report"
+          comments={report.comments}
+          onSaved={() => {
+            void getAuthenticatedReports().getBottleOilStockSales().then(setReport);
+          }}
+        />
         <button
           type="button"
           class="scr-btn scr-btn-secondary"

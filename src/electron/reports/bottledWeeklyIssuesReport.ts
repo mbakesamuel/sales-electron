@@ -12,7 +12,7 @@ import type {
 } from "../../shared/reports.types.js";
 import { getDatabase } from "../db/index.js";
 import { resolveReportAsAt } from "../financialYears/service.js";
-import { loadReportCompanySettings } from "./companySettings.js";
+import { loadReportCompanySettings, loadReportComments } from "./companySettings.js";
 import {
   PALM_OIL_KG_PER_LITRE,
   detectBottledPack,
@@ -784,5 +784,6 @@ export function getBottledWeeklyIssuesReport(
     detail,
     summary,
     compare,
+    comments: loadReportComments("bottled-weekly-issues-report"),
   };
 }

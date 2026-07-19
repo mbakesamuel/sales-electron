@@ -8,7 +8,7 @@ import type {
   StockReportSalesPointQtySection,
   StockReportSection,
 } from "../../shared/reports.types.js";
-import { loadReportCompanySettings } from "./companySettings.js";
+import { loadReportCompanySettings, loadReportDisplaySettings, loadReportComments } from "./companySettings.js";
 import { resolveReportAsAt } from "../financialYears/service.js";
 import {
   BOTTLED_PACK_ORDER,
@@ -224,6 +224,7 @@ function buildLocationSection(
   balances: BalanceRow[],
   products: ProductRow[],
   showOilGrandTotalAfter: boolean,
+  hideZero: boolean,
 ): StockReportLocationSection {
   const rows: StockReportLocationRow[] = [];
   let sectionTotalKg = 0;
@@ -241,14 +242,14 @@ function buildLocationSection(
         salesPoint.id,
         location.id,
       );
-      if (quantityKg == null || quantityKg === 0) {
+      if (hideZero && (quantityKg == null || quantityKg === 0)) {
         continue;
       }
       dataRows.push({
         salesPointName:
           dataRows.length === 0 ? salesPoint.name.toUpperCase() : null,
         storageName: location.name.toUpperCase(),
-        quantityKg,
+        quantityKg: quantityKg ?? 0,
         remarks: remarksAtLocation(
           balances,
           products,
@@ -261,7 +262,7 @@ function buildLocationSection(
       });
     }
 
-    if (dataRows.length === 0) {
+    if (hideZero && dataRows.length === 0) {
       continue;
     }
 
@@ -293,6 +294,7 @@ function buildBottledSection(
   products: ProductRow[],
   balances: BalanceRow[],
   storageLocations: StorageLocationRow[],
+  hideZero: boolean,
 ): StockReportBottledSection | null {
   const bottledProducts = products.filter(
     (product) => product.productCatId === category.productCatId,
@@ -354,7 +356,7 @@ function buildBottledSection(
         unitCounts,
       };
     })
-    .filter((row) => sum(row.unitCounts) !== 0);
+    .filter((row) => !hideZero || sum(row.unitCounts) !== 0);
 
   const columnTotals = columns.map((_, columnIndex) =>
     sum(rows.map((row) => row.unitCounts[columnIndex] ?? 0)),
@@ -382,6 +384,7 @@ function buildKernelSplitSection(
   salesPoints: SalesPointRow[],
   products: ProductRow[],
   balances: BalanceRow[],
+  hideZero: boolean,
 ): StockReportKernelSplitSection {
   const catProducts = products.filter((p) => p.productCatId === category.productCatId);
   const crackedIds = new Set(
@@ -415,7 +418,7 @@ function buildKernelSplitSection(
         totalKg: crackedKg + uncrackedKg,
       };
     })
-    .filter((row) => row.totalKg !== 0);
+    .filter((row) => !hideZero || row.totalKg !== 0);
 
   const totals = {
     salesPointName: "TOTAL",
@@ -437,6 +440,7 @@ function buildSalesPointQtySection(
   category: CategoryRow,
   salesPoints: SalesPointRow[],
   balances: BalanceRow[],
+  hideZero: boolean,
 ): StockReportSalesPointQtySection {
   const rows = salesPoints
     .map((salesPoint) => ({
@@ -451,7 +455,7 @@ function buildSalesPointQtySection(
           .map((row) => row.qty),
       ),
     }))
-    .filter((row) => row.quantityKg !== 0);
+    .filter((row) => !hideZero || row.quantityKg !== 0);
 
   return {
     kind: "sales_point_qty",
@@ -465,6 +469,7 @@ function buildSalesPointQtySection(
 
 export function getStockReport(userId?: string | null): StockReport {
   const settings = loadReportCompanySettings(userId);
+  const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
   const salesPoints = loadSalesPoints();
   const storageLocations = loadStorageLocations();
   const products = loadProducts();
@@ -488,6 +493,7 @@ export function getStockReport(userId?: string | null): StockReport {
         products,
         balances,
         storageLocations,
+        hideZero,
       );
       if (bottled) {
         sections.push(bottled);
@@ -496,12 +502,14 @@ export function getStockReport(userId?: string | null): StockReport {
     }
     if (layout === "kernel_split") {
       sections.push(
-        buildKernelSplitSection(category, salesPoints, products, balances),
+        buildKernelSplitSection(category, salesPoints, products, balances, hideZero),
       );
       continue;
     }
     if (layout === "sales_point_qty") {
-      sections.push(buildSalesPointQtySection(category, salesPoints, balances));
+      sections.push(
+        buildSalesPointQtySection(category, salesPoints, balances, hideZero),
+      );
       continue;
     }
 
@@ -514,6 +522,7 @@ export function getStockReport(userId?: string | null): StockReport {
       balances,
       products,
       showOilGrandTotalAfter,
+      hideZero,
     );
     sections.push(locationSection);
     if (isOilLocationCategory(category)) {
@@ -529,5 +538,6 @@ export function getStockReport(userId?: string | null): StockReport {
     generatedAtIso: nowIso(),
     sections,
     oilGrandTotalKg,
+    comments: loadReportComments("stock-report"),
   };
 }

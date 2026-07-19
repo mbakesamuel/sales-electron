@@ -2,10 +2,11 @@ import type {
   WeeklyDeliveriesBottledSection,
   WeeklyDeliveriesLooseRow,
   WeeklyDeliveriesLooseSection,
-  WeeklyDeliveriesMiscRow,
+  WeeklyDeliveriesMiscSection,
   WeeklyDeliveriesReport,
+  WeeklyDeliveriesWeekChoice,
 } from "../../shared/reports.types.js";
-import { loadReportCompanySettings } from "./companySettings.js";
+import { loadReportCompanySettings, loadReportDisplaySettings, loadReportComments } from "./companySettings.js";
 import { resolveReportAsAt } from "../financialYears/service.js";
 import {
   PALM_OIL_KG_PER_LITRE,
@@ -28,10 +29,12 @@ const LOOSE_CATEGORY_ROWS = [
 ] as const;
 
 const BOTTLED_DELIVERY_COLUMNS = [
-  { id: "jug20", label: "1X20L JUG", litresPerUnit: 20 },
   { id: "carton15", label: "1X15L CTN", litresPerUnit: 15 },
   { id: "carton5", label: "3X5L CTN", litresPerUnit: 15 },
+  { id: "jug20", label: "1X20L JUG", litresPerUnit: 20 },
 ] as const;
+
+const MISC_SECTION_TITLE = "3) OTHER PRODUCTS / PKO";
 
 interface SaleLineRecord {
   salesPointId: number | null;
@@ -46,22 +49,52 @@ interface SaleLineRecord {
   qtyUnits: number | null;
 }
 
-function getWeekRange(asAt: Date): { weekFromIso: string; weekToIso: string } {
-  const day = asAt.getDay();
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+/** Local calendar date (avoids UTC shift from Date.toISOString). */
+function toIsoDate(date: Date): string {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+
+function startOfDay(date: Date): Date {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function parseLocalIso(iso: string): Date {
+  return startOfDay(new Date(`${iso.slice(0, 10)}T00:00:00`));
+}
+
+function mondayOf(date: Date): Date {
+  const day = date.getDay();
   const diffToMonday = day === 0 ? -6 : 1 - day;
-  const monday = new Date(asAt);
-  monday.setHours(0, 0, 0, 0);
-  monday.setDate(asAt.getDate() + diffToMonday);
+  const monday = new Date(date);
+  monday.setDate(date.getDate() + diffToMonday);
+  return startOfDay(monday);
+}
 
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
+function minIso(a: string, b: string): string {
+  return a <= b ? a : b;
+}
 
-  const toDate = asAt < sunday ? asAt : sunday;
+function maxIso(a: string, b: string): string {
+  return a >= b ? a : b;
+}
 
-  return {
-    weekFromIso: monday.toISOString().slice(0, 10),
-    weekToIso: toDate.toISOString().slice(0, 10),
-  };
+function formatWeekLabel(weekFromIso: string, weekToIso: string): string {
+  const from = parseLocalIso(weekFromIso);
+  const to = parseLocalIso(weekToIso);
+  const fromDay = from.getDate();
+  const toDay = to.getDate();
+  const monthShort = to.toLocaleDateString("en-GB", { month: "short" });
+  if (from.getMonth() === to.getMonth() && from.getFullYear() === to.getFullYear()) {
+    return `${fromDay}–${toDay} ${monthShort}`;
+  }
+  const fromMonth = from.toLocaleDateString("en-GB", { month: "short" });
+  return `${fromDay} ${fromMonth} – ${toDay} ${monthShort}`;
 }
 
 function resolveLooseCategoryId(
@@ -130,6 +163,7 @@ function bottledLineUnits(line: SaleLineRecord): number {
 function buildLooseSection(
   salesPoints: SalesPointRow[],
   saleLines: SaleLineRecord[],
+  hideZero: boolean,
 ): WeeklyDeliveriesLooseSection {
   const salesPointNames = salesPoints.map((salesPoint) => salesPoint.name.toUpperCase());
   const looseLines = saleLines.filter((line) => line.isBottled !== 1 && line.isMain === 1);
@@ -160,7 +194,7 @@ function buildLooseSection(
       rowTotal: sum(quantities),
       kind: "data" as const,
     };
-  }).filter((row) => Math.abs(row.rowTotal) > 0.0001);
+  }).filter((row) => !hideZero || Math.abs(row.rowTotal) > 0.0001);
 
   const columnTotals = salesPoints.map((_, salesPointIndex) =>
     sum(dataRows.map((row) => row.quantities[salesPointIndex] ?? 0)),
@@ -223,43 +257,133 @@ function buildBottledSection(
   };
 }
 
-function buildMiscRows(saleLines: SaleLineRecord[], products: ProductRow[]): WeeklyDeliveriesMiscRow[] {
+function buildMiscSection(
+  saleLines: SaleLineRecord[],
+  products: ProductRow[],
+  hideZero: boolean,
+): WeeklyDeliveriesMiscSection {
   const miscProducts = products.filter((product) => product.isBottled !== 1 && product.isMain !== 1);
   const miscLines = saleLines.filter((line) => line.isBottled !== 1 && line.isMain !== 1);
 
-  return miscProducts
+  const rows = miscProducts
     .map((product) => ({
       label: product.productName.toUpperCase(),
       quantityKg: sum(
         miscLines.filter((line) => line.productId === product.productId).map((line) => looseLineKg(line)),
       ),
     }))
-    .filter((row) => row.quantityKg > 0)
+    .filter((row) => !hideZero || row.quantityKg > 0)
     .sort((left, right) => left.label.localeCompare(right.label));
+
+  return {
+    title: MISC_SECTION_TITLE,
+    rows,
+  };
+}
+
+/** Mondays of weeks that overlap the open month up to as-at. */
+function buildWeekChoices(
+  monthStart: string,
+  monthEnd: string,
+  asAtIso: string,
+): WeeklyDeliveriesWeekChoice[] {
+  const hardEnd = minIso(monthEnd, asAtIso);
+  if (hardEnd < monthStart) {
+    return [];
+  }
+
+  const firstMonday = mondayOf(parseLocalIso(monthStart));
+  const cursor = new Date(firstMonday);
+  const choices: WeeklyDeliveriesWeekChoice[] = [];
+
+  while (toIsoDate(cursor) <= hardEnd) {
+    const mondayIso = toIsoDate(cursor);
+    const sunday = new Date(cursor);
+    sunday.setDate(cursor.getDate() + 6);
+    const sundayIso = toIsoDate(sunday);
+
+    const weekFromIso = maxIso(mondayIso, monthStart);
+    const weekToIso = minIso(sundayIso, hardEnd);
+
+    if (weekFromIso <= weekToIso) {
+      choices.push({
+        weekMondayIso: mondayIso,
+        weekFromIso,
+        weekToIso,
+        label: formatWeekLabel(weekFromIso, weekToIso),
+      });
+    }
+
+    cursor.setDate(cursor.getDate() + 7);
+  }
+
+  return choices;
+}
+
+function resolveSelectedWeek(
+  choices: WeeklyDeliveriesWeekChoice[],
+  asAtIso: string,
+  requestedMondayIso: string | null | undefined,
+): WeeklyDeliveriesWeekChoice | null {
+  if (choices.length === 0) {
+    return null;
+  }
+
+  if (requestedMondayIso) {
+    const match = choices.find((choice) => choice.weekMondayIso === requestedMondayIso.slice(0, 10));
+    if (match) {
+      return match;
+    }
+  }
+
+  const asAtMonday = toIsoDate(mondayOf(parseLocalIso(asAtIso)));
+  return (
+    choices.find((choice) => choice.weekMondayIso === asAtMonday) ??
+    choices[choices.length - 1] ??
+    null
+  );
 }
 
 export function getWeeklyDeliveriesReport(
   userId?: string | null,
+  weekMondayIso?: string | null,
 ): WeeklyDeliveriesReport {
   const settings = loadReportCompanySettings(userId);
+  const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
   const salesPoints = loadSalesPoints();
   const products = loadProducts();
 
   const { asAtIso, period } = resolveReportAsAt();
-  const asAtDate = new Date(`${asAtIso}T00:00:00`);
-  const { weekFromIso, weekToIso } = getWeekRange(asAtDate);
-  const clippedFrom = weekFromIso < period.startDate ? period.startDate : weekFromIso;
-  const clippedTo = weekToIso > asAtIso ? asAtIso : weekToIso;
-  const saleLines = loadSaleLines(clippedFrom, clippedTo);
+  const weekChoices = buildWeekChoices(period.startDate, period.endDate, asAtIso);
+  const selected =
+    resolveSelectedWeek(weekChoices, asAtIso, weekMondayIso) ??
+    (() => {
+      const monday = mondayOf(parseLocalIso(asAtIso));
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      const weekFromIso = maxIso(toIsoDate(monday), period.startDate);
+      const weekToIso = minIso(toIsoDate(sunday), asAtIso);
+      return {
+        weekMondayIso: toIsoDate(monday),
+        weekFromIso,
+        weekToIso,
+        label: formatWeekLabel(weekFromIso, weekToIso),
+      } satisfies WeeklyDeliveriesWeekChoice;
+    })();
+
+  const saleLines = loadSaleLines(selected.weekFromIso, selected.weekToIso);
 
   return {
     settings,
     asAtIso,
-    weekFromIso: clippedFrom,
-    weekToIso: clippedTo,
+    weekMondayIso: selected.weekMondayIso,
+    weekFromIso: selected.weekFromIso,
+    weekToIso: selected.weekToIso,
+    weekChoices,
     generatedAtIso: nowIso(),
-    looseSection: buildLooseSection(salesPoints, saleLines),
+    looseSection: buildLooseSection(salesPoints, saleLines, hideZero),
     bottledSection: buildBottledSection(saleLines, products),
-    miscRows: buildMiscRows(saleLines, products),
+    miscSection: buildMiscSection(saleLines, products, hideZero),
+    comments: loadReportComments("sales-delivery-report"),
   };
 }

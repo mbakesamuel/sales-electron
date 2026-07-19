@@ -3,11 +3,15 @@ import { getAuthenticatedReports } from "../auth/reports.ts";
 import type {
   WeeklyDeliveriesBottledSection,
   WeeklyDeliveriesLooseSection,
+  WeeklyDeliveriesMiscSection,
   WeeklyDeliveriesReport,
 } from "../../shared/reports.types.ts";
+import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
+import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
 import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import "./StockCommitmentReport.css";
+import "./SalesBudgetCrosstab.css";
 
 function formatReportDate(iso: string): string {
   const date = new Date(`${iso}T00:00:00`);
@@ -66,9 +70,9 @@ function buildCsv(report: WeeklyDeliveriesReport): string {
   lines.push(["KGS", ...report.bottledSection.kgs, report.bottledSection.totalKgs].join(","));
   lines.push(`TOTAL DELIVERIES,,,${report.bottledSection.totalUnits}`);
 
-  if (report.miscRows.length > 0) {
-    lines.push("");
-    for (const row of report.miscRows) {
+  if (report.miscSection.rows.length > 0) {
+    lines.push("", report.miscSection.title);
+    for (const row of report.miscSection.rows) {
       lines.push(`${row.label},${row.quantityKg}`);
     }
   }
@@ -182,6 +186,34 @@ function BottledSection({ section }: { section: WeeklyDeliveriesBottledSection }
   );
 }
 
+function MiscSection({ section }: { section: WeeklyDeliveriesMiscSection }) {
+  if (section.rows.length === 0) {
+    return null;
+  }
+
+  return (
+    <div class="scr-bottled-block">
+      <table class="scr-table">
+        <thead>
+          <tr>
+            <th colSpan={2} class="scr-section-title">
+              {section.title}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {section.rows.map((row) => (
+            <tr key={row.label} class="scr-row">
+              <td class="scr-row-label">{row.label}</td>
+              <td class="scr-num">{formatQty(row.quantityKg)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function WeeklyDeliveriesReportDocument({
   report,
 }: {
@@ -193,39 +225,13 @@ export function WeeklyDeliveriesReportDocument({
         companyName={report.settings.companyName}
         department={report.settings.department ?? null}
         serviceName={report.settings.serviceName ?? null}
-        title="Deliveries of the week (KGs)"
-        meta={
-          <>
-            <p class="scr-meta-line">
-              <span class="scr-meta-label">WEEK:</span>{" "}
-              {formatReportDate(report.weekFromIso)} – {formatReportDate(report.weekToIso)}
-            </p>
-            <p class="scr-as-at">
-              AS at{" "}
-              <span class="scr-as-at-date">{formatShortReportDate(report.asAtIso)}</span>
-            </p>
-            <p class="scr-generated">{formatReportDate(report.asAtIso)}</p>
-          </>
-        }
+        title={`Deliveries of the week (KGs) ${formatShortReportDate(report.weekFromIso)} – ${formatShortReportDate(report.weekToIso)}`}
       />
 
       <LooseSection section={report.looseSection} />
       <BottledSection section={report.bottledSection} />
-
-      {report.miscRows.length > 0 ? (
-        <div class="scr-bottled-block">
-          <table class="scr-table">
-            <tbody>
-              {report.miscRows.map((row) => (
-                <tr key={row.label} class="scr-row">
-                  <td class="scr-row-label">{row.label}</td>
-                  <td class="scr-num">{formatQty(row.quantityKg)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
+      <MiscSection section={report.miscSection} />
+      <ReportCommentsSection comments={report.comments} />
       <ReportFooter />
     </div>
   );
@@ -233,6 +239,7 @@ export function WeeklyDeliveriesReportDocument({
 
 export function WeeklyDeliveriesReportScreen() {
   const [report, setReport] = useState<WeeklyDeliveriesReport | null>(null);
+  const [weekMondayIso, setWeekMondayIso] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -243,7 +250,7 @@ export function WeeklyDeliveriesReportScreen() {
       setLoading(true);
       setError(null);
       try {
-        const data = await getAuthenticatedReports().getWeeklyDeliveries();
+        const data = await getAuthenticatedReports().getWeeklyDeliveries(weekMondayIso);
         if (!cancelled) {
           setReport(data);
         }
@@ -262,13 +269,13 @@ export function WeeklyDeliveriesReportScreen() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [weekMondayIso]);
 
-  if (loading) {
+  if (loading && !report) {
     return <p class="scr-status">Loading weekly deliveries report...</p>;
   }
 
-  if (error) {
+  if (error && !report) {
     return <p class="scr-status scr-status-error">{error}</p>;
   }
 
@@ -276,25 +283,57 @@ export function WeeklyDeliveriesReportScreen() {
     return <p class="scr-status">No report data available.</p>;
   }
 
+  function reload() {
+    const monday = weekMondayIso ?? report?.weekMondayIso;
+    void getAuthenticatedReports()
+      .getWeeklyDeliveries(monday)
+      .then(setReport)
+      .catch((loadError: unknown) => {
+        setError(loadError instanceof Error ? loadError.message : "Failed to load report.");
+      });
+  }
+
   return (
-    <div class="scr-page">
-      <div class="scr-toolbar no-print">
-        <button type="button" class="scr-btn" onClick={handlePrint}>
-          Print
-        </button>
-        <button type="button" class="scr-btn scr-btn-secondary" onClick={() => downloadCsv(report)}>
-          Export CSV
-        </button>
-        <button
-          type="button"
-          class="scr-btn scr-btn-secondary"
-          onClick={() => {
-            void getAuthenticatedReports().getWeeklyDeliveries().then(setReport);
-          }}
-        >
-          Refresh
-        </button>
+    <div class="scr-page sbc-root">
+      <div class="scr-toolbar no-print sbc-toolbar">
+        {report.weekChoices.length > 0 ? (
+          <div class="sbc-year-picker" aria-label="Week in open month">
+            {report.weekChoices.map((week) => (
+              <button
+                key={week.weekMondayIso}
+                type="button"
+                class={`sbc-year-btn${week.weekMondayIso === report.weekMondayIso ? " is-active" : ""}`}
+                disabled={loading}
+                onClick={() => setWeekMondayIso(week.weekMondayIso)}
+              >
+                {week.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <div class="scr-toolbar-actions sbc-actions">
+          <button type="button" class="scr-btn" onClick={handlePrint}>
+            Print
+          </button>
+          <button
+            type="button"
+            class="scr-btn scr-btn-secondary"
+            onClick={() => downloadCsv(report)}
+          >
+            Export CSV
+          </button>
+          <ReportCommentsEditor
+            reportId="sales-delivery-report"
+            comments={report.comments}
+            onSaved={reload}
+          />
+          <button type="button" class="scr-btn scr-btn-secondary" onClick={reload}>
+            Refresh
+          </button>
+        </div>
       </div>
+
+      {error ? <p class="scr-status scr-status-error no-print">{error}</p> : null}
 
       <WeeklyDeliveriesReportDocument report={report} />
     </div>

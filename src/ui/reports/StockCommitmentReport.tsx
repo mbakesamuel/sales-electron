@@ -5,6 +5,8 @@ import type {
   StockCommitmentReport,
   StockCommitmentReportRow,
 } from "../../shared/reports.types.ts";
+import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
+import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
 import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import "./StockCommitmentReport.css";
@@ -241,6 +243,8 @@ export function StockCommitmentReportDocument({
       </table>
 
       {report.bottledSection ? <BottledSection section={report.bottledSection} /> : null}
+
+      <ReportCommentsSection comments={report.comments} />
       <ReportFooter />
     </div>
   );
@@ -250,6 +254,12 @@ export function StockCommitmentReportScreen() {
   const [report, setReport] = useState<StockCommitmentReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  async function reloadReport() {
+    const data = await getAuthenticatedReports().getStockCommitment();
+    setReport(data);
+    return data;
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -300,11 +310,22 @@ export function StockCommitmentReportScreen() {
         <button type="button" class="scr-btn scr-btn-secondary" onClick={() => downloadCsv(report)}>
           Export CSV
         </button>
+        <ReportCommentsEditor
+          reportId="stock-commitment-report"
+          comments={report.comments}
+          onSaved={() => void reloadReport()}
+        />
         <button
           type="button"
           class="scr-btn scr-btn-secondary"
           onClick={() => {
-            void getAuthenticatedReports().getStockCommitment().then(setReport);
+            void reloadReport().catch((refreshError) => {
+              setError(
+                refreshError instanceof Error
+                  ? refreshError.message
+                  : "Failed to refresh report.",
+              );
+            });
           }}
         >
           Refresh

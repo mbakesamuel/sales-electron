@@ -20,7 +20,7 @@ import {
   resolveUnitPriceExTax,
 } from "../pricing/resolveUnitPrice.js";
 import { loadTaxRatesAsOf } from "../tax/resolveRates.js";
-import { deductStockForValidatedSale } from "../stock/sales.js";
+import { assertSaleLinesStockAsOf, deductStockForValidatedSale } from "../stock/sales.js";
 import { isInsufficientStockError } from "../stock/errors.js";
 import { allocateInvoiceNo, newPaymentId, newSaleId, newSaleLineId } from "./invoice.js";
 import { formatXaf, parseAmount, roundMoney, trimQty } from "./money.js";
@@ -726,6 +726,31 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
     };
   }
 
+  if (input.salesPointId != null && Number.isFinite(input.salesPointId)) {
+    try {
+      assertSaleLinesStockAsOf(db, {
+        salesPointId: input.salesPointId,
+        dateIssued: soldAt,
+        isBottleMode,
+        lines: computedLines.map((line) => ({
+          productId: line.productId,
+          qtyKg: line.qtyKg,
+          qtyUnits: line.qtyUnits ?? null,
+          storageLocationId: line.storageLocationId ?? null,
+        })),
+      });
+    } catch (stockError) {
+      if (isInsufficientStockError(stockError)) {
+        return { ok: false, error: stockError.message };
+      }
+      return {
+        ok: false,
+        error:
+          stockError instanceof Error ? stockError.message : "Could not verify stock.",
+      };
+    }
+  }
+
   const timestamp = nowIso();
 
   const insertSale = db.prepare(
@@ -847,6 +872,9 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
     tx();
     return { ok: true, saleId, invoiceNo };
   } catch (error) {
+    if (isInsufficientStockError(error)) {
+      return { ok: false, error: error.message };
+    }
     return {
       ok: false,
       error: error instanceof Error ? error.message : "Could not create sale.",
@@ -865,8 +893,19 @@ export function validateSale(saleId: string, userId: string): SaleMutationResult
   }
 
   const existing = db
-    .prepare(`SELECT id, status FROM Sale WHERE id = ?`)
-    .get(saleId) as { id: string; status: string } | undefined;
+    .prepare(
+      `SELECT id, status, salesPointId, saleProductMode, dateIssued
+       FROM Sale WHERE id = ?`,
+    )
+    .get(saleId) as
+    | {
+        id: string;
+        status: string;
+        salesPointId: number | null;
+        saleProductMode: string | null;
+        dateIssued: string | null;
+      }
+    | undefined;
 
   if (!existing) {
     return { ok: false, error: "Sale not found." };
@@ -877,9 +916,35 @@ export function validateSale(saleId: string, userId: string): SaleMutationResult
   }
 
   const validatedAt = nowIso();
+  const dateIssued = String(existing.dateIssued ?? validatedAt).slice(0, 10);
+  const isBottleMode = existing.saleProductMode === "BOTTLE";
 
   try {
     const tx = db.transaction(() => {
+      if (existing.salesPointId != null) {
+        const lines = db
+          .prepare(
+            `SELECT productId, qtyKg, qtyUnits, storageLocationId
+             FROM SaleLine
+             WHERE saleId = ?
+             ORDER BY id ASC`,
+          )
+          .all(saleId) as Array<{
+          productId: number;
+          qtyKg: string;
+          qtyUnits: string | null;
+          storageLocationId: number | null;
+        }>;
+
+        assertSaleLinesStockAsOf(db, {
+          salesPointId: existing.salesPointId,
+          dateIssued,
+          isBottleMode,
+          lines,
+          excludeSaleId: saleId,
+        });
+      }
+
       db.prepare(
         `UPDATE Sale
          SET status = 'VALIDATED', validatedAt = ?, validatedByUserId = ?, updatedAt = ?

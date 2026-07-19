@@ -34,8 +34,9 @@ function getSoldQtyForDoProduct(
 
 export function listAvailableDeliveryOrders(
   salesPointId: number,
+  customerId: number,
 ): AvailableDeliveryOrderRow[] {
-  if (!Number.isFinite(salesPointId)) {
+  if (!Number.isFinite(salesPointId) || !Number.isFinite(customerId)) {
     return [];
   }
 
@@ -45,11 +46,13 @@ export function listAvailableDeliveryOrders(
               COALESCE(d.sourceKind, 'NORMAL') AS sourceKind
        FROM DeliveryOrder d
        INNER JOIN Customer c ON c.id = d.customerId
-       WHERE d.salesPointId = ? AND d.status = 'VALIDATED'
+       WHERE d.salesPointId = ?
+         AND d.customerId = ?
+         AND d.status = 'VALIDATED'
        ORDER BY d.dateIssued DESC, d.deliveryOrderNo DESC
        LIMIT 100`,
     )
-    .all(salesPointId) as Array<{
+    .all(salesPointId, customerId) as Array<{
     id: number;
     deliveryOrderNo: string;
     dateIssued: string;
@@ -62,27 +65,35 @@ export function listAvailableDeliveryOrders(
   for (const order of orders) {
     const details = getDatabase()
       .prepare(
-        `SELECT productId, orderQty FROM DeliveryOrderDetails WHERE deliveryOrderId = ?`,
+        `SELECT dd.productId, p.productName, dd.orderQty
+         FROM DeliveryOrderDetails dd
+         INNER JOIN Product p ON p.productId = dd.productId
+         WHERE dd.deliveryOrderId = ?
+         ORDER BY p.productName ASC, dd.id ASC`,
       )
-      .all(order.id) as Array<{ productId: number; orderQty: number }>;
+      .all(order.id) as Array<{
+      productId: number;
+      productName: string;
+      orderQty: number;
+    }>;
 
-    let balanceKg = 0;
     for (const detail of details) {
       const sold = getSoldQtyForDoProduct(order.deliveryOrderNo, detail.productId);
-      balanceKg += Math.max(detail.orderQty - sold, 0);
-    }
+      const balanceKg = Math.max(detail.orderQty - sold, 0);
+      if (balanceKg <= 0) {
+        continue;
+      }
 
-    if (balanceKg <= 0) {
-      continue;
+      rows.push({
+        deliveryOrderNo: order.deliveryOrderNo,
+        customerName: order.customerName,
+        dateIssued: order.dateIssued.slice(0, 10),
+        productId: detail.productId,
+        productName: detail.productName,
+        balanceKg: trimQty(balanceKg),
+        isCarryForward: order.sourceKind === "CARRY_FORWARD",
+      });
     }
-
-    rows.push({
-      deliveryOrderNo: order.deliveryOrderNo,
-      customerName: order.customerName,
-      dateIssued: order.dateIssued.slice(0, 10),
-      balanceKg: trimQty(balanceKg),
-      isCarryForward: order.sourceKind === "CARRY_FORWARD",
-    });
   }
 
   return rows;

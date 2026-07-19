@@ -282,6 +282,7 @@ function loadMovements(scopedSalesPointId: number | null): StockMovementRow[] {
         .all() as Array<Record<string, unknown>>);
 
   const docNoByKey = new Map<string, string>();
+  const carryForwardByKey = new Map<string, boolean>();
   for (const row of rows) {
     const key = `${row.sourceKind}:${row.sourceId}`;
     if (docNoByKey.has(key)) {
@@ -306,9 +307,15 @@ function loadMovements(scopedSalesPointId: number | null): StockMovementRow[] {
       if (sale) docNoByKey.set(key, sale.invoiceNo);
     } else if (sourceKind === "ADJUSTMENT") {
       const adjustment = db
-        .prepare(`SELECT adjustmentNo FROM StockAdjustment WHERE id = ?`)
-        .get(sourceId) as { adjustmentNo: string } | undefined;
-      if (adjustment) docNoByKey.set(key, adjustment.adjustmentNo);
+        .prepare(
+          `SELECT adjustmentNo, COALESCE(sourceKind, 'NORMAL') AS sourceKind
+           FROM StockAdjustment WHERE id = ?`,
+        )
+        .get(sourceId) as { adjustmentNo: string; sourceKind: string } | undefined;
+      if (adjustment) {
+        docNoByKey.set(key, adjustment.adjustmentNo);
+        carryForwardByKey.set(key, adjustment.sourceKind === "CARRY_FORWARD");
+      }
     }
   }
 
@@ -333,6 +340,8 @@ function loadMovements(scopedSalesPointId: number | null): StockMovementRow[] {
     userName: row.userName as string,
     notes: row.notes ? String(row.notes) : null,
     createdAtIso: String(row.createdAt),
+    isCarryForward:
+      carryForwardByKey.get(`${row.sourceKind}:${row.sourceId}`) === true,
   }));
 }
 
@@ -456,7 +465,8 @@ function loadAdjustments(scopedSalesPointId: number | null): AdjustmentListRow[]
     ? (db
         .prepare(
           `SELECT a.id, a.adjustmentNo, a.salesPointId, sp.name AS salesPointName,
-                  a.occurredAt, a.reason, a.status, a.postedAt, a.createdAt,
+                  a.occurredAt, a.reason, a.status, COALESCE(a.sourceKind, 'NORMAL') AS sourceKind,
+                  a.postedAt, a.createdAt,
                   cu.name AS createdByName, pu.name AS postedByName
            FROM StockAdjustment a
            JOIN SalesPoint sp ON sp.id = a.salesPointId
@@ -470,7 +480,8 @@ function loadAdjustments(scopedSalesPointId: number | null): AdjustmentListRow[]
     : (db
         .prepare(
           `SELECT a.id, a.adjustmentNo, a.salesPointId, sp.name AS salesPointName,
-                  a.occurredAt, a.reason, a.status, a.postedAt, a.createdAt,
+                  a.occurredAt, a.reason, a.status, COALESCE(a.sourceKind, 'NORMAL') AS sourceKind,
+                  a.postedAt, a.createdAt,
                   cu.name AS createdByName, pu.name AS postedByName
            FROM StockAdjustment a
            JOIN SalesPoint sp ON sp.id = a.salesPointId
@@ -495,6 +506,8 @@ function loadAdjustments(scopedSalesPointId: number | null): AdjustmentListRow[]
       occurredAtIso: String(row.occurredAt).slice(0, 10),
       reason: String(row.reason),
       status: row.status as AdjustmentListRow["status"],
+      sourceKind:
+        String(row.sourceKind) === "CARRY_FORWARD" ? "CARRY_FORWARD" : "NORMAL",
       lineCount,
       createdByName: row.createdByName as string,
       postedByName: (row.postedByName as string | null) ?? null,
@@ -1217,6 +1230,9 @@ export function postAdjustment(userId: string, adjustmentId: string): StockGener
         throw new Error("Add at least one line before posting.");
       }
 
+      const isCarryForward = String(existing.sourceKind ?? "NORMAL") === "CARRY_FORWARD";
+      const adjustmentNotes = isCarryForward ? "Carry-forward stock" : undefined;
+
       for (const line of lines) {
         if (line.fromCondition && line.toCondition) {
           const qty = absQty(String(line.deltaQty));
@@ -1257,6 +1273,7 @@ export function postAdjustment(userId: string, adjustmentId: string): StockGener
             userId,
             sourceKind: "ADJUSTMENT",
             sourceId: adjustmentId,
+            ...(adjustmentNotes ? { notes: adjustmentNotes } : {}),
           });
         }
       }
@@ -1468,7 +1485,8 @@ export function loadAdjustmentDetail(id: string, userId: string): AdjustmentDeta
   const row = db
     .prepare(
       `SELECT a.id, a.adjustmentNo, a.salesPointId, sp.name AS salesPointName,
-              a.occurredAt, a.reason, a.status, a.postedAt, a.createdAt,
+              a.occurredAt, a.reason, a.status, COALESCE(a.sourceKind, 'NORMAL') AS sourceKind,
+              a.postedAt, a.createdAt,
               cu.name AS createdByName, pu.name AS postedByName
        FROM StockAdjustment a
        JOIN SalesPoint sp ON sp.id = a.salesPointId
@@ -1508,6 +1526,8 @@ export function loadAdjustmentDetail(id: string, userId: string): AdjustmentDeta
     occurredAtIso: String(row.occurredAt).slice(0, 10),
     reason: String(row.reason),
     status: row.status as AdjustmentDetail["status"],
+    sourceKind:
+      String(row.sourceKind) === "CARRY_FORWARD" ? "CARRY_FORWARD" : "NORMAL",
     lineCount: lines.length,
     createdByName: row.createdByName as string,
     postedByName: (row.postedByName as string | null) ?? null,

@@ -48,6 +48,8 @@ export interface StockCommitmentReport {
   /** Totals for all non-bottled product sections; shown before bottled block. */
   looseGrandTotal: StockCommitmentReportRow | null;
   bottledSection: StockCommitmentBottledSection | null;
+  /** Company-wide comments; null when empty (section hidden on the report). */
+  comments: string | null;
 }
 
 export interface StockReportLocationRow {
@@ -126,6 +128,7 @@ export interface StockReport {
   generatedAtIso: string;
   sections: StockReportSection[];
   oilGrandTotalKg: number;
+  comments: string | null;
 }
 
 export interface CommitmentReportRow {
@@ -155,6 +158,7 @@ export interface CommitmentReport {
   columnTotals: number[];
   /** Sum of all section grand totals. */
   grandTotal: number;
+  comments: string | null;
 }
 
 export interface BottleOilStockPackColumn {
@@ -210,6 +214,7 @@ export interface BottleOilStockSalesReport {
   generatedAtIso: string;
   stockSection: BottleOilStockSection;
   salesSection: BottleOilSalesSection;
+  comments: string | null;
 }
 
 export interface WeeklyDeliveriesLooseRow {
@@ -246,15 +251,31 @@ export interface WeeklyDeliveriesMiscRow {
   quantityKg: number;
 }
 
+export interface WeeklyDeliveriesMiscSection {
+  title: string;
+  rows: WeeklyDeliveriesMiscRow[];
+}
+
+export interface WeeklyDeliveriesWeekChoice {
+  /** Monday of the ISO week (selection key). */
+  weekMondayIso: string;
+  weekFromIso: string;
+  weekToIso: string;
+  label: string;
+}
+
 export interface WeeklyDeliveriesReport {
   settings: ReportCompanySettings;
   asAtIso: string;
+  weekMondayIso: string;
   weekFromIso: string;
   weekToIso: string;
+  weekChoices: WeeklyDeliveriesWeekChoice[];
   generatedAtIso: string;
   looseSection: WeeklyDeliveriesLooseSection;
   bottledSection: WeeklyDeliveriesBottledSection;
-  miscRows: WeeklyDeliveriesMiscRow[];
+  miscSection: WeeklyDeliveriesMiscSection;
+  comments: string | null;
 }
 
 export interface MonthlyDeliveryCell {
@@ -294,6 +315,7 @@ export interface MonthlyDeliveryReport {
   kernelPkBudgetSection: MonthlyDeliveryBudgetSection;
   /** Palm oil + PKO + PKC with G.TOTAL (includes P. KERNEL FCFA) and variance. */
   budgetSection: MonthlyDeliveryBudgetSection;
+  comments: string | null;
 }
 
 export interface MonthlyDeliveryBudgetMetric {
@@ -428,6 +450,7 @@ export interface BottledWeeklyIssuesReport {
   detail: BottledWeeklyDetailSection;
   summary: BottledWeeklySummarySection;
   compare: BottledWeeklyCompareSection;
+  comments: string | null;
 }
 
 export interface SalesBudgetMonthlyCrosstabRow {
@@ -447,6 +470,7 @@ export interface SalesBudgetMonthlyCrosstabReport {
   colTotals: number[];
   grandTotal: number;
   generatedAtIso: string;
+  comments: string | null;
 }
 
 export interface SalesBudgetWeeklyCrosstabWeekMeta {
@@ -478,5 +502,6 @@ export interface SalesBudgetWeeklyCrosstabReport {
   colTotals: number[];
   grandTotal: number;
   generatedAtIso: string;
+  comments: string | null;
 }
 

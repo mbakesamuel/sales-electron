@@ -102,12 +102,18 @@ export function registerSalesHandlers(): void {
 
   ipcMain.handle(
     "sales:listAvailableDeliveryOrders",
-    (_event, salesPointId: number): AvailableDeliveryOrderRow[] => {
-      if (typeof salesPointId !== "number") {
+    (
+      _event,
+      payload: { salesPointId: number; customerId: number },
+    ): AvailableDeliveryOrderRow[] => {
+      if (
+        typeof payload?.salesPointId !== "number" ||
+        typeof payload?.customerId !== "number"
+      ) {
         return [];
       }
 
-      return listAvailableDeliveryOrders(salesPointId);
+      return listAvailableDeliveryOrders(payload.salesPointId, payload.customerId);
     },
   );
 

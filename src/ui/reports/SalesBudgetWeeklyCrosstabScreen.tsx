@@ -7,6 +7,8 @@ import {
   monthName,
   salesBudgetCrosstabCellKey,
 } from "../../shared/salesBudgetPhase.ts";
+import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
+import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
 import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import "./StockCommitmentReport.css";
@@ -219,6 +221,7 @@ export function SalesBudgetWeeklyCrosstabDocument({
         </div>
       )}
 
+      <ReportCommentsSection comments={report.comments} />
       <ReportFooter />
     </div>
   );
@@ -303,6 +306,11 @@ export function SalesBudgetWeeklyCrosstabScreen({
           >
             Export CSV
           </button>
+          <ReportCommentsEditor
+            reportId="sales-budget-weekly-crosstab"
+            comments={report.comments}
+            onSaved={() => setReloadKey((value) => value + 1)}
+          />
           <button
             type="button"
             class="scr-btn"
@@ -441,6 +449,7 @@ export function SalesBudgetWeeklyCrosstabScreen({
           </div>
         )}
 
+        <ReportCommentsSection comments={report.comments} />
         <ReportFooter />
       </div>
     </div>

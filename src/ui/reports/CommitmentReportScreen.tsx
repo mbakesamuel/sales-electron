@@ -1,6 +1,8 @@
 import { useEffect, useState } from "preact/hooks";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import type { CommitmentReport, CommitmentReportSection } from "../../shared/reports.types.ts";
+import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
+import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
 import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import "./StockCommitmentReport.css";
@@ -161,6 +163,7 @@ export function CommitmentReportDocument({ report }: { report: CommitmentReport 
           ) : null}
         </>
       )}
+      <ReportCommentsSection comments={report.comments} />
       <ReportFooter />
     </div>
   );
@@ -220,6 +223,13 @@ export function CommitmentReportScreen() {
         <button type="button" class="scr-btn scr-btn-secondary" onClick={() => downloadCsv(report)}>
           Export CSV
         </button>
+        <ReportCommentsEditor
+          reportId="commitment-report"
+          comments={report.comments}
+          onSaved={() => {
+            void getAuthenticatedReports().getCommitmentReport().then(setReport);
+          }}
+        />
         <button
           type="button"
           class="scr-btn scr-btn-secondary"

@@ -4,7 +4,7 @@ import type {
   CommitmentReportSection,
 } from "../../shared/reports.types.js";
 import { resolveReportAsAt } from "../financialYears/service.js";
-import { loadReportCompanySettings } from "./companySettings.js";
+import { loadReportCompanySettings, loadReportDisplaySettings, loadReportComments } from "./companySettings.js";
 import {
   loadProducts,
   loadSalesPoints,
@@ -48,7 +48,7 @@ function loadCategories(): CategoryRow[] {
     .all() as CategoryRow[];
 }
 
-function loadOutstandingCommitments(): OutstandingCommitment[] {
+function loadOutstandingCommitments(hideZero: boolean): OutstandingCommitment[] {
   const rows = getDatabase()
     .prepare(
       `SELECT d.customerId, c.name AS customerName, d.salesPointId, dd.productId,
@@ -97,7 +97,7 @@ function loadOutstandingCommitments(): OutstandingCommitment[] {
   for (const row of rows) {
     const sold = soldByDoProduct.get(`${row.deliveryOrderNo}:${row.productId}`) ?? 0;
     const outstanding = Math.max(row.orderQty - sold, 0);
-    if (outstanding <= 0) {
+    if (hideZero && outstanding <= 0) {
       continue;
     }
 
@@ -161,6 +161,7 @@ function buildSection(
   salesPoints: SalesPointRow[],
   commitments: OutstandingCommitment[],
   products: ProductRow[],
+  hideZero: boolean,
 ): CommitmentReportSection | null {
   const categoryProducts = products.filter((product) => product.productCatId === category.productCatId);
   if (categoryProducts.length === 0) {
@@ -213,7 +214,7 @@ function buildSection(
         kind: "data" as const,
       };
     })
-    .filter((row) => row.rowTotal > 0)
+    .filter((row) => !hideZero || row.rowTotal > 0)
     .sort((left, right) => left.label.localeCompare(right.label));
 
   const columnTotals = salesPoints.map((salesPoint) =>
@@ -247,17 +248,25 @@ function buildSection(
 
 export function getCommitmentReport(userId?: string | null): CommitmentReport {
   const settings = loadReportCompanySettings(userId);
+  const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
   const salesPoints = loadSalesPoints();
   const categories = loadCategories();
   const products = loadProducts();
-  const commitments = loadOutstandingCommitments();
+  const commitments = loadOutstandingCommitments(hideZero);
 
   const sections: CommitmentReportSection[] = [];
   let sectionIndex = 0;
 
   for (const category of categories) {
     const sectionLetter = SECTION_LETTERS[sectionIndex] ?? String(sectionIndex + 1);
-    const section = buildSection(sectionLetter, category, salesPoints, commitments, products);
+    const section = buildSection(
+      sectionLetter,
+      category,
+      salesPoints,
+      commitments,
+      products,
+      hideZero,
+    );
     if (section) {
       sections.push(section);
       sectionIndex += 1;
@@ -280,5 +289,6 @@ export function getCommitmentReport(userId?: string | null): CommitmentReport {
     salesPointNames,
     columnTotals,
     grandTotal,
+    comments: loadReportComments("commitment-report"),
   };
 }

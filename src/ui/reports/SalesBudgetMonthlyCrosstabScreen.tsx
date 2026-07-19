@@ -6,6 +6,8 @@ import {
   formatPhasedQtyKgDisplay,
   monthName,
 } from "../../shared/salesBudgetPhase.ts";
+import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
+import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
 import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import "./StockCommitmentReport.css";
@@ -170,6 +172,11 @@ export function SalesBudgetMonthlyCrosstabScreen({
           <button type="button" class="scr-btn" onClick={() => downloadCsv(report)}>
             Export CSV
           </button>
+          <ReportCommentsEditor
+            reportId="sales-budget-monthly-crosstab"
+            comments={report.comments}
+            onSaved={() => setReloadKey((value) => value + 1)}
+          />
           <button
             type="button"
             class="scr-btn"
@@ -266,6 +273,7 @@ export function SalesBudgetMonthlyCrosstabScreen({
           </div>
         )}
 
+        <ReportCommentsSection comments={report.comments} />
         <ReportFooter />
       </div>
     </div>

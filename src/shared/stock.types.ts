@@ -67,6 +67,8 @@ export interface StockMovementRow {
   userName: string;
   notes: string | null;
   createdAtIso: string;
+  /** True when movement comes from a carry-forward stock adjustment. */
+  isCarryForward?: boolean;
 }
 
 export interface ReceiptListRow {
@@ -139,6 +141,7 @@ export interface AdjustmentListRow {
   occurredAtIso: string;
   reason: string;
   status: StockDocStatus;
+  sourceKind: "NORMAL" | "CARRY_FORWARD";
   lineCount: number;
   createdByName: string;
   postedByName: string | null;

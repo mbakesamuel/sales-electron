@@ -7,7 +7,7 @@ import type {
   MonthlyDeliveryRow,
   MonthlyDeliverySection,
 } from "../../shared/reports.types.js";
-import { loadReportCompanySettings } from "./companySettings.js";
+import { loadReportCompanySettings, loadReportComments } from "./companySettings.js";
 import { resolveReportAsAt } from "../financialYears/service.js";
 import {
   PALM_OIL_KG_PER_LITRE,
@@ -917,5 +917,8 @@ export function getMonthlyDeliveryReport(
     sections,
     kernelPkBudgetSection,
     budgetSection,
+    comments: loadReportComments(
+      half === 1 ? "monthly-delivery-report-h1" : "monthly-delivery-report-h2",
+    ),
   };
 }

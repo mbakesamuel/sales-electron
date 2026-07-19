@@ -204,10 +204,6 @@
   flex-direction: column;
   overflow: hidden;
   background-color: var(--shell-main);
-  background-image: url("../../assets/sales-img.jpg");
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 50% auto;
 }
 
 .home-topbar {
@@ -271,6 +267,13 @@
   background: var(--shell-content);
 }
 
+.home-main--dashboard .home-content {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .home-bottombar {
   min-height: 34px;
   flex-shrink: 0;
@@ -285,10 +288,6 @@
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 600;
-}
-
-html[data-theme="dark"] .home-main {
-  background-image: none;
 }
 
 html[data-theme="dark"] .home-content {

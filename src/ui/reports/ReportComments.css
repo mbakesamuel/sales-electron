@@ -1,0 +1,87 @@
+.scr-comments {
+  margin-top: 20px;
+  margin-bottom: 32px;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.sr-stock-compact .scr-comments {
+  margin-bottom: 36px;
+}
+
+.sr-stock-compact .scr-comments + .report-footer {
+  margin-top: 0;
+}
+
+.scr-comments-title {
+  margin: 0 0 8px;
+  font-family: "Arial Narrow", Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: inherit;
+}
+
+.scr-comments-body {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.35;
+  font-family: "Arial Narrow", Arial, sans-serif;
+  font-size: 12px;
+}
+
+.scr-comments-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+  min-width: 0;
+  max-height: min(22rem, calc(100vh - 6rem));
+  overflow-y: auto;
+}
+
+.scr-comments-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.scr-comments-field > span {
+  color: var(--text-muted);
+}
+
+.scr-comments-textarea {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 8rem;
+  max-height: min(12rem, calc(100vh - 14rem));
+  resize: vertical;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  background: var(--bg-elevated);
+  color: var(--text-h);
+}
+
+.scr-comments-error {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+@media print {
+  body.scr-print-mode .scr-comments {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    color: #000;
+  }
+}

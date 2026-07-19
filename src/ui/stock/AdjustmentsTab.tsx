@@ -154,17 +154,19 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
               : {}),
           })),
       });
-      if (res.ok) {
-        props.onOk(
-          editingId
-            ? `Adjustment ${res.documentNo} updated.`
-            : `Adjustment ${res.documentNo} drafted.`,
-        );
-        setOpen(false);
-        resetForm();
-      } else {
+      if ("error" in res) {
         props.onErr(res.error);
+        return;
       }
+      props.onOk(
+        editingId
+          ? `Adjustment ${res.documentNo} updated.`
+          : `Adjustment ${res.documentNo} drafted.`,
+      );
+      setOpen(false);
+      resetForm();
+    } catch (error) {
+      props.onErr(error instanceof Error ? error.message : "Could not save adjustment.");
     } finally {
       setBusy(false);
     }
@@ -174,12 +176,14 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
     setBusy(true);
     try {
       const res = await getElectronApi().stock.postAdjustment({ userId, adjustmentId: id });
-      if (res.ok) {
-        props.onOk("Adjustment posted; balances updated.");
-        if (reviewDetail?.id === id) setReviewDetail(null);
-      } else {
+      if ("error" in res) {
         props.onErr(res.error);
+        return;
       }
+      props.onOk("Adjustment posted; balances updated.");
+      if (reviewDetail?.id === id) setReviewDetail(null);
+    } catch (error) {
+      props.onErr(error instanceof Error ? error.message : "Could not post adjustment.");
     } finally {
       setBusy(false);
     }
@@ -192,12 +196,14 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
     setBusy(true);
     try {
       const res = await getElectronApi().stock.cancelAdjustment({ userId, adjustmentId: id });
-      if (res.ok) {
-        props.onOk("Adjustment cancelled.");
-        if (reviewDetail?.id === id) setReviewDetail(null);
-      } else {
+      if ("error" in res) {
         props.onErr(res.error);
+        return;
       }
+      props.onOk("Adjustment cancelled.");
+      if (reviewDetail?.id === id) setReviewDetail(null);
+    } catch (error) {
+      props.onErr(error instanceof Error ? error.message : "Could not cancel adjustment.");
     } finally {
       setBusy(false);
     }
@@ -207,8 +213,13 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
     setReviewBusy(true);
     try {
       const res = await getElectronApi().stock.loadAdjustmentForReview({ userId, adjustmentId: id });
-      if (res.ok) setReviewDetail(res.detail);
-      else props.onErr(res.error);
+      if ("error" in res) {
+        props.onErr(res.error);
+        return;
+      }
+      setReviewDetail(res.detail);
+    } catch (error) {
+      props.onErr(error instanceof Error ? error.message : "Could not load adjustment.");
     } finally {
       setReviewBusy(false);
     }
@@ -218,16 +229,18 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
     setReviewBusy(true);
     try {
       const res = await getElectronApi().stock.loadAdjustmentForReview({ userId, adjustmentId: id });
-      if (res.ok) {
-        if (res.detail.status !== "DRAFT") {
-          props.onErr("Only draft adjustments can be edited.");
-          return;
-        }
-        setReviewDetail(null);
-        populateFormFromDetail(res.detail);
-      } else {
+      if ("error" in res) {
         props.onErr(res.error);
+        return;
       }
+      if (res.detail.status !== "DRAFT") {
+        props.onErr("Only draft adjustments can be edited.");
+        return;
+      }
+      setReviewDetail(null);
+      populateFormFromDetail(res.detail);
+    } catch (error) {
+      props.onErr(error instanceof Error ? error.message : "Could not load adjustment.");
     } finally {
       setReviewBusy(false);
     }
@@ -241,12 +254,14 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
     setLookupBusy(true);
     try {
       const res = await getElectronApi().stock.findAdjustmentByNumber({ userId, adjustmentNo: n });
-      if (res.ok) {
-        setReviewDetail(res.detail);
-        setLookupNo("");
-      } else {
+      if ("error" in res) {
         props.onErr(res.error);
+        return;
       }
+      setReviewDetail(res.detail);
+      setLookupNo("");
+    } catch (error) {
+      props.onErr(error instanceof Error ? error.message : "Could not find adjustment.");
     } finally {
       setLookupBusy(false);
     }
@@ -327,10 +342,18 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
             ) : (
               rows.map((r) => (
                 <tr key={r.id}>
-                  <td class="stock-mono">{r.adjustmentNo}</td>
+                  <td class="stock-mono">
+                    {r.sourceKind === "CARRY_FORWARD" ? "CF · " : ""}
+                    {r.adjustmentNo}
+                  </td>
                   <td class="stock-nowrap">{formatDate(r.occurredAtIso)}</td>
                   <td>{r.salesPointName}</td>
-                  <td>{r.reason}</td>
+                  <td>
+                    {r.reason}
+                    {r.sourceKind === "CARRY_FORWARD" ? (
+                      <span class="stock-subtext"> · carry-forward</span>
+                    ) : null}
+                  </td>
                   <td class="stock-num">{r.lineCount}</td>
                   <td>
                     <StatusBadge status={r.status} />
@@ -402,7 +425,7 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
 
       {reviewDetail ? (
         <DocDialog
-          title={`Review adjustment ${reviewDetail.adjustmentNo}`}
+          title={`Review adjustment ${reviewDetail.sourceKind === "CARRY_FORWARD" ? "CF · " : ""}${reviewDetail.adjustmentNo}`}
           wide
           onClose={() => setReviewDetail(null)}
         >
@@ -414,7 +437,10 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
             <div class="stock-review-grid">
               <ReviewKeyValue label="Sales point">{reviewDetail.salesPointName}</ReviewKeyValue>
               <ReviewKeyValue label="Date">{formatDate(reviewDetail.occurredAtIso)}</ReviewKeyValue>
-              <ReviewKeyValue label="Reason">{reviewDetail.reason}</ReviewKeyValue>
+              <ReviewKeyValue label="Reason">
+                {reviewDetail.reason}
+                {reviewDetail.sourceKind === "CARRY_FORWARD" ? " · carry-forward" : ""}
+              </ReviewKeyValue>
               <ReviewKeyValue label="Drafted by">
                 {reviewDetail.createdByName}
                 <span class="stock-subtext"> {formatDateTime(reviewDetail.createdAtIso)}</span>

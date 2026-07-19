@@ -7,7 +7,7 @@ import type {
 } from "../../shared/reports.types.js";
 import { getDatabase } from "../db/index.js";
 import { resolveReportAsAt } from "../financialYears/service.js";
-import { loadReportCompanySettings } from "./companySettings.js";
+import { loadReportCompanySettings, loadReportDisplaySettings, loadReportComments } from "./companySettings.js";
 
 const PALM_OIL_KG_PER_LITRE = 0.85;
 
@@ -204,6 +204,7 @@ function buildProductSection(
   salesPoints: SalesPointRow[],
   stockMetrics: MetricRow[],
   commitmentMetrics: MetricRow[],
+  hideZero: boolean,
 ): StockCommitmentReportSection | null {
   const title = product.productName.toUpperCase();
 
@@ -218,12 +219,15 @@ function buildProductSection(
       return makeDataRow("", salesPoint.name, metrics);
     })
     .filter((row) => {
+      if (!hideZero) {
+        return true;
+      }
       const stock = row.stockKg ?? 0;
       const commitment = row.commitmentKg ?? 0;
       return Math.abs(stock) > 0.0001 || Math.abs(commitment) > 0.0001;
     });
 
-  if (dataRows.length === 0) {
+  if (hideZero && dataRows.length === 0) {
     return null;
   }
 
@@ -330,6 +334,7 @@ export function getStockCommitmentReport(
   userId?: string | null,
 ): StockCommitmentReport {
   const settings = loadReportCompanySettings(userId);
+  const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
   const salesPoints = loadSalesPoints();
   const categories = loadCategories();
   const products = loadProducts();
@@ -354,6 +359,7 @@ export function getStockCommitmentReport(
         salesPoints,
         stockMetrics,
         commitmentMetrics,
+        hideZero,
       );
       if (!section) {
         continue;
@@ -384,5 +390,6 @@ export function getStockCommitmentReport(
     sections,
     looseGrandTotal,
     bottledSection,
+    comments: loadReportComments("stock-commitment-report"),
   };
 }

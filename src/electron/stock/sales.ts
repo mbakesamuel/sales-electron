@@ -1,8 +1,9 @@
 import type Database from "better-sqlite3";
 import { formatQty, parseQty } from "./decimal.js";
+import { InsufficientStockError } from "./errors.js";
 import { applyMovement } from "./post.js";
 
-function resolveSellableStorageLocation(
+export function resolveSellableStorageLocation(
   db: Database.Database,
   salesPointId: number,
   preferredLocationId: number | null,
@@ -55,6 +56,146 @@ function resolveSellableStorageLocation(
   return fallback.id;
 }
 
+function movementSignedQty(kind: string, qty: string): number {
+  const amount = parseQty(qty);
+  switch (kind) {
+    case "RECEIPT":
+    case "TRANSFER_IN":
+    case "SALE_REVERSAL":
+      return amount;
+    case "TRANSFER_OUT":
+    case "SALE":
+      return -amount;
+    case "ADJUSTMENT":
+      return amount;
+    default:
+      return amount;
+  }
+}
+
+/** Sellable on-hand reconstructed from movements through asOfDateIso (inclusive). */
+export function getSellableBalanceAsOf(
+  db: Database.Database,
+  salesPointId: number,
+  productId: number,
+  storageLocationId: number,
+  asOfDateIso: string,
+  excludeSaleId?: string | null,
+): number {
+  const asOf = asOfDateIso.slice(0, 10);
+  const rows = (
+    excludeSaleId
+      ? db
+          .prepare(
+            `SELECT kind, qty
+             FROM StockMovement
+             WHERE salesPointId = ?
+               AND productId = ?
+               AND storageLocationId = ?
+               AND condition = 'SELLABLE'
+               AND substr(occurredAt, 1, 10) <= ?
+               AND NOT (sourceKind = 'SALE' AND sourceId = ?)`,
+          )
+          .all(salesPointId, productId, storageLocationId, asOf, excludeSaleId)
+      : db
+          .prepare(
+            `SELECT kind, qty
+             FROM StockMovement
+             WHERE salesPointId = ?
+               AND productId = ?
+               AND storageLocationId = ?
+               AND condition = 'SELLABLE'
+               AND substr(occurredAt, 1, 10) <= ?`,
+          )
+          .all(salesPointId, productId, storageLocationId, asOf)
+  ) as Array<{ kind: string; qty: string }>;
+
+  let total = 0;
+  for (const row of rows) {
+    total += movementSignedQty(row.kind, row.qty);
+  }
+  return total;
+}
+
+export interface SaleStockLineInput {
+  productId: number;
+  qtyKg: string;
+  qtyUnits?: string | null;
+  storageLocationId?: number | null;
+}
+
+/**
+ * Ensures each sale line is covered by sellable stock as of dateIssued
+ * at the resolved storage location (running reservation within the sale).
+ */
+export function assertSaleLinesStockAsOf(
+  db: Database.Database,
+  args: {
+    salesPointId: number;
+    dateIssued: string;
+    isBottleMode: boolean;
+    lines: SaleStockLineInput[];
+    excludeSaleId?: string | null;
+  },
+): void {
+  const asOf = args.dateIssued.slice(0, 10);
+  const reserved = new Map<string, number>();
+
+  for (const line of args.lines) {
+    const rawQty = args.isBottleMode ? (line.qtyUnits ?? line.qtyKg) : line.qtyKg;
+    const qty = parseQty(rawQty);
+    if (qty <= 0) {
+      continue;
+    }
+
+    const storageLocationId = resolveSellableStorageLocation(
+      db,
+      args.salesPointId,
+      line.storageLocationId ?? null,
+      args.isBottleMode,
+    );
+
+    const key = `${line.productId}:${storageLocationId}`;
+    const alreadyReserved = reserved.get(key) ?? 0;
+    const available = getSellableBalanceAsOf(
+      db,
+      args.salesPointId,
+      line.productId,
+      storageLocationId,
+      asOf,
+      args.excludeSaleId,
+    );
+    const remaining = available - alreadyReserved;
+
+    if (remaining + 0.000001 < qty) {
+      const product = db
+        .prepare(`SELECT productName FROM Product WHERE productId = ?`)
+        .get(line.productId) as { productName: string } | undefined;
+      const location = db
+        .prepare(
+          `SELECT l.locationName AS name
+           FROM StorageLocation sl
+           INNER JOIN Location l ON l.id = sl.locationId
+           WHERE sl.id = ?`,
+        )
+        .get(storageLocationId) as { name: string } | undefined;
+
+      const productLabel = product?.productName ?? `product ${line.productId}`;
+      const locationLabel = location?.name ?? `location ${storageLocationId}`;
+      throw new InsufficientStockError(
+        `Insufficient stock as of ${asOf} for ${productLabel} at ${locationLabel} ` +
+          `(available ${Math.max(0, remaining).toLocaleString()}, needed ${qty.toLocaleString()}).`,
+      );
+    }
+
+    reserved.set(key, alreadyReserved + qty);
+  }
+}
+
+function noonOnDate(isoDate: string): string {
+  return `${isoDate.slice(0, 10)}T12:00:00`;
+}
+
 export function deductStockForValidatedSale(
   db: Database.Database,
   saleId: string,
@@ -63,7 +204,7 @@ export function deductStockForValidatedSale(
 ): void {
   const sale = db
     .prepare(
-      `SELECT salesPointId, saleProductMode, invoiceNo
+      `SELECT salesPointId, saleProductMode, invoiceNo, dateIssued
        FROM Sale
        WHERE id = ?`,
     )
@@ -72,6 +213,7 @@ export function deductStockForValidatedSale(
         salesPointId: number | null;
         saleProductMode: string | null;
         invoiceNo: string;
+        dateIssued: string | null;
       }
     | undefined;
 
@@ -92,6 +234,10 @@ export function deductStockForValidatedSale(
   }
 
   const isBottleMode = sale.saleProductMode === "BOTTLE";
+  const movementAt = sale.dateIssued
+    ? noonOnDate(String(sale.dateIssued))
+    : occurredAt;
+
   const lines = db
     .prepare(
       `SELECT productId, qtyKg, qtyUnits, storageLocationId
@@ -126,7 +272,7 @@ export function deductStockForValidatedSale(
       storageLocationId,
       qty: formatQty(qty),
       kind: "SALE",
-      occurredAt,
+      occurredAt: movementAt,
       userId,
       sourceKind: "SALE",
       sourceId: saleId,

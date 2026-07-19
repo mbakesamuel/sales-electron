@@ -4,6 +4,8 @@ import type {
   MonthlyDeliveryBudgetSection,
   MonthlyDeliveryReport,
 } from "../../shared/reports.types.ts";
+import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
+import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
 import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import "./StockCommitmentReport.css";
@@ -401,6 +403,15 @@ export function MonthlyDeliveryReportScreen({ half }: MonthlyDeliveryReportScree
         >
           Export CSV
         </button>
+        <ReportCommentsEditor
+          reportId={
+            half === 1 ? "monthly-delivery-report-h1" : "monthly-delivery-report-h2"
+          }
+          comments={report.comments}
+          onSaved={() => {
+            void getAuthenticatedReports().getMonthlyDelivery(half).then(setReport);
+          }}
+        />
         <button
           type="button"
           class="scr-btn scr-btn-secondary"
@@ -518,6 +529,7 @@ export function MonthlyDeliveryReportScreen({ half }: MonthlyDeliveryReportScree
           or before as-at. G.TOTAL includes P. KERNEL (000 FCFA). Delivery tables above remain
           half-scoped (Jan–Jun or Jul–Dec).
         </p>
+        <ReportCommentsSection comments={report.comments} />
         <ReportFooter />
       </div>
     </div>

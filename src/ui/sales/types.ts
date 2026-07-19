@@ -169,6 +169,9 @@ export interface AvailableDeliveryOrderRow {
   deliveryOrderNo: string;
   customerName: string;
   dateIssued: string;
+  productId: number;
+  productName: string;
+  /** Remaining kg for this product only (not DO total). */
   balanceKg: string;
   isCarryForward?: boolean;
 }
@@ -268,7 +271,10 @@ export interface SalesApi {
   createSale(input: CreateSaleInput): Promise<SaveSaleResult>;
   validateSale(payload: { saleId: string; userId: string }): Promise<SaleMutationResult>;
   deleteSale(payload: { saleId: string; userId: string }): Promise<SaleMutationResult>;
-  listAvailableDeliveryOrders(salesPointId: number): Promise<AvailableDeliveryOrderRow[]>;
+  listAvailableDeliveryOrders(payload: {
+    salesPointId: number;
+    customerId: number;
+  }): Promise<AvailableDeliveryOrderRow[]>;
   lookupDeliveryOrder(payload: {
     deliveryOrderNo: string;
     salesPointId: number;

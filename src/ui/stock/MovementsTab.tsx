@@ -94,7 +94,7 @@ export function MovementsTab({ rows, salesPoints, scopedSalesPointId }: Movement
       if (kind && r.kind !== kind) return false;
       if (q) {
         const blob =
-          `${r.productName} ${r.salesPointName} ${r.storageLocationName} ${r.documentNo ?? ""}`.toLowerCase();
+          `${r.productName} ${r.salesPointName} ${r.storageLocationName} ${r.documentNo ?? ""} ${r.isCarryForward ? "cf carry-forward" : ""}`.toLowerCase();
         if (!blob.includes(q)) return false;
       }
       return true;
@@ -174,7 +174,10 @@ export function MovementsTab({ rows, salesPoints, scopedSalesPointId }: Movement
                 const { plus, minus } = movementQtyColumns(r, trimQty);
                 return (
                   <tr key={r.id}>
-                    <td class="stock-muted">{r.documentNo ?? "—"}</td>
+                    <td class="stock-muted">
+                      {r.isCarryForward ? "CF · " : ""}
+                      {r.documentNo ?? "—"}
+                    </td>
                     <td class="stock-nowrap" title={r.createdAtIso}>
                       {formatDateTime(r.occurredAtIso)}
                     </td>
@@ -188,10 +191,18 @@ export function MovementsTab({ rows, salesPoints, scopedSalesPointId }: Movement
                           : "Unsellable"}
                     </td>
                     <td>{r.productName}</td>
-                    <td class="stock-nowrap">{STOCK_MOVEMENT_KIND_LABELS[r.kind]}</td>
+                    <td class="stock-nowrap">
+                      {STOCK_MOVEMENT_KIND_LABELS[r.kind]}
+                      {r.isCarryForward ? " · CF" : ""}
+                    </td>
                     <td class="stock-num stock-strong stock-text-positive">{plus ?? "—"}</td>
                     <td class="stock-num stock-strong stock-text-negative">{minus ?? "—"}</td>
-                    <td class="stock-muted">{r.notes ?? ""}</td>
+                    <td class="stock-muted">
+                      {r.notes ?? ""}
+                      {r.isCarryForward && !(r.notes ?? "").toLowerCase().includes("carry-forward")
+                        ? " · carry-forward"
+                        : ""}
+                    </td>
                   </tr>
                 );
               })

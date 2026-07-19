@@ -77,7 +77,10 @@ CREATE TABLE IF NOT EXISTS CompanySettings (
   updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
   fiscalYearStartMonth INTEGER NOT NULL DEFAULT 1,
   logoUrl TEXT,
-  uiThemePreset TEXT NOT NULL DEFAULT 'agro' CHECK (uiThemePreset IN ('agro', 'dark'))
+  uiThemePreset TEXT NOT NULL DEFAULT 'agro' CHECK (uiThemePreset IN ('agro', 'dark')),
+  hideZeroReportRows INTEGER NOT NULL DEFAULT 1 CHECK (hideZeroReportRows IN (0, 1)),
+  stockCommitmentReportComments TEXT,
+  reportCommentsJson TEXT NOT NULL DEFAULT '{}'
 );
 
 CREATE TABLE IF NOT EXISTS DeliveryOrderSequence (
@@ -589,6 +592,7 @@ CREATE TABLE IF NOT EXISTS StockAdjustment (
   occurredAt TEXT NOT NULL,
   reason TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT','POSTED','DISPATCHED','RECEIVED','CANCELLED')),
+  sourceKind TEXT NOT NULL DEFAULT 'NORMAL' CHECK (sourceKind IN ('NORMAL','CARRY_FORWARD')),
   createdByUserId TEXT NOT NULL REFERENCES User(id),
   postedByUserId TEXT REFERENCES User(id),
   postedAt TEXT,

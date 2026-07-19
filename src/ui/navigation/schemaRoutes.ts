@@ -23,6 +23,12 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         description: "Company-wide configuration.",
       },
       {
+        id: "report-settings",
+        label: "Report settings",
+        table: "CompanySettings",
+        description: "Display options for stock and delivery reports.",
+      },
+      {
         id: "financial-year-periods",
         label: "Financial years",
         table: "FinancialYearPeriod",
@@ -155,6 +161,13 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         description:
           "Manage stock balance, movements, receipts, transfers, and adjustments.",
       },
+      {
+        id: "carry-forward-stock",
+        label: "Opening Stock balances",
+        table: "StockBalance",
+        description:
+          "Enter opening / carried-forward on-hand quantities by sales point and location.",
+      },
     ],
   },
  
@@ -170,7 +183,7 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
       },
       {
         id: "carry-forward-commitments",
-        label: "Carry-forward commitments",
+        label: "Opening commitment balances",
         table: "DeliveryOrder",
         description:
           "Enter opening / carried-forward customer commitments by product and sales point.",
@@ -222,14 +235,14 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
       },
       {
         id: "bottled-weekly-issues-report",
-        label: "Weekly Bottled Sales Report",
+        label: "Bottled Sales Report",
         table: "Sale",
         description:
           "Bottled palm oil issues Mon–Fri by payment method, with MTD and YTD summary.",
       },
       {
         id: "sales-delivery-report",
-        label: "Sales / delivery report",
+        label: "Sales/delivery report",
         table: "Sale",
         description: "Weekly sales and deliveries by customer category.",
       },

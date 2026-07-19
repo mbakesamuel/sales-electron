@@ -406,19 +406,25 @@ export function SalesClient({
       !useRegisteredCustomer
     ) {
       setAvailableDos([]);
+      setDoPickerOpen(false);
       return;
     }
 
     const spId = Number.parseInt(salesPointId, 10);
-    if (!Number.isFinite(spId)) {
+    const custId = Number.parseInt(customerId, 10);
+    if (!Number.isFinite(spId) || !Number.isFinite(custId)) {
       setAvailableDos([]);
+      setDoPickerOpen(false);
       return;
     }
 
     let cancelled = false;
 
     getElectronApi()
-      .sales.listAvailableDeliveryOrders(spId)
+      .sales.listAvailableDeliveryOrders({
+        salesPointId: spId,
+        customerId: custId,
+      })
       .then((rows) => {
         if (!cancelled) {
           setAvailableDos(rows);
@@ -436,6 +442,7 @@ export function SalesClient({
   }, [
     options,
     salesPointId,
+    customerId,
     isBottleMode,
     isSpecialDisposition,
     isReadOnly,
@@ -682,18 +689,24 @@ export function SalesClient({
     }
   }
 
-  function applyDoLines() {
-    if (!doLookup || !options) {
+  function applyDoLinesFrom(
+    lookup: DeliveryOrderLookupResult,
+    productId?: number,
+  ) {
+    if (!options) {
       return;
     }
 
     setUseRegisteredCustomer(true);
-    setCustomerId(String(doLookup.customerId));
+    setCustomerId(String(lookup.customerId));
     setInvoiceCustomerName("");
-    setDeliveryOrderNo(doLookup.deliveryOrderNo);
+    setDeliveryOrderNo(lookup.deliveryOrderNo);
 
-    const nextLines = doLookup.perProduct
+    const nextLines = lookup.perProduct
       .filter((row) => parseDec(row.balanceQty) > 0)
+      .filter((row) =>
+        productId == null ? true : row.productId === productId,
+      )
       .map((row) => ({
         productId: String(row.productId),
         qtyKg: row.balanceQty,
@@ -710,7 +723,10 @@ export function SalesClient({
     if (nextLines.length === 0) {
       setBanner({
         type: "error",
-        text: "No remaining balance on this delivery order.",
+        text:
+          productId == null
+            ? "No remaining balance on this delivery order."
+            : "No remaining balance for that product on this delivery order.",
       });
       return;
     }
@@ -718,13 +734,61 @@ export function SalesClient({
     setLines(nextLines);
     setBanner({
       type: "ok",
-      text: `Loaded ${nextLines.length} line(s) from ${doLookup.deliveryOrderNo}.`,
+      text: `Loaded ${nextLines.length} line(s) from ${lookup.deliveryOrderNo}.`,
     });
   }
 
-  function selectDeliveryOrder(doNo: string) {
-    setDeliveryOrderNo(doNo);
+  function applyDoLines() {
+    if (!doLookup) {
+      return;
+    }
+    applyDoLinesFrom(doLookup);
+  }
+
+  async function selectDeliveryOrder(doNo: string, productId: number) {
+    const spId = Number.parseInt(salesPointId, 10);
+    const custId = Number.parseInt(customerId, 10);
+
     setDoPickerOpen(false);
+    setDeliveryOrderNo(doNo);
+    setDoLookup(null);
+
+    if (!Number.isFinite(spId) || !Number.isFinite(custId)) {
+      setBanner({
+        type: "error",
+        text: "Select a sales point and customer before picking a delivery order.",
+      });
+      return;
+    }
+
+    setBusy("do-lookup");
+    setBanner(null);
+
+    try {
+      const result = await getElectronApi().sales.lookupDeliveryOrder({
+        deliveryOrderNo: doNo,
+        salesPointId: spId,
+        customerId: custId,
+      });
+
+      if (!result) {
+        setBanner({ type: "error", text: "Delivery order not found." });
+        return;
+      }
+
+      setDoLookup(result);
+      applyDoLinesFrom(result, productId);
+    } catch (error) {
+      setBanner({
+        type: "error",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Failed to load delivery order.",
+      });
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function saveSale() {
@@ -1296,6 +1360,7 @@ export function SalesClient({
                         <button
                           type="button"
                           class="sales-btn-secondary sales-do-btn"
+                          disabled={busy !== null}
                           onClick={() => setDoPickerOpen((open) => !open)}
                         >
                           Pick DO {doPickerOpen ? "▴" : "▾"}
@@ -1307,11 +1372,15 @@ export function SalesClient({
                 {doPickerOpen && availableDos.length > 0 ? (
                   <ul class="sales-do-picker">
                     {availableDos.map((row) => (
-                      <li key={row.deliveryOrderNo}>
+                      <li key={`${row.deliveryOrderNo}:${row.productId}`}>
                         <button
                           type="button"
+                          disabled={busy !== null}
                           onClick={() =>
-                            selectDeliveryOrder(row.deliveryOrderNo)
+                            void selectDeliveryOrder(
+                              row.deliveryOrderNo,
+                              row.productId,
+                            )
                           }
                         >
                           <strong>
@@ -1319,7 +1388,7 @@ export function SalesClient({
                             {row.deliveryOrderNo}
                           </strong>
                           <span>
-                            {row.customerName} · {row.dateIssued} ·{" "}
+                            {row.productName} · {row.dateIssued} ·{" "}
                             {row.balanceKg} kg left
                             {row.isCarryForward ? " · carry-forward" : ""}
                           </span>

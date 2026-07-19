@@ -7,7 +7,7 @@ import type {
   BottleOilStockSalesReport,
   BottleOilStockSection,
 } from "../../shared/reports.types.js";
-import { loadReportCompanySettings } from "./companySettings.js";
+import { loadReportCompanySettings, loadReportDisplaySettings, loadReportComments } from "./companySettings.js";
 import { resolveReportAsAt } from "../financialYears/service.js";
 import {
   PALM_OIL_KG_PER_LITRE,
@@ -114,6 +114,7 @@ function buildStockSection(
   products: ProductRow[],
   balances: Array<{ salesPointId: number; productId: number; qty: number }>,
   asAtIso: string,
+  hideZero: boolean,
 ): BottleOilStockSection {
   const bottledProducts = products.filter((product) => product.isBottled === 1);
   const columns = STOCK_PACK_COLUMNS.map(({ packIds: _packIds, ...column }) => column);
@@ -149,7 +150,9 @@ function buildStockSection(
     })
     .filter(
       (row) =>
-        Math.abs(row.rowTotalUnits) > 0.0001 || Math.abs(row.rowTotalKg) > 0.0001,
+        !hideZero ||
+        Math.abs(row.rowTotalUnits) > 0.0001 ||
+        Math.abs(row.rowTotalKg) > 0.0001,
     );
 
   const unitColumnTotals = STOCK_PACK_COLUMNS.map((_, columnIndex) =>
@@ -224,6 +227,7 @@ function buildSalesSection(
   products: ProductRow[],
   salesFromIso: string,
   salesToIso: string,
+  hideZero: boolean,
 ): BottleOilSalesSection {
   const bottledProducts = products.filter((product) => product.isBottled === 1);
   const productPackById = new Map(
@@ -273,7 +277,10 @@ function buildSalesSection(
   }
 
   const activeMonthRows = monthRows.filter(
-    (row) => Math.abs(row.rowTotalKg) > 0.0001 || Math.abs(row.rowTotalValue) > 0.0001,
+    (row) =>
+      !hideZero ||
+      Math.abs(row.rowTotalKg) > 0.0001 ||
+      Math.abs(row.rowTotalValue) > 0.0001,
   );
 
   const totalKgs = SALES_COLUMNS.map((_, columnIndex) =>
@@ -343,6 +350,7 @@ export function getBottleOilStockSalesReport(
   userId?: string | null,
 ): BottleOilStockSalesReport {
   const settings = loadReportCompanySettings(userId);
+  const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
   const salesPoints = loadSalesPoints();
   const products = loadProducts();
   const balances = loadBottledStockBalances();
@@ -355,7 +363,8 @@ export function getBottleOilStockSalesReport(
     settings,
     asAtIso,
     generatedAtIso: nowIso(),
-    stockSection: buildStockSection(salesPoints, products, balances, asAtIso),
-    salesSection: buildSalesSection(products, salesFromIso, salesToIso),
+    stockSection: buildStockSection(salesPoints, products, balances, asAtIso, hideZero),
+    salesSection: buildSalesSection(products, salesFromIso, salesToIso, hideZero),
+    comments: loadReportComments("bottle-oil-stock-sales-report"),
   };
 }
