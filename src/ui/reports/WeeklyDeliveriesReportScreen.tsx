@@ -182,6 +182,55 @@ function BottledSection({ section }: { section: WeeklyDeliveriesBottledSection }
   );
 }
 
+export function WeeklyDeliveriesReportDocument({
+  report,
+}: {
+  report: WeeklyDeliveriesReport;
+}) {
+  return (
+    <div class="scr-document wpp-pack-page">
+      <ReportHeader
+        companyName={report.settings.companyName}
+        department={report.settings.department ?? null}
+        serviceName={report.settings.serviceName ?? null}
+        title="Deliveries of the week (KGs)"
+        meta={
+          <>
+            <p class="scr-meta-line">
+              <span class="scr-meta-label">WEEK:</span>{" "}
+              {formatReportDate(report.weekFromIso)} – {formatReportDate(report.weekToIso)}
+            </p>
+            <p class="scr-as-at">
+              AS at{" "}
+              <span class="scr-as-at-date">{formatShortReportDate(report.asAtIso)}</span>
+            </p>
+            <p class="scr-generated">{formatReportDate(report.asAtIso)}</p>
+          </>
+        }
+      />
+
+      <LooseSection section={report.looseSection} />
+      <BottledSection section={report.bottledSection} />
+
+      {report.miscRows.length > 0 ? (
+        <div class="scr-bottled-block">
+          <table class="scr-table">
+            <tbody>
+              {report.miscRows.map((row) => (
+                <tr key={row.label} class="scr-row">
+                  <td class="scr-row-label">{row.label}</td>
+                  <td class="scr-num">{formatQty(row.quantityKg)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+      <ReportFooter />
+    </div>
+  );
+}
+
 export function WeeklyDeliveriesReportScreen() {
   const [report, setReport] = useState<WeeklyDeliveriesReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -247,46 +296,7 @@ export function WeeklyDeliveriesReportScreen() {
         </button>
       </div>
 
-      <div class="scr-document">
-        <ReportHeader
-          companyName={report.settings.companyName}
-          department={report.settings.department ?? null}
-          serviceName={report.settings.serviceName ?? null}
-          title="Deliveries of the week (KGs)"
-          meta={
-            <>
-              <p class="scr-meta-line">
-                <span class="scr-meta-label">WEEK:</span>{" "}
-                {formatReportDate(report.weekFromIso)} – {formatReportDate(report.weekToIso)}
-              </p>
-              <p class="scr-as-at">
-                AS at{" "}
-                <span class="scr-as-at-date">{formatShortReportDate(report.asAtIso)}</span>
-              </p>
-              <p class="scr-generated">{formatReportDate(report.asAtIso)}</p>
-            </>
-          }
-        />
-
-        <LooseSection section={report.looseSection} />
-        <BottledSection section={report.bottledSection} />
-
-        {report.miscRows.length > 0 ? (
-          <div class="scr-bottled-block">
-            <table class="scr-table">
-              <tbody>
-                {report.miscRows.map((row) => (
-                  <tr key={row.label} class="scr-row">
-                    <td class="scr-row-label">{row.label}</td>
-                    <td class="scr-num">{formatQty(row.quantityKg)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
-        <ReportFooter />
-      </div>
+      <WeeklyDeliveriesReportDocument report={report} />
     </div>
   );
 }

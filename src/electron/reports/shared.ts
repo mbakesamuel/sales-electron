@@ -14,6 +14,7 @@ export interface StorageLocationRow {
   id: number;
   salesPointId: number;
   name: string;
+  isSellable: boolean;
 }
 
 export interface ProductRow {
@@ -50,7 +51,7 @@ export function loadSalesPoints(): SalesPointRow[] {
 export function loadStorageLocations(): StorageLocationRow[] {
   return getDatabase()
     .prepare(
-      `SELECT sl.id, sl.salesPointId, l.locationName AS name
+      `SELECT sl.id, sl.salesPointId, l.locationName AS name, sl.isSellable
        FROM StorageLocation sl
        INNER JOIN Location l ON l.id = sl.locationId
        ORDER BY sl.salesPointId ASC, l.locationName ASC`,
@@ -60,6 +61,7 @@ export function loadStorageLocations(): StorageLocationRow[] {
       id: (row as { id: number }).id,
       salesPointId: (row as { salesPointId: number }).salesPointId,
       name: (row as { name: string }).name,
+      isSellable: (row as { isSellable: number }).isSellable === 1,
     }));
 }
 

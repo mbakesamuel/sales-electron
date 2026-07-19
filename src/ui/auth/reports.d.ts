@@ -3,7 +3,7 @@ export declare function getAuthenticatedReports(): {
     getStockReport: () => Promise<import("../../shared/reports.types.ts").StockReport>;
     getCommitmentReport: () => Promise<import("../../shared/reports.types.ts").CommitmentReport>;
     getBottleOilStockSales: () => Promise<import("../../shared/reports.types.ts").BottleOilStockSalesReport>;
-    getBottledWeeklyIssues: () => Promise<import("../../shared/reports.types.ts").BottledWeeklyIssuesReport>;
+    getBottledWeeklyIssues: (estimateBasis?: import("../../shared/reports.types.ts").BottledWeeklyEstimateBasis) => Promise<import("../../shared/reports.types.ts").BottledWeeklyIssuesReport>;
     getWeeklyDeliveries: () => Promise<import("../../shared/reports.types.ts").WeeklyDeliveriesReport>;
     getMonthlyDelivery: (half: 1 | 2) => Promise<import("../../shared/reports.types.ts").MonthlyDeliveryReport>;
     getSalesBudgetMonthlyCrosstab: (reportYear?: number) => Promise<import("../../shared/reports.types.ts").SalesBudgetMonthlyCrosstabReport>;

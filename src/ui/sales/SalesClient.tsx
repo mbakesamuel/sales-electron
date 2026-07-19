@@ -1314,10 +1314,14 @@ export function SalesClient({
                             selectDeliveryOrder(row.deliveryOrderNo)
                           }
                         >
-                          <strong>{row.deliveryOrderNo}</strong>
+                          <strong>
+                            {row.isCarryForward ? "CF · " : ""}
+                            {row.deliveryOrderNo}
+                          </strong>
                           <span>
                             {row.customerName} · {row.dateIssued} ·{" "}
                             {row.balanceKg} kg left
+                            {row.isCarryForward ? " · carry-forward" : ""}
                           </span>
                         </button>
                       </li>

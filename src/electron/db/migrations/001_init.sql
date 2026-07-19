@@ -228,7 +228,7 @@ CREATE TABLE IF NOT EXISTS Product (
 CREATE TABLE IF NOT EXISTS ProductSalesBudgetMonthPhaseProfile (
   id TEXT PRIMARY KEY NOT NULL,
   financialYear INTEGER NOT NULL,
-  productId INTEGER NOT NULL REFERENCES Product(productId) ON DELETE CASCADE,
+  productCatId INTEGER NOT NULL REFERENCES ProductCat(productCatId) ON DELETE CASCADE,
   pctM01 TEXT NOT NULL,
   pctM02 TEXT NOT NULL,
   pctM03 TEXT NOT NULL,
@@ -243,19 +243,19 @@ CREATE TABLE IF NOT EXISTS ProductSalesBudgetMonthPhaseProfile (
   pctM12 TEXT NOT NULL,
   createdAt TEXT NOT NULL DEFAULT (datetime('now')),
   updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
-  UNIQUE (financialYear, productId)
+  UNIQUE (financialYear, productCatId)
 );
 CREATE INDEX IF NOT EXISTS ProductSalesBudgetMonthPhaseProfile_year_idx ON ProductSalesBudgetMonthPhaseProfile (financialYear);
 
 CREATE TABLE IF NOT EXISTS ProductSalesBudget (
   id TEXT PRIMARY KEY NOT NULL,
   financialYear INTEGER NOT NULL,
-  productId INTEGER NOT NULL REFERENCES Product(productId),
+  productCatId INTEGER NOT NULL REFERENCES ProductCat(productCatId),
   annualQtyKg TEXT NOT NULL,
   budgetUnitPricePerKg TEXT NOT NULL,
   createdAt TEXT NOT NULL DEFAULT (datetime('now')),
   updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
-  UNIQUE (financialYear, productId)
+  UNIQUE (financialYear, productCatId)
 );
 CREATE INDEX IF NOT EXISTS ProductSalesBudget_year_idx ON ProductSalesBudget (financialYear);
 
@@ -438,7 +438,8 @@ CREATE TABLE IF NOT EXISTS DeliveryOrder (
   reviewedByUserId TEXT REFERENCES User(id),
   cancelledAt TEXT,
   cancelledByUserId TEXT REFERENCES User(id),
-  cancelReason TEXT
+  cancelReason TEXT,
+  sourceKind TEXT NOT NULL DEFAULT 'NORMAL' CHECK (sourceKind IN ('NORMAL','CARRY_FORWARD'))
 );
 CREATE INDEX IF NOT EXISTS DeliveryOrder_customer_idx ON DeliveryOrder (customerId);
 CREATE INDEX IF NOT EXISTS DeliveryOrder_salesPoint_idx ON DeliveryOrder (salesPointId);

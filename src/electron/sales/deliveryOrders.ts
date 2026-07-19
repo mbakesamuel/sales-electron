@@ -41,7 +41,8 @@ export function listAvailableDeliveryOrders(
 
   const orders = getDatabase()
     .prepare(
-      `SELECT d.id, d.deliveryOrderNo, d.dateIssued, c.name AS customerName
+      `SELECT d.id, d.deliveryOrderNo, d.dateIssued, c.name AS customerName,
+              COALESCE(d.sourceKind, 'NORMAL') AS sourceKind
        FROM DeliveryOrder d
        INNER JOIN Customer c ON c.id = d.customerId
        WHERE d.salesPointId = ? AND d.status = 'VALIDATED'
@@ -53,6 +54,7 @@ export function listAvailableDeliveryOrders(
     deliveryOrderNo: string;
     dateIssued: string;
     customerName: string;
+    sourceKind: string;
   }>;
 
   const rows: AvailableDeliveryOrderRow[] = [];
@@ -79,6 +81,7 @@ export function listAvailableDeliveryOrders(
       customerName: order.customerName,
       dateIssued: order.dateIssued.slice(0, 10),
       balanceKg: trimQty(balanceKg),
+      isCarryForward: order.sourceKind === "CARRY_FORWARD",
     });
   }
 

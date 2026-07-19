@@ -648,6 +648,22 @@ function userSchemaIsCurrent(database: Database.Database): boolean {
   return names.join(",") === USER_TABLE_COLUMN_ORDER.join(",");
 }
 
+/** True when ProductSalesBudget is already keyed by productCatId (fresh 001_init or migrated). */
+function budgetByProductCatIsCurrent(database: Database.Database): boolean {
+  const budgetCols = getTableColumns(database, "ProductSalesBudget");
+  const phaseCols = getTableColumns(database, "ProductSalesBudgetMonthPhaseProfile");
+  return (
+    budgetCols.has("productCatId") &&
+    !budgetCols.has("productId") &&
+    phaseCols.has("productCatId") &&
+    !phaseCols.has("productId")
+  );
+}
+
+function deliveryOrderHasSourceKind(database: Database.Database): boolean {
+  return getTableColumns(database, "DeliveryOrder").has("sourceKind");
+}
+
 function applyUserDropServiceFactoryMigration(database: Database.Database): void {
   if (userSchemaIsCurrent(database)) {
     return;
@@ -843,6 +859,16 @@ function runMigrations(database: Database.Database): void {
 
     if (fileName === "019_user_drop_service_factory.sql") {
       applyUserDropServiceFactoryMigration(database);
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (fileName === "025_budget_by_product_cat.sql" && budgetByProductCatIsCurrent(database)) {
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (fileName === "026_delivery_order_source_kind.sql" && deliveryOrderHasSourceKind(database)) {
       database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
       continue;
     }

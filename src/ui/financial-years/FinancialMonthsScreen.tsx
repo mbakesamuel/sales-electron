@@ -19,7 +19,14 @@ function statusBadgeClass(status: string): string {
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
-  return value.length >= 10 ? value.slice(0, 10) : value;
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (!match) return value;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function IconCalendar() {

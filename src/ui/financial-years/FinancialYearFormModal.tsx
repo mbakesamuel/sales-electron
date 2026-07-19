@@ -1,11 +1,50 @@
-import { useState } from "preact/hooks";
+import { useMemo, useState } from "preact/hooks";
 import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
 import "../components/FormDialog.css";
+import "./FinancialMonthsScreen.css";
 
 interface FinancialYearFormModalProps {
   onClose: () => void;
   onSaved: () => void;
+}
+
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+] as const;
+
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+function initialPostingMonth(year: number): number {
+  const today = new Date();
+  if (today.getFullYear() === year) {
+    return today.getMonth() + 1;
+  }
+  return 1;
+}
+
+function formatDisplayDate(isoDate: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
+  if (!match) return isoDate;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 export function FinancialYearFormModal({
@@ -17,6 +56,24 @@ export function FinancialYearFormModal({
   );
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const preview = useMemo(() => {
+    const year = Number.parseInt(financialYear, 10);
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+      return null;
+    }
+    const postingMonth = initialPostingMonth(year);
+    return {
+      year,
+      startDate: `${year}-01-01`,
+      endDate: `${year}-12-31`,
+      postingMonth,
+      postingMonthName: MONTH_NAMES[postingMonth - 1],
+      openedOn: formatDisplayDate(
+        `${new Date().getFullYear()}-${pad2(new Date().getMonth() + 1)}-${pad2(new Date().getDate())}`,
+      ),
+    };
+  }, [financialYear]);
 
   async function handleSubmit(event: Event) {
     event.preventDefault();
@@ -47,11 +104,11 @@ export function FinancialYearFormModal({
     <FormDialog
       ariaLabel="Open financial year"
       title="Open financial year"
-      subtitle="Closes any previously open year and creates Jan–Dec months"
+      subtitle="Only one year can be open at a time"
       onClose={onClose}
     >
       <form class="form-dialog-form" onSubmit={(event) => void handleSubmit(event)}>
-        <div class="form-dialog-row">
+        <div class="form-dialog-row form-dialog-row-center">
           <label class="form-dialog-label" for="fy-year">
             Year
           </label>
@@ -68,12 +125,39 @@ export function FinancialYearFormModal({
                 setFinancialYear((event.currentTarget as HTMLInputElement).value)
               }
             />
-            <p class="form-dialog-hint">
-              Opens Jan 1–Dec 31 and sets the current calendar month as the open posting
-              month.
-            </p>
           </div>
         </div>
+
+        {preview ? (
+          <div class="fy-modal-summary" aria-live="polite">
+            <p class="fy-modal-summary-title">What will be opened</p>
+            <dl class="fy-modal-summary-list">
+              <div class="fy-modal-summary-row">
+                <dt>Period</dt>
+                <dd>
+                  {formatDisplayDate(preview.startDate)} →{" "}
+                  {formatDisplayDate(preview.endDate)}
+                </dd>
+              </div>
+              <div class="fy-modal-summary-row">
+                <dt>Opened on</dt>
+                <dd>{preview.openedOn}</dd>
+              </div>
+              <div class="fy-modal-summary-row">
+                <dt>Posting month</dt>
+                <dd>
+                  {preview.postingMonthName} {preview.year}
+                </dd>
+              </div>
+            </dl>
+            <p class="form-dialog-hint">
+              Creates Jan–Dec months, closes any previously open year, and opens{" "}
+              {preview.postingMonthName} for posting.
+            </p>
+          </div>
+        ) : (
+          <p class="form-dialog-hint">Enter a year between 2000 and 2100.</p>
+        )}
 
         {error ? <p class="form-dialog-error">{error}</p> : null}
 
@@ -81,7 +165,7 @@ export function FinancialYearFormModal({
           <button
             type="submit"
             class="form-dialog-btn-primary"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !preview}
           >
             {isSubmitting ? "Opening…" : "Open year"}
           </button>

@@ -249,6 +249,16 @@ function IconDownload() {
   );
 }
 
+function IconPrinter() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M6 9V2h12v7" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <path d="M6 14h12v8H6z" />
+    </svg>
+  );
+}
+
 function IconSliders() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -770,6 +780,38 @@ export function CustomersScreen({ readOnly = false }: CustomersScreenProps = {})
     exportCsv(targetRows);
   }
 
+  const printRowsList =
+    selectedIds.size > 0
+      ? sorted.filter((row) => selectedIds.has(row.id))
+      : sorted;
+
+  const printFilterLabel =
+    activeTab === "all" ? "All customers" : `${activeTab} customers`;
+  const printGeneratedAt = new Date().toLocaleString("en-GB");
+  const printServiceName = [
+    ...new Set(
+      printRowsList
+        .map((row) => row.commercialServiceLabel.trim())
+        .filter(Boolean),
+    ),
+  ].join(" · ");
+
+  function printCustomerList() {
+    if (printRowsList.length === 0) {
+      return;
+    }
+
+    document.body.classList.add("customers-print-mode");
+    window.addEventListener(
+      "afterprint",
+      () => {
+        document.body.classList.remove("customers-print-mode");
+      },
+      { once: true },
+    );
+    window.print();
+  }
+
   function SortIcon({ col }: { col: SortKey }) {
     if (sortKey !== col) {
       return <IconChevronUp />;
@@ -818,6 +860,15 @@ export function CustomersScreen({ readOnly = false }: CustomersScreenProps = {})
         </div>
 
         <div class="customers-screen-header-actions">
+          <button
+            type="button"
+            class="customers-btn customers-btn-secondary"
+            disabled={sorted.length === 0}
+            onClick={() => printCustomerList()}
+          >
+            <IconPrinter />
+            Print
+          </button>
           <button
             type="button"
             class="customers-btn customers-btn-secondary"
@@ -1205,6 +1256,52 @@ export function CustomersScreen({ readOnly = false }: CustomersScreenProps = {})
           </div>
         </FormDialog>
       ) : null}
+
+      <div class="customers-print-document" aria-hidden="true">
+        <header class="customers-print-header">
+          <h1>Customer List</h1>
+          {printServiceName ? (
+            <p class="customers-print-service">{printServiceName}</p>
+          ) : null}
+          <p>
+            {printFilterLabel}
+            {selectedIds.size > 0 ? ` · ${selectedIds.size} selected` : ""}
+            {" · "}
+            {printRowsList.length} record{printRowsList.length === 1 ? "" : "s"}
+          </p>
+          <p class="customers-print-generated">Printed {printGeneratedAt}</p>
+        </header>
+        <table class="customers-print-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Phone</th>
+              <th>Email</th>
+              <th>Address</th>
+              <th>Type</th>
+              <th>Residency</th>
+              <th>Tax Regime</th>
+              <th>Taxpayer ID</th>
+            </tr>
+          </thead>
+          <tbody>
+            {printRowsList.map((customer, index) => (
+              <tr key={customer.id}>
+                <td>{index + 1}</td>
+                <td>{customer.name}</td>
+                <td>{customer.phone || "—"}</td>
+                <td>{customer.email || "—"}</td>
+                <td>{customer.address || "—"}</td>
+                <td>{customer.customerTypeLabel || "—"}</td>
+                <td>{customer.residencyLabel || "—"}</td>
+                <td>{customer.taxRegimeLabel || "—"}</td>
+                <td>{customer.taxpayerId || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

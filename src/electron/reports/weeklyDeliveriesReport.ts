@@ -158,12 +158,12 @@ function buildLooseSection(
       label: category.label,
       quantities,
       rowTotal: sum(quantities),
-      kind: "data",
+      kind: "data" as const,
     };
-  });
+  }).filter((row) => Math.abs(row.rowTotal) > 0.0001);
 
   const columnTotals = salesPoints.map((_, salesPointIndex) =>
-    sum(dataRows.map((row) => row.quantities[salesPointIndex])),
+    sum(dataRows.map((row) => row.quantities[salesPointIndex] ?? 0)),
   );
 
   const rows: WeeklyDeliveriesLooseRow[] = [

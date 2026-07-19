@@ -16,3 +16,64 @@
   padding-top: 4px;
   padding-bottom: 4px;
 }
+
+.fy-modal-summary {
+  margin-top: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-soft);
+}
+
+.fy-modal-summary-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.fy-modal-summary-list {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.fy-modal-summary-row {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr);
+  gap: 8px;
+  font-size: 12px;
+}
+
+.fy-modal-summary-row dt {
+  margin: 0;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.fy-modal-summary-row dd {
+  margin: 0;
+  color: var(--text-h);
+}
+
+.fy-view-sections {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fy-view-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fy-view-section-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}

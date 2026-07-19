@@ -7,10 +7,7 @@ import {
   type SalesBudgetPhaseResult,
 } from "../../shared/salesBudgetPhase.js";
 import { loadReportCompanySettings } from "./companySettings.js";
-import {
-  loadSalesBudgetCrosstabContext,
-  type ProductRow,
-} from "./salesBudgetCrosstabShared.js";
+import { loadSalesBudgetCrosstabContext } from "./salesBudgetCrosstabShared.js";
 
 export function getSalesBudgetWeeklyCrosstabReport(
   userId?: string | null,
@@ -20,15 +17,18 @@ export function getSalesBudgetWeeklyCrosstabReport(
   const context = loadSalesBudgetCrosstabContext(reportYearRaw);
   const phaseResultCache = new Map<string, SalesBudgetPhaseResult | null>();
 
-  function getPhaseResult(productId: number, financialYear: number): SalesBudgetPhaseResult | null {
-    const cacheKey = `${productId}:${financialYear}`;
+  function getPhaseResult(
+    productCatId: number,
+    financialYear: number,
+  ): SalesBudgetPhaseResult | null {
+    const cacheKey = `${productCatId}:${financialYear}`;
     if (phaseResultCache.has(cacheKey)) {
       return phaseResultCache.get(cacheKey) ?? null;
     }
 
-    const budget = context.budgetMap.get(`${productId}:${financialYear}`);
+    const budget = context.budgetMap.get(`${productCatId}:${financialYear}`);
     const period = context.periodsByFy.get(financialYear);
-    const pcts = context.phasePctByProductFy.get(`${productId}:${financialYear}`);
+    const pcts = context.phasePctByCatFy.get(`${productCatId}:${financialYear}`);
     if (!budget || !period || !pcts) {
       phaseResultCache.set(cacheKey, null);
       return null;
@@ -59,14 +59,14 @@ export function getSalesBudgetWeeklyCrosstabReport(
   const qtyByCell: Array<{ key: string; qtyKg: number }> = [];
   const qtyMap = new Map<string, number>();
 
-  for (const product of context.productsInReport) {
+  for (const cat of context.categoriesInReport) {
     for (const month of CAL_MONTHS) {
       const { financialYear } = calendarMonthToFiscal(
         context.reportYear,
         month,
         context.fiscalYearStartMonth,
       );
-      const phase = getPhaseResult(product.productId, financialYear);
+      const phase = getPhaseResult(cat.productCatId, financialYear);
       if (!phase) {
         continue;
       }
@@ -90,7 +90,7 @@ export function getSalesBudgetWeeklyCrosstabReport(
             wk: week.isoWeek,
           });
         }
-        const key = salesBudgetCrosstabCellKey(week.label, product.productId, month);
+        const key = salesBudgetCrosstabCellKey(week.label, cat.productCatId, month);
         qtyMap.set(key, week.qtyKg);
         qtyByCell.push({ key, qtyKg: week.qtyKg });
       }
@@ -101,17 +101,19 @@ export function getSalesBudgetWeeklyCrosstabReport(
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([, meta]) => meta);
 
-  const cols: Array<{ productId: number; month: number }> = [];
-  for (const product of context.productsInReport) {
+  const cols: Array<{ productCatId: number; month: number }> = [];
+  for (const cat of context.categoriesInReport) {
     for (const month of CAL_MONTHS) {
-      cols.push({ productId: product.productId, month });
+      cols.push({ productCatId: cat.productCatId, month });
     }
   }
 
   const rowTotals = sortedWeeks.map((week) => {
     let total = 0;
     for (const col of cols) {
-      total += qtyMap.get(salesBudgetCrosstabCellKey(week.label, col.productId, col.month)) ?? 0;
+      total +=
+        qtyMap.get(salesBudgetCrosstabCellKey(week.label, col.productCatId, col.month)) ??
+        0;
     }
     return total;
   });
@@ -119,17 +121,18 @@ export function getSalesBudgetWeeklyCrosstabReport(
   const colTotals = cols.map((col) => {
     let total = 0;
     for (const week of sortedWeeks) {
-      total += qtyMap.get(salesBudgetCrosstabCellKey(week.label, col.productId, col.month)) ?? 0;
+      total +=
+        qtyMap.get(salesBudgetCrosstabCellKey(week.label, col.productCatId, col.month)) ??
+        0;
     }
     return total;
   });
 
   const grandTotal = colTotals.reduce((sum, value) => sum + value, 0);
 
-  const productsInReport: ProductRow[] = context.productsInReport.map((product) => ({
-    productId: product.productId,
-    productName: product.productName,
-    productCode: product.productCode,
+  const categoriesInReport = context.categoriesInReport.map((cat) => ({
+    productCatId: cat.productCatId,
+    label: cat.label,
   }));
 
   return {
@@ -137,7 +140,7 @@ export function getSalesBudgetWeeklyCrosstabReport(
     yearChoices: context.yearChoices,
     reportYear: context.reportYear,
     hasAnyBudget: context.hasAnyBudget,
-    productsInReport,
+    categoriesInReport,
     sortedWeeks,
     cols,
     qtyByCell,

@@ -3,17 +3,15 @@ import { getAuthenticatedReports } from "../auth/reports.ts";
 import type {
   StockReport,
   StockReportBottledSection,
-  StockReportLooseRow,
-  StockReportProductMatrix,
+  StockReportKernelSplitSection,
+  StockReportLocationRow,
+  StockReportLocationSection,
+  StockReportSalesPointQtySection,
+  StockReportSection,
 } from "../../shared/reports.types.ts";
 import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import "./StockCommitmentReport.css";
-
-function formatReportDate(iso: string): string {
-  const date = new Date(`${iso}T00:00:00`);
-  return date.toLocaleDateString("en-GB");
-}
 
 function formatShortReportDate(iso: string): string {
   const date = new Date(`${iso}T00:00:00`);
@@ -24,11 +22,8 @@ function formatShortReportDate(iso: string): string {
 }
 
 function formatKg(value: number | null | undefined): string {
-  if (value == null) {
+  if (value == null || value === 0) {
     return "";
-  }
-  if (value === 0) {
-    return "0";
   }
   const rounded = Math.round(value);
   if (rounded < 0) {
@@ -39,12 +34,16 @@ function formatKg(value: number | null | undefined): string {
 
 function formatUnits(value: number | null | undefined): string {
   if (value == null || value === 0) {
-    return "0";
+    return "-";
   }
   return Math.round(value).toLocaleString("en-US");
 }
 
-function looseRowClassName(row: StockReportLooseRow): string {
+function sumRowUnits(values: number[]): number {
+  return values.reduce((total, value) => total + value, 0);
+}
+
+function locationRowClassName(row: StockReportLocationRow): string {
   if (row.kind === "subtotal" || row.kind === "grand_total") {
     return "scr-row scr-row-total";
   }
@@ -63,67 +62,6 @@ function handlePrint(): void {
   window.print();
 }
 
-function buildCsv(report: StockReport): string {
-  const lines: string[] = [
-    `Company:,${report.settings.companyName}`,
-    report.settings.department
-      ? `Department:,${report.settings.department}`
-      : "",
-    `AS AT:,${formatReportDate(report.asAtIso)}`,
-    "",
-    "SALES POINT,STORAGE,QUANTITY (KG),REMARKS",
-  ].filter((line) => line.length > 0);
-
-  for (const row of report.looseRows) {
-    lines.push(
-      [
-        row.salesPointName ?? "",
-        row.storageName ?? "",
-        row.quantityKg ?? "",
-        row.remarks ?? "",
-      ].join(","),
-    );
-  }
-
-  if (report.bottledSection) {
-    const bottled = report.bottledSection;
-    lines.push("", bottled.title);
-    lines.push(
-      ["", ...bottled.columns.map((column) => column.label), "TOTAL"].join(","),
-    );
-    for (const row of bottled.rows) {
-      lines.push(
-        ["", ...row.unitCounts, sumRowUnits(row.unitCounts)].join(","),
-      );
-    }
-    lines.push(["TOTAL", ...bottled.columnTotals, ""].join(","));
-    lines.push(["LITRES", ...bottled.litres, ""].join(","));
-    lines.push(["KGS", ...bottled.kgs, bottled.totalKgs].join(","));
-  }
-
-  if (report.otherProductsSection) {
-    const section = report.otherProductsSection;
-    lines.push("", section.title);
-    lines.push(["", ...section.salesPointNames, "TOTAL"].join(","));
-    for (const row of section.rows) {
-      lines.push(
-        [row.productName, ...row.quantities, sumRowUnits(row.quantities)].join(
-          ",",
-        ),
-      );
-    }
-    lines.push(
-      ["TOTAL", ...section.totals, sumRowUnits(section.totals)].join(","),
-    );
-  }
-
-  return lines.join("\n");
-}
-
-function sumRowUnits(values: number[]): number {
-  return values.reduce((total, value) => total + value, 0);
-}
-
 function ReportMatrixColGroup({ middleCount }: { middleCount: number }) {
   return (
     <colgroup>
@@ -134,6 +72,300 @@ function ReportMatrixColGroup({ middleCount }: { middleCount: number }) {
       <col class="sr-col-last" />
     </colgroup>
   );
+}
+
+function LocationDetailSection({
+  section,
+  oilGrandTotalKg,
+}: {
+  section: StockReportLocationSection;
+  oilGrandTotalKg: number;
+}) {
+  return (
+    <div class="scr-bottled-block mdr-section">
+      <table class="scr-table sr-report-matrix sr-location-detail">
+        <colgroup>
+          <col class="sr-col-label" />
+          <col class="sr-col-storage" />
+          <col class="sr-col-qty" />
+          <col class="sr-col-remarks" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th colSpan={4} class="scr-section-title">
+              {section.title}
+            </th>
+          </tr>
+          <tr>
+            <th>SALES POINT</th>
+            <th>STORAGE</th>
+            <th>QUANTITY (KG)</th>
+            <th>REMARKS</th>
+          </tr>
+        </thead>
+        <tbody>
+          {section.rows.map((row, index) => (
+            <tr key={`${section.productCatId}-${index}`} class={locationRowClassName(row)}>
+              <td>{row.salesPointName ?? ""}</td>
+              <td class="sr-storage" title={row.storageName ?? undefined}>
+                {row.storageName ?? ""}
+              </td>
+              <td class="scr-num">{formatKg(row.quantityKg)}</td>
+              <td class="sr-remarks" title={row.remarks ?? undefined}>
+                {row.remarks ?? ""}
+              </td>
+            </tr>
+          ))}
+          {section.showOilGrandTotalAfter ? (
+            <tr class="scr-row scr-row-total">
+              <td />
+              <td>GRAND TOTAL</td>
+              <td class="scr-num scr-total-cell">{formatKg(oilGrandTotalKg)}</td>
+              <td />
+            </tr>
+          ) : null}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function BottledMatrixSection({ section }: { section: StockReportBottledSection }) {
+  return (
+    <div class="scr-bottled-block">
+      <table class="scr-table scr-bottled-table sr-report-matrix sr-bottled-products">
+        <colgroup>
+          <col class="sr-col-label" />
+          {section.columns.map((column) => (
+            <col key={column.id} class="sr-bottled-product-col" />
+          ))}
+          <col class="sr-col-last" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th colSpan={section.columns.length + 2} class="scr-section-title">
+              {section.title}
+            </th>
+          </tr>
+          <tr>
+            <th />
+            {section.columns.map((column) => (
+              <th key={column.id} class="sr-bottled-product-head" title={column.label}>
+                {column.label}
+              </th>
+            ))}
+            <th>TOTAL</th>
+          </tr>
+        </thead>
+        <tbody>
+          {section.rows.map((row) => (
+            <tr key={row.salesPointName}>
+              <td class="scr-row-label">{row.salesPointName}</td>
+              {row.unitCounts.map((count, index) => (
+                <td key={`${row.salesPointName}-${index}`} class="scr-num">
+                  {formatUnits(count)}
+                </td>
+              ))}
+              <td class="scr-num">{formatUnits(sumRowUnits(row.unitCounts))}</td>
+            </tr>
+          ))}
+          <tr class="scr-row-total">
+            <td class="scr-row-label">TOTAL</td>
+            {section.columnTotals.map((count, index) => (
+              <td key={`total-${index}`} class="scr-num">
+                {formatUnits(count)}
+              </td>
+            ))}
+            <td class="scr-num">{formatUnits(sumRowUnits(section.columnTotals))}</td>
+          </tr>
+          <tr>
+            <td class="scr-row-label">LITRES</td>
+            {section.litres.map((litre, index) => (
+              <td key={`litres-${index}`} class="scr-num">
+                {formatUnits(litre)}
+              </td>
+            ))}
+            <td class="scr-num">{formatUnits(sumRowUnits(section.litres))}</td>
+          </tr>
+          <tr>
+            <td class="scr-row-label">KGS</td>
+            {section.kgs.map((kg, index) => (
+              <td key={`kgs-${index}`} class="scr-num">
+                {formatUnits(kg)}
+              </td>
+            ))}
+            <td class="scr-num scr-total-cell">{formatUnits(section.totalKgs)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function KernelSplitSection({ section }: { section: StockReportKernelSplitSection }) {
+  return (
+    <div class="scr-bottled-block">
+      <table class="scr-table sr-report-matrix">
+        <ReportMatrixColGroup middleCount={2} />
+        <thead>
+          <tr>
+            <th colSpan={4} class="scr-section-title">
+              {section.title}
+            </th>
+          </tr>
+          <tr>
+            <th rowSpan={2} />
+            <th colSpan={3}>QUANTITY</th>
+          </tr>
+          <tr>
+            <th>CRACKED</th>
+            <th>UNCRACKED</th>
+            <th>TOTAL</th>
+          </tr>
+        </thead>
+        <tbody>
+          {section.rows.map((row) => (
+            <tr key={row.salesPointName}>
+              <td class="scr-row-label">{row.salesPointName}</td>
+              <td class="scr-num">{formatKg(row.crackedKg)}</td>
+              <td class="scr-num">{formatKg(row.uncrackedKg)}</td>
+              <td class="scr-num">{formatKg(row.totalKg)}</td>
+            </tr>
+          ))}
+          <tr class="scr-row-total">
+            <td class="scr-row-label">{section.totals.salesPointName}</td>
+            <td class="scr-num">{formatKg(section.totals.crackedKg)}</td>
+            <td class="scr-num">{formatKg(section.totals.uncrackedKg)}</td>
+            <td class="scr-num">{formatKg(section.totals.totalKg)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SalesPointQtySection({
+  section,
+}: {
+  section: StockReportSalesPointQtySection;
+}) {
+  return (
+    <div class="scr-bottled-block">
+      <table class="scr-table sr-report-matrix">
+        <ReportMatrixColGroup middleCount={0} />
+        <thead>
+          <tr>
+            <th colSpan={2} class="scr-section-title">
+              {section.title}
+            </th>
+          </tr>
+          <tr>
+            <th />
+            <th>{section.quantityLabel}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {section.rows.map((row) => (
+            <tr key={row.salesPointName}>
+              <td class="scr-row-label">{row.salesPointName}</td>
+              <td class="scr-num">{formatKg(row.quantityKg)}</td>
+            </tr>
+          ))}
+          <tr class="scr-row-total">
+            <td class="scr-row-label">TOTAL</td>
+            <td class="scr-num">{formatKg(section.totalKg)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function renderSection(
+  section: StockReportSection,
+  oilGrandTotalKg: number,
+) {
+  switch (section.kind) {
+    case "location_detail":
+      return (
+        <LocationDetailSection
+          key={`loc-${section.productCatId}`}
+          section={section}
+          oilGrandTotalKg={oilGrandTotalKg}
+        />
+      );
+    case "bottled":
+      return <BottledMatrixSection key={`bot-${section.productCatId}`} section={section} />;
+    case "kernel_split":
+      return <KernelSplitSection key={`ker-${section.productCatId}`} section={section} />;
+    case "sales_point_qty":
+      return <SalesPointQtySection key={`qty-${section.productCatId}`} section={section} />;
+    default:
+      return null;
+  }
+}
+
+function buildCsv(report: StockReport): string {
+  const lines: string[] = [
+    `Company:,${report.settings.companyName}`,
+    report.settings.department ? `Department:,${report.settings.department}` : "",
+    `AS AT:,${report.asAtIso}`,
+    "",
+  ].filter((line) => line.length > 0);
+
+  for (const section of report.sections) {
+    lines.push(section.title);
+    if (section.kind === "location_detail") {
+      lines.push("SALES POINT,STORAGE,QUANTITY (KG),REMARKS");
+      for (const row of section.rows) {
+        lines.push(
+          [
+            row.salesPointName ?? "",
+            row.storageName ?? "",
+            row.quantityKg ?? "",
+            row.remarks ?? "",
+          ].join(","),
+        );
+      }
+      if (section.showOilGrandTotalAfter) {
+        lines.push(`,,${report.oilGrandTotalKg},`);
+      }
+    } else if (section.kind === "bottled") {
+      lines.push(["", ...section.columns.map((c) => c.label), "TOTAL"].join(","));
+      for (const row of section.rows) {
+        lines.push(
+          [row.salesPointName, ...row.unitCounts, sumRowUnits(row.unitCounts)].join(","),
+        );
+      }
+      lines.push(["TOTAL", ...section.columnTotals, sumRowUnits(section.columnTotals)].join(","));
+      lines.push(["LITRES", ...section.litres, sumRowUnits(section.litres)].join(","));
+      lines.push(["KGS", ...section.kgs, section.totalKgs].join(","));
+    } else if (section.kind === "kernel_split") {
+      lines.push("SALES POINT,CRACKED,UNCRACKED,TOTAL");
+      for (const row of section.rows) {
+        lines.push(
+          [row.salesPointName, row.crackedKg, row.uncrackedKg, row.totalKg].join(","),
+        );
+      }
+      lines.push(
+        [
+          section.totals.salesPointName,
+          section.totals.crackedKg,
+          section.totals.uncrackedKg,
+          section.totals.totalKg,
+        ].join(","),
+      );
+    } else if (section.kind === "sales_point_qty") {
+      lines.push(`SALES POINT,${section.quantityLabel}`);
+      for (const row of section.rows) {
+        lines.push([row.salesPointName, row.quantityKg].join(","));
+      }
+      lines.push(["TOTAL", section.totalKg].join(","));
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
 }
 
 function downloadCsv(report: StockReport): void {
@@ -148,127 +380,19 @@ function downloadCsv(report: StockReport): void {
   URL.revokeObjectURL(url);
 }
 
-/* bottled section */
-function BottledMatrixSection({
-  section,
-}: {
-  section: StockReportBottledSection;
-}) {
+export function StockReportDocument({ report }: { report: StockReport }) {
   return (
-    <div class="scr-bottled-block">
-      <table class="scr-table scr-bottled-table sr-report-matrix">
-        <ReportMatrixColGroup middleCount={section.columns.length} />
-        <thead>
-          <tr>
-            <th colSpan={section.columns.length + 2} class="scr-section-title">
-              {section.title}
-            </th>
-          </tr>
-          <tr>
-            <th />
-            {section.columns.map((column) => (
-              <th key={column.id}>{column.label}</th>
-            ))}
-            <th>TOTAL</th>
-          </tr>
-        </thead>
-        <tbody>
-          {section.rows.map((row) => (
-            <tr key={row.salesPointName}>
-              <td class="scr-row-label">{row.salesPointName}</td>
-              {row.unitCounts.map((count, index) => (
-                <td key={`${row.salesPointName}-${index}`} class="scr-num">
-                  {formatUnits(count)}
-                </td>
-              ))}
-              <td class="scr-num">
-                {formatUnits(sumRowUnits(row.unitCounts))}
-              </td>
-            </tr>
-          ))}
-          <tr class="scr-row-total">
-            <td class="scr-row-label">TOTAL</td>
-            {section.columnTotals.map((count, index) => (
-              <td key={`total-${index}`} class="scr-num">
-                {formatUnits(count)}
-              </td>
-            ))}
-            <td />
-          </tr>
-          <tr>
-            <td class="scr-row-label">LITRES</td>
-            {section.litres.map((litre, index) => (
-              <td key={`litres-${index}`} class="scr-num">
-                {formatUnits(litre)}
-              </td>
-            ))}
-            <td />
-          </tr>
-          <tr>
-            <td class="scr-row-label">KGS</td>
-            {section.kgs.map((kg, index) => (
-              <td key={`kgs-${index}`} class="scr-num">
-                {formatKg(kg)}
-              </td>
-            ))}
-            <td class="scr-num scr-total-cell">{formatKg(section.totalKgs)}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  );
-}
+    <div class="scr-document sr-stock-compact wpp-pack-page">
+      <ReportHeader
+        companyName={report.settings.companyName}
+        department={report.settings.department ?? null}
+        serviceName={report.settings.serviceName ?? null}
+        title={`STOCK REPORT AS AT ${formatShortReportDate(report.asAtIso)}`}
+      />
 
-/* other products section */
-function OtherProductsSection({
-  section,
-}: {
-  section: StockReportProductMatrix;
-}) {
-  return (
-    <div class="scr-bottled-block">
-      <table class="scr-table sr-report-matrix">
-        <ReportMatrixColGroup middleCount={section.salesPointNames.length} />
-        <thead>
-          <tr>
-            <th
-              colSpan={section.salesPointNames.length + 2}
-              class="scr-section-title"
-            >
-              {section.title}
-            </th>
-          </tr>
-          <tr>
-            <th />
-            {section.salesPointNames.map((name) => (
-              <th key={name}>{name}</th>
-            ))}
-            <th>TOTAL</th>
-          </tr>
-        </thead>
-        <tbody>
-          {section.rows.map((row) => (
-            <tr key={row.productName}>
-              <td class="scr-row-label">{row.productName}</td>
-              {row.quantities.map((qty, index) => (
-                <td key={`${row.productName}-${index}`} class="scr-num">
-                  {formatKg(qty)}
-                </td>
-              ))}
-              <td class="scr-num">{formatKg(sumRowUnits(row.quantities))}</td>
-            </tr>
-          ))}
-          <tr class="scr-row-total">
-            <td class="scr-row-label">TOTAL</td>
-            {section.totals.map((qty, index) => (
-              <td key={`total-${index}`} class="scr-num">
-                {formatKg(qty)}
-              </td>
-            ))}
-            <td class="scr-num">{formatKg(sumRowUnits(section.totals))}</td>
-          </tr>
-        </tbody>
-      </table>
+      {report.sections.map((section) => renderSection(section, report.oilGrandTotalKg))}
+
+      <ReportFooter />
     </div>
   );
 }
@@ -292,9 +416,7 @@ export function StockReportScreen() {
       } catch (loadError) {
         if (!cancelled) {
           setError(
-            loadError instanceof Error
-              ? loadError.message
-              : "Failed to load report.",
+            loadError instanceof Error ? loadError.message : "Failed to load report.",
           );
         }
       } finally {
@@ -346,58 +468,7 @@ export function StockReportScreen() {
         </button>
       </div>
 
-      <div class="scr-document">
-        <ReportHeader
-          companyName={report.settings.companyName}
-          department={report.settings.department ?? null}
-          serviceName={report.settings.serviceName ?? null}
-          title={`STOCK REPORT AS AT ${formatShortReportDate(report.asAtIso)}`}
-          /*           meta={
-            <>
-              <p class="scr-as-at">
-                AS at{" "}
-                <span class="scr-as-at-date">{formatShortReportDate(report.asAtIso)}</span>
-              </p>
-              <p class="scr-generated">{formatReportDate(report.asAtIso)}</p>
-            </>
-          } */
-        />
-
-        <table class="scr-table sr-report-matrix">
-          <ReportMatrixColGroup middleCount={2} />
-          <thead>
-            <tr>
-              <th colSpan={4} class="scr-section-title">
-                Loose Palm Oil
-              </th>
-            </tr>
-            <tr>
-              <th>SALES POINT</th>
-              <th>STORAGE</th>
-              <th>QUANTITY (KG)</th>
-              <th>REMARKS</th>
-            </tr>
-          </thead>
-          <tbody>
-            {report.looseRows.map((row, index) => (
-              <tr key={index} class={looseRowClassName(row)}>
-                <td>{row.salesPointName ?? ""}</td>
-                <td>{row.storageName ?? ""}</td>
-                <td class="scr-num">{formatKg(row.quantityKg)}</td>
-                <td>{row.remarks ?? ""}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {report.bottledSection ? (
-          <BottledMatrixSection section={report.bottledSection} />
-        ) : null}
-        {report.otherProductsSection ? (
-          <OtherProductsSection section={report.otherProductsSection} />
-        ) : null}
-        <ReportFooter />
-      </div>
+      <StockReportDocument report={report} />
     </div>
   );
 }

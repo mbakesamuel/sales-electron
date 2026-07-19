@@ -170,6 +170,7 @@ export interface AvailableDeliveryOrderRow {
   customerName: string;
   dateIssued: string;
   balanceKg: string;
+  isCarryForward?: boolean;
 }
 
 export interface DeliveryOrderProductRow {

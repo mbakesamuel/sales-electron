@@ -64,9 +64,13 @@ export function registerReportsHandlers(): void {
 
   ipcMain.handle(
     "reports:getBottledWeeklyIssues",
-    (_event, authToken: string): BottledWeeklyIssuesReport => {
+    (
+      _event,
+      authToken: string,
+      estimateBasis?: unknown,
+    ): BottledWeeklyIssuesReport => {
       const user = requireAuthUser(authToken);
-      return getBottledWeeklyIssuesReport(user.id);
+      return getBottledWeeklyIssuesReport(user.id, estimateBasis);
     },
   );
 

@@ -131,7 +131,10 @@ interface ReportsApi {
   getStockReport(authToken: string): Promise<StockReport>;
   getCommitmentReport(authToken: string): Promise<CommitmentReport>;
   getBottleOilStockSales(authToken: string): Promise<BottleOilStockSalesReport>;
-  getBottledWeeklyIssues(authToken: string): Promise<BottledWeeklyIssuesReport>;
+  getBottledWeeklyIssues(
+    authToken: string,
+    estimateBasis?: import("../../shared/reports.types").BottledWeeklyEstimateBasis,
+  ): Promise<BottledWeeklyIssuesReport>;
   getWeeklyDeliveries(authToken: string): Promise<WeeklyDeliveriesReport>;
   getMonthlyDelivery(half: 1 | 2, authToken: string): Promise<MonthlyDeliveryReport>;
   getSalesBudgetMonthlyCrosstab(
@@ -169,9 +172,33 @@ export interface ElectronAppApi {
   permissions: PermissionsApi;
   sales: SalesApi;
   deliveryOrders: DeliveryOrdersApi;
+  carryForward: {
+    getFormOptions(): Promise<import("../../shared/carryForward.types.ts").CarryForwardFormOptions>;
+    list(): Promise<import("../../shared/carryForward.types.ts").CarryForwardCommitmentRow[]>;
+    upsert(
+      input: import("../../shared/carryForward.types.ts").UpsertCarryForwardInput,
+    ): Promise<import("../../shared/carryForward.types.ts").CarryForwardMutationResult>;
+    upsertBatch(
+      input: import("../../shared/carryForward.types.ts").UpsertCarryForwardBatchInput,
+    ): Promise<import("../../shared/carryForward.types.ts").CarryForwardBatchResult>;
+    delete(
+      input: import("../../shared/carryForward.types.ts").DeleteCarryForwardInput,
+    ): Promise<import("../../shared/carryForward.types.ts").CarryForwardDeleteResult>;
+  };
   stock: StockApi;
   reports: ReportsApi;
   financialYears: FinancialYearsApi;
+  dialog: {
+    confirm(message: string): boolean;
+    alert(message: string): void;
+  };
+  print: {
+    exportPdf(defaultFileName?: string): Promise<
+      | { ok: true; filePath: string }
+      | { ok: false; cancelled: true }
+      | { ok: false; cancelled: false; error: string }
+    >;
+  };
 }
 
 declare global {

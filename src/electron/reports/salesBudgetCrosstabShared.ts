@@ -4,6 +4,10 @@ import {
   calendarMonthToFiscal,
   normalizeFiscalMonthPercents,
 } from "../../shared/salesBudgetPhase.js";
+import {
+  budgetCategoryLabels,
+  type SalesBudgetCategoryRef,
+} from "../../shared/salesBudgetCategories.js";
 import { parseQty } from "./shared.js";
 
 export interface FiscalYearPeriodRow {
@@ -12,15 +16,15 @@ export interface FiscalYearPeriodRow {
   endDate: string;
 }
 
-export interface ProductRow {
-  productId: number;
-  productName: string;
-  productCode: string | null;
+/** One budget row in crosstabs — labeled as a product category. */
+export interface BudgetCategoryRow {
+  productCatId: number;
+  label: string;
 }
 
 export interface BudgetRow {
   financialYear: number;
-  productId: number;
+  productCatId: number;
   annualQtyKg: number;
   budgetUnitPricePerKg: number;
 }
@@ -30,9 +34,10 @@ export interface SalesBudgetCrosstabContext {
   periodsByFy: Map<number, FiscalYearPeriodRow>;
   yearChoices: number[];
   reportYear: number;
-  productsInReport: ProductRow[];
+  /** Categories with a budget for the report calendar year. */
+  categoriesInReport: BudgetCategoryRow[];
   budgetMap: Map<string, BudgetRow>;
-  phasePctByProductFy: Map<string, number[]>;
+  phasePctByCatFy: Map<string, number[]>;
   hasAnyBudget: boolean;
 }
 
@@ -104,68 +109,115 @@ export function loadSalesBudgetCrosstabContext(
       ? reportYearRaw
       : (yearChoices[0] ?? yNow);
 
-  const products = db
+  const categories = db
     .prepare(
-      `SELECT productId, productName, productCode
-       FROM Product
-       ORDER BY productName ASC`,
+      `SELECT productCatId, productCat, COALESCE(isMain, 0) AS isMain,
+              COALESCE(isBottled, 0) AS isBottled
+       FROM ProductCat
+       ORDER BY isMain DESC, isBottled ASC, productCat ASC`,
     )
-    .all() as ProductRow[];
+    .all() as SalesBudgetCategoryRef[];
+
+  const categoryById = new Map(
+    categories.map((c) => [c.productCatId, c] as const),
+  );
 
   const budgets = db
     .prepare(
-      `SELECT financialYear, productId, annualQtyKg, budgetUnitPricePerKg
+      `SELECT financialYear, productCatId, annualQtyKg, budgetUnitPricePerKg
        FROM ProductSalesBudget`,
     )
     .all() as Array<{
     financialYear: number;
-    productId: number;
+    productCatId: number;
     annualQtyKg: string;
     budgetUnitPricePerKg: string;
   }>;
 
   const budgetMap = new Map<string, BudgetRow>();
-  const productIdsWithBudget = new Set<number>();
   for (const budget of budgets) {
-    budgetMap.set(`${budget.productId}:${budget.financialYear}`, {
+    budgetMap.set(`${budget.productCatId}:${budget.financialYear}`, {
       financialYear: budget.financialYear,
-      productId: budget.productId,
+      productCatId: budget.productCatId,
       annualQtyKg: parseQty(budget.annualQtyKg),
       budgetUnitPricePerKg: parseQty(budget.budgetUnitPricePerKg),
     });
-    productIdsWithBudget.add(budget.productId);
   }
 
-  const productsInReport = products.filter((product) =>
-    productIdsWithBudget.has(product.productId),
-  );
+  const financialYearsForReport = new Set<number>();
+  for (const month of CAL_MONTHS) {
+    financialYearsForReport.add(
+      calendarMonthToFiscal(reportYear, month, fiscalYearStartMonth).financialYear,
+    );
+  }
 
-  const phasePctByProductFy = new Map<string, number[]>();
+  const categoriesInReport: BudgetCategoryRow[] = [];
+  const seenCatIds = new Set<number>();
+  for (const cat of categories) {
+    let hasBudget = false;
+    for (const fy of financialYearsForReport) {
+      if (budgetMap.has(`${cat.productCatId}:${fy}`)) {
+        hasBudget = true;
+        break;
+      }
+    }
+    if (!hasBudget || seenCatIds.has(cat.productCatId)) {
+      continue;
+    }
+    seenCatIds.add(cat.productCatId);
+    categoriesInReport.push({
+      productCatId: cat.productCatId,
+      label: budgetCategoryLabels(cat).label,
+    });
+  }
+
+  // Also include orphan budget cats (deleted category edge case) if any.
+  for (const budget of budgets) {
+    if (seenCatIds.has(budget.productCatId)) continue;
+    let coversReport = false;
+    for (const fy of financialYearsForReport) {
+      if (budget.financialYear === fy) {
+        coversReport = true;
+        break;
+      }
+    }
+    if (!coversReport) continue;
+    seenCatIds.add(budget.productCatId);
+    const cat = categoryById.get(budget.productCatId);
+    categoriesInReport.push({
+      productCatId: budget.productCatId,
+      label: cat
+        ? budgetCategoryLabels(cat).label
+        : `Category ${budget.productCatId}`,
+    });
+  }
+
+  const phasePctByCatFy = new Map<string, number[]>();
   const pairSeen = new Set<string>();
-  const pairList: Array<{ productId: number; financialYear: number }> = [];
+  const pairList: Array<{ productCatId: number; financialYear: number }> = [];
 
-  for (const product of productsInReport) {
+  for (const cat of categoriesInReport) {
     for (const month of CAL_MONTHS) {
       const { financialYear } = calendarMonthToFiscal(
         reportYear,
         month,
         fiscalYearStartMonth,
       );
-      if (!budgetMap.has(`${product.productId}:${financialYear}`)) {
+      if (!budgetMap.has(`${cat.productCatId}:${financialYear}`)) {
         continue;
       }
-      const pairKey = `${product.productId}:${financialYear}`;
+      const pairKey = `${cat.productCatId}:${financialYear}`;
       if (pairSeen.has(pairKey)) {
         continue;
       }
       pairSeen.add(pairKey);
-      pairList.push({ productId: product.productId, financialYear });
+      pairList.push({ productCatId: cat.productCatId, financialYear });
     }
   }
 
   const profileRows = db
     .prepare(
-      `SELECT productId, financialYear, pctM01, pctM02, pctM03, pctM04, pctM05, pctM06,
+      `SELECT productCatId, financialYear, pctM01, pctM02, pctM03, pctM04, pctM05, pctM06,
               pctM07, pctM08, pctM09, pctM10, pctM11, pctM12
        FROM ProductSalesBudgetMonthPhaseProfile`,
     )
@@ -173,14 +225,14 @@ export function loadSalesBudgetCrosstabContext(
 
   const profileByPair = new Map<string, Record<string, unknown>>();
   for (const row of profileRows) {
-    profileByPair.set(`${row.productId}:${row.financialYear}`, row);
+    profileByPair.set(`${row.productCatId}:${row.financialYear}`, row);
   }
 
   const equalSplit = Array.from({ length: 12 }, () => 1 / 12);
   for (const pair of pairList) {
-    const pairKey = `${pair.productId}:${pair.financialYear}`;
+    const pairKey = `${pair.productCatId}:${pair.financialYear}`;
     const row = profileByPair.get(pairKey);
-    phasePctByProductFy.set(pairKey, row ? profileRowToPercents(row) : equalSplit);
+    phasePctByCatFy.set(pairKey, row ? profileRowToPercents(row) : equalSplit);
   }
 
   return {
@@ -188,14 +240,9 @@ export function loadSalesBudgetCrosstabContext(
     periodsByFy,
     yearChoices,
     reportYear,
-    productsInReport,
+    categoriesInReport,
     budgetMap,
-    phasePctByProductFy,
+    phasePctByCatFy,
     hasAnyBudget: budgets.length > 0,
   };
-}
-
-export function productLabel(product: ProductRow): string {
-  const code = product.productCode ? ` (${product.productCode})` : "";
-  return `${product.productName}${code}`;
 }

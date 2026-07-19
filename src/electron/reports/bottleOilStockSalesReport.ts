@@ -120,32 +120,37 @@ function buildStockSection(
   const asAtDate = new Date(`${asAtIso}T00:00:00`);
   const title = `1. BOTTLED PALM OIL STOCKS - AS AT ${asAtDate.toLocaleDateString("en-GB")}`.toUpperCase();
 
-  const dataRows: BottleOilStockMatrixRow[] = salesPoints.map((salesPoint) => {
-    const unitCounts = STOCK_PACK_COLUMNS.map(() => 0);
-    const kgCounts = STOCK_PACK_COLUMNS.map(() => 0);
+  const dataRows: BottleOilStockMatrixRow[] = salesPoints
+    .map((salesPoint) => {
+      const unitCounts = STOCK_PACK_COLUMNS.map(() => 0);
+      const kgCounts = STOCK_PACK_COLUMNS.map(() => 0);
 
-    for (const product of bottledProducts) {
-      const packId = packIdForProduct(product);
-      const columnIndex = stockColumnIndexForPack(packId);
-      const units =
-        balances.find(
-          (balance) =>
-            balance.salesPointId === salesPoint.id && balance.productId === product.productId,
-        )?.qty ?? 0;
-      const column = STOCK_PACK_COLUMNS[columnIndex];
-      unitCounts[columnIndex] += units;
-      kgCounts[columnIndex] += unitsToKg(units, column.litresPerUnit);
-    }
+      for (const product of bottledProducts) {
+        const packId = packIdForProduct(product);
+        const columnIndex = stockColumnIndexForPack(packId);
+        const units =
+          balances.find(
+            (balance) =>
+              balance.salesPointId === salesPoint.id && balance.productId === product.productId,
+          )?.qty ?? 0;
+        const column = STOCK_PACK_COLUMNS[columnIndex];
+        unitCounts[columnIndex] += units;
+        kgCounts[columnIndex] += unitsToKg(units, column.litresPerUnit);
+      }
 
-    return {
-      salesPointName: salesPoint.name.toUpperCase(),
-      unitCounts,
-      kgCounts,
-      rowTotalUnits: sum(unitCounts),
-      rowTotalKg: sum(kgCounts),
-      kind: "data",
-    };
-  });
+      return {
+        salesPointName: salesPoint.name.toUpperCase(),
+        unitCounts,
+        kgCounts,
+        rowTotalUnits: sum(unitCounts),
+        rowTotalKg: sum(kgCounts),
+        kind: "data" as const,
+      };
+    })
+    .filter(
+      (row) =>
+        Math.abs(row.rowTotalUnits) > 0.0001 || Math.abs(row.rowTotalKg) > 0.0001,
+    );
 
   const unitColumnTotals = STOCK_PACK_COLUMNS.map((_, columnIndex) =>
     sum(dataRows.map((row) => row.unitCounts[columnIndex])),
@@ -267,11 +272,15 @@ function buildSalesSection(
     });
   }
 
+  const activeMonthRows = monthRows.filter(
+    (row) => Math.abs(row.rowTotalKg) > 0.0001 || Math.abs(row.rowTotalValue) > 0.0001,
+  );
+
   const totalKgs = SALES_COLUMNS.map((_, columnIndex) =>
-    sum(monthRows.map((row) => row.kgs[columnIndex])),
+    sum(activeMonthRows.map((row) => row.kgs[columnIndex])),
   );
   const totalValues = SALES_COLUMNS.map((_, columnIndex) =>
-    sum(monthRows.map((row) => row.values[columnIndex])),
+    sum(activeMonthRows.map((row) => row.values[columnIndex])),
   );
   const grandTotalKg = sum(totalKgs);
   const grandTotalValue = sum(totalValues);
@@ -286,7 +295,7 @@ function buildSalesSection(
     `2. SALES FROM ${fromDate.toLocaleDateString("en-GB")} TO DATE ${toDateLabel}`.toUpperCase();
 
   const rows: BottleOilSalesRow[] = [
-    ...monthRows,
+    ...activeMonthRows,
     {
       label: "TOTAL (KGs)",
       kgs: totalKgs,

@@ -62,8 +62,8 @@
 }
 
 .mdr-budget-table {
-  min-width: 920px;
-  width: 100%;
+  width: auto;
+  max-width: none;
   table-layout: fixed;
   border-collapse: collapse;
   font-size: 12px;
@@ -73,7 +73,6 @@
 
 .mdr-budget-table .mdr-budget-corner,
 .mdr-budget-table .mdr-budget-row-label {
-  width: 88px;
   text-align: left;
   font-weight: 700;
   text-transform: lowercase;
@@ -90,6 +89,9 @@
   text-align: center;
   vertical-align: middle;
   font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
 }
 
 .mdr-budget-table thead th {
@@ -119,11 +121,14 @@
 }
 
 @media print {
-  body.mdr-print-landscape .mdr-table,
-  body.mdr-print-landscape .mdr-budget-table {
+  body.mdr-print-landscape .mdr-table {
     font-size: 12px;
     min-width: 0;
     width: 100%;
+  }
+
+  body.mdr-print-landscape .mdr-budget-table {
+    font-size: 12px;
   }
 
   body.mdr-print-landscape .mdr-table th,

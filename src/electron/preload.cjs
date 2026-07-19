@@ -59,6 +59,13 @@ contextBridge.exposeInMainWorld("api", {
     listValidationQueue: () => ipcRenderer.invoke("deliveryOrders:listValidationQueue"),
     validateMany: (payload) => ipcRenderer.invoke("deliveryOrders:validateMany", payload),
   },
+  carryForward: {
+    getFormOptions: () => ipcRenderer.invoke("carryForward:getFormOptions"),
+    list: () => ipcRenderer.invoke("carryForward:list"),
+    upsert: (input) => ipcRenderer.invoke("carryForward:upsert", input),
+    upsertBatch: (input) => ipcRenderer.invoke("carryForward:upsertBatch", input),
+    delete: (input) => ipcRenderer.invoke("carryForward:delete", input),
+  },
   reports: {
     getStockCommitment: (authToken) =>
       ipcRenderer.invoke("reports:getStockCommitment", authToken),
@@ -68,8 +75,8 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("reports:getCommitmentReport", authToken),
     getBottleOilStockSales: (authToken) =>
       ipcRenderer.invoke("reports:getBottleOilStockSales", authToken),
-    getBottledWeeklyIssues: (authToken) =>
-      ipcRenderer.invoke("reports:getBottledWeeklyIssues", authToken),
+    getBottledWeeklyIssues: (authToken, estimateBasis) =>
+      ipcRenderer.invoke("reports:getBottledWeeklyIssues", authToken, estimateBasis),
     getWeeklyDeliveries: (authToken) =>
       ipcRenderer.invoke("reports:getWeeklyDeliveries", authToken),
     getMonthlyDelivery: (half, authToken) =>
@@ -124,5 +131,13 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("stock:findAdjustmentByNumber", payload),
     loadAdjustmentForReview: (payload) =>
       ipcRenderer.invoke("stock:loadAdjustmentForReview", payload),
+  },
+  dialog: {
+    confirm: (message) => ipcRenderer.sendSync("dialog:confirm", message),
+    alert: (message) => ipcRenderer.sendSync("dialog:alert", message),
+  },
+  print: {
+    exportPdf: (defaultFileName) =>
+      ipcRenderer.invoke("print:exportPdf", defaultFileName),
   },
 });

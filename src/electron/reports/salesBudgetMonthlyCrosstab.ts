@@ -5,10 +5,7 @@ import {
   computeMonthlyBudgetQtyKgByFiscalMonth,
 } from "../../shared/salesBudgetPhase.js";
 import { loadReportCompanySettings } from "./companySettings.js";
-import {
-  loadSalesBudgetCrosstabContext,
-  productLabel,
-} from "./salesBudgetCrosstabShared.js";
+import { loadSalesBudgetCrosstabContext } from "./salesBudgetCrosstabShared.js";
 
 export function getSalesBudgetMonthlyCrosstabReport(
   userId?: string | null,
@@ -18,15 +15,15 @@ export function getSalesBudgetMonthlyCrosstabReport(
   const context = loadSalesBudgetCrosstabContext(reportYearRaw);
   const monthlyCache = new Map<string, number[]>();
 
-  function monthlyLine(productId: number, financialYear: number): number[] | null {
-    const budget = context.budgetMap.get(`${productId}:${financialYear}`);
+  function monthlyLine(productCatId: number, financialYear: number): number[] | null {
+    const budget = context.budgetMap.get(`${productCatId}:${financialYear}`);
     const period = context.periodsByFy.get(financialYear);
-    const pcts = context.phasePctByProductFy.get(`${productId}:${financialYear}`);
+    const pcts = context.phasePctByCatFy.get(`${productCatId}:${financialYear}`);
     if (!budget || !period || !pcts) {
       return null;
     }
 
-    const cacheKey = `${productId}:${financialYear}`;
+    const cacheKey = `${productCatId}:${financialYear}`;
     let line = monthlyCache.get(cacheKey);
     if (!line) {
       line = computeMonthlyBudgetQtyKgByFiscalMonth({
@@ -42,7 +39,7 @@ export function getSalesBudgetMonthlyCrosstabReport(
     return line;
   }
 
-  const rows = context.productsInReport.map((product) => {
+  const rows = context.categoriesInReport.map((cat) => {
     const cells: number[] = [];
     let rowTotal = 0;
     for (const month of CAL_MONTHS) {
@@ -51,14 +48,14 @@ export function getSalesBudgetMonthlyCrosstabReport(
         month,
         context.fiscalYearStartMonth,
       );
-      const line = monthlyLine(product.productId, financialYear);
+      const line = monthlyLine(cat.productCatId, financialYear);
       const kg = line ? (line[financialMonth - 1] ?? 0) : 0;
       cells.push(kg);
       rowTotal += kg;
     }
     return {
-      productId: product.productId,
-      label: productLabel(product),
+      productCatId: cat.productCatId,
+      label: cat.label,
       cells,
       rowTotal,
     };
@@ -74,7 +71,7 @@ export function getSalesBudgetMonthlyCrosstabReport(
     yearChoices: context.yearChoices,
     reportYear: context.reportYear,
     hasAnyBudget: context.hasAnyBudget,
-    productsInReportCount: context.productsInReport.length,
+    categoriesInReportCount: context.categoriesInReport.length,
     rows,
     colTotals,
     grandTotal,

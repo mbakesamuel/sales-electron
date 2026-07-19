@@ -7,7 +7,7 @@ type RouteMatrix = Record<string, RouteAccess>;
 type ActionMatrix = Record<PermissionActionKey, boolean>;
 
 const ROUTE_GROUPS = {
-  operations: ["sales", "delivery-orders", "vehicle-consignment-notes"],
+  operations: ["sales", "delivery-orders", "carry-forward-commitments", "vehicle-consignment-notes"],
   customerOps: ["customers"],
   productConfig: [
     "products",
@@ -35,6 +35,7 @@ const ROUTE_GROUPS = {
     "bottle-oil-stock-sales-report",
     "bottled-weekly-issues-report",
     "sales-delivery-report",
+    "weekly-print-pack",
     "monthly-delivery-report-h1",
     "monthly-delivery-report-h2",
   ],
@@ -108,6 +109,7 @@ function buildDefaultRouteMatrix(): Record<string, RouteMatrix> {
       "bottle-oil-stock-sales-report",
       "bottled-weekly-issues-report",
       "sales-delivery-report",
+      "weekly-print-pack",
       "monthly-delivery-report-h1",
       "monthly-delivery-report-h2",
     ]),

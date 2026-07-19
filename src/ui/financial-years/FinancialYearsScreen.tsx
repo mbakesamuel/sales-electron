@@ -5,6 +5,7 @@ import { FormDialog } from "../components/FormDialog.tsx";
 import "../components/FormDialog.css";
 import { FinancialYearFormModal } from "./FinancialYearFormModal.tsx";
 import "../customers/CustomersScreen.css";
+import "./FinancialMonthsScreen.css";
 
 type SortKey = "financialYear" | "status" | "openedAt" | "openMonthCount";
 type SortDir = "asc" | "desc";
@@ -12,9 +13,40 @@ type ActiveTab = "all" | "OPEN" | "CLOSED";
 
 const PAGE_SIZE = 6;
 
+/** Format stored local `YYYY-MM-DD[ HH:mm:ss]` without UTC shift. */
 function formatDate(value: string | null): string {
   if (!value) return "—";
-  return value.length >= 10 ? value.slice(0, 10) : value;
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (!match) return value;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatDateTime(value: string | null): string {
+  if (!value) return "—";
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(
+    value,
+  );
+  if (!match) return value;
+  const date = new Date(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+    match[4] != null ? Number(match[4]) : 0,
+    match[5] != null ? Number(match[5]) : 0,
+    match[6] != null ? Number(match[6]) : 0,
+  );
+  return date.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function statusBadgeClass(status: string): string {
@@ -580,27 +612,69 @@ export function FinancialYearsScreen({
         <FormDialog
           ariaLabel={`View ${viewRow.financialYear}`}
           title={`Financial year ${viewRow.financialYear}`}
-          subtitle="Year details"
+          subtitle={viewRow.status === "OPEN" ? "Currently open for posting" : "Closed year"}
           onClose={() => setViewRow(null)}
         >
-          <div class="customers-view-grid">
-            {[
-              ["Year", String(viewRow.financialYear)],
-              ["Status", viewRow.status],
-              ["Start", viewRow.startDate],
-              ["End", viewRow.endDate],
-              ["Opened", formatDate(viewRow.openedAt)],
-              ["Closed", formatDate(viewRow.closedAt)],
-              ["Months", String(viewRow.monthCount)],
-              ["Open months", String(viewRow.openMonthCount)],
-            ].map(([label, value]) => (
-              <div key={label} class="customers-view-field">
-                <span class="customers-view-label">{label}</span>
-                <span class="customers-view-value">{value}</span>
+          <div class="fy-view-sections">
+            <section class="fy-view-section">
+              <h3 class="fy-view-section-title">Status</h3>
+              <div class="customers-view-grid">
+                <div class="customers-view-row">
+                  <span class="customers-view-label">Year</span>
+                  <span class="customers-view-value">{viewRow.financialYear}</span>
+                </div>
+                <div class="customers-view-row">
+                  <span class="customers-view-label">Status</span>
+                  <span class="customers-view-value">
+                    <span class={statusBadgeClass(viewRow.status)}>{viewRow.status}</span>
+                  </span>
+                </div>
               </div>
-            ))}
+            </section>
+
+            <section class="fy-view-section">
+              <h3 class="fy-view-section-title">Period</h3>
+              <div class="customers-view-grid">
+                <div class="customers-view-row">
+                  <span class="customers-view-label">Start</span>
+                  <span class="customers-view-value">{formatDate(viewRow.startDate)}</span>
+                </div>
+                <div class="customers-view-row">
+                  <span class="customers-view-label">End</span>
+                  <span class="customers-view-value">{formatDate(viewRow.endDate)}</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="fy-view-section">
+              <h3 class="fy-view-section-title">Opened / closed</h3>
+              <div class="customers-view-grid">
+                <div class="customers-view-row">
+                  <span class="customers-view-label">Opened</span>
+                  <span class="customers-view-value">{formatDateTime(viewRow.openedAt)}</span>
+                </div>
+                <div class="customers-view-row">
+                  <span class="customers-view-label">Closed</span>
+                  <span class="customers-view-value">{formatDateTime(viewRow.closedAt)}</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="fy-view-section">
+              <h3 class="fy-view-section-title">Months</h3>
+              <div class="customers-view-grid">
+                <div class="customers-view-row">
+                  <span class="customers-view-label">Total</span>
+                  <span class="customers-view-value">{viewRow.monthCount} / 12</span>
+                </div>
+                <div class="customers-view-row">
+                  <span class="customers-view-label">Open</span>
+                  <span class="customers-view-value">{viewRow.openMonthCount}</span>
+                </div>
+              </div>
+            </section>
           </div>
-          <div class="form-dialog-actions">
+          <div class="form-dialog-actions" style="padding-left: 0; margin-top: 12px;">
             <button
               type="button"
               class="form-dialog-btn-secondary"

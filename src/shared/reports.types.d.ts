@@ -26,6 +26,8 @@ export interface StockCommitmentBottledSection {
     unitCounts: number[];
     litres: number[];
     kgs: number[];
+    totalUnits: number;
+    totalLitres: number;
     totalKgs: number;
 }
 export interface StockCommitmentReportSection {
@@ -38,21 +40,34 @@ export interface StockCommitmentReport {
     asAtIso: string;
     generatedAtIso: string;
     sections: StockCommitmentReportSection[];
+    /** Totals for all non-bottled product sections; shown before bottled block. */
+    looseGrandTotal: StockCommitmentReportRow | null;
     bottledSection: StockCommitmentBottledSection | null;
 }
-export interface StockReportLooseRow {
+export interface StockReportLocationRow {
     salesPointName: string | null;
     storageName: string | null;
     quantityKg: number | null;
     remarks: string | null;
     kind: "data" | "subtotal" | "grand_total";
 }
+export interface StockReportLocationSection {
+    kind: "location_detail";
+    title: string;
+    productCatId: number;
+    rows: StockReportLocationRow[];
+    sectionTotalKg: number;
+    /** When true, render oil GRAND TOTAL after this section (loose + PKO). */
+    showOilGrandTotalAfter: boolean;
+}
 export interface StockReportBottledMatrixRow {
     salesPointName: string;
     unitCounts: number[];
 }
 export interface StockReportBottledSection {
+    kind: "bottled";
     title: string;
+    productCatId: number;
     columns: BottledPackColumn[];
     rows: StockReportBottledMatrixRow[];
     columnTotals: number[];
@@ -60,23 +75,38 @@ export interface StockReportBottledSection {
     kgs: number[];
     totalKgs: number;
 }
-export interface StockReportProductMatrixRow {
-    productName: string;
-    quantities: number[];
+export interface StockReportKernelSplitRow {
+    salesPointName: string;
+    crackedKg: number;
+    uncrackedKg: number;
+    totalKg: number;
 }
-export interface StockReportProductMatrix {
+export interface StockReportKernelSplitSection {
+    kind: "kernel_split";
     title: string;
-    salesPointNames: string[];
-    rows: StockReportProductMatrixRow[];
-    totals: number[];
+    productCatId: number;
+    rows: StockReportKernelSplitRow[];
+    totals: StockReportKernelSplitRow;
 }
+export interface StockReportSalesPointQtyRow {
+    salesPointName: string;
+    quantityKg: number;
+}
+export interface StockReportSalesPointQtySection {
+    kind: "sales_point_qty";
+    title: string;
+    productCatId: number;
+    quantityLabel: string;
+    rows: StockReportSalesPointQtyRow[];
+    totalKg: number;
+}
+export type StockReportSection = StockReportLocationSection | StockReportBottledSection | StockReportKernelSplitSection | StockReportSalesPointQtySection;
 export interface StockReport {
     settings: ReportCompanySettings;
     asAtIso: string;
     generatedAtIso: string;
-    looseRows: StockReportLooseRow[];
-    bottledSection: StockReportBottledSection | null;
-    otherProductsSection: StockReportProductMatrix | null;
+    sections: StockReportSection[];
+    oilGrandTotalKg: number;
 }
 export interface CommitmentReportRow {
     label: string;
@@ -97,6 +127,12 @@ export interface CommitmentReport {
     asAtIso: string;
     generatedAtIso: string;
     sections: CommitmentReportSection[];
+    /** Same sales-point order as each section. */
+    salesPointNames: string[];
+    /** Sum of all section column totals by sales point. */
+    columnTotals: number[];
+    /** Sum of all section grand totals. */
+    grandTotal: number;
 }
 export interface BottleOilStockPackColumn {
     id: string;
@@ -214,9 +250,9 @@ export interface MonthlyDeliveryReport {
     reportTitle: string;
     monthColumns: MonthlyDeliveryMonthColumn[];
     sections: MonthlyDeliverySection[];
-    /** Cracked / Uncracked palm kernel only (no G.TOTAL / variance in UI). */
+    /** Cracked / Uncracked / P. KERNEL summary (no G.TOTAL in this table). */
     kernelPkBudgetSection: MonthlyDeliveryBudgetSection;
-    /** Palm oil + PKO + PKC with G.TOTAL and variance. */
+    /** Palm oil + PKO + PKC with G.TOTAL (includes P. KERNEL FCFA) and variance. */
     budgetSection: MonthlyDeliveryBudgetSection;
 }
 export interface MonthlyDeliveryBudgetMetric {
@@ -312,7 +348,7 @@ export interface BottledWeeklyIssuesReport {
     compare: BottledWeeklyCompareSection;
 }
 export interface SalesBudgetMonthlyCrosstabRow {
-    productId: number;
+    productCatId: number;
     label: string;
     cells: number[];
     rowTotal: number;
@@ -322,7 +358,7 @@ export interface SalesBudgetMonthlyCrosstabReport {
     yearChoices: number[];
     reportYear: number;
     hasAnyBudget: boolean;
-    productsInReportCount: number;
+    categoriesInReportCount: number;
     rows: SalesBudgetMonthlyCrosstabRow[];
     colTotals: number[];
     grandTotal: number;
@@ -333,10 +369,9 @@ export interface SalesBudgetWeeklyCrosstabWeekMeta {
     wy: number;
     wk: number;
 }
-export interface SalesBudgetWeeklyCrosstabProduct {
-    productId: number;
-    productName: string;
-    productCode: string | null;
+export interface SalesBudgetWeeklyCrosstabCategory {
+    productCatId: number;
+    label: string;
 }
 export interface SalesBudgetWeeklyCrosstabCellQty {
     key: string;
@@ -347,10 +382,10 @@ export interface SalesBudgetWeeklyCrosstabReport {
     yearChoices: number[];
     reportYear: number;
     hasAnyBudget: boolean;
-    productsInReport: SalesBudgetWeeklyCrosstabProduct[];
+    categoriesInReport: SalesBudgetWeeklyCrosstabCategory[];
     sortedWeeks: SalesBudgetWeeklyCrosstabWeekMeta[];
     cols: Array<{
-        productId: number;
+        productCatId: number;
         month: number;
     }>;
     qtyByCell: SalesBudgetWeeklyCrosstabCellQty[];

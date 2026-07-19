@@ -18,7 +18,7 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
     routes: [
       {
         id: "company-settings",
-        label: "settings",
+        label:"App settings",
         table: "CompanySettings",
         description: "Company-wide configuration.",
       },
@@ -58,12 +58,23 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         table: "StorageLocation",
         description: "Assign locations to sales points.",
       },
-
       {
         id: "payment-methods",
         label: "Payment methods",
         table: "PaymentMethodDefinition",
         description: "Accepted payment methods.",
+      },
+      {
+        id: "tax-regimes",
+        label: "Tax regimes",
+        table: "TaxRegime",
+        description: "Actual vs Simplified tax regimes.",
+      },
+      {
+        id: "tax-rate-schedules",
+        label: "Tax rates",
+        table: "TaxRateSchedule",
+        description: "Date-effective VAT and sales-tax rates.",
       },
     ],
   },
@@ -107,6 +118,12 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         table: "ProductUnitPriceSchedule",
         description: "Scheduled product unit prices.",
       },
+    ],
+  },
+  {
+    id: "sales-budget",
+    label: "Sales budget",
+    routes: [
       {
         id: "sales-budget",
         label: "Sales budget phasing",
@@ -125,7 +142,6 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         table: "ProductSalesBudget",
         description: "Weekly phased budget kg crosstab by product and month.",
       },
-     
     ],
   },
   {
@@ -139,9 +155,47 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         description:
           "Manage stock balance, movements, receipts, transfers, and adjustments.",
       },
+    ],
+  },
+ 
+  {
+    id: "delivery",
+    label: "Delivery Order",
+    routes: [
+      {
+        id: "delivery-orders",
+        label: "Delivery orders",
+        table: "DeliveryOrder",
+        description: "Create and manage delivery orders.",
+      },
+      {
+        id: "carry-forward-commitments",
+        label: "Carry-forward commitments",
+        table: "DeliveryOrder",
+        description:
+          "Enter opening / carried-forward customer commitments by product and sales point.",
+      },
+    ],
+  },
+  {
+    id: "sales",
+    label: "Sales",
+    routes: [
+      {
+        id: "sales",
+        label: "Sales Invoice",
+        table: "Sale",
+        description: "Create and manage sales invoices (POS screen).",
+      },
+    ],
+  },
+  {
+    id: "reports",
+    label: "Reports",
+    routes: [
       {
         id: "stock-commitment-report",
-        label: "Stock & commitment report",
+        label: "Stock summary report",
         table: "StockBalance",
         description:
           "Stock and delivery-order commitment report for management.",
@@ -159,26 +213,33 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         description:
           "Outstanding delivery-order commitments by customer and sales point.",
       },
-    {
-      id: "bottle-oil-stock-sales-report",
-      label: "Bottle oil stock & sales",
-      table: "StockBalance",
-      description:
-        "Bottled palm oil stock by sales point and monthly sales to date.",
-    },
-    {
-      id: "bottled-weekly-issues-report",
-      label: "Bottled weekly issues",
-      table: "Sale",
-      description:
-        "Bottled palm oil issues Mon–Fri by payment method, with MTD and YTD summary.",
-    },
-    {
-      id: "sales-delivery-report",
-      label: "Sales / delivery report",
-      table: "Sale",
-      description: "Weekly sales and deliveries by customer category.",
-    },
+      {
+        id: "bottle-oil-stock-sales-report",
+        label: "Bottle oil stock & sales",
+        table: "StockBalance",
+        description:
+          "Bottled palm oil stock by sales point and monthly sales to date.",
+      },
+      {
+        id: "bottled-weekly-issues-report",
+        label: "Weekly Bottled Sales Report",
+        table: "Sale",
+        description:
+          "Bottled palm oil issues Mon–Fri by payment method, with MTD and YTD summary.",
+      },
+      {
+        id: "sales-delivery-report",
+        label: "Sales / delivery report",
+        table: "Sale",
+        description: "Weekly sales and deliveries by customer category.",
+      },
+      {
+        id: "weekly-print-pack",
+        label: "Weekly print pack",
+        table: "StockBalance",
+        description:
+          "Select weekly management reports and export one combined PDF.",
+      },
       {
         id: "monthly-delivery-report-h1",
         label: "Monthly delivery (Jan–Jun)",
@@ -190,48 +251,6 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         label: "Monthly delivery (Jul–Dec)",
         table: "Sale",
         description: "Monthly deliveries and value for July through December.",
-      },
-    ],
-  },
-  {
-    id: "delivery",
-    label: "Delivery Order",
-    routes: [
-      {
-        id: "delivery-orders",
-        label: "Delivery orders",
-        table: "DeliveryOrder",
-        description: "Create and manage delivery orders.",
-      },
-    ],
-  },
-  {
-    id: "sales",
-    label: "Sales",
-    routes: [
-      {
-        id: "sales",
-        label: "Sales Invoice",
-        table: "Sale",
-        description: "Create and manage sales invoices (POS screen).",
-      },
-    ],
-  },
-  {
-    id: "tax-finance",
-    label: "Tax",
-    routes: [
-      {
-        id: "tax-regimes",
-        label: "Tax regimes",
-        table: "TaxRegime",
-        description: "Actual vs Simplified tax regimes.",
-      },
-      {
-        id: "tax-rate-schedules",
-        label: "Tax rates",
-        table: "TaxRateSchedule",
-        description: "Date-effective VAT and sales-tax rates.",
       },
     ],
   },

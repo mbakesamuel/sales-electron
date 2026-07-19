@@ -687,14 +687,22 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
     salesTaxTotal = 0;
   }
 
+  // Match UI totals: round net first, then tax on that net (FCFA have no decimals).
+  // Comparing raw floats against the rounded paid amount caused false "must equal" failures.
+  const invoiceNet = Math.round(isBottleMode ? grossTotal : netTotal);
+  const invoiceVat = isBottleMode ? 0 : Math.round(invoiceNet * (vatApplies ? vatRate : 0));
+  const invoiceSalesTax = isBottleMode ? 0 : Math.round(invoiceNet * salesTaxRate);
+  const invoiceGross = isBottleMode
+    ? invoiceNet
+    : invoiceNet + invoiceVat + invoiceSalesTax;
+
   const paidTotal = isSpecialDisposition
     ? 0
-    : input.payments.reduce((sum, payment) => sum + parseAmount(payment.amount), 0);
+    : Math.round(
+        input.payments.reduce((sum, payment) => sum + parseAmount(payment.amount), 0),
+      );
 
-  if (
-    !isSpecialDisposition &&
-    paidTotal !== grossTotal
-  ) {
+  if (!isSpecialDisposition && paidTotal !== invoiceGross) {
     return {
       ok: false,
       error: "Paid amount must equal invoice total (no credit sales).",
@@ -754,9 +762,9 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
       customerNameSnapshot,
       taxRegimeId,
       roundMoney(vatRate),
-      roundMoney(isBottleMode ? grossTotal : netTotal),
-      roundMoney(vatTotal),
-      roundMoney(grossTotal),
+      roundMoney(invoiceNet),
+      roundMoney(invoiceVat),
+      roundMoney(invoiceGross),
       timestamp,
       timestamp,
       input.referenceNumber?.trim() || null,
@@ -811,15 +819,15 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
       }
     }
 
-    if (vatApplies && vatTotal > 0) {
+    if (vatApplies && invoiceVat > 0) {
       db.prepare(
         `INSERT INTO SaleAppliedTax (
           id, saleId, codeSnapshot, labelSnapshot, rateSnapshot, amount, createdAt
         ) VALUES (?, ?, 'VAT', 'VAT', ?, ?, ?)`,
-      ).run(newSaleLineId(), saleId, roundMoney(vatRate), roundMoney(vatTotal), timestamp);
+      ).run(newSaleLineId(), saleId, roundMoney(vatRate), roundMoney(invoiceVat), timestamp);
     }
 
-    if (salesTaxTotal > 0) {
+    if (invoiceSalesTax > 0) {
       db.prepare(
         `INSERT INTO SaleAppliedTax (
           id, saleId, codeSnapshot, labelSnapshot, rateSnapshot, amount, createdAt
@@ -829,7 +837,7 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
         saleId,
         SALES_TAX_LABEL,
         roundMoney(salesTaxRate),
-        roundMoney(salesTaxTotal),
+        roundMoney(invoiceSalesTax),
         timestamp,
       );
     }

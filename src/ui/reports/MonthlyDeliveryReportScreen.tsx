@@ -23,11 +23,17 @@ function formatTons(value: number): string {
   });
 }
 
+/** Display FCFA amounts in thousands (000 FCFA). */
+function toThousands(value: number): number {
+  return value / 1000;
+}
+
 function formatValue(value: number): string {
-  if (value === 0) {
+  const thousands = toThousands(value);
+  if (thousands === 0) {
     return "0";
   }
-  return Math.round(value).toLocaleString("en-US");
+  return Math.round(thousands).toLocaleString("en-US");
 }
 
 function formatAvgPrice(value: number): string {
@@ -51,8 +57,9 @@ function formatPct(actual: number, estimate: number): string {
 }
 
 function formatVariance(value: number): string {
-  const abs = Math.round(Math.abs(value)).toLocaleString("en-US");
-  return value < 0 ? `(${abs})` : abs;
+  const thousands = Math.round(toThousands(value));
+  const abs = Math.abs(thousands).toLocaleString("en-US");
+  return thousands < 0 ? `(${abs})` : abs;
 }
 
 function handlePrint(): void {
@@ -81,22 +88,33 @@ function handlePrint(): void {
 function buildCsv(report: MonthlyDeliveryReport): string {
   const monthHeaders = report.monthColumns.flatMap((column) => [
     `${column.label} TONS`,
-    `${column.label} VALUE`,
+    `${column.label} VALUE (000 FCFA)`,
   ]);
   const lines: string[] = [
     `Company:,${report.settings.companyName}`,
     report.settings.department ? `Department:,${report.settings.department}` : "",
     `Financial Year:,${report.financialYear}`,
     `Half:,${report.half}`,
+    `Value unit:,000 FCFA`,
     "",
-    ["", ...monthHeaders, "TODATE TONS", "TODATE VALUE"].join(","),
+    ["", ...monthHeaders, "TODATE TONS", "TODATE VALUE (000 FCFA)"].join(","),
   ];
 
   for (const section of report.sections) {
     lines.push(section.title);
     for (const row of section.rows) {
-      const monthValues = row.months.flatMap((cell) => [cell.tons, cell.value]);
-      lines.push([row.label, ...monthValues, row.toDate.tons, row.toDate.value].join(","));
+      const monthValues = row.months.flatMap((cell) => [
+        cell.tons,
+        Math.round(toThousands(cell.value)),
+      ]);
+      lines.push(
+        [
+          row.label,
+          ...monthValues,
+          row.toDate.tons,
+          Math.round(toThousands(row.toDate.value)),
+        ].join(","),
+      );
     }
     lines.push("");
   }
@@ -111,12 +129,16 @@ function buildCsv(report: MonthlyDeliveryReport): string {
       ...section.metrics.flatMap((metric) => [
         `${metric.tonsLabel} ESTIMATE`,
         `${metric.tonsLabel} ACTUAL`,
-        `${metric.valueLabel} ESTIMATE`,
-        `${metric.valueLabel} ACTUAL`,
+        `${metric.valueLabel} ESTIMATE (000 FCFA)`,
+        `${metric.valueLabel} ACTUAL (000 FCFA)`,
       ]),
     ];
     if (includeGrand) {
-      header.push("G.TOTAL ESTIMATE", "G.TOTAL ACTUAL", "variance");
+      header.push(
+        "G.TOTAL ESTIMATE (000 FCFA)",
+        "G.TOTAL ACTUAL (000 FCFA)",
+        "variance (000 FCFA)",
+      );
     }
     lines.push(header.join(","));
 
@@ -125,12 +147,16 @@ function buildCsv(report: MonthlyDeliveryReport): string {
       ...section.metrics.flatMap((metric) => [
         metric.estimateTons,
         metric.actualTons,
-        metric.estimateValue,
-        metric.actualValue,
+        Math.round(toThousands(metric.estimateValue)),
+        Math.round(toThousands(metric.actualValue)),
       ]),
     ];
     if (includeGrand) {
-      toDate.push(section.grandEstimateValue, section.grandActualValue, section.variance);
+      toDate.push(
+        Math.round(toThousands(section.grandEstimateValue)),
+        Math.round(toThousands(section.grandActualValue)),
+        Math.round(toThousands(section.variance)),
+      );
     }
     lines.push(toDate.join(","));
 
@@ -177,9 +203,36 @@ function BudgetTable({
   section: MonthlyDeliveryBudgetSection;
   showGrandTotal: boolean;
 }) {
+  /** Shared widths so the kernel table lines up with the first 13 columns of the main table. */
+  const cornerWidth = 88;
+  const dataColWidth = 92;
+  const gTotalColWidth = 100;
+  const varianceColWidth = 110;
+  const dataColCount = section.metrics.length * 4;
+  const tableWidth =
+    cornerWidth +
+    dataColCount * dataColWidth +
+    (showGrandTotal ? gTotalColWidth * 2 + varianceColWidth : 0);
+
   return (
     <div class="mdr-budget-block">
-      <table class="mdr-budget-table">
+      <table
+        class={`mdr-budget-table${showGrandTotal ? "" : " mdr-budget-table-kernel"}`}
+        style={{ width: `${tableWidth}px` }}
+      >
+        <colgroup>
+          <col style={{ width: `${cornerWidth}px` }} />
+          {Array.from({ length: dataColCount }, (_, index) => (
+            <col key={`data-${index}`} style={{ width: `${dataColWidth}px` }} />
+          ))}
+          {showGrandTotal ? (
+            <>
+              <col style={{ width: `${gTotalColWidth}px` }} />
+              <col style={{ width: `${gTotalColWidth}px` }} />
+              <col style={{ width: `${varianceColWidth}px` }} />
+            </>
+          ) : null}
+        </colgroup>
         <thead>
           <tr>
             <th class="mdr-budget-corner" rowSpan={2}>
@@ -227,7 +280,7 @@ function BudgetTable({
             {showGrandTotal ? (
               <>
                 <td />
-                <td>(FCFA)</td>
+                <td>(000 FCFA)</td>
                 <td />
               </>
             ) : null}
@@ -395,10 +448,10 @@ export function MonthlyDeliveryReportScreen({ half }: MonthlyDeliveryReportScree
                 <tr>
                   {report.monthColumns.flatMap((column) => [
                     <th key={`${column.month}-tons`}>TONS</th>,
-                    <th key={`${column.month}-value`}>VALUE</th>,
+                    <th key={`${column.month}-value`}>000 FCFA</th>,
                   ])}
                   <th key="todate-tons">TONS</th>
-                  <th key="todate-value">VALUE</th>
+                  <th key="todate-value">000 FCFA</th>
                 </tr>
               </thead>
               <tbody>
@@ -458,8 +511,12 @@ export function MonthlyDeliveryReportScreen({ half }: MonthlyDeliveryReportScree
 
         <p class="mdr-footnote">
           PKO = palm kernel oil; PKC = palm kernel cake; CPK = cracked palm kernel; UPK = uncracked
-          palm kernel. Values from validated sales invoices (tax excluded). Budget estimates from
-          ProductSalesBudget (phase profile months when available).
+          palm kernel. Palm oil estimate = loose + bottled category budgets. Uncracked/cracked
+          actuals are products in the Palm Kernel category; P. KERNEL summarises both. Values are
+          shown in 000 FCFA (thousands). Budget TO-DATE is year-to-date through as-at: completed
+          months at full phase weight, current month prorated by day. Actuals use invoices dated on
+          or before as-at. G.TOTAL includes P. KERNEL (000 FCFA). Delivery tables above remain
+          half-scoped (Jan–Jun or Jul–Dec).
         </p>
         <ReportFooter />
       </div>

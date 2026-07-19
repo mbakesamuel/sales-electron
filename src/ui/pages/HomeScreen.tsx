@@ -26,6 +26,7 @@ import { FinancialYearsScreen } from "../financial-years/FinancialYearsScreen.ts
 import { FinancialMonthsScreen } from "../financial-years/FinancialMonthsScreen.tsx";
 import { SalesScreen } from "../sales/SalesScreen.tsx";
 import { DeliveryOrdersScreen } from "../delivery-orders/DeliveryOrdersScreen.tsx";
+import { CarryForwardCommitmentsScreen } from "../commitments/CarryForwardCommitmentsScreen.tsx";
 import { StockScreen } from "../stock/StockScreen.tsx";
 import { BottleOilStockSalesReportScreen } from "../reports/BottleOilStockSalesReportScreen.tsx";
 import { BottledWeeklyIssuesReportScreen } from "../reports/BottledWeeklyIssuesReportScreen.tsx";
@@ -37,6 +38,7 @@ import { WeeklyDeliveriesReportScreen } from "../reports/WeeklyDeliveriesReportS
 import { CommitmentReportScreen } from "../reports/CommitmentReportScreen.tsx";
 import { StockCommitmentReportScreen } from "../reports/StockCommitmentReport.tsx";
 import { StockReportScreen } from "../reports/StockReportScreen.tsx";
+import { WeeklyPrintPackScreen } from "../reports/WeeklyPrintPackScreen.tsx";
 import { SalesBudgetMonthlyCrosstabScreen } from "../reports/SalesBudgetMonthlyCrosstabScreen.tsx";
 import { SalesBudgetWeeklyCrosstabScreen } from "../reports/SalesBudgetWeeklyCrosstabScreen.tsx";
 import { SalesBudgetScreen } from "../sales-budget/SalesBudgetScreen.tsx";
@@ -58,6 +60,8 @@ import {
 } from "../navigation/sidebarIcons.ts";
 import { SidebarChevron, SidebarIcon } from "../navigation/SidebarIcon.tsx";
 import { ConfirmDialog } from "../components/ConfirmDialog.tsx";
+import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
+import type { OpenPostingPeriod } from "../../shared/financialYears.types.ts";
 import "./HomeScreen.css";
 
 interface HomeScreenProps {
@@ -118,6 +122,16 @@ function RouteContent({
     );
   }
 
+  if (route.id === "carry-forward-commitments") {
+    return (
+      <CarryForwardCommitmentsScreen
+        user={user}
+        permissions={permissions}
+        readOnly={readOnly}
+      />
+    );
+  }
+
   if (route.id === "stock") {
     return <StockScreen user={user} permissions={permissions} />;
   }
@@ -144,6 +158,10 @@ function RouteContent({
 
   if (route.id === "sales-delivery-report") {
     return <WeeklyDeliveriesReportScreen />;
+  }
+
+  if (route.id === "weekly-print-pack") {
+    return <WeeklyPrintPackScreen permissions={permissions} />;
   }
 
   if (route.id === "monthly-delivery-report-h1") {
@@ -247,6 +265,8 @@ export function HomeScreen({
     sales: true,
   });
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [openPostingPeriod, setOpenPostingPeriod] =
+    useState<OpenPostingPeriod | null>(null);
 
   const visibleSections = useMemo(
     () => filterSectionsForPermissions(SCHEMA_ROUTE_SECTIONS, permissions),
@@ -254,6 +274,31 @@ export function HomeScreen({
   );
 
   const activeRoute = findRouteById(activeRouteId) ?? OVERVIEW_ROUTE;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function refreshOpenPostingPeriod() {
+      try {
+        const period =
+          await getAuthenticatedFinancialYears().getOpenPostingPeriod();
+        if (!cancelled) setOpenPostingPeriod(period);
+      } catch {
+        if (!cancelled) setOpenPostingPeriod(null);
+      }
+    }
+
+    void refreshOpenPostingPeriod();
+    const refreshOnFocus = () => void refreshOpenPostingPeriod();
+    window.addEventListener("focus", refreshOnFocus);
+    const intervalId = window.setInterval(refreshOpenPostingPeriod, 15_000);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", refreshOnFocus);
+      window.clearInterval(intervalId);
+    };
+  }, [activeRouteId]);
 
   useEffect(() => {
     if (activeRouteId === DEFAULT_ROUTE_ID) {
@@ -296,6 +341,7 @@ export function HomeScreen({
     "bottle-oil-stock-sales-report",
     "bottled-weekly-issues-report",
     "sales-delivery-report",
+    "weekly-print-pack",
     "monthly-delivery-report-h1",
     "monthly-delivery-report-h2",
     "sales-budget-monthly-crosstab",
@@ -317,6 +363,7 @@ export function HomeScreen({
     "financial-year-periods",
     "financial-months",
     "role-permissions",
+    "carry-forward-commitments",
   ]);
 
   return (
@@ -414,6 +461,20 @@ export function HomeScreen({
       ) : null}
 
       <main class="home-main">
+        <header class="home-topbar no-print">
+          <div class="home-topbar-period">
+            <span>
+              Open financial year:{" "}
+              <strong>{openPostingPeriod?.financialYear ?? "None"}</strong>
+            </span>
+            <span class="home-topbar-divider" aria-hidden="true" />
+            <span>
+              Open month:{" "}
+              <strong>{openPostingPeriod?.monthName ?? "None"}</strong>
+            </span>
+          </div>
+        </header>
+
         {activeRouteId !== DEFAULT_ROUTE_ID && !customScreenRoutes.has(activeRouteId) ? (
           <header class="home-header">
             <div>
@@ -436,6 +497,10 @@ export function HomeScreen({
             />
           </section>
         ) : null}
+
+        <footer class="home-bottombar no-print">
+          <span>ISD 2026</span>
+        </footer>
       </main>
     </div>
   );

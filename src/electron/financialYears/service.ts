@@ -23,12 +23,19 @@ const MONTH_NAMES = [
   "December",
 ] as const;
 
-function nowIso(): string {
-  return new Date().toISOString().slice(0, 19).replace("T", " ");
-}
-
 function pad2(value: number): string {
   return String(value).padStart(2, "0");
+}
+
+/** Local wall-clock timestamp for openedAt / closedAt (not UTC). */
+function nowIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+}
+
+function localTodayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
 function monthStartDate(year: number, month: number): string {
@@ -275,7 +282,7 @@ export function assertBudgetYear(financialYear: unknown): void {
   }
 }
 
-/** As-at date for reports: today clamped into the open posting month. */
+/** As-at date for reports: today clamped into the open financial year. */
 export function resolveReportAsAt(): {
   asAtIso: string;
   period: OpenPostingPeriod;
@@ -284,12 +291,14 @@ export function resolveReportAsAt(): {
   if (!period) {
     throw new Error("Open a financial month before running reports.");
   }
-  const today = new Date().toISOString().slice(0, 10);
+  const yearStart = yearStartDate(period.financialYear);
+  const yearEnd = yearEndDate(period.financialYear);
+  const today = localTodayIso();
   let asAtIso = today;
-  if (asAtIso < period.startDate) {
-    asAtIso = period.startDate;
-  } else if (asAtIso > period.endDate) {
-    asAtIso = period.endDate;
+  if (asAtIso < yearStart) {
+    asAtIso = yearStart;
+  } else if (asAtIso > yearEnd) {
+    asAtIso = yearEnd;
   }
   return { asAtIso, period };
 }

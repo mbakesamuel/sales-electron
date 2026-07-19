@@ -298,6 +298,27 @@ function SalesSection({ section }: { section: BottleOilSalesSection }) {
   );
 }
 
+export function BottleOilStockSalesReportDocument({
+  report,
+}: {
+  report: BottleOilStockSalesReport;
+}) {
+  return (
+    <div class="scr-document wpp-pack-page">
+      <ReportHeader
+        companyName={report.settings.companyName}
+        department={report.settings.department ?? null}
+        serviceName={report.settings.serviceName ?? null}
+        title={`BOTTLE OIL STOCK AND SALES TODATE AS AT ${formatShortReportDate(report.asAtIso)}`}
+      />
+
+      <StockSection section={report.stockSection} />
+      <SalesSection section={report.salesSection} />
+      <ReportFooter />
+    </div>
+  );
+}
+
 export function BottleOilStockSalesReportScreen() {
   const [report, setReport] = useState<BottleOilStockSalesReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -375,18 +396,7 @@ export function BottleOilStockSalesReportScreen() {
         </button>
       </div>
 
-      <div class="scr-document">
-        <ReportHeader
-          companyName={report.settings.companyName}
-          department={report.settings.department ?? null}
-          serviceName={report.settings.serviceName ?? null}
-          title={`BOTTLE OIL STOCK AND SALES TODATE AS AT ${formatShortReportDate(report.asAtIso)}`}
-        />
-
-        <StockSection section={report.stockSection} />
-        <SalesSection section={report.salesSection} />
-        <ReportFooter />
-      </div>
+      <BottleOilStockSalesReportDocument report={report} />
     </div>
   );
 }

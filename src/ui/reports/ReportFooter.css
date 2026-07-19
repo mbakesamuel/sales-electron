@@ -8,15 +8,9 @@
 
 .report-footer-signature {
   margin-left: auto;
+  margin-right: auto;
   width: min(280px, 42%);
   text-align: center;
-}
-
-.report-footer-label {
-  margin: 0;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
 }
 
 .report-footer-space {
@@ -31,6 +25,15 @@
 .report-footer-name {
   margin: 6px 0 0;
   font-size: 12px;
+  font-weight: 700;
+}
+
+.report-footer-label {
+  margin: 2px 0 0;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 11px;
 }
 
 @media print {

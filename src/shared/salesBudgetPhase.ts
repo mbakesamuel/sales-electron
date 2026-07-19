@@ -185,37 +185,10 @@ function isoWeekLabel(isoWeekYear: number, isoWeek: number): string {
   return `${isoWeekYear}-W${String(isoWeek).padStart(2, "0")}`;
 }
 
-function mondayOfIsoWeek(isoWeekYear: number, isoWeek: number): Date {
-  const jan4 = new Date(Date.UTC(isoWeekYear, 0, 4));
-  const jan4Day = jan4.getUTCDay() || 7;
-  const week1Monday = new Date(jan4);
-  week1Monday.setUTCDate(jan4.getUTCDate() - (jan4Day - 1));
-  const monday = new Date(week1Monday);
-  monday.setUTCDate(week1Monday.getUTCDate() + (isoWeek - 1) * 7);
-  return new Date(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate(), 12, 0, 0, 0);
-}
-
 function addDays(date: Date, days: number): Date {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
   return next;
-}
-
-function dateToIso(date: Date): string {
-  return isoDate(date.getFullYear(), date.getMonth() + 1, date.getDate());
-}
-
-function intersectDayCount(
-  rangeStartIso: string,
-  rangeEndIso: string,
-  otherStartIso: string,
-  otherEndIso: string,
-): number {
-  const clipped = clipDateRange(rangeStartIso, rangeEndIso, otherStartIso, otherEndIso);
-  if (!clipped) {
-    return 0;
-  }
-  return dayCountInclusive(clipped.startIso, clipped.endIso);
 }
 
 export function buildSalesBudgetPhase(args: {
@@ -270,33 +243,21 @@ export function buildSalesBudgetPhase(args: {
     const weekMap = new Map<string, SalesBudgetPhaseWeek>();
     let cursor = parseIsoDate(monthInFy.startIso);
     const monthEnd = parseIsoDate(monthInFy.endIso);
+    const kgPerDay = monthKg / daysInMonthInFy;
 
     while (cursor.getTime() <= monthEnd.getTime()) {
       const { isoWeekYear, isoWeek } = getIsoWeekInfo(cursor);
-      const weekMonday = mondayOfIsoWeek(isoWeekYear, isoWeek);
-      const weekStartIso = dateToIso(weekMonday);
-      const weekEndIso = dateToIso(addDays(weekMonday, 6));
-      const daysInWeek = intersectDayCount(
-        weekStartIso,
-        weekEndIso,
-        monthInFy.startIso,
-        monthInFy.endIso,
-      );
-
-      if (daysInWeek > 0) {
-        const label = isoWeekLabel(isoWeekYear, isoWeek);
-        const qtyKg = (monthKg * daysInWeek) / daysInMonthInFy;
-        const existing = weekMap.get(label);
-        if (existing) {
-          existing.qtyKg += qtyKg;
-        } else {
-          weekMap.set(label, {
-            label,
-            isoWeekYear,
-            isoWeek,
-            qtyKg,
-          });
-        }
+      const label = isoWeekLabel(isoWeekYear, isoWeek);
+      const existing = weekMap.get(label);
+      if (existing) {
+        existing.qtyKg += kgPerDay;
+      } else {
+        weekMap.set(label, {
+          label,
+          isoWeekYear,
+          isoWeek,
+          qtyKg: kgPerDay,
+        });
       }
 
       cursor = addDays(cursor, 1);

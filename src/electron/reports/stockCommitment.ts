@@ -204,8 +204,29 @@ function buildProductSection(
   salesPoints: SalesPointRow[],
   stockMetrics: MetricRow[],
   commitmentMetrics: MetricRow[],
-): StockCommitmentReportSection {
+): StockCommitmentReportSection | null {
   const title = product.productName.toUpperCase();
+
+  const dataRows = salesPoints
+    .map((salesPoint) => {
+      const metrics = metricForProductAtSalesPoint(
+        product.productId,
+        salesPoint.id,
+        stockMetrics,
+        commitmentMetrics,
+      );
+      return makeDataRow("", salesPoint.name, metrics);
+    })
+    .filter((row) => {
+      const stock = row.stockKg ?? 0;
+      const commitment = row.commitmentKg ?? 0;
+      return Math.abs(stock) > 0.0001 || Math.abs(commitment) > 0.0001;
+    });
+
+  if (dataRows.length === 0) {
+    return null;
+  }
+
   const rows: StockCommitmentReportRow[] = [
     {
       label: `${sectionNo}. ${title}`,
@@ -215,20 +236,9 @@ function buildProductSection(
       balanceKg: null,
       kind: "header",
     },
+    ...dataRows,
+    makeTotalRow("SUBTOTAL", dataRows, "subtotal"),
   ];
-
-  const dataRows = salesPoints.map((salesPoint) => {
-    const metrics = metricForProductAtSalesPoint(
-      product.productId,
-      salesPoint.id,
-      stockMetrics,
-      commitmentMetrics,
-    );
-    return makeDataRow("", salesPoint.name, metrics);
-  });
-
-  rows.push(...dataRows);
-  rows.push(makeTotalRow("SUBTOTAL", dataRows, "subtotal"));
 
   return {
     sectionNo,
@@ -267,32 +277,40 @@ function buildBottledSection(
     return null;
   }
 
-  const columnMap = new Map<string, BottledPackColumn>();
-  for (const product of bottledProducts) {
+  // One column per bottled product so every SKU shows (not collapsed by pack type).
+  const packRank = (product: ProductRow): number => {
+    const packId = detectBottledPack(product).id;
+    const index = (BOTTLED_PACK_ORDER as readonly string[]).indexOf(packId);
+    return index >= 0 ? index : BOTTLED_PACK_ORDER.length;
+  };
+  const orderedProducts = [...bottledProducts].sort((a, b) => {
+    const rankDiff = packRank(a) - packRank(b);
+    if (rankDiff !== 0) {
+      return rankDiff;
+    }
+    return a.productName.localeCompare(b.productName);
+  });
+
+  const columns: BottledPackColumn[] = orderedProducts.map((product) => {
     const pack = detectBottledPack(product);
-    const stockUnits = sum(
+    const units = sum(
       stockMetrics
         .filter((metric) => metric.productId === product.productId)
         .map((metric) => metric.qty),
     );
-    const existing = columnMap.get(pack.id);
-    if (existing) {
-      existing.units += stockUnits;
-    } else {
-      columnMap.set(pack.id, { ...pack, units: stockUnits });
-    }
-  }
-
-  const columns = BOTTLED_PACK_ORDER.filter((packId) => columnMap.has(packId)).map(
-    (packId) => columnMap.get(packId)!,
-  );
-  if (columns.length === 0) {
-    return null;
-  }
+    return {
+      id: `product-${product.productId}`,
+      label: product.productName.toUpperCase(),
+      units,
+      litresPerUnit: pack.litresPerUnit,
+    };
+  });
 
   const unitCounts = columns.map((column) => column.units);
   const litres = columns.map((column) => column.units * column.litresPerUnit);
   const kgs = litres.map((litre) => litre * PALM_OIL_KG_PER_LITRE);
+  const totalUnits = sum(unitCounts);
+  const totalLitres = sum(litres);
   const totalKgs = sum(kgs);
 
   return {
@@ -302,6 +320,8 @@ function buildBottledSection(
     unitCounts,
     litres,
     kgs,
+    totalUnits,
+    totalLitres,
     totalKgs,
   };
 }
@@ -328,15 +348,17 @@ export function getStockCommitmentReport(
       .sort((left, right) => left.productName.localeCompare(right.productName));
 
     for (const product of categoryProducts) {
-      sections.push(
-        buildProductSection(
-          sectionNo,
-          product,
-          salesPoints,
-          stockMetrics,
-          commitmentMetrics,
-        ),
+      const section = buildProductSection(
+        sectionNo,
+        product,
+        salesPoints,
+        stockMetrics,
+        commitmentMetrics,
       );
+      if (!section) {
+        continue;
+      }
+      sections.push(section);
       sectionNo += 1;
     }
   }
@@ -345,6 +367,14 @@ export function getStockCommitmentReport(
     ? buildBottledSection(sectionNo, bottledCategory, products, stockMetrics)
     : null;
 
+  const looseDataRows = sections.flatMap((section) =>
+    section.rows.filter((row) => row.kind === "data"),
+  );
+  const looseGrandTotal =
+    looseDataRows.length > 0
+      ? makeTotalRow("GRAND TOTAL", looseDataRows, "grand_total")
+      : null;
+
   const { asAtIso } = resolveReportAsAt();
 
   return {
@@ -352,6 +382,7 @@ export function getStockCommitmentReport(
     asAtIso,
     generatedAtIso: nowIso(),
     sections,
+    looseGrandTotal,
     bottledSection,
   };
 }

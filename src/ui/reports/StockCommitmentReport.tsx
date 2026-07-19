@@ -81,14 +81,28 @@ function buildCsv(report: StockCommitmentReport): string {
     lines.push("");
   }
 
+  if (report.looseGrandTotal) {
+    const row = report.looseGrandTotal;
+    lines.push(
+      [
+        row.label,
+        row.salesPointName ?? "",
+        row.stockKg ?? "",
+        row.commitmentKg ?? "",
+        row.balanceKg ?? "",
+      ].join(","),
+    );
+    lines.push("");
+  }
+
   if (report.bottledSection) {
     const bottled = report.bottledSection;
     lines.push(`${bottled.sectionNo}. ${bottled.title}`);
-  lines.push(
-      bottled.columns.map((column) => column.label).join(",") + ",TOTAL (KGS)",
+    lines.push(
+      ["", ...bottled.columns.map((column) => column.label), "TOTAL"].join(","),
     );
-    lines.push(bottled.unitCounts.join(","));
-    lines.push(["LITRES", ...bottled.litres, bottled.totalKgs].join(","));
+    lines.push(["UNITS", ...bottled.unitCounts, bottled.totalUnits].join(","));
+    lines.push(["LITRES", ...bottled.litres, bottled.totalLitres].join(","));
     lines.push(["KGS", ...bottled.kgs, bottled.totalKgs].join(","));
   }
 
@@ -120,7 +134,14 @@ function handlePrint(): void {
 function BottledSection({ section }: { section: StockCommitmentBottledSection }) {
   return (
     <div class="scr-bottled-block">
-      <table class="scr-table scr-bottled-table">
+      <table class="scr-table scr-bottled-table sr-report-matrix sr-bottled-products">
+        <colgroup>
+          <col class="sr-col-label" />
+          {section.columns.map((column) => (
+            <col key={column.id} class="sr-bottled-product-col" />
+          ))}
+          <col class="sr-col-last" />
+        </colgroup>
         <thead>
           <tr>
             <th colSpan={section.columns.length + 2} class="scr-section-title">
@@ -130,20 +151,22 @@ function BottledSection({ section }: { section: StockCommitmentBottledSection })
           <tr>
             <th />
             {section.columns.map((column) => (
-              <th key={column.id}>{column.label}</th>
+              <th key={column.id} class="sr-bottled-product-head" title={column.label}>
+                {column.label}
+              </th>
             ))}
-            <th>TOTAL (KGS)</th>
+            <th>TOTAL</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td />
+            <td class="scr-row-label">UNITS</td>
             {section.unitCounts.map((count, index) => (
               <td key={`units-${index}`} class="scr-num">
                 {formatUnits(count)}
               </td>
             ))}
-            <td />
+            <td class="scr-num scr-total-cell">{formatUnits(section.totalUnits)}</td>
           </tr>
           <tr>
             <td class="scr-row-label">LITRES</td>
@@ -152,7 +175,7 @@ function BottledSection({ section }: { section: StockCommitmentBottledSection })
                 {formatUnits(litre)}
               </td>
             ))}
-            <td />
+            <td class="scr-num scr-total-cell">{formatUnits(section.totalLitres)}</td>
           </tr>
           <tr>
             <td class="scr-row-label">KGS</td>
@@ -165,6 +188,60 @@ function BottledSection({ section }: { section: StockCommitmentBottledSection })
           </tr>
         </tbody>
       </table>
+    </div>
+  );
+}
+
+export function StockCommitmentReportDocument({
+  report,
+}: {
+  report: StockCommitmentReport;
+}) {
+  return (
+    <div class="scr-document sr-stock-compact wpp-pack-page">
+      <ReportHeader
+        companyName={report.settings.companyName}
+        department={report.settings.department ?? null}
+        serviceName={report.settings.serviceName ?? null}
+        title={`STOCK VS COMMITMENTS AS AT ${formatShortReportDate(report.asAtIso)}`}
+      />
+
+      <table class="scr-table">
+        <thead>
+          <tr>
+            <th>PRODUCT</th>
+            <th>SALES POINT</th>
+            <th>STOCK (KG)</th>
+            <th>COMMITMENTS (KG)</th>
+            <th>BALANCE (KG)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {report.sections.map((section) =>
+            section.rows.map((row, index) => (
+              <tr key={`${section.sectionNo}-${index}`} class={rowClassName(row)}>
+                <td>{row.kind === "header" ? row.label : row.label}</td>
+                <td>{row.salesPointName ?? (row.kind === "data" ? "" : "")}</td>
+                <td class="scr-num">{formatKg(row.stockKg)}</td>
+                <td class="scr-num">{formatKg(row.commitmentKg)}</td>
+                <td class="scr-num">{formatKg(row.balanceKg)}</td>
+              </tr>
+            )),
+          )}
+          {report.looseGrandTotal ? (
+            <tr class={rowClassName(report.looseGrandTotal)}>
+              <td>{report.looseGrandTotal.label}</td>
+              <td>{report.looseGrandTotal.salesPointName ?? ""}</td>
+              <td class="scr-num">{formatKg(report.looseGrandTotal.stockKg)}</td>
+              <td class="scr-num">{formatKg(report.looseGrandTotal.commitmentKg)}</td>
+              <td class="scr-num">{formatKg(report.looseGrandTotal.balanceKg)}</td>
+            </tr>
+          ) : null}
+        </tbody>
+      </table>
+
+      {report.bottledSection ? <BottledSection section={report.bottledSection} /> : null}
+      <ReportFooter />
     </div>
   );
 }
@@ -234,54 +311,7 @@ export function StockCommitmentReportScreen() {
         </button>
       </div>
 
-      <div class="scr-document">
-        <ReportHeader
-          companyName={report.settings.companyName}
-          department={report.settings.department ?? null}
-          serviceName={report.settings.serviceName ?? null}
-          title="Stock vs commitments"
-          meta={
-            <>
-              <p class="scr-meta-line">
-                <span class="scr-meta-label">TO :</span> Commercial Director
-              </p>
-              <p class="scr-as-at">
-                AS at{" "}
-                <span class="scr-as-at-date">{formatShortReportDate(report.asAtIso)}</span>
-              </p>
-              <p class="scr-generated">{formatReportDate(report.asAtIso)}</p>
-            </>
-          }
-        />
-
-        <table class="scr-table">
-          <thead>
-            <tr>
-              <th>PRODUCT</th>
-              <th>SALES POINT</th>
-              <th>STOCK (KG)</th>
-              <th>COMMITMENTS (KG)</th>
-              <th>BALANCE (KG)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {report.sections.map((section) =>
-              section.rows.map((row, index) => (
-                <tr key={`${section.sectionNo}-${index}`} class={rowClassName(row)}>
-                  <td>{row.kind === "header" ? row.label : row.label}</td>
-                  <td>{row.salesPointName ?? (row.kind === "data" ? "" : "")}</td>
-                  <td class="scr-num">{formatKg(row.stockKg)}</td>
-                  <td class="scr-num">{formatKg(row.commitmentKg)}</td>
-                  <td class="scr-num">{formatKg(row.balanceKg)}</td>
-                </tr>
-              )),
-            )}
-          </tbody>
-        </table>
-
-        {report.bottledSection ? <BottledSection section={report.bottledSection} /> : null}
-        <ReportFooter />
-      </div>
+      <StockCommitmentReportDocument report={report} />
     </div>
   );
 }

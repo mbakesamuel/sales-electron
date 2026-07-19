@@ -154,6 +154,10 @@
   font-weight: 600;
 }
 
+.sbc-foot td {
+  background: var(--bg-soft);
+}
+
 @media print {
   .sbc-table-wrap {
     overflow: visible;
@@ -187,5 +191,9 @@
   body.scr-print-mode .sbc-product-group,
   body.scr-print-mode .sbc-month-head {
     background: #fff !important;
+  }
+
+  body.scr-print-mode .sbc-foot td {
+    background: #eef4df !important;
   }
 }

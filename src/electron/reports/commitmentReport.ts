@@ -264,6 +264,12 @@ export function getCommitmentReport(userId?: string | null): CommitmentReport {
     }
   }
 
+  const salesPointNames = salesPoints.map((salesPoint) => salesPoint.name.toUpperCase());
+  const columnTotals = salesPoints.map((_, columnIndex) =>
+    sum(sections.map((section) => section.columnTotals[columnIndex] ?? 0)),
+  );
+  const grandTotal = sum(columnTotals);
+
   const { asAtIso } = resolveReportAsAt();
 
   return {
@@ -271,5 +277,8 @@ export function getCommitmentReport(userId?: string | null): CommitmentReport {
     asAtIso,
     generatedAtIso: nowIso(),
     sections,
+    salesPointNames,
+    columnTotals,
+    grandTotal,
   };
 }

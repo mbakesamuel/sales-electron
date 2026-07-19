@@ -7,11 +7,6 @@ import type {
   MonthlyDeliveryRow,
   MonthlyDeliverySection,
 } from "../../shared/reports.types.js";
-import {
-  SALES_BUDGET_GROUPS,
-  resolveSalesBudgetGroupProductIds,
-  type SalesBudgetGroupId,
-} from "../../shared/salesBudgetGroups.js";
 import { loadReportCompanySettings } from "./companySettings.js";
 import { resolveReportAsAt } from "../financialYears/service.js";
 import {
@@ -386,7 +381,7 @@ function buildProductCategorySection(
 }
 
 interface BudgetRow {
-  productId: number;
+  productCatId: number;
   annualQtyKg: number;
   budgetUnitPricePerKg: number;
 }
@@ -394,13 +389,13 @@ interface BudgetRow {
 function loadBudgets(financialYear: number): BudgetRow[] {
   return getDatabase()
     .prepare(
-      `SELECT productId, annualQtyKg, budgetUnitPricePerKg
+      `SELECT productCatId, annualQtyKg, budgetUnitPricePerKg
        FROM ProductSalesBudget
        WHERE financialYear = ?`,
     )
     .all(financialYear)
     .map((row) => ({
-      productId: (row as { productId: number }).productId,
+      productCatId: (row as { productCatId: number }).productCatId,
       annualQtyKg: parseQty((row as { annualQtyKg: string }).annualQtyKg),
       budgetUnitPricePerKg: parseQty(
         (row as { budgetUnitPricePerKg: string }).budgetUnitPricePerKg,
@@ -411,7 +406,7 @@ function loadBudgets(financialYear: number): BudgetRow[] {
 function loadPhaseProfiles(financialYear: number): Map<number, number[]> {
   const rows = getDatabase()
     .prepare(
-      `SELECT productId, pctM01, pctM02, pctM03, pctM04, pctM05, pctM06,
+      `SELECT productCatId, pctM01, pctM02, pctM03, pctM04, pctM05, pctM06,
               pctM07, pctM08, pctM09, pctM10, pctM11, pctM12
        FROM ProductSalesBudgetMonthPhaseProfile
        WHERE financialYear = ?`,
@@ -438,39 +433,80 @@ function loadPhaseProfiles(financialYear: number): Map<number, number[]> {
     // Profiles may be stored as 0-1 fractions or 0-100 percentages.
     const normalized =
       total > 1.5 ? months.map((value) => value / 100) : months;
-    map.set(Number(row.productId), normalized);
+    map.set(Number(row.productCatId), normalized);
   }
   return map;
 }
 
 function monthWeight(
-  productId: number,
+  productCatId: number,
   month: number,
   profiles: Map<number, number[]>,
 ): number {
-  const profile = profiles.get(productId);
+  const profile = profiles.get(productCatId);
   if (profile && profile[month - 1] != null) {
     return profile[month - 1]!;
   }
   return 1 / 12;
 }
 
-function estimateForProducts(
-  productIds: number[],
+/** Calendar days in month (1–12). */
+function daysInCalendarMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate();
+}
+
+/**
+ * Day fraction of the as-at month already elapsed (inclusive of as-at day).
+ * e.g. 2026-06-02 → 2/30.
+ */
+function asAtDayFraction(asAtIso: string): {
+  asAtYear: number;
+  asAtMonth: number;
+  dayFraction: number;
+} {
+  const asAtYear = Number.parseInt(asAtIso.slice(0, 4), 10);
+  const asAtMonth = Number.parseInt(asAtIso.slice(5, 7), 10);
+  const asAtDay = Number.parseInt(asAtIso.slice(8, 10), 10);
+  const days = daysInCalendarMonth(asAtYear, asAtMonth);
+  const dayFraction =
+    Number.isFinite(asAtDay) && days > 0
+      ? Math.min(1, Math.max(0, asAtDay / days))
+      : 1;
+  return { asAtYear, asAtMonth, dayFraction };
+}
+
+function estimateForCategories(
+  productCatIds: number[],
   months: number[],
   budgets: BudgetRow[],
   profiles: Map<number, number[]>,
+  options?: {
+    /** When set, this month's phase weight is multiplied by dayFraction. */
+    prorateMonth?: number;
+    dayFraction?: number;
+  },
 ): { tons: number; value: number } {
   let kg = 0;
   let value = 0;
-  const idSet = new Set(productIds);
+  const idSet = new Set(productCatIds);
+  const prorateMonth = options?.prorateMonth;
+  const dayFraction =
+    options?.dayFraction != null && Number.isFinite(options.dayFraction)
+      ? Math.min(1, Math.max(0, options.dayFraction))
+      : 1;
 
   for (const budget of budgets) {
-    if (!idSet.has(budget.productId)) {
+    if (!idSet.has(budget.productCatId)) {
       continue;
     }
     const weight = sum(
-      months.map((month) => monthWeight(budget.productId, month, profiles)),
+      months.map((month) => {
+        let w = monthWeight(budget.productCatId, month, profiles);
+        if (prorateMonth != null && month === prorateMonth) {
+          w *= dayFraction;
+        }
+        return w;
+      }),
     );
     const periodKg = budget.annualQtyKg * weight;
     kg += periodKg;
@@ -480,48 +516,131 @@ function estimateForProducts(
   return { tons: kgToTons(kg), value };
 }
 
-function buildMetricForProducts(input: {
+function categoryNameUpper(category: CategoryRow): string {
+  return category.productCat.toUpperCase();
+}
+
+/** Loose / main palm oil category (not bottled, not kernel). */
+function isLoosePalmOilCategory(category: CategoryRow): boolean {
+  if (category.isMain === 1) {
+    return true;
+  }
+  const text = categoryNameUpper(category);
+  return (
+    text.includes("PALM OIL") &&
+    !text.includes("KERNEL") &&
+    !text.includes("BOTTLED") &&
+    category.isBottled !== 1
+  );
+}
+
+function isBottledPalmOilCategory(category: CategoryRow): boolean {
+  return category.isBottled === 1;
+}
+
+/** Palm Kernel (uncracked/cracked products) — not oil or cake. */
+function isPalmKernelCategory(category: CategoryRow): boolean {
+  const text = categoryNameUpper(category);
+  if (text.includes("KERNEL OIL") || /\bPKO\b/.test(text)) {
+    return false;
+  }
+  if (text.includes("KERNEL CAKE") || /\bPKC\b/.test(text)) {
+    return false;
+  }
+  if (category.isMain === 1 || category.isBottled === 1) {
+    return false;
+  }
+  return (
+    text.includes("PALM KERNEL") ||
+    (text.includes("KERNEL") && !text.includes("OIL") && !text.includes("CAKE"))
+  );
+}
+
+function isPalmKernelOilCategory(category: CategoryRow): boolean {
+  const text = categoryNameUpper(category);
+  return text.includes("KERNEL OIL") || /\bPKO\b/.test(text);
+}
+
+function isPalmKernelCakeCategory(category: CategoryRow): boolean {
+  const text = categoryNameUpper(category);
+  return text.includes("KERNEL CAKE") || /\bPKC\b/.test(text);
+}
+
+function productNameUpper(product: ProductRow): string {
+  return `${product.productName} ${product.productCode ?? ""}`.toUpperCase();
+}
+
+function isUncrackedPalmKernelProduct(product: ProductRow): boolean {
+  return productNameUpper(product).includes("UNCRACKED");
+}
+
+function isCrackedPalmKernelProduct(product: ProductRow): boolean {
+  const text = productNameUpper(product);
+  return text.includes("CRACKED") && !text.includes("UNCRACKED");
+}
+
+function catIds(categories: CategoryRow[], pred: (c: CategoryRow) => boolean): number[] {
+  return categories.filter(pred).map((c) => c.productCatId);
+}
+
+function buildBudgetMetric(input: {
   id: string;
   tonsLabel: string;
   valueLabel: string;
-  productIds: number[];
+  estimateCatIds: number[];
+  lineMatches: (line: SaleLineRecord) => boolean;
   estimateMonths: number[];
   monthColumns: MonthlyDeliveryMonthColumn[];
   budgets: BudgetRow[];
   profiles: Map<number, number[]>;
   products: ProductRow[];
   lines: SaleLineRecord[];
+  asAtIso: string;
+  prorateMonth: number | null;
+  dayFraction: number;
 }): MonthlyDeliveryBudgetMetric {
   const {
     id,
     tonsLabel,
     valueLabel,
-    productIds,
+    estimateCatIds,
+    lineMatches,
     estimateMonths,
     monthColumns,
     budgets,
     profiles,
     products,
     lines,
+    asAtIso,
+    prorateMonth,
+    dayFraction,
   } = input;
-  const idSet = new Set(productIds);
 
-  const estimate = estimateForProducts(productIds, estimateMonths, budgets, profiles);
+  const estimate = estimateForCategories(
+    estimateCatIds,
+    estimateMonths,
+    budgets,
+    profiles,
+    prorateMonth != null
+      ? { prorateMonth, dayFraction }
+      : undefined,
+  );
 
-  const lineMatches = (line: SaleLineRecord) => idSet.has(line.productId);
+  const monthSet = new Set(estimateMonths);
 
-  const actual =
-    estimateMonths.length === monthColumns.length
-      ? aggregateLines(lines, products, monthColumns, lineMatches).toDate
-      : (() => {
-          const monthSet = new Set(estimateMonths);
-          return aggregateLines(
-            lines.filter((line) => monthSet.has(monthIndexFromIso(line.dateIssued))),
-            products,
-            monthColumns.filter((column) => monthSet.has(column.month)),
-            lineMatches,
-          ).toDate;
-        })();
+  // Actuals match estimate window: months in scope and invoice date ≤ as-at day.
+  const actualLines = lines.filter(
+    (line) =>
+      monthSet.has(monthIndexFromIso(line.dateIssued)) &&
+      line.dateIssued <= asAtIso,
+  );
+  const actualColumns = monthColumns.filter((column) => monthSet.has(column.month));
+  const actual = aggregateLines(
+    actualLines,
+    products,
+    actualColumns.length > 0 ? actualColumns : monthColumns,
+    lineMatches,
+  ).toDate;
 
   return {
     id,
@@ -534,91 +653,180 @@ function buildMetricForProducts(input: {
   };
 }
 
+function sumBudgetMetrics(
+  metrics: MonthlyDeliveryBudgetMetric[],
+  id: string,
+  tonsLabel: string,
+  valueLabel: string,
+): MonthlyDeliveryBudgetMetric {
+  return {
+    id,
+    tonsLabel,
+    valueLabel,
+    estimateTons: sum(metrics.map((m) => m.estimateTons)),
+    actualTons: sum(metrics.map((m) => m.actualTons)),
+    estimateValue: sum(metrics.map((m) => m.estimateValue)),
+    actualValue: sum(metrics.map((m) => m.actualValue)),
+  };
+}
+
 function buildBudgetSections(input: {
   financialYear: number;
-  monthColumns: MonthlyDeliveryMonthColumn[];
   asAtIso: string;
   categories: CategoryRow[];
   products: ProductRow[];
+  /** Full-year validated lines (budget TO-DATE is year-to-date, not half-scoped). */
   lines: SaleLineRecord[];
 }): {
   kernelPkBudgetSection: MonthlyDeliveryBudgetSection;
   budgetSection: MonthlyDeliveryBudgetSection;
 } {
-  const { financialYear, monthColumns, asAtIso, categories, products, lines } = input;
-  const asAtMonth = Number.parseInt(asAtIso.slice(5, 7), 10);
-  const asAtYear = Number.parseInt(asAtIso.slice(0, 4), 10);
+  const { financialYear, asAtIso, categories, products, lines } = input;
+  const { asAtYear, asAtMonth, dayFraction } = asAtDayFraction(asAtIso);
 
-  const toDateMonths = monthColumns
-    .map((column) => column.month)
-    .filter((month) => {
-      if (asAtYear > financialYear) {
-        return true;
-      }
-      if (asAtYear < financialYear) {
-        return false;
-      }
-      return month <= asAtMonth;
-    });
+  // Year-to-date calendar months in the financial year (Jan … as-at month).
+  let estimateMonths: number[];
+  if (asAtYear > financialYear) {
+    estimateMonths = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  } else if (asAtYear < financialYear) {
+    estimateMonths = [];
+  } else {
+    estimateMonths = Array.from({ length: asAtMonth }, (_, i) => i + 1);
+  }
 
-  const estimateMonths =
-    toDateMonths.length > 0 ? toDateMonths : monthColumns.map((c) => c.month);
+  if (estimateMonths.length === 0) {
+    estimateMonths = [1];
+  }
+
+  const prorateMonth =
+    asAtYear === financialYear && estimateMonths.includes(asAtMonth)
+      ? asAtMonth
+      : null;
+
+  const ytdMonthColumns: MonthlyDeliveryMonthColumn[] = estimateMonths.map(
+    (month) => ({
+      label: MONTH_NAMES[month - 1] ?? String(month),
+      month,
+    }),
+  );
+
   const budgets = loadBudgets(financialYear);
   const profiles = loadPhaseProfiles(financialYear);
 
   const metricContext = {
     estimateMonths,
-    monthColumns,
+    monthColumns: ytdMonthColumns,
     budgets,
     profiles,
     products,
     lines,
+    asAtIso,
+    prorateMonth,
+    dayFraction: prorateMonth != null ? dayFraction : 1,
   };
 
-  const groupById = new Map(
-    SALES_BUDGET_GROUPS.map((group) => [group.id, group] as const),
+  const loosePalmCatIds = catIds(categories, isLoosePalmOilCategory);
+  const bottledPalmCatIds = catIds(categories, isBottledPalmOilCategory);
+  const palmOilCatIds = [...new Set([...loosePalmCatIds, ...bottledPalmCatIds])];
+  const palmKernelCatIds = catIds(categories, isPalmKernelCategory);
+  const pkoCatIds = catIds(categories, isPalmKernelOilCategory);
+  const pkcCatIds = catIds(categories, isPalmKernelCakeCategory);
+
+  const palmKernelCatIdSet = new Set(palmKernelCatIds);
+  const productById = new Map(products.map((p) => [p.productId, p] as const));
+
+  const lineInCats =
+    (catIdSet: Set<number>) =>
+    (line: SaleLineRecord): boolean =>
+      catIdSet.has(line.productCatId);
+
+  const lineUncrackedPk = (line: SaleLineRecord): boolean => {
+    if (!palmKernelCatIdSet.has(line.productCatId)) {
+      return false;
+    }
+    const product = productById.get(line.productId);
+    return product != null && isUncrackedPalmKernelProduct(product);
+  };
+
+  const lineCrackedPk = (line: SaleLineRecord): boolean => {
+    if (!palmKernelCatIdSet.has(line.productCatId)) {
+      return false;
+    }
+    const product = productById.get(line.productId);
+    return product != null && isCrackedPalmKernelProduct(product);
+  };
+
+  // Uncracked / cracked share the Palm Kernel category budget. Show the YTD estimate
+  // on cracked only (matches legacy spreadsheet); uncracked estimate stays blank.
+  const uncracked = buildBudgetMetric({
+    id: "uncracked",
+    tonsLabel: "Uncracked p.k(Tons)",
+    valueLabel: "Uncracked p.k(FCFA)",
+    estimateCatIds: [],
+    lineMatches: lineUncrackedPk,
+    ...metricContext,
+  });
+
+  const cracked = buildBudgetMetric({
+    id: "cracked",
+    tonsLabel: "cracked p.k(Tons)",
+    valueLabel: "cracked p.k(FCFA)",
+    estimateCatIds: palmKernelCatIds,
+    lineMatches: lineCrackedPk,
+    ...metricContext,
+  });
+
+  const pKernel = sumBudgetMetrics(
+    [uncracked, cracked],
+    "p_kernel",
+    "P. KERNEL (tons)",
+    "P. KERNEL (FCFA)",
   );
 
-  const kernelPkMetrics: MonthlyDeliveryBudgetMetric[] = (
-    ["uncracked", "cracked"] as const satisfies readonly SalesBudgetGroupId[]
-  ).map((id) => {
-    const def = groupById.get(id)!;
-    return buildMetricForProducts({
-      id: def.id,
-      tonsLabel: def.tonsLabel,
-      valueLabel: def.valueLabel,
-      ...metricContext,
-      productIds: resolveSalesBudgetGroupProductIds(def.id, categories, products),
-    });
+  const palmOil = buildBudgetMetric({
+    id: "palm_oil",
+    tonsLabel: "PALM OIL (TONS)",
+    valueLabel: "PALM OIL (FCFA)",
+    estimateCatIds: palmOilCatIds,
+    lineMatches: lineInCats(new Set(palmOilCatIds)),
+    ...metricContext,
   });
 
-  const mainMetrics = (
-    ["palm_oil", "bottled_palm_oil", "pko", "pkc"] as const satisfies readonly SalesBudgetGroupId[]
-  ).map((id) => {
-    const def = groupById.get(id)!;
-    return buildMetricForProducts({
-      id: def.id,
-      tonsLabel: def.tonsLabel,
-      valueLabel: def.valueLabel,
-      ...metricContext,
-      productIds: resolveSalesBudgetGroupProductIds(def.id, categories, products),
-    });
+  const pko = buildBudgetMetric({
+    id: "pko",
+    tonsLabel: "P. KERNEL OIL (TONS)",
+    valueLabel: "P. KERNEL OIL (FCFA)",
+    estimateCatIds: pkoCatIds,
+    lineMatches: lineInCats(new Set(pkoCatIds)),
+    ...metricContext,
   });
 
-  const grandEstimateValue = sum(mainMetrics.map((metric) => metric.estimateValue));
-  const grandActualValue = sum(mainMetrics.map((metric) => metric.actualValue));
+  const pkc = buildBudgetMetric({
+    id: "pkc",
+    tonsLabel: "P.KERNEL CAKE(tons)",
+    valueLabel: "P. KERNEL CAKE (FCFA)",
+    estimateCatIds: pkcCatIds,
+    lineMatches: lineInCats(new Set(pkcCatIds)),
+    ...metricContext,
+  });
+
+  // G.TOTAL includes main products + P. KERNEL (FCFA) from the kernel table.
+  const grandEstimateValue =
+    palmOil.estimateValue + pko.estimateValue + pkc.estimateValue + pKernel.estimateValue;
+  const grandActualValue =
+    palmOil.actualValue + pko.actualValue + pkc.actualValue + pKernel.actualValue;
 
   return {
     kernelPkBudgetSection: {
       title: `budget ${financialYear}`,
-      metrics: kernelPkMetrics,
+      metrics: [uncracked, cracked, pKernel],
       grandEstimateValue: 0,
       grandActualValue: 0,
       variance: 0,
     },
     budgetSection: {
       title: `budget ${financialYear}`,
-      metrics: mainMetrics,
+      metrics: [palmOil, pko, pkc],
       grandEstimateValue,
       grandActualValue,
       variance: grandEstimateValue - grandActualValue,
@@ -689,13 +897,13 @@ export function getMonthlyDeliveryReport(
   }
 
   const halfLabel = half === 1 ? "JANUARY – JUNE" : "JULY – DECEMBER";
+  // Budget TO-DATE is year-to-date through as-at (not limited to this half).
   const { kernelPkBudgetSection, budgetSection } = buildBudgetSections({
     financialYear,
-    monthColumns,
     asAtIso,
     categories,
     products,
-    lines,
+    lines: allLines,
   });
 
   return {

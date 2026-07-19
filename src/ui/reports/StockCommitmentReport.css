@@ -118,12 +118,12 @@
 
 .scr-row-header td {
   font-weight: 700;
-  background: var(--bg-soft);
 }
 
 .scr-row-total td {
   font-weight: 700;
   border-top: 2px solid #111827;
+  background: var(--bg-soft);
 }
 
 .scr-row-indent td:first-child {
@@ -170,6 +170,130 @@
 
 .sr-report-matrix .sr-col-last {
   width: 18%;
+}
+
+/* Loose / PKO location detail: narrow sales point, wide storage + remarks on one line. */
+.sr-location-detail .sr-col-label {
+  width: 11%;
+}
+
+.sr-location-detail .sr-col-storage {
+  width: 24%;
+}
+
+.sr-location-detail .sr-col-qty {
+  width: 11%;
+}
+
+.sr-location-detail .sr-col-remarks {
+  width: 54%;
+}
+
+.sr-location-detail .sr-storage,
+.sr-location-detail .sr-remarks {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Compact stock report: tighter rows, all bottled product columns visible. */
+.sr-stock-compact .scr-table th,
+.sr-stock-compact .scr-table td {
+  padding: 3px 3px;
+  line-height: 1.15;
+  height: 18px;
+}
+
+.sr-stock-compact .scr-section-title {
+  font-size: 13px;
+  padding: 2px 4px !important;
+  height: auto;
+}
+
+.sr-stock-compact .scr-bottled-block {
+  margin-top: 6px;
+  padding-top: 4px;
+}
+
+.sr-stock-compact .sr-bottled-products {
+  table-layout: fixed;
+  width: 100%;
+  font-size: 11px;
+}
+
+.sr-stock-compact .sr-bottled-products .sr-col-label {
+  width: 14%;
+}
+
+.sr-stock-compact .sr-bottled-products .sr-col-last {
+  width: 8%;
+}
+
+.sr-stock-compact .sr-bottled-product-col {
+  width: auto;
+}
+
+.sr-stock-compact .sr-bottled-product-head {
+  min-width: 0 !important;
+  max-width: 72px;
+  white-space: normal;
+  word-break: break-word;
+  font-size: 10px;
+  line-height: 1.1;
+  padding: 2px 2px !important;
+  vertical-align: bottom;
+}
+
+.sr-stock-compact .scr-bottled-table th:not(.scr-section-title) {
+  min-width: 0;
+}
+
+/* Compact header so stock report fits on one page. */
+.sr-stock-compact {
+  padding: 10px 14px 12px;
+}
+
+.sr-stock-compact .report-header {
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  min-height: 0;
+}
+
+.sr-stock-compact .report-header-logo,
+.sr-stock-compact .report-header-logo-placeholder {
+  width: 40px;
+  height: 40px;
+}
+
+.sr-stock-compact .report-header-logo-placeholder svg {
+  width: 18px;
+  height: 18px;
+}
+
+.sr-stock-compact .report-header-company {
+  margin-bottom: 4px;
+}
+
+.sr-stock-compact .report-header-company-name,
+.sr-stock-compact .report-header-department,
+.sr-stock-compact .report-header-commercial-service,
+.sr-stock-compact .report-header-title {
+  line-height: 1.15;
+}
+
+.sr-stock-compact .report-header-department,
+.sr-stock-compact .report-header-commercial-service {
+  margin-top: 1px;
+  font-size: 11px;
+}
+
+.sr-stock-compact .report-footer {
+  margin-top: 8px;
+  padding-top: 6px;
+}
+
+.sr-stock-compact .report-footer-space {
+  height: 36px;
 }
 
 /* Bottle oil report: units, kgs, and sales tables share the same column widths. */
@@ -223,13 +347,14 @@
     border-radius: 0;
     padding: 0;
     background: #fff !important;
-    color: #000 !important;
+    color: #111 !important;
+    font-family: Arial, sans-serif !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 
   body.scr-print-mode .scr-document * {
-    color: #000 !important;
+    color: #111 !important;
     box-shadow: none !important;
   }
 
@@ -239,7 +364,38 @@
   body.scr-print-mode .scr-document .sbc-product-group,
   body.scr-print-mode .scr-document .sbc-month-head {
     background: #fff !important;
-    border-color: #333 !important;
+    border: 1px solid #333 !important;
+    color: #111 !important;
+  }
+
+  body.scr-print-mode .scr-document .report-header,
+  body.scr-print-mode .scr-document .report-header * {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  body.scr-print-mode .scr-document .report-header {
+    border: none !important;
+    border-bottom: 2px solid #111 !important;
+  }
+
+  body.scr-print-mode .scr-document .report-header-logo-placeholder {
+    border: 1px solid #ccc !important;
+    background: #fff !important;
+  }
+
+  body.scr-print-mode .scr-document th,
+  body.scr-print-mode .scr-document .sbc-product-group,
+  body.scr-print-mode .scr-document .scr-section-title,
+  body.scr-print-mode .scr-document .scr-row-header td {
+    background: #fff !important;
+    font-weight: 700 !important;
+  }
+
+  body.scr-print-mode .scr-document .scr-row-total td,
+  body.scr-print-mode .scr-document .sbc-foot td,
+  body.scr-print-mode .scr-document .scr-total-cell {
+    background: #eef4df !important;
   }
 
   body.scr-print-mode .no-print {
@@ -259,13 +415,46 @@
     padding: 0 !important;
     margin: 0 !important;
     border: none !important;
+    color: #111 !important;
   }
 
   body.scr-print-mode .scr-as-at-date {
-    color: #000 !important;
+    color: #111 !important;
   }
 
-  body.scr-print-mode .report-header-meta .scr-generated {
-    color: #000 !important;
+  body.scr-print-mode .report-header,
+  body.scr-print-mode .report-footer,
+  body.scr-print-mode .scr-row-total,
+  body.scr-print-mode .scr-document tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  body.scr-print-mode .scr-document thead {
+    display: table-header-group;
+  }
+
+  body.scr-print-mode .scr-bottled-block {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  body.scr-print-mode .scr-bottled-block + .scr-bottled-block {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  body.scr-print-mode .sr-stock-compact .scr-table th,
+  body.scr-print-mode .sr-stock-compact .scr-table td {
+    padding: 2px 2px !important;
+    height: 14px;
+  }
+
+  body.scr-print-mode .report-header-meta .scr-generated,
+  body.scr-print-mode .report-header-department,
+  body.scr-print-mode .report-header-commercial-service,
+  body.scr-print-mode .report-header-meta,
+  body.scr-print-mode .scr-as-at-date {
+    color: #444 !important;
   }
 }

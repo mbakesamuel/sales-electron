@@ -595,7 +595,7 @@ export function CustomerFormModal({
                     type="email"
                     class={`cfm-input has-prefix${errors.email ? " is-error" : ""}`}
                     value={form.email}
-                    placeholder="name@company.com"
+                    placeholder="name@example.com"
                     onInput={(event) =>
                       set("email", (event.currentTarget as HTMLInputElement).value)
                     }
@@ -613,7 +613,7 @@ export function CustomerFormModal({
                     type="tel"
                     class="cfm-input has-prefix"
                     value={form.phone}
-                    placeholder="+1 (415) 000-0000"
+                    placeholder="e.g. +237 6 99 99 99 99"
                     onInput={(event) =>
                       set("phone", (event.currentTarget as HTMLInputElement).value)
                     }
@@ -630,7 +630,7 @@ export function CustomerFormModal({
                     id="cfm-address"
                     class="cfm-textarea"
                     value={form.address}
-                    placeholder="740 Market St, San Francisco, CA 94102"
+                    placeholder="enter full address here"
                     onInput={(event) =>
                       set(
                         "address",

@@ -2,6 +2,7 @@ import type {
   BottledWeeklyCompareSection,
   BottledWeeklyDayColumn,
   BottledWeeklyDetailSection,
+  BottledWeeklyEstimateBasis,
   BottledWeeklyIssuesReport,
   BottledWeeklyMethodBlock,
   BottledWeeklyMethodMetricRow,
@@ -29,6 +30,17 @@ const METHOD_LABELS: Record<BottledWeeklyPaymentMethod, string> = {
   CREDIT: "CREDIT",
   PRO: "PRO",
 };
+
+const ESTIMATE_BASIS_LABELS: Record<BottledWeeklyEstimateBasis, string> = {
+  "working-days": "Working days (Mon–Fri)",
+  "iso-week": "Full ISO week",
+};
+
+export function normalizeBottledWeeklyEstimateBasis(
+  value: unknown,
+): BottledWeeklyEstimateBasis {
+  return value === "iso-week" ? "iso-week" : "working-days";
+}
 
 const WEEKDAY_LABELS = ["MON", "TUE", "WED", "THU", "FRI"] as const;
 
@@ -110,6 +122,69 @@ function getWeekdayRange(asAt: Date): {
     weekFromIso: toIsoDate(monday),
     weekToIso: toIsoDate(weekTo),
     dayColumns,
+  };
+}
+
+/** Inclusive calendar days in [fromIso, toIso] that fall in calendarYear/calendarMonth. */
+function countDaysInCalendarMonth(
+  fromIso: string,
+  toIso: string,
+  calendarYear: number,
+  calendarMonth: number,
+): number {
+  const from = startOfDay(new Date(`${fromIso}T00:00:00`));
+  const to = startOfDay(new Date(`${toIso}T00:00:00`));
+  if (from > to) {
+    return 0;
+  }
+  let count = 0;
+  const cursor = new Date(from);
+  while (cursor.getTime() <= to.getTime()) {
+    if (cursor.getFullYear() === calendarYear && cursor.getMonth() + 1 === calendarMonth) {
+      count += 1;
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return count;
+}
+
+/**
+ * Week window for ESTM day-share (sales-budget weekly phasing style).
+ * working-days: report Mon–Fri window; iso-week: Monday–Sunday of that ISO week.
+ */
+function estimateWeekWindow(
+  weekFromIso: string,
+  weekToIso: string,
+  basis: BottledWeeklyEstimateBasis,
+): { fromIso: string; toIso: string } {
+  if (basis === "working-days") {
+    return { fromIso: weekFromIso, toIso: weekToIso };
+  }
+  const monday = startOfDay(new Date(`${weekFromIso}T00:00:00`));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return { fromIso: toIsoDate(monday), toIso: toIsoDate(sunday) };
+}
+
+function weekEstimateDayFraction(args: {
+  weekFromIso: string;
+  weekToIso: string;
+  calendarYear: number;
+  calendarMonth: number;
+  basis: BottledWeeklyEstimateBasis;
+}): { dayFraction: number; daysInMonth: number; daysInWeekInMonth: number } {
+  const daysInMonth = new Date(args.calendarYear, args.calendarMonth, 0).getDate();
+  const window = estimateWeekWindow(args.weekFromIso, args.weekToIso, args.basis);
+  const daysInWeekInMonth = countDaysInCalendarMonth(
+    window.fromIso,
+    window.toIso,
+    args.calendarYear,
+    args.calendarMonth,
+  );
+  return {
+    daysInMonth,
+    daysInWeekInMonth,
+    dayFraction: daysInMonth > 0 ? daysInWeekInMonth / daysInMonth : 0,
   };
 }
 
@@ -353,15 +428,14 @@ function loadBottledBudgetEstimate(args: {
 }): { kg: number; value: number } {
   const budgets = getDatabase()
     .prepare(
-      `SELECT b.productId, b.annualQtyKg, b.budgetUnitPricePerKg
+      `SELECT b.productCatId, b.annualQtyKg, b.budgetUnitPricePerKg
        FROM ProductSalesBudget b
-       INNER JOIN Product p ON p.productId = b.productId
-       LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
+       INNER JOIN ProductCat pc ON pc.productCatId = b.productCatId
        WHERE b.financialYear = ?
          AND COALESCE(pc.isBottled, 0) = 1`,
     )
     .all(args.year) as Array<{
-    productId: number;
+    productCatId: number;
     annualQtyKg: string;
     budgetUnitPricePerKg: string;
   }>;
@@ -372,14 +446,14 @@ function loadBottledBudgetEstimate(args: {
 
   const profiles = getDatabase()
     .prepare(
-      `SELECT productId, pctM01, pctM02, pctM03, pctM04, pctM05, pctM06,
+      `SELECT productCatId, pctM01, pctM02, pctM03, pctM04, pctM05, pctM06,
               pctM07, pctM08, pctM09, pctM10, pctM11, pctM12
        FROM ProductSalesBudgetMonthPhaseProfile
        WHERE financialYear = ?`,
     )
     .all(args.year) as Array<Record<string, string | number>>;
 
-  const profileByProduct = new Map<number, number[]>();
+  const profileByCat = new Map<number, number[]>();
   for (const profile of profiles) {
     const months = [
       parseQty(profile.pctM01),
@@ -396,8 +470,8 @@ function loadBottledBudgetEstimate(args: {
       parseQty(profile.pctM12),
     ];
     const total = sum(months);
-    profileByProduct.set(
-      Number(profile.productId),
+    profileByCat.set(
+      Number(profile.productCatId),
       total > 0 ? months.map((value) => value / total) : Array.from({ length: 12 }, () => 1 / 12),
     );
   }
@@ -406,7 +480,7 @@ function loadBottledBudgetEstimate(args: {
   let value = 0;
   for (const budget of budgets) {
     const weights =
-      profileByProduct.get(budget.productId) ?? Array.from({ length: 12 }, () => 1 / 12);
+      profileByCat.get(budget.productCatId) ?? Array.from({ length: 12 }, () => 1 / 12);
     let weight = 0;
     for (let month = args.fromMonth; month <= args.toMonth; month += 1) {
       let monthWeight = weights[month - 1] ?? 0;
@@ -588,7 +662,9 @@ function buildCompare(
 
 export function getBottledWeeklyIssuesReport(
   userId?: string | null,
+  estimateBasisRaw?: unknown,
 ): BottledWeeklyIssuesReport {
+  const estimateBasis = normalizeBottledWeeklyEstimateBasis(estimateBasisRaw);
   const settings = loadReportCompanySettings(userId);
   const { asAtIso, period } = resolveReportAsAt();
   const asAt = startOfDay(new Date(`${asAtIso}T00:00:00`));
@@ -645,13 +721,20 @@ export function getBottledWeeklyIssuesReport(
 
   const daysInMonth = new Date(asAt.getFullYear(), asAt.getMonth() + 1, 0).getDate();
   const dayFraction = asAt.getDate() / daysInMonth;
-  const weekDayFraction = dayColumns.length / 5 / daysInMonth;
+  const weekShare = weekEstimateDayFraction({
+    // ISO week expands from the week's Monday; working days use the clipped Mon–Fri window.
+    weekFromIso: estimateBasis === "iso-week" ? weekFromIso : clippedWeekFrom,
+    weekToIso: estimateBasis === "iso-week" ? weekToIso : clippedWeekTo,
+    calendarYear: period.financialYear,
+    calendarMonth: period.calendarMonth,
+    basis: estimateBasis,
+  });
 
   const weekEstimate = loadBottledBudgetEstimate({
     year: period.financialYear,
     fromMonth: period.calendarMonth,
     toMonth: period.calendarMonth,
-    dayFractionInMonth: weekDayFraction,
+    dayFractionInMonth: weekShare.dayFraction,
   });
   const monthEstimate = loadBottledBudgetEstimate({
     year: period.financialYear,
@@ -695,6 +778,9 @@ export function getBottledWeeklyIssuesReport(
     yearFromIso,
     generatedAtIso: nowIso(),
     reportTitle: `BOTTLED PALM OIL: WEEKLY ISSUES ${monthShort} ${period.financialYear}`,
+    estimateBasis,
+    estimateBasisLabel: ESTIMATE_BASIS_LABELS[estimateBasis],
+    estimateWeekDaysInMonth: weekShare.daysInWeekInMonth,
     detail,
     summary,
     compare,

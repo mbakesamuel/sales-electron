@@ -40,7 +40,7 @@ function handlePrint(): void {
   });
 }
 
-function buildQtyMap(report: SalesBudgetWeeklyCrosstabReport): Map<string, number> {
+export function buildQtyMap(report: SalesBudgetWeeklyCrosstabReport): Map<string, number> {
   const map = new Map<string, number>();
   for (const entry of report.qtyByCell) {
     map.set(entry.key, entry.qtyKg);
@@ -49,8 +49,8 @@ function buildQtyMap(report: SalesBudgetWeeklyCrosstabReport): Map<string, numbe
 }
 
 function buildCsv(report: SalesBudgetWeeklyCrosstabReport, qtyMap: Map<string, number>): string {
-  const monthHeaders = report.productsInReport.flatMap((product) =>
-    CAL_MONTHS.map((month) => `${product.productName} ${monthName(month)}`),
+  const monthHeaders = report.categoriesInReport.flatMap((cat) =>
+    CAL_MONTHS.map((month) => `${cat.label} ${monthName(month)}`),
   );
   const lines = [
     `Company:,${report.settings.companyName}`,
@@ -62,7 +62,7 @@ function buildCsv(report: SalesBudgetWeeklyCrosstabReport, qtyMap: Map<string, n
 
   report.sortedWeeks.forEach((week, rowIndex) => {
     const values = report.cols.map((col) => {
-      const key = salesBudgetCrosstabCellKey(week.label, col.productId, col.month);
+      const key = salesBudgetCrosstabCellKey(week.label, col.productCatId, col.month);
       return qtyMap.get(key) ?? 0;
     });
     lines.push([week.label, ...values, report.rowTotals[rowIndex] ?? 0].join(","));
@@ -93,6 +93,135 @@ function formatGeneratedAt(iso: string): string {
     dateStyle: "medium",
     timeStyle: "short",
   });
+}
+
+export function SalesBudgetWeeklyCrosstabDocument({
+  report,
+  qtyMap,
+}: {
+  report: SalesBudgetWeeklyCrosstabReport;
+  qtyMap: Map<string, number>;
+}) {
+  return (
+    <div class="scr-document wpp-pack-page wpp-pack-crosstab">
+      <ReportHeader
+        companyName={report.settings.companyName}
+        department={report.settings.department}
+        serviceName={report.settings.serviceName}
+        title="Sales budget — weekly phasing crosstab (kg)"
+      />
+
+      <div>
+        <p class="sbc-intro">
+          Calendar year <strong>{report.reportYear}</strong>. Rows are ISO weeks; columns are
+          budget group × calendar month. Each cell is phased budget kg for days in that week within
+          that month (from Sales budgets).
+        </p>
+        <p class="sbc-intro-meta">Generated {formatGeneratedAt(report.generatedAtIso)}</p>
+      </div>
+
+      {!report.hasAnyBudget ? (
+        <p class="sbc-empty">
+          No product sales budgets are defined yet. Use Sales budgets to add annual quantities.
+        </p>
+      ) : report.categoriesInReport.length === 0 ? (
+        <p class="sbc-empty">
+          No category budgets for this year. Use Sales budgets to add annual quantities.
+        </p>
+      ) : report.sortedWeeks.length === 0 ? (
+        <p class="sbc-empty">
+          No phased weeks fall in this calendar year for the loaded budgets (check financial year
+          boundaries and budgets).
+        </p>
+      ) : (
+        <div class="sbc-table-wrap">
+          <table class="sbc-table sbc-table-weekly">
+            <thead>
+              <tr>
+                <th rowSpan={2} class="sbc-sticky-col sbc-week-col">
+                  ISO week
+                </th>
+                {report.categoriesInReport.map((cat) => (
+                  <th
+                    key={cat.productCatId}
+                    colSpan={12}
+                    class="sbc-product-group"
+                  >
+                    {cat.label}
+                  </th>
+                ))}
+                <th rowSpan={2} class="sbc-num sbc-total-col">
+                  Row total
+                </th>
+              </tr>
+              <tr>
+                {report.categoriesInReport.map((cat) =>
+                  CAL_MONTHS.map((month) => (
+                    <th
+                      key={`${cat.productCatId}-${month}`}
+                      class="sbc-num sbc-month-head"
+                      title={monthName(month)}
+                    >
+                      {monthName(month).slice(0, 3)}
+                    </th>
+                  )),
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {report.sortedWeeks.map((week, rowIndex) => {
+                const rowTotal = report.rowTotals[rowIndex] ?? 0;
+                return (
+                  <tr key={week.label}>
+                    <td class="sbc-sticky-col sbc-week-col">{week.label}</td>
+                    {report.cols.map((col) => {
+                      const qty =
+                        qtyMap.get(
+                          salesBudgetCrosstabCellKey(
+                            week.label,
+                            col.productCatId,
+                            col.month,
+                          ),
+                        ) ?? 0;
+                      return (
+                        <td
+                          key={`${col.productCatId}-${col.month}`}
+                          class={`sbc-num sbc-month-head${qty === 0 ? " sbc-zero" : ""}`}
+                        >
+                          {qty === 0 ? "—" : formatPhasedQtyKgDisplay(qty)}
+                        </td>
+                      );
+                    })}
+                    <td class={`sbc-num sbc-total-col${rowTotal === 0 ? " sbc-zero" : ""}`}>
+                      {rowTotal === 0 ? "—" : formatPhasedQtyKgDisplay(rowTotal)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr class="sbc-foot">
+                <td class="sbc-sticky-col sbc-week-col">Column totals (kg)</td>
+                {report.colTotals.map((value, index) => (
+                  <td
+                    key={index}
+                    class={`sbc-num sbc-month-head${value === 0 ? " sbc-zero" : ""}`}
+                  >
+                    {value === 0 ? "—" : formatPhasedQtyKgDisplay(value)}
+                  </td>
+                ))}
+                <td class={`sbc-num sbc-total-col${report.grandTotal === 0 ? " sbc-zero" : ""}`}>
+                  {report.grandTotal === 0 ? "—" : formatPhasedQtyKgDisplay(report.grandTotal)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+
+      <ReportFooter />
+    </div>
+  );
 }
 
 export function SalesBudgetWeeklyCrosstabScreen({
@@ -195,7 +324,7 @@ export function SalesBudgetWeeklyCrosstabScreen({
         <div>
           <p class="sbc-intro">
             Calendar year <strong>{report.reportYear}</strong>. Rows are ISO weeks; columns are
-            product × calendar month. Each cell is phased budget kg for days in that week within
+            budget group × calendar month. Each cell is phased budget kg for days in that week within
             that month (from Sales budgets).{" "}
             {onNavigate ? (
               <button
@@ -217,9 +346,9 @@ export function SalesBudgetWeeklyCrosstabScreen({
           <p class="sbc-empty">
             No product sales budgets are defined yet. Use Sales budgets to add annual quantities.
           </p>
-        ) : report.productsInReport.length === 0 ? (
+        ) : report.categoriesInReport.length === 0 ? (
           <p class="sbc-empty">
-            Budget lines reference no matching products, or the catalog is empty.
+            No category budgets for this year. Use Sales budgets to add annual quantities.
           </p>
         ) : report.sortedWeeks.length === 0 ? (
           <p class="sbc-empty">
@@ -234,28 +363,24 @@ export function SalesBudgetWeeklyCrosstabScreen({
                   <th rowSpan={2} class="sbc-sticky-col sbc-week-col">
                     ISO week
                   </th>
-                  {report.productsInReport.map((product) => {
-                    const code = product.productCode ? ` (${product.productCode})` : "";
-                    return (
-                      <th
-                        key={product.productId}
-                        colSpan={12}
-                        class="sbc-product-group"
-                      >
-                        {product.productName}
-                        {code}
-                      </th>
-                    );
-                  })}
+                  {report.categoriesInReport.map((cat) => (
+                    <th
+                      key={cat.productCatId}
+                      colSpan={12}
+                      class="sbc-product-group"
+                    >
+                      {cat.label}
+                    </th>
+                  ))}
                   <th rowSpan={2} class="sbc-num sbc-total-col">
                     Row total
                   </th>
                 </tr>
                 <tr>
-                  {report.productsInReport.map((product) =>
+                  {report.categoriesInReport.map((cat) =>
                     CAL_MONTHS.map((month) => (
                       <th
-                        key={`${product.productId}-${month}`}
+                        key={`${cat.productCatId}-${month}`}
                         class="sbc-num sbc-month-head"
                         title={monthName(month)}
                       >
@@ -274,11 +399,15 @@ export function SalesBudgetWeeklyCrosstabScreen({
                       {report.cols.map((col) => {
                         const qty =
                           qtyMap.get(
-                            salesBudgetCrosstabCellKey(week.label, col.productId, col.month),
+                            salesBudgetCrosstabCellKey(
+                              week.label,
+                              col.productCatId,
+                              col.month,
+                            ),
                           ) ?? 0;
                         return (
                           <td
-                            key={`${col.productId}-${col.month}`}
+                            key={`${col.productCatId}-${col.month}`}
                             class={`sbc-num sbc-month-head${qty === 0 ? " sbc-zero" : ""}`}
                           >
                             {qty === 0 ? "—" : formatPhasedQtyKgDisplay(qty)}

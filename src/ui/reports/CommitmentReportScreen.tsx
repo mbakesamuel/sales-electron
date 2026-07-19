@@ -61,6 +61,14 @@ function buildCsv(report: CommitmentReport): string {
     lines.push("");
   }
 
+  if (report.salesPointNames.length > 0) {
+    lines.push("GRAND TOTAL");
+    lines.push(["", ...report.salesPointNames, "TOTAL"].join(","));
+    lines.push(
+      ["GRAND TOTAL", ...report.columnTotals, report.grandTotal].join(","),
+    );
+  }
+
   return lines.join("\n");
 }
 
@@ -109,6 +117,51 @@ function CommitmentSection({ section }: { section: CommitmentReportSection }) {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+export function CommitmentReportDocument({ report }: { report: CommitmentReport }) {
+  return (
+    <div class="scr-document sr-stock-compact wpp-pack-page">
+      <ReportHeader
+        companyName={report.settings.companyName}
+        department={report.settings.department ?? null}
+        serviceName={report.settings.serviceName ?? null}
+        title={`COMMITMENTS AS AT ${formatShortReportDate(report.asAtIso)}`}
+      />
+
+      {report.sections.length === 0 ? (
+        <p class="scr-status">No product categories configured.</p>
+      ) : (
+        <>
+          {report.sections.map((section) => (
+            <CommitmentSection key={section.sectionLetter} section={section} />
+          ))}
+          {report.salesPointNames.length > 0 ? (
+            <div class="scr-bottled-block">
+              <table class="scr-table scr-category-matrix">
+                <thead>
+                  <tr />
+                  <tr />
+                </thead>
+                <tbody>
+                  <tr class="scr-row scr-row-total">
+                    <td>GRAND TOTAL</td>
+                    {report.columnTotals.map((qty, index) => (
+                      <td key={`gt-${index}`} class="scr-num">
+                        {formatQty(qty)}
+                      </td>
+                    ))}
+                    <td class="scr-num">{formatQty(report.grandTotal)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </>
+      )}
+      <ReportFooter />
     </div>
   );
 }
@@ -178,32 +231,7 @@ export function CommitmentReportScreen() {
         </button>
       </div>
 
-      <div class="scr-document">
-        <ReportHeader
-          companyName={report.settings.companyName}
-          department={report.settings.department ?? null}
-          serviceName={report.settings.serviceName ?? null}
-          title={`COMMITMENTS AS AT ${formatShortReportDate(report.asAtIso)}`}
-          meta={
-             <>
-              <p class="scr-as-at">
-                AS at{" "}
-                <span class="scr-as-at-date">{formatShortReportDate(report.asAtIso)}</span>
-              </p>
-              <p class="scr-generated">{formatReportDate(report.asAtIso)}</p>
-            </>
-          }
-        />
-
-        {report.sections.length === 0 ? (
-          <p class="scr-status">No product categories configured.</p>
-        ) : (
-          report.sections.map((section) => (
-            <CommitmentSection key={section.sectionLetter} section={section} />
-          ))
-        )}
-        <ReportFooter />
-      </div>
+      <CommitmentReportDocument report={report} />
     </div>
   );
 }

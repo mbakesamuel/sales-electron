@@ -1,9 +1,9 @@
 import type { ComponentChildren } from "preact";
 import "./ReportFooter.css";
 export interface ReportFooterProps {
-    /** Role shown above the signature space. */
+    /** Role shown under the printed name. */
     label?: string;
-    /** Optional printed name under the signature line. */
+    /** Optional printed name above the role label. */
     name?: string | null;
     children?: ComponentChildren;
 }

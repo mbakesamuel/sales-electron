@@ -47,7 +47,7 @@ function handlePrint(landscape = false): void {
 
 function buildCsv(report: SalesBudgetMonthlyCrosstabReport): string {
   const header = [
-    "Product",
+    "Budget group",
     ...CAL_MONTHS.map((month) => monthName(month)),
     "Total",
   ];
@@ -190,7 +190,7 @@ export function SalesBudgetMonthlyCrosstabScreen({
 
         <div>
           <p class="sbc-intro">
-            Calendar year <strong>{report.reportYear}</strong>. Rows are products; columns are
+            Calendar year <strong>{report.reportYear}</strong>. Rows are budget groups; columns are
             January–December. Each cell is phased budget kg for the fiscal period that contains
             that calendar month (from Sales budgets).{" "}
             {onNavigate ? (
@@ -213,16 +213,16 @@ export function SalesBudgetMonthlyCrosstabScreen({
           <p class="sbc-empty">
             No product sales budgets are defined yet. Use Sales budgets to add annual quantities.
           </p>
-        ) : report.productsInReportCount === 0 ? (
+        ) : report.categoriesInReportCount === 0 ? (
           <p class="sbc-empty">
-            Budget lines reference no matching products, or the catalog is empty.
+            No category budgets for this year. Use Sales budgets to add annual quantities.
           </p>
         ) : (
           <div class="sbc-table-wrap">
             <table class="sbc-table">
               <thead>
                 <tr>
-                  <th class="sbc-sticky-col sbc-product-col">Product</th>
+                  <th class="sbc-sticky-col sbc-product-col">Budget group</th>
                   {CAL_MONTHS.map((month) => (
                     <th key={month} class="sbc-num" title={monthName(month)}>
                       {monthName(month).slice(0, 3)}
@@ -233,7 +233,7 @@ export function SalesBudgetMonthlyCrosstabScreen({
               </thead>
               <tbody>
                 {report.rows.map((row) => (
-                  <tr key={row.productId}>
+                  <tr key={row.productCatId}>
                     <td class="sbc-sticky-col sbc-product-col">{row.label}</td>
                     {row.cells.map((kg, index) => (
                       <td

@@ -85,13 +85,29 @@
 }
 
 @media print {
+  body.scr-print-mode .report-header,
+  body.scr-print-mode .report-header * {
+    background: #fff !important;
+    background-color: #fff !important;
+    color: #111 !important;
+    box-shadow: none !important;
+  }
+
   body.scr-print-mode .report-header {
-    border-bottom-color: #000;
+    border: none !important;
+    border-bottom: 2px solid #000 !important;
+    border-radius: 0 !important;
+  }
+
+  body.scr-print-mode .report-header-logo-placeholder {
+    border: 1px solid #ccc !important;
+    background: #fff !important;
+    color: #999 !important;
   }
 
   body.scr-print-mode .report-header-department,
   body.scr-print-mode .report-header-commercial-service,
   body.scr-print-mode .report-header-meta {
-    color: #000;
+    color: #444 !important;
   }
 }

@@ -7,13 +7,12 @@ import {
   normalizeFiscalMonthPercents,
 } from "../../shared/salesBudgetPhase.ts";
 import {
-  SALES_BUDGET_GROUPS,
-  canonicalProductIdForGroup,
-  resolveSalesBudgetGroupProductIds,
+  salesBudgetCategoriesWithProducts,
+  toSalesBudgetCategoryDef,
+  type SalesBudgetCategoryDef,
   type SalesBudgetCategoryRef,
-  type SalesBudgetGroupId,
   type SalesBudgetProductRef,
-} from "../../shared/salesBudgetGroups.ts";
+} from "../../shared/salesBudgetCategories.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { ReportFooter } from "../reports/ReportFooter.tsx";
@@ -31,15 +30,17 @@ type FinancialYearPeriodRow = {
 };
 
 type BudgetRow = {
+  id: string;
   financialYear: number;
-  productId: number;
+  productCatId: number;
   annualQtyKg: string;
   budgetUnitPricePerKg: string;
 };
 
 type PhaseProfileRow = {
+  id: string;
   financialYear: number;
-  productId: number;
+  productCatId: number;
   pctM01: string;
   pctM02: string;
   pctM03: string;
@@ -56,13 +57,6 @@ type PhaseProfileRow = {
 
 type FiscalMonthLabel = { financialMonth: number; label: string };
 
-type BudgetGroupView = {
-  id: SalesBudgetGroupId;
-  label: string;
-  productIds: number[];
-  storageProductId: number | null;
-};
-
 function formatPeriodLabel(p: FinancialYearPeriodRow): string {
   const sy = p.startDate?.slice(0, 10) ?? "";
   const ey = p.endDate?.slice(0, 10) ?? "";
@@ -72,8 +66,7 @@ function formatPeriodLabel(p: FinancialYearPeriodRow): string {
 }
 
 function pad12(values: string[]): string[] {
-  const next = Array.from({ length: 12 }, (_, i) => values[i] ?? "0");
-  return next;
+  return Array.from({ length: 12 }, (_, i) => values[i] ?? "0");
 }
 
 function parsePercentNumber(v: string): number {
@@ -120,10 +113,10 @@ function parsePrice(value: string): number {
   return n;
 }
 
-function GroupPhasePctEditor(props: {
+function CategoryPhasePctEditor(props: {
   disabled: boolean;
   financialYear: number;
-  groupId: SalesBudgetGroupId;
+  productCatId: number;
   fiscalMonthLabels: FiscalMonthLabel[];
   initialPcts: string[];
   serverPctKey: string;
@@ -134,7 +127,7 @@ function GroupPhasePctEditor(props: {
   const {
     disabled,
     financialYear,
-    groupId,
+    productCatId,
     fiscalMonthLabels,
     initialPcts,
     serverPctKey,
@@ -174,12 +167,12 @@ function GroupPhasePctEditor(props: {
       }}
     >
       <input type="hidden" name="financialYear" value={financialYear} />
-      <input type="hidden" name="groupId" value={groupId} />
+      <input type="hidden" name="productCatId" value={productCatId} />
 
       <div class="sbb-phase-grid">
         {fiscalMonthLabels.map((row, idx) => {
           const name = `pctM${String(row.financialMonth).padStart(2, "0")}`;
-          const fieldId = `pct-${groupId}-${name}`;
+          const fieldId = `pct-${productCatId}-${name}`;
           return (
             <div key={row.financialMonth} class="sbb-phase-field">
               <label for={fieldId}>
@@ -257,80 +250,21 @@ function profileRowToPercentStrings(row: PhaseProfileRow): string[] {
   return asPercents.map((n) => String(n));
 }
 
-function aggregateGroupBudget(
-  productIds: number[],
-  budgetByProductId: Map<number, BudgetRow>,
-): { annualQtyKg: string; budgetUnitPricePerKg: string; hasAny: boolean } | null {
-  let totalQty = 0;
-  let totalValue = 0;
-  let hasAny = false;
-  let fallbackPrice = "";
-
-  for (const productId of productIds) {
-    const row = budgetByProductId.get(productId);
-    if (!row) continue;
-    hasAny = true;
-    const qty = Number.parseFloat(row.annualQtyKg);
-    const price = Number.parseFloat(row.budgetUnitPricePerKg);
-    const qtyN = Number.isFinite(qty) ? qty : 0;
-    const priceN = Number.isFinite(price) ? price : 0;
-    totalQty += qtyN;
-    totalValue += qtyN * priceN;
-    if (!fallbackPrice && row.budgetUnitPricePerKg) {
-      fallbackPrice = row.budgetUnitPricePerKg;
-    }
-  }
-
-  if (!hasAny) return null;
-
-  const unitPrice =
-    totalQty > 0
-      ? String(totalValue / totalQty)
-      : fallbackPrice;
-
-  return {
-    annualQtyKg: String(totalQty),
-    budgetUnitPricePerKg: unitPrice,
-    hasAny: true,
-  };
-}
-
-function firstGroupProfile(
-  productIds: number[],
-  pctsByProductId: Map<number, string[]>,
-): string[] | null {
-  for (const productId of productIds) {
-    const pcts = pctsByProductId.get(productId);
-    if (pcts) return pcts;
-  }
-  return null;
-}
-
-function groupHasAnyBudget(
-  productIds: number[],
-  budgetByProductId: Map<number, BudgetRow>,
-): boolean {
-  return productIds.some((id) => budgetByProductId.has(id));
-}
-
 export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) {
   const [periods, setPeriods] = useState<FinancialYearPeriodRow[]>([]);
   const [fiscalYearStartMonth, setFiscalYearStartMonth] = useState<number>(1);
   const [categories, setCategories] = useState<SalesBudgetCategoryRef[]>([]);
   const [products, setProducts] = useState<SalesBudgetProductRef[]>([]);
   const [selectedFinancialYear, setSelectedFinancialYear] = useState<number | null>(null);
-  const [budgetByProductId, setBudgetByProductId] = useState<
-    Map<number, BudgetRow>
-  >(new Map());
-  const [pctsByProductId, setPctsByProductId] = useState<
-    Map<number, string[]>
-  >(new Map());
+  const [budgetByCatId, setBudgetByCatId] = useState<Map<number, BudgetRow>>(new Map());
+  const [pctsByCatId, setPctsByCatId] = useState<Map<number, string[]>>(new Map());
+  const [profileIdByCatId, setProfileIdByCatId] = useState<Map<number, string>>(new Map());
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const [previewGroupId, setPreviewGroupId] = useState<SalesBudgetGroupId | "">("");
+  const [previewCatId, setPreviewCatId] = useState<number | "">("");
   const [previewQtyKg, setPreviewQtyKg] = useState<string>("");
   const [previewPricePerKg, setPreviewPricePerKg] = useState<string>("");
   const [previewBusy, setPreviewBusy] = useState(false);
@@ -339,21 +273,11 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
   const api = useMemo(() => getElectronApi(), []);
   const db = useMemo(() => getAuthenticatedDb(), []);
 
-  const budgetGroups: BudgetGroupView[] = useMemo(() => {
-    return SALES_BUDGET_GROUPS.map((group) => {
-      const productIds = resolveSalesBudgetGroupProductIds(
-        group.id,
-        categories,
-        products,
-      );
-      return {
-        id: group.id,
-        label: group.label,
-        productIds,
-        storageProductId: canonicalProductIdForGroup(productIds),
-      };
-    });
-  }, [categories, products]);
+  const budgetCategories: SalesBudgetCategoryDef[] = useMemo(
+    () =>
+      salesBudgetCategoriesWithProducts(categories, products).map(toSalesBudgetCategoryDef),
+    [categories, products],
+  );
 
   async function refreshForFinancialYear(fy: number): Promise<void> {
     const [budgetRows, profileRows] = await Promise.all([
@@ -366,54 +290,39 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
 
     const budgetsForFy = (budgetRows.rows as Array<Record<string, unknown>>).filter(
       (r) => Number(r.financialYear) === fy,
-    ) as Array<Record<string, unknown>>;
-
+    );
     const profilesForFy = (profileRows.rows as Array<Record<string, unknown>>).filter(
       (r) => Number(r.financialYear) === fy,
-    ) as Array<Record<string, unknown>>;
+    );
 
     const nextBudgetMap = new Map<number, BudgetRow>();
     for (const r of budgetsForFy) {
-      const productId = Number(r.productId);
-      nextBudgetMap.set(productId, {
+      const productCatId = Number(r.productCatId);
+      nextBudgetMap.set(productCatId, {
+        id: String(r.id ?? ""),
         financialYear: fy,
-        productId,
+        productCatId,
         annualQtyKg: String(r.annualQtyKg ?? ""),
         budgetUnitPricePerKg: String(r.budgetUnitPricePerKg ?? ""),
       });
     }
 
     const nextPctsMap = new Map<number, string[]>();
+    const nextProfileIdMap = new Map<number, string>();
     for (const r of profilesForFy) {
-      const productId = Number(r.productId);
+      const productCatId = Number(r.productCatId);
       nextPctsMap.set(
-        productId,
+        productCatId,
         profileRowToPercentStrings(r as unknown as PhaseProfileRow),
       );
+      if (r.id != null) {
+        nextProfileIdMap.set(productCatId, String(r.id));
+      }
     }
 
-    setBudgetByProductId(nextBudgetMap);
-    setPctsByProductId(nextPctsMap);
-  }
-
-  async function clearOtherGroupProductRows(
-    fy: number,
-    productIds: number[],
-    storageProductId: number,
-    table: "ProductSalesBudget" | "ProductSalesBudgetMonthPhaseProfile",
-  ): Promise<void> {
-    for (const productId of productIds) {
-      if (productId === storageProductId) continue;
-      const hasRow =
-        table === "ProductSalesBudget"
-          ? budgetByProductId.has(productId)
-          : pctsByProductId.has(productId);
-      if (!hasRow) continue;
-      await db.deleteRow({
-        table,
-        primaryKey: { financialYear: fy, productId },
-      });
-    }
+    setBudgetByCatId(nextBudgetMap);
+    setPctsByCatId(nextPctsMap);
+    setProfileIdByCatId(nextProfileIdMap);
   }
 
   useEffect(() => {
@@ -445,14 +354,12 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
 
         if (cancelled) return;
 
-        const fyList = (fyRows.rows as Array<Record<string, unknown>>).map(
-          (r) => ({
-            financialYear: Number(r.financialYear),
-            startDate: String(r.startDate ?? ""),
-            endDate: String(r.endDate ?? ""),
-            status: String(r.status ?? ""),
-          }),
-        );
+        const fyList = (fyRows.rows as Array<Record<string, unknown>>).map((r) => ({
+          financialYear: Number(r.financialYear),
+          startDate: String(r.startDate ?? ""),
+          endDate: String(r.endDate ?? ""),
+          status: String(r.status ?? ""),
+        }));
 
         fyList.sort((a, b) => b.financialYear - a.financialYear);
 
@@ -461,8 +368,7 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
             (r) => String(r.id ?? "") === "default",
           ) ?? (companySettingsRows.rows[0] as Record<string, unknown> | undefined);
 
-        const fiscalStart =
-          Number(settingsDefault?.fiscalYearStartMonth ?? 1) || 1;
+        const fiscalStart = Number(settingsDefault?.fiscalYearStartMonth ?? 1) || 1;
 
         const categoryList: SalesBudgetCategoryRef[] = (
           categoryRows.rows as Array<Record<string, unknown>>
@@ -473,25 +379,15 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
           isBottled: Number(r.isBottled ?? 0) ? 1 : 0,
         }));
 
-        const categoryById = new Map(
-          categoryList.map((c) => [c.productCatId, c] as const),
-        );
-
         const productList: SalesBudgetProductRef[] = (
           productRows.rows as Array<Record<string, unknown>>
         )
-          .map((r) => {
-            const productCatId = Number(r.productCatId);
-            const cat = categoryById.get(productCatId);
-            return {
-              productId: Number(r.productId),
-              productName: String(r.productName ?? ""),
-              productCode:
-                r.productCode == null ? null : String(r.productCode),
-              productCatId,
-              isBottled: cat?.isBottled ?? 0,
-            };
-          })
+          .map((r) => ({
+            productId: Number(r.productId),
+            productName: String(r.productName ?? ""),
+            productCode: r.productCode == null ? null : String(r.productCode),
+            productCatId: Number(r.productCatId),
+          }))
           .sort((a, b) => a.productName.localeCompare(b.productName));
 
         setPeriods(fyList);
@@ -512,28 +408,34 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
 
           const nextBudgetMap = new Map<number, BudgetRow>();
           for (const r of budgetsForFy) {
-            const productId = Number(r.productId);
-            nextBudgetMap.set(productId, {
+            const productCatId = Number(r.productCatId);
+            nextBudgetMap.set(productCatId, {
+              id: String(r.id ?? ""),
               financialYear: defaultFy,
-              productId,
+              productCatId,
               annualQtyKg: String(r.annualQtyKg ?? ""),
               budgetUnitPricePerKg: String(r.budgetUnitPricePerKg ?? ""),
             });
           }
           const nextPctsMap = new Map<number, string[]>();
+          const nextProfileIdMap = new Map<number, string>();
           for (const r of profilesForFy) {
-            const productId = Number(r.productId);
+            const productCatId = Number(r.productCatId);
             nextPctsMap.set(
-              productId,
+              productCatId,
               profileRowToPercentStrings(r as unknown as PhaseProfileRow),
             );
+            if (r.id != null) {
+              nextProfileIdMap.set(productCatId, String(r.id));
+            }
           }
-          setBudgetByProductId(nextBudgetMap);
-          setPctsByProductId(nextPctsMap);
+          setBudgetByCatId(nextBudgetMap);
+          setPctsByCatId(nextPctsMap);
+          setProfileIdByCatId(nextProfileIdMap);
 
-          const firstGroup = SALES_BUDGET_GROUPS[0];
-          if (firstGroup) {
-            setPreviewGroupId(firstGroup.id);
+          const firstCat = salesBudgetCategoriesWithProducts(categoryList, productList)[0];
+          if (firstCat) {
+            setPreviewCatId(firstCat.productCatId);
           }
         }
       } catch (err) {
@@ -552,20 +454,17 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
 
   useEffect(() => {
     if (!selectedFinancialYear) return;
-    if (!previewGroupId) return;
+    if (previewCatId === "") return;
 
-    const group = budgetGroups.find((g) => g.id === previewGroupId);
-    if (!group) return;
-
-    const aggregated = aggregateGroupBudget(group.productIds, budgetByProductId);
-    if (aggregated) {
-      setPreviewQtyKg(aggregated.annualQtyKg);
-      setPreviewPricePerKg(aggregated.budgetUnitPricePerKg);
+    const budget = budgetByCatId.get(previewCatId);
+    if (budget) {
+      setPreviewQtyKg(budget.annualQtyKg);
+      setPreviewPricePerKg(budget.budgetUnitPricePerKg);
     } else {
       setPreviewQtyKg("");
       setPreviewPricePerKg("");
     }
-  }, [budgetByProductId, budgetGroups, previewGroupId, selectedFinancialYear]);
+  }, [budgetByCatId, previewCatId, selectedFinancialYear]);
 
   const fiscalMonthLabels: FiscalMonthLabel[] = useMemo(() => {
     const fy = selectedFinancialYear ?? 0;
@@ -573,11 +472,7 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
       const fm = i + 1;
       return {
         financialMonth: fm,
-        label: fiscalMonthCalendarLabel(
-          fy,
-          fm,
-          fiscalYearStartMonth,
-        ),
+        label: fiscalMonthCalendarLabel(fy, fm, fiscalYearStartMonth),
       };
     });
   }, [fiscalYearStartMonth, selectedFinancialYear]);
@@ -602,7 +497,7 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
     );
   }
 
-  if (error && products.length === 0 && budgetByProductId.size === 0) {
+  if (error && products.length === 0 && budgetByCatId.size === 0) {
     return (
       <div class="sbb-page">
         <div class="sbb-alert sbb-alert-error">{error}</div>
@@ -620,8 +515,8 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
         <h1 class="sbb-title">Sales budget phasing</h1>
         <p class="sbb-lead">
           Set annual quantity (kg) and unit price per kg for each product category.
-          Each group has its own monthly phasing percentages for the financial year; quantities
-          are phased into fiscal months, then spread across ISO weeks.
+          Each category has its own monthly phasing percentages for the financial year;
+          quantities are phased into fiscal months, then spread across ISO weeks.
         </p>
         {readOnly ? <span class="sbb-readonly-badge">Read only</span> : null}
       </header>
@@ -647,8 +542,8 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
                 setPreview(null);
                 setSelectedFinancialYear(v);
                 await refreshForFinancialYear(v);
-                setPreviewGroupId((cur) =>
-                  cur ? cur : (SALES_BUDGET_GROUPS[0]?.id ?? ""),
+                setPreviewCatId((cur) =>
+                  cur !== "" ? cur : (budgetCategories[0]?.productCatId ?? ""),
                 );
               }}
               disabled={readOnly}
@@ -666,17 +561,19 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
         </div>
       ) : null}
 
-      {fy != null && products.length === 0 ? (
-        <p class="sbb-empty">No products in the catalog. Add products before entering budgets.</p>
+      {fy != null && budgetCategories.length === 0 ? (
+        <p class="sbb-empty">
+          No product categories with products. Add products before entering budgets.
+        </p>
       ) : null}
 
-      {fy != null && products.length > 0 ? (
+      {fy != null && budgetCategories.length > 0 ? (
         <section class="sbb-card">
-          <h2 class="sbb-section-title">Annual budgets by delivery group</h2>
+          <h2 class="sbb-section-title">Annual budgets by product category</h2>
           <p class="sbb-section-hint">
-            Enter annual quantity and unit price for FY {fy}, using the same groups as the
-            monthly delivery reports (Jan–Jun / Jul–Dec). Expand monthly phasing to set
-            fiscal-month percentages (must total 100%).
+            Enter annual quantity and unit price for FY {fy}. One budget row per category;
+            actuals in reports sum all products in that category. Expand monthly phasing to
+            set fiscal-month percentages (must total 100%).
           </p>
           <div class="sbb-table-wrap">
             <table class="sbb-table">
@@ -688,195 +585,170 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
                 </tr>
               </thead>
               <tbody>
-                {budgetGroups.map((group) => {
-                  const aggregated = aggregateGroupBudget(
-                    group.productIds,
-                    budgetByProductId,
-                  );
+                {budgetCategories.map((cat) => {
+                  const budget = budgetByCatId.get(cat.productCatId);
                   const rowPcts =
-                    firstGroupProfile(group.productIds, pctsByProductId) ??
-                    defaultEqualSplitPercentages();
-                  const annRev =
-                    aggregated
-                      ? (
-                          Number.parseFloat(aggregated.annualQtyKg) *
-                          Number.parseFloat(aggregated.budgetUnitPricePerKg)
-                        ).toFixed(2)
-                      : null;
-                  const serverPctKey = `${group.id}|${rowPcts.join("|")}`;
-                  const canEdit = group.storageProductId != null && !readOnly;
+                    pctsByCatId.get(cat.productCatId) ?? defaultEqualSplitPercentages();
+                  const annRev = budget
+                    ? (
+                        Number.parseFloat(budget.annualQtyKg) *
+                        Number.parseFloat(budget.budgetUnitPricePerKg)
+                      ).toFixed(2)
+                    : null;
+                  const serverPctKey = `${cat.productCatId}|${rowPcts.join("|")}`;
+                  const canEdit = !readOnly;
                   return (
-                    <tr key={group.id}>
+                    <tr key={cat.productCatId}>
                       <td>
-                        <div class="sbb-product-name">{group.label}</div>
-                        {group.productIds.length === 0 ? (
-                          <div class="sbb-group-hint">No matching products in catalog</div>
-                        ) : null}
+                        <div class="sbb-product-name">{cat.label}</div>
                       </td>
                       <td>
                         <div class="sbb-budget-cell">
-                        <form
-                          class="sbb-budget-form"
-                          onSubmit={async (e) => {
-                            e.preventDefault();
-                            if (readOnly) return;
-                            if (group.storageProductId == null) {
-                              setError(
-                                `No catalog products match “${group.label}”. Add matching products first.`,
-                              );
-                              return;
-                            }
-                            setError(null);
-                            setMessage(null);
-                            const form = e.currentTarget as HTMLFormElement;
-                            const fd = new FormData(form);
-                            const annualQtyKgRaw = String(fd.get("annualQtyKg") ?? "").trim();
-                            const budgetUnitPricePerKgRaw = String(
-                              fd.get("budgetUnitPricePerKg") ?? "",
-                            ).trim();
-                            const annualQtyKg = parseQtyKg(annualQtyKgRaw);
-                            const budgetUnitPricePerKg = parsePrice(budgetUnitPricePerKgRaw);
-                            const storageProductId = group.storageProductId;
-
-                            try {
-                              await clearOtherGroupProductRows(
-                                fy!,
-                                group.productIds,
-                                storageProductId,
-                                "ProductSalesBudget",
-                              );
-
-                              if (budgetByProductId.has(storageProductId)) {
-                                await db.updateRow({
-                                  table: "ProductSalesBudget",
-                                  primaryKey: {
-                                    financialYear: fy!,
-                                    productId: storageProductId,
-                                  },
-                                  values: {
-                                    annualQtyKg: annualQtyKg.toString(),
-                                    budgetUnitPricePerKg: budgetUnitPricePerKg.toString(),
-                                  },
-                                });
-                              } else {
-                                await db.insertRow({
-                                  table: "ProductSalesBudget",
-                                  values: {
-                                    financialYear: fy!,
-                                    productId: storageProductId,
-                                    annualQtyKg: annualQtyKg.toString(),
-                                    budgetUnitPricePerKg: budgetUnitPricePerKg.toString(),
-                                  },
-                                });
-                              }
-                              await refreshForFinancialYear(fy!);
-                              setMessage(`Budget saved for ${group.label}.`);
-                            } catch (err) {
-                              setError(err instanceof Error ? err.message : String(err));
-                            }
-                          }}
-                        >
-                          <input
-                            name="annualQtyKg"
-                            type="text"
-                            inputMode="decimal"
-                            required
-                            defaultValue={aggregated?.annualQtyKg ?? ""}
-                            placeholder="Qty kg"
-                            aria-label={`Annual qty kg for ${group.label}`}
-                            class="sbb-input"
-                            disabled={!canEdit}
-                            key={`qty-${group.id}-${aggregated?.annualQtyKg ?? ""}`}
-                          />
-                          <input
-                            name="budgetUnitPricePerKg"
-                            type="text"
-                            inputMode="decimal"
-                            required
-                            defaultValue={aggregated?.budgetUnitPricePerKg ?? ""}
-                            placeholder="XAF/kg"
-                            aria-label={`Budget unit price for ${group.label}`}
-                            class="sbb-input"
-                            disabled={!canEdit}
-                            key={`price-${group.id}-${aggregated?.budgetUnitPricePerKg ?? ""}`}
-                          />
-                          <span class="sbb-derived">
-                            {aggregated ? (
-                              <>
-                                → <strong>{annRev}</strong> XAF
-                              </>
-                            ) : (
-                              "—"
-                            )}
-                          </span>
-                          <button
-                            type="submit"
-                            disabled={!canEdit}
-                            class="sbb-btn sbb-btn-primary"
-                          >
-                            Save
-                          </button>
-                        </form>
-                        {groupHasAnyBudget(group.productIds, budgetByProductId) ? (
-                          <button
-                            type="button"
-                            class="sbb-btn sbb-btn-ghost"
-                            disabled={readOnly || group.storageProductId == null}
-                            onClick={async () => {
+                          <form
+                            class="sbb-budget-form"
+                            onSubmit={async (e) => {
+                              e.preventDefault();
                               if (readOnly) return;
-                              const confirmed = window.confirm(
-                                `Clear budget for “${group.label}”? This cannot be undone.`,
-                              );
-                              if (!confirmed) return;
                               setError(null);
                               setMessage(null);
+                              const form = e.currentTarget as HTMLFormElement;
+                              const fd = new FormData(form);
+                              const annualQtyKgRaw = String(fd.get("annualQtyKg") ?? "").trim();
+                              const budgetUnitPricePerKgRaw = String(
+                                fd.get("budgetUnitPricePerKg") ?? "",
+                              ).trim();
+                              const annualQtyKg = parseQtyKg(annualQtyKgRaw);
+                              const budgetUnitPricePerKg = parsePrice(budgetUnitPricePerKgRaw);
+
                               try {
-                                for (const productId of group.productIds) {
-                                  if (!budgetByProductId.has(productId)) continue;
-                                  await db.deleteRow({
+                                if (budgetByCatId.has(cat.productCatId)) {
+                                  const existing = budgetByCatId.get(cat.productCatId);
+                                  if (!existing?.id) {
+                                    throw new Error(
+                                      "Budget row id is missing; refresh and try again.",
+                                    );
+                                  }
+                                  await db.updateRow({
                                     table: "ProductSalesBudget",
-                                    primaryKey: {
+                                    primaryKey: { id: existing.id },
+                                    values: {
+                                      annualQtyKg: annualQtyKg.toString(),
+                                      budgetUnitPricePerKg: budgetUnitPricePerKg.toString(),
+                                    },
+                                  });
+                                } else {
+                                  await db.insertRow({
+                                    table: "ProductSalesBudget",
+                                    values: {
                                       financialYear: fy!,
-                                      productId,
+                                      productCatId: cat.productCatId,
+                                      annualQtyKg: annualQtyKg.toString(),
+                                      budgetUnitPricePerKg: budgetUnitPricePerKg.toString(),
                                     },
                                   });
                                 }
                                 await refreshForFinancialYear(fy!);
-                                setMessage(`Cleared budget for ${group.label}.`);
+                                setMessage(`Budget saved for ${cat.label}.`);
                               } catch (err) {
                                 setError(err instanceof Error ? err.message : String(err));
                               }
                             }}
                           >
-                            Clear budget
-                          </button>
-                        ) : null}
+                            <input
+                              name="annualQtyKg"
+                              type="text"
+                              inputMode="decimal"
+                              required
+                              defaultValue={budget?.annualQtyKg ?? ""}
+                              placeholder="Qty kg"
+                              aria-label={`Annual qty kg for ${cat.label}`}
+                              class="sbb-input"
+                              disabled={!canEdit}
+                              key={`qty-${cat.productCatId}-${budget?.annualQtyKg ?? ""}`}
+                            />
+                            <input
+                              name="budgetUnitPricePerKg"
+                              type="text"
+                              inputMode="decimal"
+                              required
+                              defaultValue={budget?.budgetUnitPricePerKg ?? ""}
+                              placeholder="XAF/kg"
+                              aria-label={`Budget unit price for ${cat.label}`}
+                              class="sbb-input"
+                              disabled={!canEdit}
+                              key={`price-${cat.productCatId}-${budget?.budgetUnitPricePerKg ?? ""}`}
+                            />
+                            <span class="sbb-derived">
+                              {budget ? (
+                                <>
+                                  → <strong>{annRev}</strong> XAF
+                                </>
+                              ) : (
+                                "—"
+                              )}
+                            </span>
+                            <button
+                              type="submit"
+                              disabled={!canEdit}
+                              class="sbb-btn sbb-btn-primary"
+                            >
+                              Save
+                            </button>
+                          </form>
+                          {budget ? (
+                            <button
+                              type="button"
+                              class="sbb-btn sbb-btn-ghost"
+                              disabled={readOnly}
+                              onClick={async () => {
+                                if (readOnly) return;
+                                const confirmed = window.confirm(
+                                  `Clear budget for “${cat.label}”? This cannot be undone.`,
+                                );
+                                if (!confirmed) return;
+                                setError(null);
+                                setMessage(null);
+                                try {
+                                  if (!budget.id) {
+                                    throw new Error(
+                                      "Budget row id is missing; refresh and try again.",
+                                    );
+                                  }
+                                  await db.deleteRow({
+                                    table: "ProductSalesBudget",
+                                    primaryKey: { id: budget.id },
+                                  });
+                                  await refreshForFinancialYear(fy!);
+                                  setMessage(`Cleared budget for ${cat.label}.`);
+                                } catch (err) {
+                                  setError(err instanceof Error ? err.message : String(err));
+                                }
+                              }}
+                            >
+                              Clear budget
+                            </button>
+                          ) : null}
                         </div>
                       </td>
                       <td>
                         <details class="sbb-details">
-                          <summary aria-label={`Edit phase profile for ${group.label}`}>
+                          <summary aria-label={`Edit phase profile for ${cat.label}`}>
                             FY months 1–12 (%)
                           </summary>
                           <div class="sbb-details-body">
                             <p class="sbb-details-hint">
                               Twelve percentages must sum to 100%. Weights drive fiscal-month
-                              phasing for this group in {fy}.
+                              phasing for this category in {fy}.
                             </p>
-                            <GroupPhasePctEditor
+                            <CategoryPhasePctEditor
                               disabled={!canEdit}
                               financialYear={fy!}
-                              groupId={group.id}
+                              productCatId={cat.productCatId}
                               fiscalMonthLabels={fiscalMonthLabels}
                               serverPctKey={serverPctKey}
                               initialPcts={rowPcts}
                               onSave={async (nextPcts) => {
                                 if (readOnly) return;
-                                if (group.storageProductId == null) {
-                                  throw new Error(
-                                    `No catalog products match “${group.label}”.`,
-                                  );
-                                }
                                 const total = sumEnteredPercents(nextPcts);
                                 if (Math.abs(total - 100) > PCT_SUM_OK_EPS) {
                                   throw new Error(
@@ -884,18 +756,13 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
                                   );
                                 }
 
-                                const storageProductId = group.storageProductId;
-                                await clearOtherGroupProductRows(
-                                  fy!,
-                                  group.productIds,
-                                  storageProductId,
-                                  "ProductSalesBudgetMonthPhaseProfile",
+                                const hasExisting = pctsByCatId.has(cat.productCatId);
+                                const existingProfileId = profileIdByCatId.get(
+                                  cat.productCatId,
                                 );
-
-                                const hasExisting = pctsByProductId.has(storageProductId);
                                 const valuesToSave: Record<string, string | number> = {
                                   financialYear: fy!,
-                                  productId: storageProductId,
+                                  productCatId: cat.productCatId,
                                 };
 
                                 for (let i = 0; i < 12; i += 1) {
@@ -904,17 +771,19 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
                                 }
 
                                 if (hasExisting) {
+                                  if (!existingProfileId) {
+                                    throw new Error(
+                                      "Phase profile id is missing; refresh and try again.",
+                                    );
+                                  }
                                   const updateValues = {
                                     ...valuesToSave,
                                   } as Record<string, unknown>;
                                   delete updateValues.financialYear;
-                                  delete updateValues.productId;
+                                  delete updateValues.productCatId;
                                   await db.updateRow({
                                     table: "ProductSalesBudgetMonthPhaseProfile",
-                                    primaryKey: {
-                                      financialYear: fy!,
-                                      productId: storageProductId,
-                                    },
+                                    primaryKey: { id: existingProfileId },
                                     values: updateValues as Record<string, unknown>,
                                   });
                                 } else {
@@ -926,7 +795,7 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
                                 await refreshForFinancialYear(fy!);
                               }}
                               onAfterSave={() => {
-                                setMessage(`Phasing saved for ${group.label} (${fy}).`);
+                                setMessage(`Phasing saved for ${cat.label} (${fy}).`);
                               }}
                               onError={(err) => {
                                 setError(err instanceof Error ? err.message : String(err));
@@ -944,30 +813,31 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
         </section>
       ) : null}
 
-      {fyPeriod && products.length > 0 ? (
+      {fyPeriod && budgetCategories.length > 0 ? (
         <section class="sbb-card">
           <h2 class="sbb-section-title">Phasing preview</h2>
           <p class="sbb-section-hint">
-            Uses the saved monthly profile for the selected budget group. Preview does not
-            save budget rows.
+            Uses the saved monthly profile for the selected category. Preview does not save
+            budget rows.
           </p>
           <div class="sbb-preview-form">
             <div class="sbb-field">
-              <label class="sbb-label" for="previewGroup">
+              <label class="sbb-label" for="previewCat">
                 Budget group
               </label>
               <select
-                id="previewGroup"
+                id="previewCat"
                 class="sbb-select"
-                value={previewGroupId}
-                onChange={(e) =>
-                  setPreviewGroupId(e.currentTarget.value as SalesBudgetGroupId)
-                }
+                value={previewCatId}
+                onChange={(e) => {
+                  const v = Number.parseInt(e.currentTarget.value, 10);
+                  setPreviewCatId(Number.isFinite(v) ? v : "");
+                }}
                 disabled={readOnly}
               >
-                {budgetGroups.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.label}
+                {budgetCategories.map((c) => (
+                  <option key={c.productCatId} value={c.productCatId}>
+                    {c.label}
                   </option>
                 ))}
               </select>
@@ -1002,13 +872,11 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
             </div>
             <button
               type="button"
-              disabled={previewBusy || readOnly || !previewGroupId}
+              disabled={previewBusy || readOnly || previewCatId === ""}
               class="sbb-btn sbb-btn-primary"
               onClick={async () => {
                 if (!fyPeriod) return;
-                if (!previewGroupId) return;
-                const group = budgetGroups.find((g) => g.id === previewGroupId);
-                if (!group) return;
+                if (previewCatId === "") return;
                 setPreviewBusy(true);
                 setPreview(null);
                 setError(null);
@@ -1017,8 +885,7 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
                   const annualQtyKg = previewQtyKg ? parseQtyKg(previewQtyKg) : 0;
                   const price = previewPricePerKg ? parsePrice(previewPricePerKg) : 0;
                   const pcts =
-                    firstGroupProfile(group.productIds, pctsByProductId) ??
-                    defaultEqualSplitPercentages();
+                    pctsByCatId.get(previewCatId) ?? defaultEqualSplitPercentages();
                   const fiscalMonthPercents = normalizeFiscalMonthPercents(
                     pcts.map((v) => parsePercentNumber(v)),
                   ).map((f) => f * 100);
