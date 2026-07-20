@@ -14,7 +14,10 @@ Each report:
 |--------|------|------|
 | Company / display / comments | `companySettings.ts` | Header fields, `hideZeroReportRows`, `loadReportComments` / `saveReportComments` |
 | Products, packs, qty | `shared.ts` | `loadProducts`, `detectBottledPack`, `PALM_OIL_KG_PER_LITRE` |
-| As-at date | `financialYears/service.ts` → `resolveReportAsAt` | Today clamped to open FY |
+| As-at date | `financialYears/service.ts` → `resolveReportAsAt` | `min(today, open month endDate)` — reopening a past month prints as at that month’s end |
+| Stock qty on stock reports | `stock/asOfBalance.ts` → `loadStockBalancesAsOf` | Reconstruct from `StockMovement` through as-at (not live `StockBalance`) |
+| Commitment outstanding | `commitmentAsOf.ts` → `loadOutstandingCommitmentsAsOf` | Validated DOs with `dateIssued ≤ as-at`, minus sales on those DOs with `dateIssued ≤ as-at` |
+| Open-month week choices | `weekChoices.ts` | Shared by Sales/delivery, Bottled weekly issues, Weekly print pack |
 
 ### Report comments
 

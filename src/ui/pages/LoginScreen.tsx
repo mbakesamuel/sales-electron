@@ -1,4 +1,5 @@
 import { useState } from "preact/hooks";
+import logoSrc from "../../assets/logo.svg";
 import { getElectronApi } from "../auth/client.ts";
 import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts";
 import type { AuthUser } from "../auth/session.ts";
@@ -57,7 +58,10 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   return (
     <main class="login-screen">
       <section class="login-card">
-        <h1>Sales Management</h1>
+        <div class="login-heading">
+          <img class="login-logo" src={logoSrc} alt="" aria-hidden="true" />
+          <h1>Sales Management</h1>
+        </div>
         <p class="login-subtitle">Sign in to continue</p>
 
         <form class="login-form" onSubmit={(event) => void handleSubmit(event)}>

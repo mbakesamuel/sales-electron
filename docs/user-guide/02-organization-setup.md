@@ -26,7 +26,7 @@ Changing this affects the next time each report is loaded. See also [Reports](08
 **Rules of thumb**
 
 - Only one year/month should be open for normal posting.
-- Reports use “as at” dates clamped into the open year (and often the open month).
+- Reports use an **as at** date of the earlier of **today** and the **open month’s end**. Reopening a past month (e.g. January) to print shows figures as at that month’s close, not today’s live stock.
 - If save/post fails with a period error, open the correct month first.
 
 ## Commercial services, sales points, locations

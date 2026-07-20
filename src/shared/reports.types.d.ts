@@ -367,8 +367,10 @@ export interface BottledWeeklyCompareSection {
 export interface BottledWeeklyIssuesReport {
     settings: ReportCompanySettings;
     asAtIso: string;
+    weekMondayIso: string;
     weekFromIso: string;
     weekToIso: string;
+    weekChoices: WeeklyDeliveriesWeekChoice[];
     monthFromIso: string;
     yearFromIso: string;
     generatedAtIso: string;

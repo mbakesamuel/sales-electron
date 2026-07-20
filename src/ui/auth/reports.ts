@@ -19,7 +19,9 @@ export function getAuthenticatedReports() {
     getBottleOilStockSales: () => api.getBottleOilStockSales(requireAuthToken()),
     getBottledWeeklyIssues: (
       estimateBasis?: import("../../shared/reports.types.ts").BottledWeeklyEstimateBasis,
-    ) => api.getBottledWeeklyIssues(requireAuthToken(), estimateBasis),
+      weekMondayIso?: string,
+    ) => api.getBottledWeeklyIssues(requireAuthToken(), estimateBasis, weekMondayIso),
+    getWeekChoices: () => api.getWeekChoices(requireAuthToken()),
     getWeeklyDeliveries: (weekMondayIso?: string) =>
       api.getWeeklyDeliveries(requireAuthToken(), weekMondayIso),
     getMonthlyDelivery: (half: 1 | 2) =>

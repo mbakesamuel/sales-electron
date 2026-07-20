@@ -24,7 +24,7 @@ import { resolveUnitPriceExTax } from "../pricing/resolveUnitPrice.js";
 import { parseAmount } from "../sales/money.js";
 import { loadTaxRatesAsOf } from "../tax/resolveRates.js";
 import { allocateDeliveryOrderNo } from "./doNo.js";
-import { assertDateInOpenMonth } from "../financialYears/service.js";
+import { assertDateInOpenMonth, resolveListDateRange } from "../financialYears/service.js";
 
 function nowIso(): string {
   return new Date().toISOString().slice(0, 19).replace("T", " ");
@@ -400,17 +400,13 @@ export function listDeliveryOrders(
     params.push(`%${q}%`);
   }
 
-  let periodLabel = "All time";
-  const now = new Date();
-  if (period === "month") {
-    whereParts.push(`strftime('%Y', d.dateIssued) = ?`);
-    whereParts.push(`strftime('%m', d.dateIssued) = ?`);
-    params.push(String(now.getFullYear()), String(now.getMonth() + 1).padStart(2, "0"));
-    periodLabel = "Current month";
-  } else if (period === "year") {
-    whereParts.push(`strftime('%Y', d.dateIssued) = ?`);
-    params.push(String(now.getFullYear()));
-    periodLabel = "Current year";
+  const { fromIso, toIso, periodLabel } = resolveListDateRange(
+    period === "year" || period === "all" ? period : "month",
+  );
+  if (fromIso && toIso) {
+    whereParts.push(`substr(d.dateIssued, 1, 10) >= ?`);
+    whereParts.push(`substr(d.dateIssued, 1, 10) <= ?`);
+    params.push(fromIso, toIso);
   }
 
   const whereClause = whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";

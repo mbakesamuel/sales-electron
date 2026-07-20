@@ -87,6 +87,20 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
   }
 
   const { sale } = payload;
+  const isBottleMode = sale.saleProductMode === "BOTTLE";
+  const isSpecialDisposition =
+    sale.saleDisposition === "RATION" || sale.saleDisposition === "PUBLIC_RELATION";
+  const skipTax = isBottleMode || isSpecialDisposition;
+  const salesTaxAmount = skipTax
+    ? 0
+    : Math.max(
+        0,
+        Math.round(
+          (Number.parseFloat(sale.grossAmount) || 0) -
+            (Number.parseFloat(sale.netAmount) || 0) -
+            (Number.parseFloat(sale.vatAmount) || 0),
+        ),
+      );
 
   return (
     <div class="sale-print-backdrop" onClick={onClose}>
@@ -171,13 +185,21 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
 
           <section class="sale-print-totals">
             <div>
-              <span>Net</span>
+              <span>{isBottleMode ? "Total (tax inclusive)" : "Net"}</span>
               <span>{formatMoney(sale.netAmount)} XAF</span>
             </div>
-            <div>
-              <span>VAT</span>
-              <span>{formatMoney(sale.vatAmount)} XAF</span>
-            </div>
+            {!skipTax ? (
+              <>
+                <div>
+                  <span>VAT</span>
+                  <span>{formatMoney(sale.vatAmount)} XAF</span>
+                </div>
+                <div>
+                  <span>Sales tax</span>
+                  <span>{formatMoney(String(salesTaxAmount))} XAF</span>
+                </div>
+              </>
+            ) : null}
             <div class="sale-print-total">
               <span>Total</span>
               <span>{formatMoney(sale.grossAmount)} XAF</span>

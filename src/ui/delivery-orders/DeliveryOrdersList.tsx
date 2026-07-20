@@ -63,7 +63,7 @@ export function DeliveryOrdersList({ onOpenOrder, onOpenScreen }: DeliveryOrders
         <div>
           <h3>Delivery orders</h3>
           <p class="sales-muted">
-            Filter by DO number, or view all within the current month or year.
+            Filter by DO number, or view documents in the open posting month or year.
           </p>
         </div>
         {onOpenScreen ? (
@@ -98,8 +98,8 @@ export function DeliveryOrdersList({ onOpenOrder, onOpenScreen }: DeliveryOrders
               }))
             }
           >
-            <option value="month">Current month</option>
-            <option value="year">Current year</option>
+            <option value="month">Open month</option>
+            <option value="year">Open year</option>
             <option value="all">All time</option>
           </select>
         </label>

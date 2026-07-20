@@ -21,6 +21,7 @@ import {
   type SalesPointRow,
 } from "./shared.js";
 import { getDatabase } from "../db/index.js";
+import { loadStockBalancesAsOf } from "../stock/asOfBalance.js";
 
 const STOCK_PACK_COLUMNS: Array<
   BottleOilStockPackColumn & { packIds: readonly string[] }
@@ -87,26 +88,37 @@ function unitsToKg(units: number, litresPerUnit: number): number {
   return units * litresPerUnit * PALM_OIL_KG_PER_LITRE;
 }
 
-function loadBottledStockBalances(): Array<{
+function loadBottledStockBalances(asAtIso: string): Array<{
   salesPointId: number;
   productId: number;
   qty: number;
 }> {
-  return getDatabase()
-    .prepare(
-      `SELECT sb.salesPointId, sb.productId, SUM(CAST(sb.qty AS REAL)) AS qty
-       FROM StockBalance sb
-       INNER JOIN Product p ON p.productId = sb.productId
-       LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
-       WHERE sb.condition = 'SELLABLE' AND COALESCE(pc.isBottled, 0) = 1
-       GROUP BY sb.salesPointId, sb.productId`,
-    )
-    .all()
-    .map((row) => ({
-      salesPointId: (row as { salesPointId: number }).salesPointId,
-      productId: (row as { productId: number }).productId,
-      qty: parseQty((row as { qty: number }).qty),
-    }));
+  const bottledProductIds = new Set(
+    (
+      getDatabase()
+        .prepare(
+          `SELECT p.productId
+           FROM Product p
+           LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
+           WHERE COALESCE(pc.isBottled, 0) = 1`,
+        )
+        .all() as Array<{ productId: number }>
+    ).map((row) => row.productId),
+  );
+
+  const totals = new Map<string, number>();
+  for (const row of loadStockBalancesAsOf(getDatabase(), asAtIso)) {
+    if (row.condition !== "SELLABLE" || !bottledProductIds.has(row.productId)) {
+      continue;
+    }
+    const key = `${row.salesPointId}:${row.productId}`;
+    totals.set(key, (totals.get(key) ?? 0) + row.qty);
+  }
+
+  return [...totals.entries()].map(([key, qty]) => {
+    const [salesPointId, productId] = key.split(":").map((value) => Number.parseInt(value, 10));
+    return { salesPointId, productId, qty };
+  });
 }
 
 function buildStockSection(
@@ -353,9 +365,9 @@ export function getBottleOilStockSalesReport(
   const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
   const salesPoints = loadSalesPoints();
   const products = loadProducts();
-  const balances = loadBottledStockBalances();
 
   const { asAtIso, period } = resolveReportAsAt();
+  const balances = loadBottledStockBalances(asAtIso);
   const salesFromIso = `${period.financialYear}-01-01`;
   const salesToIso = asAtIso;
 

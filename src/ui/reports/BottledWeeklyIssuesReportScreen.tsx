@@ -12,6 +12,7 @@ import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import "./StockCommitmentReport.css";
 import "./BottledWeeklyIssuesReport.css";
+import "./SalesBudgetCrosstab.css";
 
 const ESTIMATE_BASIS_STORAGE_KEY = "bwi-estimate-basis";
 
@@ -381,6 +382,7 @@ export function BottledWeeklyIssuesReportScreen() {
   const [estimateBasis, setEstimateBasis] = useState<BottledWeeklyEstimateBasis>(
     readStoredEstimateBasis,
   );
+  const [weekMondayIso, setWeekMondayIso] = useState<string | undefined>(undefined);
   const [report, setReport] = useState<BottledWeeklyIssuesReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -391,7 +393,10 @@ export function BottledWeeklyIssuesReportScreen() {
       setLoading(true);
       setError(null);
       try {
-        const data = await getAuthenticatedReports().getBottledWeeklyIssues(estimateBasis);
+        const data = await getAuthenticatedReports().getBottledWeeklyIssues(
+          estimateBasis,
+          weekMondayIso,
+        );
         if (!cancelled) setReport(data);
       } catch (loadError) {
         if (!cancelled) {
@@ -410,11 +415,25 @@ export function BottledWeeklyIssuesReportScreen() {
     return () => {
       cancelled = true;
     };
-  }, [estimateBasis]);
+  }, [estimateBasis, weekMondayIso]);
 
   function onEstimateBasisChange(next: BottledWeeklyEstimateBasis) {
     writeStoredEstimateBasis(next);
     setEstimateBasis(next);
+  }
+
+  function reload() {
+    const monday = weekMondayIso ?? report?.weekMondayIso;
+    void getAuthenticatedReports()
+      .getBottledWeeklyIssues(estimateBasis, monday)
+      .then(setReport)
+      .catch((loadError: unknown) => {
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Failed to load bottled weekly issues report.",
+        );
+      });
   }
 
   if (loading && !report) {
@@ -428,8 +447,23 @@ export function BottledWeeklyIssuesReportScreen() {
       ?.hint ?? "";
 
   return (
-    <div class="scr-page">
-      <div class="scr-toolbar no-print">
+    <div class="scr-page sbc-root">
+      <div class="scr-toolbar no-print sbc-toolbar">
+        {report.weekChoices.length > 0 ? (
+          <div class="sbc-year-picker" aria-label="Week in open month">
+            {report.weekChoices.map((week) => (
+              <button
+                key={week.weekMondayIso}
+                type="button"
+                class={`sbc-year-btn${week.weekMondayIso === report.weekMondayIso ? " is-active" : ""}`}
+                disabled={loading}
+                onClick={() => setWeekMondayIso(week.weekMondayIso)}
+              >
+                {week.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <label class="bwi-estimate-basis">
           <span>Week ESTM</span>
           <select
@@ -448,37 +482,31 @@ export function BottledWeeklyIssuesReportScreen() {
             ))}
           </select>
         </label>
-        <button type="button" class="scr-btn" onClick={handlePrint}>
-          Print
-        </button>
-        <button
-          type="button"
-          class="scr-btn scr-btn-secondary"
-          onClick={() => downloadCsv(report)}
-        >
-          Export CSV
-        </button>
-        <ReportCommentsEditor
-          reportId="bottled-weekly-issues-report"
-          comments={report.comments}
-          onSaved={() => {
-            void getAuthenticatedReports()
-              .getBottledWeeklyIssues(estimateBasis)
-              .then(setReport);
-          }}
-        />
-        <button
-          type="button"
-          class="scr-btn scr-btn-secondary"
-          disabled={loading}
-          onClick={() => {
-            void getAuthenticatedReports()
-              .getBottledWeeklyIssues(estimateBasis)
-              .then(setReport);
-          }}
-        >
-          Refresh
-        </button>
+        <div class="scr-toolbar-actions sbc-actions">
+          <button type="button" class="scr-btn" onClick={handlePrint}>
+            Print
+          </button>
+          <button
+            type="button"
+            class="scr-btn scr-btn-secondary"
+            onClick={() => downloadCsv(report)}
+          >
+            Export CSV
+          </button>
+          <ReportCommentsEditor
+            reportId="bottled-weekly-issues-report"
+            comments={report.comments}
+            onSaved={reload}
+          />
+          <button
+            type="button"
+            class="scr-btn scr-btn-secondary"
+            disabled={loading}
+            onClick={reload}
+          >
+            Refresh
+          </button>
+        </div>
       </div>
       {error ? <p class="scr-status scr-status-error no-print">{error}</p> : null}
       <p class="bwi-estimate-hint no-print">

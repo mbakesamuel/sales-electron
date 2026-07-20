@@ -24,7 +24,7 @@ import { assertSaleLinesStockAsOf, deductStockForValidatedSale } from "../stock/
 import { isInsufficientStockError } from "../stock/errors.js";
 import { allocateInvoiceNo, newPaymentId, newSaleId, newSaleLineId } from "./invoice.js";
 import { formatXaf, parseAmount, roundMoney, trimQty } from "./money.js";
-import { assertDateInOpenMonth } from "../financialYears/service.js";
+import { assertDateInOpenMonth, resolveListDateRange } from "../financialYears/service.js";
 
 function nowIso(): string {
   return new Date().toISOString().slice(0, 19).replace("T", " ");
@@ -406,17 +406,13 @@ export function listSales(filters: SalesListFilters = {}): SalesListResult {
     params.push(`%${q}%`);
   }
 
-  let periodLabel = "All time";
-  const now = new Date();
-  if (period === "month") {
-    whereParts.push(`strftime('%Y', s.soldAt) = ?`);
-    whereParts.push(`strftime('%m', s.soldAt) = ?`);
-    params.push(String(now.getFullYear()), String(now.getMonth() + 1).padStart(2, "0"));
-    periodLabel = "Current month";
-  } else if (period === "year") {
-    whereParts.push(`strftime('%Y', s.soldAt) = ?`);
-    params.push(String(now.getFullYear()));
-    periodLabel = "Current year";
+  const { fromIso, toIso, periodLabel } = resolveListDateRange(
+    period === "year" || period === "all" ? period : "month",
+  );
+  if (fromIso && toIso) {
+    whereParts.push(`substr(s.dateIssued, 1, 10) >= ?`);
+    whereParts.push(`substr(s.dateIssued, 1, 10) <= ?`);
+    params.push(fromIso, toIso);
   }
 
   const whereClause =
@@ -424,12 +420,12 @@ export function listSales(filters: SalesListFilters = {}): SalesListResult {
 
   const rows = db
     .prepare(
-      `SELECT s.id, s.invoiceNo, s.soldAt, s.status, s.grossAmount,
+      `SELECT s.id, s.invoiceNo, s.dateIssued, s.status, s.grossAmount,
               s.customerNameSnapshot, s.deliveryOrderNo, sp.name AS salesPointName
        FROM Sale s
        LEFT JOIN SalesPoint sp ON sp.id = s.salesPointId
        ${whereClause}
-       ORDER BY s.soldAt DESC, s.invoiceNo DESC
+       ORDER BY s.dateIssued DESC, s.invoiceNo DESC
        LIMIT 300`,
     )
     .all(...params) as Array<Record<string, unknown>>;
@@ -459,7 +455,7 @@ export function listSales(filters: SalesListFilters = {}): SalesListResult {
     listRows.push({
       id: String(row.id),
       invoiceNo: String(row.invoiceNo),
-      soldAtIso: String(row.soldAt).slice(0, 10),
+      soldAtIso: String(row.dateIssued).slice(0, 10),
       salesPointName: row.salesPointName ? String(row.salesPointName) : "",
       deliveryOrderNo: row.deliveryOrderNo ? String(row.deliveryOrderNo) : null,
       customerName: String(row.customerNameSnapshot),

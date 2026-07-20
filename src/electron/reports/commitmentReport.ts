@@ -4,17 +4,20 @@ import type {
   CommitmentReportSection,
 } from "../../shared/reports.types.js";
 import { resolveReportAsAt } from "../financialYears/service.js";
+import { getDatabase } from "../db/index.js";
+import {
+  loadOutstandingCommitmentsAsOf,
+  type OutstandingCommitmentAsOf,
+} from "./commitmentAsOf.js";
 import { loadReportCompanySettings, loadReportDisplaySettings, loadReportComments } from "./companySettings.js";
 import {
   loadProducts,
   loadSalesPoints,
   nowIso,
-  parseQty,
   sum,
   type ProductRow,
   type SalesPointRow,
 } from "./shared.js";
-import { getDatabase } from "../db/index.js";
 
 interface CategoryRow {
   productCatId: number;
@@ -23,18 +26,7 @@ interface CategoryRow {
   isBottled: number;
 }
 
-interface OutstandingCommitment {
-  customerId: number;
-  customerName: string;
-  salesPointId: number;
-  productId: number;
-  productName: string;
-  productCatId: number;
-  isMain: number;
-  isBottled: number;
-  categoryName: string;
-  qty: number;
-}
+type OutstandingCommitment = OutstandingCommitmentAsOf;
 
 const SECTION_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -46,83 +38,6 @@ function loadCategories(): CategoryRow[] {
        ORDER BY isBottled ASC, isMain DESC, productCat ASC`,
     )
     .all() as CategoryRow[];
-}
-
-function loadOutstandingCommitments(hideZero: boolean): OutstandingCommitment[] {
-  const rows = getDatabase()
-    .prepare(
-      `SELECT d.customerId, c.name AS customerName, d.salesPointId, dd.productId,
-              p.productName, p.productCatId, COALESCE(pc.isMain, 0) AS isMain,
-              COALESCE(pc.isBottled, 0) AS isBottled, pc.productCat AS categoryName,
-              d.deliveryOrderNo, dd.orderQty
-       FROM DeliveryOrder d
-       INNER JOIN DeliveryOrderDetails dd ON dd.deliveryOrderId = d.id
-       INNER JOIN Customer c ON c.id = d.customerId
-       INNER JOIN Product p ON p.productId = dd.productId
-       LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
-       WHERE d.status = 'VALIDATED'`,
-    )
-    .all() as Array<{
-    customerId: number;
-    customerName: string;
-    salesPointId: number;
-    productId: number;
-    productName: string;
-    productCatId: number;
-    isMain: number;
-    isBottled: number;
-    categoryName: string;
-    deliveryOrderNo: string;
-    orderQty: number;
-  }>;
-
-  const soldByDoProduct = new Map<string, number>();
-  const soldRows = getDatabase()
-    .prepare(
-      `SELECT s.deliveryOrderNo, sl.productId, SUM(CAST(sl.qtyKg AS REAL)) AS soldQty
-       FROM Sale s
-       INNER JOIN SaleLine sl ON sl.saleId = s.id
-       WHERE s.deliveryOrderNo IS NOT NULL
-         AND s.status IN ('PENDING', 'VALIDATED')
-       GROUP BY s.deliveryOrderNo, sl.productId`,
-    )
-    .all() as Array<{ deliveryOrderNo: string; productId: number; soldQty: number }>;
-
-  for (const row of soldRows) {
-    soldByDoProduct.set(`${row.deliveryOrderNo}:${row.productId}`, parseQty(row.soldQty));
-  }
-
-  const totals = new Map<string, OutstandingCommitment>();
-
-  for (const row of rows) {
-    const sold = soldByDoProduct.get(`${row.deliveryOrderNo}:${row.productId}`) ?? 0;
-    const outstanding = Math.max(row.orderQty - sold, 0);
-    if (hideZero && outstanding <= 0) {
-      continue;
-    }
-
-    const key = `${row.customerId}:${row.salesPointId}:${row.productId}`;
-    const existing = totals.get(key);
-    if (existing) {
-      existing.qty += outstanding;
-      continue;
-    }
-
-    totals.set(key, {
-      customerId: row.customerId,
-      customerName: row.customerName,
-      salesPointId: row.salesPointId,
-      productId: row.productId,
-      productName: row.productName,
-      productCatId: row.productCatId,
-      isMain: row.isMain,
-      isBottled: row.isBottled,
-      categoryName: row.categoryName,
-      qty: outstanding,
-    });
-  }
-
-  return [...totals.values()];
 }
 
 function qtyForSalesPoint(
@@ -249,10 +164,11 @@ function buildSection(
 export function getCommitmentReport(userId?: string | null): CommitmentReport {
   const settings = loadReportCompanySettings(userId);
   const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
+  const { asAtIso } = resolveReportAsAt();
   const salesPoints = loadSalesPoints();
   const categories = loadCategories();
   const products = loadProducts();
-  const commitments = loadOutstandingCommitments(hideZero);
+  const commitments = loadOutstandingCommitmentsAsOf(getDatabase(), asAtIso, { hideZero });
 
   const sections: CommitmentReportSection[] = [];
   let sectionIndex = 0;
@@ -278,8 +194,6 @@ export function getCommitmentReport(userId?: string | null): CommitmentReport {
     sum(sections.map((section) => section.columnTotals[columnIndex] ?? 0)),
   );
   const grandTotal = sum(columnTotals);
-
-  const { asAtIso } = resolveReportAsAt();
 
   return {
     settings,

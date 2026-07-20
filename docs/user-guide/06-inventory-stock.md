@@ -26,10 +26,12 @@ Enter opening / carried-forward on-hand quantities by **sales point** and **stor
 
 These post as stock adjustments with a carry-forward source kind so movements and reports can distinguish them from ordinary adjustments.
 
+**Dating:** Carry-forward stock only counts from its posting date on period-faithful stock reports. For a January report to show opening stock, post CF dated on or before January’s month end (not with a later month’s date).
+
 ## Practical tips
 
 - Sellable storage locations must exist for the sales point used on invoices.
-- After large opening-stock entry, refresh **Stock report** / **Stock summary** to verify.
+- After large opening-stock entry, refresh **Stock report** / **Stock summary** to verify (stock report qty is reconstructed as of the report as-at date from movements).
 - Hide-zero report settings can hide empty locations; turn that off in **Report settings** if you need to see zeros.
 
 Next: [Sales budgets](07-sales-budgets.md).

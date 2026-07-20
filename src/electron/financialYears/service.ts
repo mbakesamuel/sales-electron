@@ -282,7 +282,10 @@ export function assertBudgetYear(financialYear: unknown): void {
   }
 }
 
-/** As-at date for reports: today clamped into the open financial year. */
+/**
+ * As-at date for reports: earlier of today and the open month’s end.
+ * Reopening a past month (e.g. January in July) yields that month’s end date.
+ */
 export function resolveReportAsAt(): {
   asAtIso: string;
   period: OpenPostingPeriod;
@@ -291,16 +294,50 @@ export function resolveReportAsAt(): {
   if (!period) {
     throw new Error("Open a financial month before running reports.");
   }
-  const yearStart = yearStartDate(period.financialYear);
-  const yearEnd = yearEndDate(period.financialYear);
   const today = localTodayIso();
-  let asAtIso = today;
-  if (asAtIso < yearStart) {
-    asAtIso = yearStart;
-  } else if (asAtIso > yearEnd) {
-    asAtIso = yearEnd;
-  }
+  const asAtIso = today < period.endDate ? today : period.endDate;
   return { asAtIso, period };
+}
+
+export type ListPeriodFilter = "month" | "year" | "all";
+
+/**
+ * Date range for Invoice / DO list filters, keyed off the open posting period
+ * (not the machine calendar month).
+ */
+export function resolveListDateRange(period: ListPeriodFilter = "month"): {
+  fromIso: string | null;
+  toIso: string | null;
+  periodLabel: string;
+} {
+  if (period === "all") {
+    return { fromIso: null, toIso: null, periodLabel: "All time" };
+  }
+
+  const open = getOpenPostingPeriod();
+  if (!open) {
+    throw new Error("Open a financial month before listing documents.");
+  }
+
+  const today = localTodayIso();
+  const asAtIso = today < open.endDate ? today : open.endDate;
+
+  if (period === "month") {
+    return {
+      fromIso: open.startDate,
+      toIso: asAtIso,
+      periodLabel: `${open.monthName} ${open.financialYear}`,
+    };
+  }
+
+  const yearStart = `${open.financialYear}-01-01`;
+  const yearEnd = `${open.financialYear}-12-31`;
+  const toIso = asAtIso < yearEnd ? asAtIso : yearEnd;
+  return {
+    fromIso: yearStart,
+    toIso,
+    periodLabel: `FY ${open.financialYear} (through ${toIso})`,
+  };
 }
 
 export function openYear(financialYear: number): OpenYearResult {

@@ -1,7 +1,10 @@
 import type Database from "better-sqlite3";
+import { getSellableBalanceAsOf } from "./asOfBalance.js";
 import { formatQty, parseQty } from "./decimal.js";
 import { InsufficientStockError } from "./errors.js";
 import { applyMovement } from "./post.js";
+
+export { getSellableBalanceAsOf } from "./asOfBalance.js";
 
 export function resolveSellableStorageLocation(
   db: Database.Database,
@@ -54,67 +57,6 @@ export function resolveSellableStorageLocation(
   }
 
   return fallback.id;
-}
-
-function movementSignedQty(kind: string, qty: string): number {
-  const amount = parseQty(qty);
-  switch (kind) {
-    case "RECEIPT":
-    case "TRANSFER_IN":
-    case "SALE_REVERSAL":
-      return amount;
-    case "TRANSFER_OUT":
-    case "SALE":
-      return -amount;
-    case "ADJUSTMENT":
-      return amount;
-    default:
-      return amount;
-  }
-}
-
-/** Sellable on-hand reconstructed from movements through asOfDateIso (inclusive). */
-export function getSellableBalanceAsOf(
-  db: Database.Database,
-  salesPointId: number,
-  productId: number,
-  storageLocationId: number,
-  asOfDateIso: string,
-  excludeSaleId?: string | null,
-): number {
-  const asOf = asOfDateIso.slice(0, 10);
-  const rows = (
-    excludeSaleId
-      ? db
-          .prepare(
-            `SELECT kind, qty
-             FROM StockMovement
-             WHERE salesPointId = ?
-               AND productId = ?
-               AND storageLocationId = ?
-               AND condition = 'SELLABLE'
-               AND substr(occurredAt, 1, 10) <= ?
-               AND NOT (sourceKind = 'SALE' AND sourceId = ?)`,
-          )
-          .all(salesPointId, productId, storageLocationId, asOf, excludeSaleId)
-      : db
-          .prepare(
-            `SELECT kind, qty
-             FROM StockMovement
-             WHERE salesPointId = ?
-               AND productId = ?
-               AND storageLocationId = ?
-               AND condition = 'SELLABLE'
-               AND substr(occurredAt, 1, 10) <= ?`,
-          )
-          .all(salesPointId, productId, storageLocationId, asOf)
-  ) as Array<{ kind: string; qty: string }>;
-
-  let total = 0;
-  for (const row of rows) {
-    total += movementSignedQty(row.kind, row.qty);
-  }
-  return total;
 }
 
 export interface SaleStockLineInput {

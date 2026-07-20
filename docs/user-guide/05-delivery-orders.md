@@ -16,6 +16,10 @@ Delivery orders (DOs) record customer commitments by product and sales point. Af
 
 Pending DOs do **not** appear in Pick DO. Only **validated** DOs with remaining kg are listed.
 
+### DO list
+
+The delivery-order **list** tab defaults to the **open posting month** (`dateIssued`). **Open year** covers the financial year through as-at; **All time** is for looking up a DO number outside the open period.
+
 ### Numbering
 
 The system allocates delivery order numbers (including a separate sequence style for carry-forward DOs).
@@ -31,6 +35,8 @@ Use this to enter **opening / carried-forward** customer commitments that should
 - For each **customer + sales point**, the app maintains **one** validated delivery order with `sourceKind = CARRY_FORWARD`.
 - Each product is a **line** on that DO (not a separate DO per product).
 - Adjusting outstanding qty updates the line while respecting quantities already sold against that DO number.
+
+**Dating:** The CF DO gets a **`dateIssued`** when first created (today within the open month, or month end). Commitment reports only include DOs with `dateIssued` on or before the report as-at date — so CF posted in July does not appear when January is open for reprinting. Pick DO always shows **live** remaining qty.
 
 On Sales → Pick DO, these rows show with a **CF** marker and are listed **per product** with remaining kg.
 

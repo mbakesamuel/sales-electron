@@ -56,6 +56,10 @@ The invoice stores the delivery order number so later sales against the same DO 
 - **Validate** — Requires the `validate_sales` action permission. Re-checks stock **as of the invoice date** (see above), then deducts live inventory. Validated sales appear on delivery/stock-style reports that filter on validated status.
 - **Delete** — Available according to status and permissions; prefer correcting before validation when possible.
 
+## Invoice list
+
+Screen tab: **Invoice list**. Default filter is the **open posting month** (`dateIssued`), not the calendar month on the PC. **Open year** shows the financial year through the report as-at date. Use **All time** when searching an invoice number from another period.
+
 ## Print
 
 Use the invoice print flow from the sales screen after save. Company header comes from app settings.

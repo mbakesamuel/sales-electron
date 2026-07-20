@@ -22,6 +22,15 @@ import {
   sum,
   type ProductRow,
 } from "./shared.js";
+import {
+  buildBottledWeekdayColumns,
+  buildWeekChoices,
+  mondayOf,
+  parseLocalIso,
+  resolveSelectedWeek,
+  startOfDay,
+  toIsoDate,
+} from "./weekChoices.js";
 
 const METHOD_ORDER: BottledWeeklyPaymentMethod[] = ["CASH", "CREDIT", "PRO"];
 
@@ -41,8 +50,6 @@ export function normalizeBottledWeeklyEstimateBasis(
 ): BottledWeeklyEstimateBasis {
   return value === "iso-week" ? "iso-week" : "working-days";
 }
-
-const WEEKDAY_LABELS = ["MON", "TUE", "WED", "THU", "FRI"] as const;
 
 const MONTH_NAMES = [
   "JANUARY",
@@ -72,57 +79,6 @@ interface SalePaymentShare {
   saleId: string;
   method: BottledWeeklyPaymentMethod;
   share: number;
-}
-
-function toIsoDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function startOfDay(date: Date): Date {
-  const next = new Date(date);
-  next.setHours(0, 0, 0, 0);
-  return next;
-}
-
-/** Monday through Friday of the current week, capped at as-at (weekend → Friday). */
-function getWeekdayRange(asAt: Date): {
-  weekFromIso: string;
-  weekToIso: string;
-  dayColumns: BottledWeeklyDayColumn[];
-} {
-  const today = startOfDay(asAt);
-  const day = today.getDay();
-  const diffToMonday = day === 0 ? -6 : 1 - day;
-  const monday = new Date(today);
-  monday.setDate(today.getDate() + diffToMonday);
-
-  const friday = new Date(monday);
-  friday.setDate(monday.getDate() + 4);
-
-  const weekTo = today < friday ? today : friday;
-  const dayColumns: BottledWeeklyDayColumn[] = [];
-
-  for (let offset = 0; offset < 5; offset += 1) {
-    const date = new Date(monday);
-    date.setDate(monday.getDate() + offset);
-    if (date > weekTo) {
-      break;
-    }
-    dayColumns.push({
-      id: `d${offset}`,
-      label: WEEKDAY_LABELS[offset],
-      isoDate: toIsoDate(date),
-    });
-  }
-
-  return {
-    weekFromIso: toIsoDate(monday),
-    weekToIso: toIsoDate(weekTo),
-    dayColumns,
-  };
 }
 
 /** Inclusive calendar days in [fromIso, toIso] that fall in calendarYear/calendarMonth. */
@@ -663,14 +619,40 @@ function buildCompare(
 export function getBottledWeeklyIssuesReport(
   userId?: string | null,
   estimateBasisRaw?: unknown,
+  weekMondayIso?: string | null,
 ): BottledWeeklyIssuesReport {
   const estimateBasis = normalizeBottledWeeklyEstimateBasis(estimateBasisRaw);
   const settings = loadReportCompanySettings(userId);
   const { asAtIso, period } = resolveReportAsAt();
   const asAt = startOfDay(new Date(`${asAtIso}T00:00:00`));
-  const { weekFromIso, weekToIso, dayColumns } = getWeekdayRange(asAt);
-  const clippedWeekFrom = weekFromIso < period.startDate ? period.startDate : weekFromIso;
-  const clippedWeekTo = weekToIso > asAtIso ? asAtIso : weekToIso;
+
+  const weekChoices = buildWeekChoices(period.startDate, period.endDate, asAtIso);
+  const selected =
+    resolveSelectedWeek(weekChoices, asAtIso, weekMondayIso) ??
+    (() => {
+      const monday = mondayOf(parseLocalIso(asAtIso));
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      const fromIso = toIsoDate(monday) < period.startDate ? period.startDate : toIsoDate(monday);
+      const toIso = toIsoDate(sunday) > asAtIso ? asAtIso : toIsoDate(sunday);
+      return {
+        weekMondayIso: toIsoDate(monday),
+        weekFromIso: fromIso,
+        weekToIso: toIso,
+        label: `${fromIso} – ${toIso}`,
+      };
+    })();
+
+  const weekdayWindow = buildBottledWeekdayColumns(
+    selected.weekMondayIso,
+    period.startDate,
+    selected.weekToIso,
+    asAtIso,
+  );
+  const dayColumns: BottledWeeklyDayColumn[] = weekdayWindow.dayColumns;
+  const clippedWeekFrom = weekdayWindow.weekFromIso;
+  const clippedWeekTo = weekdayWindow.weekToIso;
+
   const monthFromIso = period.startDate;
   const yearFromIso = `${period.financialYear}-01-01`;
   const priorYear = period.financialYear - 1;
@@ -722,9 +704,9 @@ export function getBottledWeeklyIssuesReport(
   const daysInMonth = new Date(asAt.getFullYear(), asAt.getMonth() + 1, 0).getDate();
   const dayFraction = asAt.getDate() / daysInMonth;
   const weekShare = weekEstimateDayFraction({
-    // ISO week expands from the week's Monday; working days use the clipped Mon–Fri window.
-    weekFromIso: estimateBasis === "iso-week" ? weekFromIso : clippedWeekFrom,
-    weekToIso: estimateBasis === "iso-week" ? weekToIso : clippedWeekTo,
+    // ISO week expands from the week's Monday through Sunday clip; working days use Mon–Fri.
+    weekFromIso: estimateBasis === "iso-week" ? selected.weekFromIso : clippedWeekFrom,
+    weekToIso: estimateBasis === "iso-week" ? selected.weekToIso : clippedWeekTo,
     calendarYear: period.financialYear,
     calendarMonth: period.calendarMonth,
     basis: estimateBasis,
@@ -772,8 +754,10 @@ export function getBottledWeeklyIssuesReport(
   return {
     settings,
     asAtIso,
+    weekMondayIso: selected.weekMondayIso,
     weekFromIso: clippedWeekFrom,
     weekToIso: clippedWeekTo,
+    weekChoices,
     monthFromIso,
     yearFromIso,
     generatedAtIso: nowIso(),

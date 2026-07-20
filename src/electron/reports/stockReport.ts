@@ -25,6 +25,7 @@ import {
   type StorageLocationRow,
 } from "./shared.js";
 import { getDatabase } from "../db/index.js";
+import { loadStockBalancesAsOf } from "../stock/asOfBalance.js";
 
 interface CategoryRow {
   productCatId: number;
@@ -56,25 +57,26 @@ function loadCategories(): CategoryRow[] {
     .all() as CategoryRow[];
 }
 
-function loadStockBalances(): BalanceRow[] {
-  return getDatabase()
-    .prepare(
-      `SELECT sb.salesPointId, sb.storageLocationId, sb.productId, p.productCatId,
-              sb.condition, SUM(CAST(sb.qty AS REAL)) AS qty
-       FROM StockBalance sb
-       INNER JOIN Product p ON p.productId = sb.productId
-       GROUP BY sb.salesPointId, sb.storageLocationId, sb.productId, p.productCatId,
-                sb.condition`,
-    )
-    .all()
+function loadStockBalances(asAtIso: string): BalanceRow[] {
+  const db = getDatabase();
+  const productCatById = new Map<number, number>();
+  const products = db
+    .prepare(`SELECT productId, productCatId FROM Product`)
+    .all() as Array<{ productId: number; productCatId: number }>;
+  for (const product of products) {
+    productCatById.set(product.productId, product.productCatId);
+  }
+
+  return loadStockBalancesAsOf(db, asAtIso)
     .map((row) => ({
-      salesPointId: (row as { salesPointId: number }).salesPointId,
-      storageLocationId: (row as { storageLocationId: number }).storageLocationId,
-      productId: (row as { productId: number }).productId,
-      productCatId: (row as { productCatId: number }).productCatId,
-      condition: String((row as { condition: string }).condition ?? "SELLABLE"),
-      qty: parseQty((row as { qty: number }).qty),
-    }));
+      salesPointId: row.salesPointId,
+      storageLocationId: row.storageLocationId,
+      productId: row.productId,
+      productCatId: productCatById.get(row.productId) ?? 0,
+      condition: row.condition,
+      qty: row.qty,
+    }))
+    .filter((row) => row.productCatId > 0);
 }
 
 function categoryText(category: CategoryRow): string {
@@ -470,10 +472,11 @@ function buildSalesPointQtySection(
 export function getStockReport(userId?: string | null): StockReport {
   const settings = loadReportCompanySettings(userId);
   const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
+  const { asAtIso } = resolveReportAsAt();
   const salesPoints = loadSalesPoints();
   const storageLocations = loadStorageLocations();
   const products = loadProducts();
-  const balances = loadStockBalances();
+  const balances = loadStockBalances(asAtIso);
   const categories = sortCategoriesForReport(loadCategories()).filter((category) =>
     products.some((product) => product.productCatId === category.productCatId),
   );
@@ -529,8 +532,6 @@ export function getStockReport(userId?: string | null): StockReport {
       oilGrandTotalKg += locationSection.sectionTotalKg;
     }
   }
-
-  const { asAtIso } = resolveReportAsAt();
 
   return {
     settings,

@@ -68,7 +68,7 @@ export function SalesList({ onOpenInvoice, onOpenPos }: SalesListProps) {
         <div>
           <h3>Sales invoices</h3>
           <p class="sales-muted">
-            Filter by invoice number, or view all within the current month or year.
+            Filter by invoice number, or view documents in the open posting month or year.
           </p>
         </div>
         {onOpenPos ? (
@@ -103,8 +103,8 @@ export function SalesList({ onOpenInvoice, onOpenPos }: SalesListProps) {
               }))
             }
           >
-            <option value="month">Current month</option>
-            <option value="year">Current year</option>
+            <option value="month">Open month</option>
+            <option value="year">Open year</option>
             <option value="all">All time</option>
           </select>
         </label>

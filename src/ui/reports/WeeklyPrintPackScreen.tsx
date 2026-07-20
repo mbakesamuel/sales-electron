@@ -9,6 +9,7 @@ import type {
   StockCommitmentReport,
   StockReport,
   WeeklyDeliveriesReport,
+  WeeklyDeliveriesWeekChoice,
 } from "../../shared/reports.types.ts";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import {
@@ -68,8 +69,14 @@ function catalogLabel(id: WeeklyPrintPackReportId): string {
   return PACK_CATALOG.find((entry) => entry.id === id)?.label ?? id;
 }
 
+const WEEKLY_PACK_IDS: WeeklyPrintPackReportId[] = [
+  "bottled-weekly-issues-report",
+  "sales-delivery-report",
+];
+
 async function fetchReport(
   id: WeeklyPrintPackReportId,
+  weekMondayIso?: string,
 ): Promise<PackData[WeeklyPrintPackReportId]> {
   const api = getAuthenticatedReports();
   switch (id) {
@@ -89,10 +96,10 @@ async function fetchReport(
       } catch {
         /* ignore */
       }
-      return api.getBottledWeeklyIssues(basis);
+      return api.getBottledWeeklyIssues(basis, weekMondayIso);
     }
     case "sales-delivery-report":
-      return api.getWeeklyDeliveries();
+      return api.getWeeklyDeliveries(weekMondayIso);
     case "sales-budget-weekly-crosstab":
       return api.getSalesBudgetWeeklyCrosstab();
   }
@@ -140,8 +147,30 @@ export function WeeklyPrintPackScreen({ permissions }: WeeklyPrintPackScreenProp
   );
   const [exporting, setExporting] = useState(false);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
+  const [weekChoices, setWeekChoices] = useState<WeeklyDeliveriesWeekChoice[]>([]);
+  const [weekMondayIso, setWeekMondayIso] = useState<string | undefined>(undefined);
+  const [weekReady, setWeekReady] = useState(false);
   const startedRef = useRef<Set<WeeklyPrintPackReportId>>(new Set());
   const stackSeeded = useRef(false);
+  const prevWeekRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getAuthenticatedReports()
+      .getWeekChoices()
+      .then((result) => {
+        if (cancelled) return;
+        setWeekChoices(result.weekChoices);
+        setWeekMondayIso(result.defaultWeekMondayIso ?? undefined);
+        setWeekReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) setWeekReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const allowedIds = available.map((entry) => entry.id);
@@ -161,6 +190,33 @@ export function WeeklyPrintPackScreen({ permissions }: WeeklyPrintPackScreenProp
   }, [available]);
 
   useEffect(() => {
+    if (!weekReady) {
+      return;
+    }
+    if (prevWeekRef.current === weekMondayIso) {
+      return;
+    }
+    const isFirst = prevWeekRef.current === undefined && weekMondayIso !== undefined;
+    prevWeekRef.current = weekMondayIso;
+    if (isFirst) {
+      return;
+    }
+    for (const id of WEEKLY_PACK_IDS) {
+      startedRef.current.delete(id);
+    }
+    setData((prev) => {
+      const next = { ...prev };
+      for (const id of WEEKLY_PACK_IDS) {
+        delete next[id];
+      }
+      return next;
+    });
+  }, [weekMondayIso, weekReady]);
+
+  useEffect(() => {
+    if (!weekReady) {
+      return;
+    }
     const toLoad = stack.filter((id) => !startedRef.current.has(id));
     if (toLoad.length === 0) {
       return;
@@ -181,7 +237,7 @@ export function WeeklyPrintPackScreen({ permissions }: WeeklyPrintPackScreenProp
     for (const id of toLoad) {
       void (async () => {
         try {
-          const report = await fetchReport(id);
+          const report = await fetchReport(id, weekMondayIso);
           setData((prev) => ({ ...prev, [id]: report }));
           setErrors((prev) => {
             if (!prev[id]) {
@@ -212,7 +268,7 @@ export function WeeklyPrintPackScreen({ permissions }: WeeklyPrintPackScreenProp
         }
       })();
     }
-  }, [stack]);
+  }, [stack, weekMondayIso, weekReady]);
 
   const selectedSet = useMemo(() => new Set(stack), [stack]);
 
@@ -420,6 +476,21 @@ export function WeeklyPrintPackScreen({ permissions }: WeeklyPrintPackScreenProp
     <div class="scr-page wpp-page">
       <div class="wpp-controls no-print">
         <div class="wpp-toolbar">
+          {weekChoices.length > 0 ? (
+            <div class="sbc-year-picker" aria-label="Week in open month">
+              {weekChoices.map((week) => (
+                <button
+                  key={week.weekMondayIso}
+                  type="button"
+                  class={`sbc-year-btn${week.weekMondayIso === weekMondayIso ? " is-active" : ""}`}
+                  disabled={anyLoading || exporting}
+                  onClick={() => setWeekMondayIso(week.weekMondayIso)}
+                >
+                  {week.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <button
             type="button"
             class="scr-btn"
@@ -441,7 +512,8 @@ export function WeeklyPrintPackScreen({ permissions }: WeeklyPrintPackScreenProp
         <div class="wpp-stack-panel">
           <h2 class="wpp-stack-title">Print stack</h2>
           <p class="wpp-stack-hint">
-            Check reports to include. Use up/down to set PDF page order.
+            Check reports to include. Use up/down to set PDF page order. Week
+            buttons apply to Sales/delivery and Bottled weekly issues.
           </p>
           <ul class="wpp-catalog">
             {available.map((entry) => (

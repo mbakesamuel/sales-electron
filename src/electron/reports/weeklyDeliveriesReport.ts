@@ -20,6 +20,16 @@ import {
   type SalesPointRow,
 } from "./shared.js";
 import { getDatabase } from "../db/index.js";
+import {
+  buildWeekChoices,
+  formatWeekLabel,
+  maxIso,
+  minIso,
+  mondayOf,
+  parseLocalIso,
+  resolveSelectedWeek,
+  toIsoDate,
+} from "./weekChoices.js";
 
 const LOOSE_CATEGORY_ROWS = [
   { id: "industries", label: "INDUSTRIES" },
@@ -47,54 +57,6 @@ interface SaleLineRecord {
   isBottled: number;
   qtyKg: number;
   qtyUnits: number | null;
-}
-
-function pad2(value: number): string {
-  return String(value).padStart(2, "0");
-}
-
-/** Local calendar date (avoids UTC shift from Date.toISOString). */
-function toIsoDate(date: Date): string {
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
-}
-
-function startOfDay(date: Date): Date {
-  const next = new Date(date);
-  next.setHours(0, 0, 0, 0);
-  return next;
-}
-
-function parseLocalIso(iso: string): Date {
-  return startOfDay(new Date(`${iso.slice(0, 10)}T00:00:00`));
-}
-
-function mondayOf(date: Date): Date {
-  const day = date.getDay();
-  const diffToMonday = day === 0 ? -6 : 1 - day;
-  const monday = new Date(date);
-  monday.setDate(date.getDate() + diffToMonday);
-  return startOfDay(monday);
-}
-
-function minIso(a: string, b: string): string {
-  return a <= b ? a : b;
-}
-
-function maxIso(a: string, b: string): string {
-  return a >= b ? a : b;
-}
-
-function formatWeekLabel(weekFromIso: string, weekToIso: string): string {
-  const from = parseLocalIso(weekFromIso);
-  const to = parseLocalIso(weekToIso);
-  const fromDay = from.getDate();
-  const toDay = to.getDate();
-  const monthShort = to.toLocaleDateString("en-GB", { month: "short" });
-  if (from.getMonth() === to.getMonth() && from.getFullYear() === to.getFullYear()) {
-    return `${fromDay}–${toDay} ${monthShort}`;
-  }
-  const fromMonth = from.toLocaleDateString("en-GB", { month: "short" });
-  return `${fromDay} ${fromMonth} – ${toDay} ${monthShort}`;
 }
 
 function resolveLooseCategoryId(
@@ -279,69 +241,6 @@ function buildMiscSection(
     title: MISC_SECTION_TITLE,
     rows,
   };
-}
-
-/** Mondays of weeks that overlap the open month up to as-at. */
-function buildWeekChoices(
-  monthStart: string,
-  monthEnd: string,
-  asAtIso: string,
-): WeeklyDeliveriesWeekChoice[] {
-  const hardEnd = minIso(monthEnd, asAtIso);
-  if (hardEnd < monthStart) {
-    return [];
-  }
-
-  const firstMonday = mondayOf(parseLocalIso(monthStart));
-  const cursor = new Date(firstMonday);
-  const choices: WeeklyDeliveriesWeekChoice[] = [];
-
-  while (toIsoDate(cursor) <= hardEnd) {
-    const mondayIso = toIsoDate(cursor);
-    const sunday = new Date(cursor);
-    sunday.setDate(cursor.getDate() + 6);
-    const sundayIso = toIsoDate(sunday);
-
-    const weekFromIso = maxIso(mondayIso, monthStart);
-    const weekToIso = minIso(sundayIso, hardEnd);
-
-    if (weekFromIso <= weekToIso) {
-      choices.push({
-        weekMondayIso: mondayIso,
-        weekFromIso,
-        weekToIso,
-        label: formatWeekLabel(weekFromIso, weekToIso),
-      });
-    }
-
-    cursor.setDate(cursor.getDate() + 7);
-  }
-
-  return choices;
-}
-
-function resolveSelectedWeek(
-  choices: WeeklyDeliveriesWeekChoice[],
-  asAtIso: string,
-  requestedMondayIso: string | null | undefined,
-): WeeklyDeliveriesWeekChoice | null {
-  if (choices.length === 0) {
-    return null;
-  }
-
-  if (requestedMondayIso) {
-    const match = choices.find((choice) => choice.weekMondayIso === requestedMondayIso.slice(0, 10));
-    if (match) {
-      return match;
-    }
-  }
-
-  const asAtMonday = toIsoDate(mondayOf(parseLocalIso(asAtIso)));
-  return (
-    choices.find((choice) => choice.weekMondayIso === asAtMonday) ??
-    choices[choices.length - 1] ??
-    null
-  );
 }
 
 export function getWeeklyDeliveriesReport(

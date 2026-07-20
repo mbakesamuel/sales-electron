@@ -18,7 +18,7 @@ export interface ApplyMovementInput {
   notes?: string | null;
 }
 
-function signedDeltaForKind(kind: StockMovementKind, qty: string): number {
+export function signedDeltaForKind(kind: StockMovementKind, qty: string): number {
   const amount = parseQty(qty);
   switch (kind) {
     case "RECEIPT":

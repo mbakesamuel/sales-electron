@@ -15,6 +15,17 @@
 - On **Sales / delivery**, use the **week picker** for the week that contains the sale date.
 - PKO / kernel products appear under **3) Other products / PKO**, not under loose palm oil, and **without customer names**.
 
+## Stock report shows unexpected qty (or missing CF)
+
+- Stock report qty is **as of the open month’s as-at** (earlier of today and month end), from movements — not the live On-hand tab.
+- Carry-forward / receipts only count from their **posting date**. CF posted in July does not appear when January is open.
+- Inventory **On hand** always shows current live balance; that is expected.
+
+## Commitment report shows unexpected outstanding
+
+- Outstanding is **as of report as-at**: DOs and draw-down sales with `dateIssued` on or before that date.
+- CF commitments only appear from their DO **`dateIssued`**. Pick DO always shows live remaining (not frozen by month).
+- Later edits to CF line `orderQty` are not historical — reports use the current ordered qty minus sales through as-at.
 ## Pick DO is empty or missing a DO
 
 - Customer and sales point must be selected (list is filtered to both).

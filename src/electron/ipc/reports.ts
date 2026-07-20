@@ -20,6 +20,7 @@ import { getSalesBudgetWeeklyCrosstabReport } from "../reports/salesBudgetWeekly
 import { getStockCommitmentReport } from "../reports/stockCommitment.js";
 import { getStockReport } from "../reports/stockReport.js";
 import { getWeeklyDeliveriesReport } from "../reports/weeklyDeliveriesReport.js";
+import { getOpenMonthWeekChoices } from "../reports/weekChoices.js";
 import {
   saveReportComments,
   type SaveReportCommentsResult,
@@ -72,9 +73,22 @@ export function registerReportsHandlers(): void {
       _event,
       authToken: string,
       estimateBasis?: unknown,
+      weekMondayIso?: unknown,
     ): BottledWeeklyIssuesReport => {
       const user = requireAuthUser(authToken);
-      return getBottledWeeklyIssuesReport(user.id, estimateBasis);
+      const monday =
+        typeof weekMondayIso === "string" && /^\d{4}-\d{2}-\d{2}$/.test(weekMondayIso)
+          ? weekMondayIso
+          : null;
+      return getBottledWeeklyIssuesReport(user.id, estimateBasis, monday);
+    },
+  );
+
+  ipcMain.handle(
+    "reports:getWeekChoices",
+    (_event, authToken: string) => {
+      requireAuthUser(authToken);
+      return getOpenMonthWeekChoices();
     },
   );
 

@@ -135,7 +135,13 @@ interface ReportsApi {
   getBottledWeeklyIssues(
     authToken: string,
     estimateBasis?: import("../../shared/reports.types").BottledWeeklyEstimateBasis,
+    weekMondayIso?: string,
   ): Promise<BottledWeeklyIssuesReport>;
+  getWeekChoices(authToken: string): Promise<{
+    asAtIso: string;
+    weekChoices: import("../../shared/reports.types").WeeklyDeliveriesWeekChoice[];
+    defaultWeekMondayIso: string | null;
+  }>;
   getWeeklyDeliveries(
     authToken: string,
     weekMondayIso?: string,

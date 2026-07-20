@@ -7,6 +7,8 @@ import type {
 } from "../../shared/reports.types.js";
 import { getDatabase } from "../db/index.js";
 import { resolveReportAsAt } from "../financialYears/service.js";
+import { loadStockBalancesAsOf } from "../stock/asOfBalance.js";
+import { loadCommitmentMetricsAsOf } from "./commitmentAsOf.js";
 import { loadReportCompanySettings, loadReportDisplaySettings, loadReportComments } from "./companySettings.js";
 
 const PALM_OIL_KG_PER_LITRE = 0.85;
@@ -79,68 +81,23 @@ function loadProducts(): ProductRow[] {
     .all() as ProductRow[];
 }
 
-function loadStockMetrics(): MetricRow[] {
-  return getDatabase()
-    .prepare(
-      `SELECT sb.salesPointId, sb.productId, SUM(CAST(sb.qty AS REAL)) AS qty
-       FROM StockBalance sb
-       WHERE sb.condition = 'SELLABLE'
-       GROUP BY sb.salesPointId, sb.productId`,
-    )
-    .all()
-    .map((row) => ({
-      salesPointId: (row as { salesPointId: number }).salesPointId,
-      productId: (row as { productId: number }).productId,
-      qty: parseQty((row as { qty: number }).qty),
-    }));
-}
-
-function loadCommitmentMetrics(): MetricRow[] {
-  const rows = getDatabase()
-    .prepare(
-      `SELECT d.salesPointId, dd.productId, d.deliveryOrderNo, dd.orderQty
-       FROM DeliveryOrder d
-       INNER JOIN DeliveryOrderDetails dd ON dd.deliveryOrderId = d.id
-       WHERE d.status = 'VALIDATED'`,
-    )
-    .all() as Array<{
-    salesPointId: number;
-    productId: number;
-    deliveryOrderNo: string;
-    orderQty: number;
-  }>;
-
-  const soldByDoProduct = new Map<string, number>();
-  const soldRows = getDatabase()
-    .prepare(
-      `SELECT s.deliveryOrderNo, sl.productId, SUM(CAST(sl.qtyKg AS REAL)) AS soldQty
-       FROM Sale s
-       INNER JOIN SaleLine sl ON sl.saleId = s.id
-       WHERE s.deliveryOrderNo IS NOT NULL
-         AND s.status IN ('PENDING', 'VALIDATED')
-       GROUP BY s.deliveryOrderNo, sl.productId`,
-    )
-    .all() as Array<{ deliveryOrderNo: string; productId: number; soldQty: number }>;
-
-  for (const row of soldRows) {
-    soldByDoProduct.set(`${row.deliveryOrderNo}:${row.productId}`, parseQty(row.soldQty));
-  }
-
+function loadStockMetrics(asAtIso: string): MetricRow[] {
   const totals = new Map<string, number>();
-  for (const row of rows) {
-    const sold = soldByDoProduct.get(`${row.deliveryOrderNo}:${row.productId}`) ?? 0;
-    const outstanding = Math.max(row.orderQty - sold, 0);
-    if (outstanding <= 0) {
+  for (const row of loadStockBalancesAsOf(getDatabase(), asAtIso)) {
+    if (row.condition !== "SELLABLE") {
       continue;
     }
     const key = `${row.salesPointId}:${row.productId}`;
-    totals.set(key, (totals.get(key) ?? 0) + outstanding);
+    totals.set(key, (totals.get(key) ?? 0) + row.qty);
   }
-
   return [...totals.entries()].map(([key, qty]) => {
     const [salesPointId, productId] = key.split(":").map((value) => Number.parseInt(value, 10));
     return { salesPointId, productId, qty };
   });
+}
+
+function loadCommitmentMetrics(asAtIso: string): MetricRow[] {
+  return loadCommitmentMetricsAsOf(getDatabase(), asAtIso);
 }
 
 function metricForProductAtSalesPoint(
@@ -335,11 +292,12 @@ export function getStockCommitmentReport(
 ): StockCommitmentReport {
   const settings = loadReportCompanySettings(userId);
   const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
+  const { asAtIso } = resolveReportAsAt();
   const salesPoints = loadSalesPoints();
   const categories = loadCategories();
   const products = loadProducts();
-  const stockMetrics = loadStockMetrics();
-  const commitmentMetrics = loadCommitmentMetrics();
+  const stockMetrics = loadStockMetrics(asAtIso);
+  const commitmentMetrics = loadCommitmentMetrics(asAtIso);
 
   const looseCategories = categories.filter((category) => category.isBottled !== 1);
   const bottledCategory = categories.find((category) => category.isBottled === 1) ?? null;
@@ -380,8 +338,6 @@ export function getStockCommitmentReport(
     looseDataRows.length > 0
       ? makeTotalRow("GRAND TOTAL", looseDataRows, "grand_total")
       : null;
-
-  const { asAtIso } = resolveReportAsAt();
 
   return {
     settings,
