@@ -84,7 +84,7 @@ export function SalesList({ onOpenInvoice, onOpenPos }: SalesListProps) {
           <input
             type="search"
             value={draftQ}
-            placeholder="e.g. INV-2026-000001"
+            placeholder="e.g. 12345"
             onInput={(event) =>
               setDraftQ((event.currentTarget as HTMLInputElement).value)
             }

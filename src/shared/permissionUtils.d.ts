@@ -8,4 +8,11 @@ export declare function filterSectionsForPermissions<TSection extends {
     routes: readonly {
         id: string;
     }[];
+    groups?: readonly {
+        id: string;
+        label: string;
+        routes: readonly {
+            id: string;
+        }[];
+    }[];
 }>(sections: readonly TSection[], snapshot: RolePermissionsSnapshot): TSection[];

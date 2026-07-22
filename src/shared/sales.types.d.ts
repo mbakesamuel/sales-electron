@@ -11,6 +11,7 @@ export interface SalesCustomerOption {
     residency: string;
     taxpayerId: string | null;
     vatApplies: boolean;
+    salesTaxExempt: boolean;
     salesTaxRate: number;
 }
 export interface SalesProductOption {
@@ -33,6 +34,12 @@ export interface StorageLocationOption {
     salesPointId: number;
     name: string;
     isDefault: boolean;
+}
+/** Storage locations with live SELLABLE on-hand for a product at a sales point. */
+export interface SalesStorageLocationBalanceOption {
+    id: number;
+    name: string;
+    qty: number;
 }
 export interface SalesFormOptions {
     customers: SalesCustomerOption[];
@@ -66,6 +73,7 @@ export interface SalePaymentInput {
 }
 export interface CreateSaleInput {
     userId: string;
+    invoiceNo: string;
     customerId?: number | null;
     customerNameOverride?: string;
     salesPointId?: number | null;
@@ -279,4 +287,8 @@ export interface SalesApi {
         asOfDate: string;
         customerId?: number | null;
     }): Promise<UnitPricePreviewResult>;
+    listStorageLocationsWithBalance(payload: {
+        salesPointId: number;
+        productId: number;
+    }): Promise<SalesStorageLocationBalanceOption[]>;
 }

@@ -145,8 +145,8 @@ export function WeeklyPrintPackScreen({ permissions }: WeeklyPrintPackScreenProp
   const [errors, setErrors] = useState<Partial<Record<WeeklyPrintPackReportId, string>>>(
     {},
   );
-  const [exporting, setExporting] = useState(false);
-  const [exportMessage, setExportMessage] = useState<string | null>(null);
+  const [printing, setPrinting] = useState(false);
+  const [printMessage, setPrintMessage] = useState<string | null>(null);
   const [weekChoices, setWeekChoices] = useState<WeeklyDeliveriesWeekChoice[]>([]);
   const [weekMondayIso, setWeekMondayIso] = useState<string | undefined>(undefined);
   const [weekReady, setWeekReady] = useState(false);
@@ -273,7 +273,7 @@ export function WeeklyPrintPackScreen({ permissions }: WeeklyPrintPackScreenProp
   const selectedSet = useMemo(() => new Set(stack), [stack]);
 
   function toggleReport(id: WeeklyPrintPackReportId, checked: boolean): void {
-    setExportMessage(null);
+    setPrintMessage(null);
     setStack((prev) => {
       if (checked) {
         return prev.includes(id) ? prev : [...prev, id];
@@ -290,29 +290,25 @@ export function WeeklyPrintPackScreen({ permissions }: WeeklyPrintPackScreenProp
     setStack((prev) => moveItem(prev, index, index + 1));
   }
 
-  async function handleExportPdf(): Promise<void> {
-    if (stack.length === 0 || exporting) {
+  function handlePrint(): void {
+    if (stack.length === 0 || printing) {
       return;
     }
     const missing = stack.filter((id) => data[id] == null);
     if (missing.length > 0) {
-      setExportMessage(`Still loading: ${missing.map(catalogLabel).join(", ")}`);
+      setPrintMessage(`Still loading: ${missing.map(catalogLabel).join(", ")}`);
       return;
     }
     const failed = stack.filter((id) => errors[id]);
     if (failed.length > 0) {
-      setExportMessage(
-        `Cannot export — failed reports: ${failed.map(catalogLabel).join(", ")}`,
+      setPrintMessage(
+        `Cannot print — failed reports: ${failed.map(catalogLabel).join(", ")}`,
       );
       return;
     }
-    if (!window.api?.print?.exportPdf) {
-      setExportMessage("PDF export is unavailable. Restart the app and try again.");
-      return;
-    }
 
-    setExporting(true);
-    setExportMessage(null);
+    setPrinting(true);
+    setPrintMessage(null);
 
     const htmlEl = document.documentElement;
     const previousTheme = htmlEl.getAttribute("data-theme");
@@ -320,128 +316,7 @@ export function WeeklyPrintPackScreen({ permissions }: WeeklyPrintPackScreenProp
     htmlEl.classList.add("scr-print-pack-mode");
     document.body.classList.add("scr-print-pack-mode");
 
-    let pageStyle = document.getElementById("wpp-a4-page-style");
-    if (!pageStyle) {
-      pageStyle = document.createElement("style");
-      pageStyle.id = "wpp-a4-page-style";
-      /* Formal print: white paper, #333 grid, soft green on totals only */
-      pageStyle.textContent = `
-        @page { size: A4 portrait; margin: 14mm; }
-        html[data-theme="print"], html.scr-print-pack-mode {
-          color-scheme: light !important;
-          --bg: #fff; --bg-elevated: #fff; --bg-soft: #fff;
-          --text: #111; --text-h: #111; --text-muted: #444;
-          --shell-content: #fff; --shell-main: #fff; --shell-header: #fff;
-          --border: #333; --accent: #111; --accent-soft: #fff; --highlight-bg: #fff;
-        }
-        html.scr-print-pack-mode,
-        html.scr-print-pack-mode body,
-        html.scr-print-pack-mode #app,
-        html.scr-print-pack-mode .home-content,
-        html.scr-print-pack-mode .home-main,
-        html.scr-print-pack-mode .home-layout,
-        html.scr-print-pack-mode .wpp-pack-page,
-        html.scr-print-pack-mode .scr-document {
-          background: #fff !important;
-          background-image: none !important;
-          color: #111 !important;
-          font-family: Arial, sans-serif !important;
-        }
-        html.scr-print-pack-mode .wpp-pack-page .report-header,
-        html.scr-print-pack-mode .wpp-pack-page .report-header * {
-          background: #fff !important;
-          color: #111 !important;
-          box-shadow: none !important;
-        }
-        html.scr-print-pack-mode .wpp-pack-page .report-header {
-          border: none !important;
-          border-bottom: 2px solid #111 !important;
-        }
-        html.scr-print-pack-mode .wpp-pack-page .report-header-logo-placeholder {
-          border: 1px solid #ccc !important;
-          background: #fff !important;
-        }
-        html.scr-print-pack-mode .wpp-pack-page .scr-as-at-date,
-        html.scr-print-pack-mode .wpp-pack-page .report-header-meta,
-        html.scr-print-pack-mode .wpp-pack-page .report-header-department,
-        html.scr-print-pack-mode .wpp-pack-page .report-header-commercial-service {
-          color: #444 !important;
-        }
-        html.scr-print-pack-mode .wpp-pack-page .scr-table,
-        html.scr-print-pack-mode .wpp-pack-page .sbc-table {
-          border-collapse: collapse !important;
-          background: #fff !important;
-        }
-        html.scr-print-pack-mode .wpp-pack-page .scr-table th,
-        html.scr-print-pack-mode .wpp-pack-page .scr-table td,
-        html.scr-print-pack-mode .wpp-pack-page .sbc-table th,
-        html.scr-print-pack-mode .wpp-pack-page .sbc-table td,
-        html.scr-print-pack-mode .home-content .wpp-pack-page .scr-table th,
-        html.scr-print-pack-mode .home-content .wpp-pack-page .scr-table td,
-        html.scr-print-pack-mode .wpp-pack-page .scr-section-title,
-        html.scr-print-pack-mode .wpp-pack-page .scr-row-header td {
-          border: 1px solid #333 !important;
-          color: #111 !important;
-          background: #fff !important;
-          padding: 4px 6px !important;
-        }
-        html.scr-print-pack-mode .wpp-pack-page .scr-row-total td,
-        html.scr-print-pack-mode .wpp-pack-page .scr-total-cell,
-        html.scr-print-pack-mode .wpp-pack-page .sbc-foot td {
-          background: #eef4df !important;
-          font-weight: 700 !important;
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
-        }
-        html.scr-print-pack-mode .wpp-pack-page .report-header,
-        html.scr-print-pack-mode .wpp-pack-page .report-footer,
-        html.scr-print-pack-mode .wpp-pack-page .scr-row-total,
-        html.scr-print-pack-mode .wpp-pack-page .sbc-foot,
-        html.scr-print-pack-mode .wpp-pack-page tr {
-          break-inside: avoid;
-          page-break-inside: avoid;
-        }
-        html.scr-print-pack-mode .wpp-pack-page thead {
-          display: table-header-group;
-        }
-        html.scr-print-pack-mode .wpp-pack-page .scr-bottled-block {
-          break-inside: avoid;
-          page-break-inside: avoid;
-        }
-        html.scr-print-pack-mode .wpp-pack-page .scr-bottled-block + .scr-bottled-block {
-          break-before: page;
-          page-break-before: always;
-        }
-      `;
-      document.head.appendChild(pageStyle);
-    }
-
-    const content = document.querySelector(".home-content");
-    if (content instanceof HTMLElement) {
-      content.scrollTop = 0;
-    }
-    window.scrollTo(0, 0);
-    try {
-      await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
-      await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      const dateStamp = new Date().toISOString().slice(0, 10);
-      const result = await window.api.print.exportPdf(
-        `weekly-print-pack-${dateStamp}.pdf`,
-      );
-      if (result.ok) {
-        setExportMessage(`Saved: ${result.filePath}`);
-      } else if (result.cancelled) {
-        setExportMessage(null);
-      } else {
-        setExportMessage(result.error);
-      }
-    } catch (error) {
-      setExportMessage(
-        error instanceof Error ? error.message : "Failed to export PDF.",
-      );
-    } finally {
-      document.getElementById("wpp-a4-page-style")?.remove();
+    const cleanup = () => {
       htmlEl.classList.remove("scr-print-pack-mode");
       document.body.classList.remove("scr-print-pack-mode");
       if (previousTheme) {
@@ -449,8 +324,19 @@ export function WeeklyPrintPackScreen({ permissions }: WeeklyPrintPackScreenProp
       } else {
         htmlEl.removeAttribute("data-theme");
       }
-      setExporting(false);
-    }
+      setPrinting(false);
+    };
+
+    window.addEventListener("afterprint", cleanup, { once: true });
+
+    // Allow display:none → block layout to settle at printable width before print.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.print();
+        });
+      });
+    });
   }
 
   const pendingIds = stack.filter((id) => data[id] == null && !errors[id]);
@@ -462,7 +348,7 @@ export function WeeklyPrintPackScreen({ permissions }: WeeklyPrintPackScreenProp
     failedIds.length === 0 &&
     !anyLoading;
 
-  const statusHint = exporting
+  const statusHint = printing
     ? null
     : stack.length === 0
       ? "Select at least one report."
@@ -483,7 +369,7 @@ export function WeeklyPrintPackScreen({ permissions }: WeeklyPrintPackScreenProp
                   key={week.weekMondayIso}
                   type="button"
                   class={`sbc-year-btn${week.weekMondayIso === weekMondayIso ? " is-active" : ""}`}
-                  disabled={anyLoading || exporting}
+                  disabled={anyLoading || printing}
                   onClick={() => setWeekMondayIso(week.weekMondayIso)}
                 >
                   {week.label}
@@ -494,16 +380,14 @@ export function WeeklyPrintPackScreen({ permissions }: WeeklyPrintPackScreenProp
           <button
             type="button"
             class="scr-btn"
-            disabled={!stackReady || exporting}
-            title={statusHint ?? "Export selected reports as one PDF"}
-            onClick={() => {
-              void handleExportPdf();
-            }}
+            disabled={!stackReady || printing}
+            title={statusHint ?? "Print selected reports"}
+            onClick={handlePrint}
           >
-            {exporting ? "Exporting…" : "Export PDF"}
+            {printing ? "Printing…" : "Print"}
           </button>
-          {exportMessage ? (
-            <span class="wpp-export-msg">{exportMessage}</span>
+          {printMessage ? (
+            <span class="wpp-export-msg">{printMessage}</span>
           ) : statusHint ? (
             <span class="wpp-export-msg">{statusHint}</span>
           ) : null}
@@ -512,7 +396,7 @@ export function WeeklyPrintPackScreen({ permissions }: WeeklyPrintPackScreenProp
         <div class="wpp-stack-panel">
           <h2 class="wpp-stack-title">Print stack</h2>
           <p class="wpp-stack-hint">
-            Check reports to include. Use up/down to set PDF page order. Week
+            Check reports to include. Use up/down to set print order. Week
             buttons apply to Sales/delivery and Bottled weekly issues.
           </p>
           <ul class="wpp-catalog">
@@ -562,26 +446,18 @@ export function WeeklyPrintPackScreen({ permissions }: WeeklyPrintPackScreenProp
               })}
             </ol>
           ) : (
-            <p class="scr-status">Select at least one report to export.</p>
+            <p class="scr-status">Select at least one report to print.</p>
           )}
         </div>
       </div>
 
-      <div class="wpp-stack-preview">
+      <div class="wpp-stack-preview wpp-print-source" aria-hidden="true">
         {stack.map((id) => {
           if (data[id] == null && !errors[id]) {
-            return (
-              <p key={id} class="scr-status no-print">
-                Loading {catalogLabel(id)}…
-              </p>
-            );
+            return null;
           }
           if (errors[id]) {
-            return (
-              <p key={id} class="scr-status scr-status-error no-print">
-                {catalogLabel(id)}: {errors[id]}
-              </p>
-            );
+            return null;
           }
           const report = data[id];
           if (!report) {

@@ -149,12 +149,15 @@ function getCustomerTaxInfo(customerId: number): {
   residency: string;
   taxpayerId: string | null;
   taxRegimeKind: string | null;
+  salesTaxExempt: boolean;
 } | null {
   const row = getDatabase()
     .prepare(
-      `SELECT c.customerTypeId, c.residency, c.taxpayerId, tr.kind AS taxRegimeKind
+      `SELECT c.customerTypeId, c.residency, c.taxpayerId, tr.kind AS taxRegimeKind,
+              COALESCE(ct.exemptFromSalesTax, 0) AS exemptFromSalesTax
        FROM Customer c
        LEFT JOIN TaxRegime tr ON tr.id = c.taxRegimeId
+       LEFT JOIN CustomerTypeDefinition ct ON ct.id = c.customerTypeId
        WHERE c.id = ?`,
     )
     .get(customerId) as
@@ -163,10 +166,21 @@ function getCustomerTaxInfo(customerId: number): {
         residency: string;
         taxpayerId: string | null;
         taxRegimeKind: string | null;
+        exemptFromSalesTax: number;
       }
     | undefined;
 
-  return row ?? null;
+  if (!row) {
+    return null;
+  }
+
+  return {
+    customerTypeId: row.customerTypeId,
+    residency: row.residency,
+    taxpayerId: row.taxpayerId,
+    taxRegimeKind: row.taxRegimeKind,
+    salesTaxExempt: row.exemptFromSalesTax === 1,
+  };
 }
 
 function buildLineAmounts(
@@ -190,6 +204,7 @@ function buildLineAmounts(
     residency: taxInfo?.residency ?? "LOCAL",
     taxpayerId: taxInfo?.taxpayerId ?? null,
     taxRegimeKind: taxInfo?.taxRegimeKind ?? null,
+    salesTaxExempt: taxInfo?.salesTaxExempt ?? false,
     rates,
   });
   const vatRate = profile.vatApplies

@@ -4,10 +4,16 @@ export interface SchemaRoute {
     table: string;
     description: string;
 }
+export interface SchemaRouteGroup {
+    id: string;
+    label: string;
+    routes: SchemaRoute[];
+}
 export interface SchemaRouteSection {
     id: string;
     label: string;
     routes: SchemaRoute[];
+    groups?: SchemaRouteGroup[];
 }
 export declare const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[];
 export declare const DEFAULT_ROUTE_ID = "overview";

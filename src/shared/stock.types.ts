@@ -103,6 +103,8 @@ export interface ReceiptDetail extends ReceiptListRow {
 export interface TransferListRow {
   id: string;
   transferNo: string;
+  transferMode: import("./stockTransferMode.ts").TransferMode;
+  locationSummary: string | null;
   fromSalesPointId: number;
   fromSalesPointName: string;
   toSalesPointId: number;
@@ -221,6 +223,7 @@ export interface SaveTransferInput {
     productId: number;
     qty: string;
     fromStorageLocationId: number;
+    toStorageLocationId?: number | null;
   }>;
 }
 

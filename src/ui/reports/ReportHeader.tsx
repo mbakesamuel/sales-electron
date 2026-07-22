@@ -18,7 +18,7 @@ function ReportLogo({ companyName }: { companyName: string }) {
   if (hasError) {
     return (
       <div class="report-header-logo report-header-logo-placeholder" aria-hidden="true">
-        <ImageOff size={30} />
+        <ImageOff size={40} />
       </div>
     );
   }

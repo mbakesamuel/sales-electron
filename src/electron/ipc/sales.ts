@@ -7,6 +7,7 @@ import type {
   SalesFormOptions,
   SalesListFilters,
   SalesListResult,
+  SalesStorageLocationBalanceOption,
   SaveSaleResult,
   SaleMutationResult,
   SalePrintPayload,
@@ -25,6 +26,7 @@ import {
   getSalesFormOptions,
   listPendingSales,
   listSales,
+  listStorageLocationsWithBalance,
   loadSaleByInvoiceNo,
   previewSaleUnitPrice,
   validateSale,
@@ -157,6 +159,24 @@ export function registerSalesHandlers(): void {
       }
 
       return previewSaleUnitPrice(payload);
+    },
+  );
+
+  ipcMain.handle(
+    "sales:listStorageLocationsWithBalance",
+    (
+      _event,
+      payload: { salesPointId: number; productId: number },
+    ): SalesStorageLocationBalanceOption[] => {
+      if (
+        !payload ||
+        typeof payload.salesPointId !== "number" ||
+        typeof payload.productId !== "number"
+      ) {
+        return [];
+      }
+
+      return listStorageLocationsWithBalance(payload.salesPointId, payload.productId);
     },
   );
 }

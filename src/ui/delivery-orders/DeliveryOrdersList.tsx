@@ -79,7 +79,7 @@ export function DeliveryOrdersList({ onOpenOrder, onOpenScreen }: DeliveryOrders
           <input
             type="search"
             value={draftQ}
-            placeholder="e.g. DO-2026-000001"
+            placeholder="e.g. 12345"
             onInput={(event) =>
               setDraftQ((event.currentTarget as HTMLInputElement).value)
             }

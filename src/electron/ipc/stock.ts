@@ -21,6 +21,7 @@ import {
   loadReceiptForReview,
   loadTransferForReview,
   postAdjustment,
+  postInternalTransfer,
   postReceipt,
   receiveTransfer,
   saveAdjustment,
@@ -103,6 +104,16 @@ export function registerStockHandlers(): void {
         return { ok: false, error: "Invalid transfer." };
       }
       return dispatchTransfer(payload.userId, payload.transferId);
+    },
+  );
+
+  ipcMain.handle(
+    "stock:postInternalTransfer",
+    (_event, payload: { userId: string; transferId: string }): StockGenericResult => {
+      if (!payload?.userId || !payload?.transferId) {
+        return { ok: false, error: "Invalid transfer." };
+      }
+      return postInternalTransfer(payload.userId, payload.transferId);
     },
   );
 

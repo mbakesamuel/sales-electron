@@ -78,6 +78,28 @@ const cases = [
     },
     expect: { vatApplies: false, vatRate: 0, salesTaxRate: 0.1 },
   },
+  {
+    name: "Sales-tax-exempt customer type → no sales tax, VAT unchanged",
+    input: {
+      residency: "LOCAL",
+      taxRegimeKind: "REAL",
+      taxpayerId: null,
+      salesTaxExempt: true,
+      rates: FALLBACK_TAX_RATES,
+    },
+    expect: { vatApplies: true, vatRate: 0.1925, salesTaxRate: 0 },
+  },
+  {
+    name: "Sales-tax-exempt overrides taxpayer Actual rate",
+    input: {
+      residency: "LOCAL",
+      taxRegimeKind: "REAL",
+      taxpayerId: "NIU-1",
+      salesTaxExempt: true,
+      rates: FALLBACK_TAX_RATES,
+    },
+    expect: { vatApplies: true, vatRate: 0.1925, salesTaxRate: 0 },
+  },
 ];
 
 let failed = 0;

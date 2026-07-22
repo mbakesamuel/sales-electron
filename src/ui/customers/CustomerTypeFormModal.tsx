@@ -17,11 +17,18 @@ interface FormData {
   name: string;
   sortOrder: string;
   isActive: boolean;
+  exemptFromSalesTax: boolean;
 }
 
 function initForm(mode: "create" | "edit", row?: Record<string, unknown>): FormData {
   if (mode !== "edit" || !row) {
-    return { code: "", name: "", sortOrder: "0", isActive: true };
+    return {
+      code: "",
+      name: "",
+      sortOrder: "0",
+      isActive: true,
+      exemptFromSalesTax: false,
+    };
   }
 
   return {
@@ -29,6 +36,8 @@ function initForm(mode: "create" | "edit", row?: Record<string, unknown>): FormD
     name: row.name != null ? String(row.name) : "",
     sortOrder: row.sortOrder != null ? String(row.sortOrder) : "0",
     isActive: row.isActive === 1 || row.isActive === true,
+    exemptFromSalesTax:
+      row.exemptFromSalesTax === 1 || row.exemptFromSalesTax === true,
   };
 }
 
@@ -83,6 +92,7 @@ export function CustomerTypeFormModal({
       name,
       sortOrder,
       isActive: form.isActive ? 1 : 0,
+      exemptFromSalesTax: form.exemptFromSalesTax ? 1 : 0,
     };
 
     try {
@@ -181,6 +191,27 @@ export function CustomerTypeFormModal({
               }
             />
           </div>
+        </div>
+
+        <div class="form-dialog-row">
+          <label class="form-dialog-checkbox-label">
+            <input
+              type="checkbox"
+              checked={form.exemptFromSalesTax}
+              disabled={isSubmitting}
+              onChange={(event) =>
+                updateField(
+                  "exemptFromSalesTax",
+                  (event.currentTarget as HTMLInputElement).checked,
+                )
+              }
+            />
+            Exempt from sales tax
+          </label>
+          <p class="form-dialog-hint">
+            Customers of this type are not charged sales tax on invoices and delivery
+            orders. VAT still applies for local customers.
+          </p>
         </div>
 
         <div class="form-dialog-row">

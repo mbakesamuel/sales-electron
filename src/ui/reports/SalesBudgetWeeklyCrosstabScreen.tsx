@@ -21,7 +21,7 @@ interface SalesBudgetWeeklyCrosstabScreenProps {
 function handlePrint(): void {
   const style = document.createElement("style");
   style.id = "sbc-print-landscape-style";
-  style.textContent = `@media print { @page { size: landscape; margin: 8mm; } }`;
+  style.textContent = `@media print { @page { size: A4 landscape; margin: 6mm; } }`;
   document.head.appendChild(style);
 
   document.body.classList.add("scr-print-mode", "mdr-print-landscape");

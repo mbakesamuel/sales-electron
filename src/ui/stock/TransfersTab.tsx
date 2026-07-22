@@ -19,6 +19,23 @@ import {
   utcIsoDateToday,
 } from "./stockUtils.ts";
 import { STOCK_DOC_STATUS_LABELS } from "./stockDisplay.ts";
+import { TRANSFER_MODE_LABELS } from "../../shared/stockTransferMode.ts";
+
+type FormTransferMode = "inter" | "intra";
+
+function defaultToLocationId(
+  storageLocations: StorageLocationOption[],
+  salesPointId: string,
+  excludeLocationId: string,
+): string {
+  const locs = locationsForSalesPoint(storageLocations, salesPointId);
+  const other = locs.find((loc) => String(loc.id) !== excludeLocationId);
+  return other ? String(other.id) : "";
+}
+
+function isIntraRow(row: TransferListRow): boolean {
+  return row.transferMode === "INTRA_SALES_POINT";
+}
 
 interface TransfersTabProps {
   rows: TransferListRow[];
@@ -47,6 +64,7 @@ export function TransfersTab(props: TransfersTabProps) {
     userId,
   } = props;
   const [open, setOpen] = useState(false);
+  const [formMode, setFormMode] = useState<FormTransferMode>("inter");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [fromSalesPointId, setFromSalesPointId] = useState<string>(
     scopedSalesPointId != null ? String(scopedSalesPointId) : "",
@@ -74,6 +92,7 @@ export function TransfersTab(props: TransfersTabProps) {
 
   function resetForm() {
     setEditingId(null);
+    setFormMode("inter");
     const from = scopedSalesPointId != null ? String(scopedSalesPointId) : "";
     setFromSalesPointId(from);
     setToSalesPointId("");
@@ -84,9 +103,37 @@ export function TransfersTab(props: TransfersTabProps) {
     ]);
   }
 
+  function onFormModeChange(nextMode: FormTransferMode) {
+    setFormMode(nextMode);
+    if (nextMode === "intra") {
+      if (fromSalesPointId) {
+        setToSalesPointId(fromSalesPointId);
+      }
+      const defFrom = defaultLocationId(storageLocations, fromSalesPointId);
+      const defTo = defaultToLocationId(storageLocations, fromSalesPointId, defFrom);
+      setLines((prev) =>
+        prev.map((l) => ({
+          ...l,
+          toStorageLocationId: l.toStorageLocationId || defTo,
+        })),
+      );
+    } else {
+      if (toSalesPointId === fromSalesPointId) {
+        setToSalesPointId("");
+      }
+      setLines((prev) =>
+        prev.map(({ toStorageLocationId: _to, ...l }) => l),
+      );
+    }
+  }
+
   function onFromSalesPointChange(nextId: string) {
     setFromSalesPointId(nextId);
     const defFrom = defaultLocationId(storageLocations, nextId);
+    const defTo = defaultToLocationId(storageLocations, nextId, defFrom);
+    if (formMode === "intra") {
+      setToSalesPointId(nextId);
+    }
     setLines((prev) =>
       prev.map((l) => ({
         ...l,
@@ -95,6 +142,15 @@ export function TransfersTab(props: TransfersTabProps) {
         )
           ? l.fromStorageLocationId
           : defFrom,
+        ...(formMode === "intra"
+          ? {
+              toStorageLocationId: locationsForSalesPoint(storageLocations, nextId).some(
+                (loc) => String(loc.id) === l.toStorageLocationId,
+              )
+                ? l.toStorageLocationId
+                : defTo,
+            }
+          : {}),
       })),
     );
   }
@@ -119,19 +175,29 @@ export function TransfersTab(props: TransfersTabProps) {
     if (busy) return;
     setBusy(true);
     try {
+      const fromSp = Number.parseInt(fromSalesPointId, 10);
+      const toSp =
+        formMode === "intra" ? fromSp : Number.parseInt(toSalesPointId, 10);
       const res = await getElectronApi().stock.saveTransfer({
         userId,
         id: editingId,
-        fromSalesPointId: Number.parseInt(fromSalesPointId, 10),
-        toSalesPointId: Number.parseInt(toSalesPointId, 10),
+        fromSalesPointId: fromSp,
+        toSalesPointId: toSp,
         dispatchedAt,
         notes: notes || null,
         lines: lines
-          .filter((l) => l.productId && l.qty && l.fromStorageLocationId)
+          .filter((l) => {
+            if (!l.productId || !l.qty || !l.fromStorageLocationId) return false;
+            if (formMode === "intra") return Boolean(l.toStorageLocationId);
+            return true;
+          })
           .map((l) => ({
             productId: Number.parseInt(l.productId, 10),
             qty: l.qty,
             fromStorageLocationId: Number.parseInt(l.fromStorageLocationId, 10),
+            ...(formMode === "intra" && l.toStorageLocationId
+              ? { toStorageLocationId: Number.parseInt(l.toStorageLocationId, 10) }
+              : {}),
           })),
       });
       if (res.ok) {
@@ -140,6 +206,21 @@ export function TransfersTab(props: TransfersTabProps) {
         );
         setOpen(false);
         resetForm();
+      } else {
+        props.onErr(res.error);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onPost(id: string) {
+    setBusy(true);
+    try {
+      const res = await getElectronApi().stock.postInternalTransfer({ userId, transferId: id });
+      if (res.ok) {
+        props.onOk("Location move posted; balances updated.");
+        if (reviewDetail?.id === id) setReviewDetail(null);
       } else {
         props.onErr(res.error);
       }
@@ -231,7 +312,9 @@ export function TransfersTab(props: TransfersTabProps) {
   }
 
   function populateFormFromDetail(detail: TransferDetail) {
+    const intra = detail.transferMode === "INTRA_SALES_POINT";
     setEditingId(detail.id);
+    setFormMode(intra ? "intra" : "inter");
     setFromSalesPointId(String(detail.fromSalesPointId));
     setToSalesPointId(String(detail.toSalesPointId));
     setDispatchedAt(
@@ -242,18 +325,28 @@ export function TransfersTab(props: TransfersTabProps) {
         : utcIsoDateToday(),
     );
     setNotes(detail.notes ?? "");
+    const defFrom = defaultLocationId(storageLocations, detail.fromSalesPointId);
+    const defTo = defaultToLocationId(storageLocations, String(detail.fromSalesPointId), defFrom);
     setLines(
       detail.lines.length > 0
         ? detail.lines.map((l) => ({
             productId: String(l.productId),
             qty: l.qty,
             fromStorageLocationId: String(l.fromStorageLocationId),
+            ...(intra
+              ? {
+                  toStorageLocationId: l.toStorageLocationId
+                    ? String(l.toStorageLocationId)
+                    : defTo,
+                }
+              : {}),
           }))
         : [
             {
               productId: "",
               qty: "",
-              fromStorageLocationId: defaultLocationId(storageLocations, detail.fromSalesPointId),
+              fromStorageLocationId: defFrom,
+              ...(intra ? { toStorageLocationId: defTo } : {}),
             },
           ],
     );
@@ -345,6 +438,7 @@ export function TransfersTab(props: TransfersTabProps) {
           <thead>
             <tr>
               <th>Transfer #</th>
+              <th>Type</th>
               <th>From</th>
               <th>To</th>
               <th>Dispatched</th>
@@ -358,7 +452,7 @@ export function TransfersTab(props: TransfersTabProps) {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={9} class="stock-empty-cell">
+                <td colSpan={10} class="stock-empty-cell">
                   No transfers recorded yet.
                   {props.canDraft ? (
                     <>
@@ -370,6 +464,7 @@ export function TransfersTab(props: TransfersTabProps) {
               </tr>
             ) : (
               rows.map((r) => {
+                const intra = isIntraRow(r);
                 const isSourceUser =
                   scopedSalesPointId == null || scopedSalesPointId === r.fromSalesPointId;
                 const isDestUser =
@@ -377,8 +472,9 @@ export function TransfersTab(props: TransfersTabProps) {
                 return (
                   <tr key={r.id}>
                     <td class="stock-mono">{r.transferNo}</td>
+                    <td>{TRANSFER_MODE_LABELS[r.transferMode]}</td>
                     <td>{r.fromSalesPointName}</td>
-                    <td>{r.toSalesPointName}</td>
+                    <td>{intra ? (r.locationSummary ?? "—") : r.toSalesPointName}</td>
                     <td class="stock-nowrap">
                       {r.dispatchedAtIso ? formatDate(r.dispatchedAtIso) : "—"}
                       {r.dispatchedByName ? (
@@ -421,7 +517,17 @@ export function TransfersTab(props: TransfersTabProps) {
                           Edit
                         </button>
                       ) : null}
-                      {r.status === "DRAFT" && props.canDispatch && isSourceUser ? (
+                      {r.status === "DRAFT" && props.canDispatch && isSourceUser && intra ? (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void onPost(r.id)}
+                          class="stock-btn-primary stock-btn-small"
+                        >
+                          Post
+                        </button>
+                      ) : null}
+                      {r.status === "DRAFT" && props.canDispatch && isSourceUser && !intra ? (
                         <button
                           type="button"
                           disabled={busy}
@@ -431,7 +537,7 @@ export function TransfersTab(props: TransfersTabProps) {
                           Dispatch
                         </button>
                       ) : null}
-                      {r.status === "DISPATCHED" && props.canReceive && isDestUser ? (
+                      {r.status === "DISPATCHED" && props.canReceive && isDestUser && !intra ? (
                         <button
                           type="button"
                           disabled={busy}
@@ -465,8 +571,34 @@ export function TransfersTab(props: TransfersTabProps) {
       {open ? (
         <DocDialog title={editingId ? "Edit transfer" : "New transfer"} wide onClose={() => setOpen(false)}>
           <form onSubmit={onSave} class="stock-form">
+            <div class="stock-form-row">
+              <span class="stock-form-label">Transfer type</span>
+              <div class="stock-form-control-wrap">
+                <select
+                  class="stock-form-control"
+                  value={formMode}
+                  onChange={(event) =>
+                    onFormModeChange(
+                      (event.currentTarget as HTMLSelectElement).value as FormTransferMode,
+                    )
+                  }
+                >
+                  <option value="inter">Between sales points</option>
+                  <option value="intra">Within sales point</option>
+                </select>
+                {formMode === "intra" ? (
+                  <p class="stock-hint">
+                    Move stock between storage locations at one sales point. Posting applies both
+                    out and in movements in one step.
+                  </p>
+                ) : null}
+              </div>
+            </div>
+
             <label class="stock-form-row">
-              <span class="stock-form-label">From</span>
+              <span class="stock-form-label">
+                {formMode === "intra" ? "Sales point" : "From"}
+              </span>
               <select
                 class="stock-form-control"
                 value={fromSalesPointId}
@@ -482,26 +614,30 @@ export function TransfersTab(props: TransfersTabProps) {
                 ))}
               </select>
             </label>
+            {formMode === "inter" ? (
+              <label class="stock-form-row">
+                <span class="stock-form-label">To</span>
+                <select
+                  class="stock-form-control"
+                  value={toSalesPointId}
+                  onChange={(event) => setToSalesPointId((event.currentTarget as HTMLSelectElement).value)}
+                  required
+                >
+                  <option value="">Select…</option>
+                  {salesPoints
+                    .filter((sp) => String(sp.id) !== fromSalesPointId)
+                    .map((sp) => (
+                      <option key={sp.id} value={sp.id}>
+                        {sp.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            ) : null}
             <label class="stock-form-row">
-              <span class="stock-form-label">To</span>
-              <select
-                class="stock-form-control"
-                value={toSalesPointId}
-                onChange={(event) => setToSalesPointId((event.currentTarget as HTMLSelectElement).value)}
-                required
-              >
-                <option value="">Select…</option>
-                {salesPoints
-                  .filter((sp) => String(sp.id) !== fromSalesPointId)
-                  .map((sp) => (
-                    <option key={sp.id} value={sp.id}>
-                      {sp.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <label class="stock-form-row">
-              <span class="stock-form-label">Dispatch date</span>
+              <span class="stock-form-label">
+                {formMode === "intra" ? "Move date" : "Dispatch date"}
+              </span>
               <input
                 type="date"
                 class="stock-form-control"
@@ -519,14 +655,29 @@ export function TransfersTab(props: TransfersTabProps) {
               />
             </label>
 
+            {formMode === "intra" &&
+            fromSalesPointId &&
+            locationsForSalesPoint(storageLocations, fromSalesPointId).length < 2 ? (
+              <p class="stock-hint stock-hint-warn">
+                Add at least two storage locations for this sales point to move stock between bins.
+              </p>
+            ) : null}
+
             <TransferLineEditor
               products={products}
               lines={lines}
               onChange={setLines}
+              mode={formMode}
               fromSalesPointId={fromSalesPointId}
               onHand={onHand}
               fromLocationOptions={locationsForSalesPoint(storageLocations, fromSalesPointId)}
+              toLocationOptions={locationsForSalesPoint(storageLocations, fromSalesPointId)}
               defaultFromLocationId={defaultLocationId(storageLocations, fromSalesPointId)}
+              defaultToLocationId={defaultToLocationId(
+                storageLocations,
+                fromSalesPointId,
+                defaultLocationId(storageLocations, fromSalesPointId),
+              )}
             />
 
             <div class="stock-modal-actions">
@@ -564,8 +715,15 @@ export function TransfersTab(props: TransfersTabProps) {
             </div>
 
             <div class="stock-review-grid">
+              <ReviewKeyValue label="Type">
+                {TRANSFER_MODE_LABELS[reviewDetail.transferMode]}
+              </ReviewKeyValue>
               <ReviewKeyValue label="From">{reviewDetail.fromSalesPointName}</ReviewKeyValue>
-              <ReviewKeyValue label="To">{reviewDetail.toSalesPointName}</ReviewKeyValue>
+              <ReviewKeyValue label={isIntraRow(reviewDetail) ? "Locations" : "To"}>
+                {isIntraRow(reviewDetail)
+                  ? (reviewDetail.locationSummary ?? "—")
+                  : reviewDetail.toSalesPointName}
+              </ReviewKeyValue>
               <ReviewKeyValue label="Dispatched">
                 {reviewDetail.dispatchedAtIso ? formatDate(reviewDetail.dispatchedAtIso) : "—"}
                 {reviewDetail.dispatchedByName ? (
@@ -616,7 +774,21 @@ export function TransfersTab(props: TransfersTabProps) {
               ) : null}
               {reviewDetail.status === "DRAFT" &&
               props.canDispatch &&
-              (scopedSalesPointId == null || scopedSalesPointId === reviewDetail.fromSalesPointId) ? (
+              (scopedSalesPointId == null || scopedSalesPointId === reviewDetail.fromSalesPointId) &&
+              isIntraRow(reviewDetail) ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void onPost(reviewDetail.id)}
+                  class="stock-btn-primary"
+                >
+                  Post location move
+                </button>
+              ) : null}
+              {reviewDetail.status === "DRAFT" &&
+              props.canDispatch &&
+              (scopedSalesPointId == null || scopedSalesPointId === reviewDetail.fromSalesPointId) &&
+              !isIntraRow(reviewDetail) ? (
                 <button
                   type="button"
                   disabled={busy}
@@ -628,7 +800,8 @@ export function TransfersTab(props: TransfersTabProps) {
               ) : null}
               {reviewDetail.status === "DISPATCHED" &&
               props.canReceive &&
-              (scopedSalesPointId == null || scopedSalesPointId === reviewDetail.toSalesPointId) ? (
+              (scopedSalesPointId == null || scopedSalesPointId === reviewDetail.toSalesPointId) &&
+              !isIntraRow(reviewDetail) ? (
                 <button
                   type="button"
                   disabled={busy}

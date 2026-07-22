@@ -42,6 +42,8 @@ export declare function resolveCustomerTaxProfile(input: {
     residency: string | null | undefined;
     taxRegimeKind: string | null | undefined;
     taxpayerId: string | null | undefined;
+    /** When true (customer type flagged exempt), sales tax is not applied. */
+    salesTaxExempt?: boolean | null | undefined;
     /** @deprecated Prefer rates.vatRate from loadTaxRatesAsOf */
     companyVatRate?: string | number | null | undefined;
     rates?: Partial<TaxRatesBag> | null;

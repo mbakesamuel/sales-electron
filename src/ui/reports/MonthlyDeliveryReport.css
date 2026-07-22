@@ -121,6 +121,11 @@
 }
 
 @media print {
+  @page {
+    size: A4 landscape;
+    margin: 6mm 14mm;
+  }
+
   body.mdr-print-landscape .mdr-table {
     font-size: 12px;
     min-width: 0;
@@ -146,6 +151,5 @@
   body.mdr-print-landscape .mdr-section,
   body.mdr-print-landscape .mdr-budget-block {
     overflow: visible;
-    page-break-inside: avoid;
   }
 }

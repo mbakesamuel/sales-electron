@@ -30,6 +30,8 @@ export function getAuthenticatedReports() {
       api.getSalesBudgetMonthlyCrosstab(requireAuthToken(), reportYear),
     getSalesBudgetWeeklyCrosstab: (reportYear?: number) =>
       api.getSalesBudgetWeeklyCrosstab(requireAuthToken(), reportYear),
+    getDailySales: (reportDateIso: string, salesPointId?: number | null) =>
+      api.getDailySales(requireAuthToken(), reportDateIso, salesPointId ?? null),
     saveReportComments: (input: { reportId: string; text: string | null }) =>
       api.saveReportComments(requireAuthToken(), input),
   };

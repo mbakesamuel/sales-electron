@@ -9,6 +9,7 @@ import type {
   SalesBudgetMonthlyCrosstabReport,
   SalesBudgetWeeklyCrosstabReport,
   WeeklyDeliveriesReport,
+  DailySalesReport,
 } from "../../shared/reports.types.js";
 import { requireAuthUser } from "../auth/requireUser.js";
 import { getMonthlyDeliveryReport } from "../reports/monthlyDeliveryReport.js";
@@ -20,6 +21,7 @@ import { getSalesBudgetWeeklyCrosstabReport } from "../reports/salesBudgetWeekly
 import { getStockCommitmentReport } from "../reports/stockCommitment.js";
 import { getStockReport } from "../reports/stockReport.js";
 import { getWeeklyDeliveriesReport } from "../reports/weeklyDeliveriesReport.js";
+import { getDailySalesReport } from "../reports/dailySalesReport.js";
 import { getOpenMonthWeekChoices } from "../reports/weekChoices.js";
 import {
   saveReportComments,
@@ -132,6 +134,30 @@ export function registerReportsHandlers(): void {
     (_event, authToken: string, reportYear?: unknown): SalesBudgetWeeklyCrosstabReport => {
       const user = requireAuthUser(authToken);
       return getSalesBudgetWeeklyCrosstabReport(user.id, parseReportYear(reportYear));
+    },
+  );
+
+  ipcMain.handle(
+    "reports:getDailySales",
+    (
+      _event,
+      authToken: string,
+      reportDateIso: unknown,
+      salesPointId?: unknown,
+    ): DailySalesReport => {
+      const user = requireAuthUser(authToken);
+      if (typeof reportDateIso !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(reportDateIso)) {
+        throw new Error("Invalid report date.");
+      }
+      const pointId =
+        salesPointId == null || salesPointId === ""
+          ? null
+          : Number.parseInt(String(salesPointId), 10);
+      return getDailySalesReport(
+        user.id,
+        reportDateIso,
+        Number.isFinite(pointId) ? pointId : null,
+      );
     },
   );
 

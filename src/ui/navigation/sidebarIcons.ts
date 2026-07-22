@@ -72,6 +72,7 @@ export const ROUTE_ICONS: Record<string, LucideIcon> = {
   "bottle-oil-stock-sales-report": FileSpreadsheet,
   "bottled-weekly-issues-report": FileSpreadsheet,
   "sales-delivery-report": Truck,
+  "daily-sales-report": CalendarDays,
   "weekly-print-pack": FileSpreadsheet,
   "monthly-delivery-report-h1": FileSpreadsheet,
   "monthly-delivery-report-h2": FileSpreadsheet,

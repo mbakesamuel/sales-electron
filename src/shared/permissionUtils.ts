@@ -31,16 +31,37 @@ export function canPerformActionFromSnapshot(
 }
 
 export function filterSectionsForPermissions<
-  TSection extends { routes: readonly { id: string }[] },
+  TSection extends {
+    routes: readonly { id: string }[];
+    groups?: readonly { id: string; label: string; routes: readonly { id: string }[] }[];
+  },
 >(sections: readonly TSection[], snapshot: RolePermissionsSnapshot): TSection[] {
+  function canAccessRoute(routeId: string): boolean {
+    return routeId === "stock"
+      ? canAccessStockModule(snapshot)
+      : canAccessRouteFromSnapshot(snapshot, routeId);
+  }
+
   return sections
-    .map((section) => ({
-      ...section,
-      routes: section.routes.filter((route) =>
-        route.id === "stock"
-          ? canAccessStockModule(snapshot)
-          : canAccessRouteFromSnapshot(snapshot, route.id),
-      ),
-    }))
+    .map((section) => {
+      if (section.groups?.length) {
+        const groups = section.groups
+          .map((group) => ({
+            ...group,
+            routes: group.routes.filter((route) => canAccessRoute(route.id)),
+          }))
+          .filter((group) => group.routes.length > 0);
+        return {
+          ...section,
+          groups,
+          routes: groups.flatMap((group) => [...group.routes]),
+        };
+      }
+
+      return {
+        ...section,
+        routes: section.routes.filter((route) => canAccessRoute(route.id)),
+      };
+    })
     .filter((section) => section.routes.length > 0);
 }

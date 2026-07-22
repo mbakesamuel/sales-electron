@@ -111,6 +111,11 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
     sectionId: "reports",
   },
   {
+    id: "daily-sales-report",
+    label: "Daily sales report",
+    sectionId: "reports",
+  },
+  {
     id: "weekly-print-pack",
     label: "Weekly print pack",
     sectionId: "reports",

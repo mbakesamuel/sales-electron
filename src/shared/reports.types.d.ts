@@ -434,3 +434,41 @@ export interface SalesBudgetWeeklyCrosstabReport {
     generatedAtIso: string;
     comments: string | null;
 }
+export interface DailySalesReportLine {
+    sn: number;
+    customerName: string;
+    deliveryOrderNo: string | null;
+    dateIssuedIso: string;
+    vehicleNumber: string | null;
+    quantity: number;
+    quantityLabel: "kg" | "unit";
+    doBalance: number | null;
+}
+export interface DailySalesReportProductSection {
+    productName: string;
+    rows: DailySalesReportLine[];
+    subtotalQuantity: number;
+    subtotalDoBalance: number;
+}
+export interface DailySalesReportSummaryRow {
+    id: string;
+    label: string;
+    quantity: number;
+}
+export interface DailySalesReport {
+    settings: ReportCompanySettings;
+    reportDateIso: string;
+    selectedSalesPointId: number | null;
+    salesPointLabel: string;
+    generatedAtIso: string;
+    sections: DailySalesReportProductSection[];
+    grandTotalQuantity: number;
+    grandTotalDoBalance: number;
+    summaryRows: DailySalesReportSummaryRow[];
+    summaryGrandTotal: number;
+    salesPointOptions: Array<{
+        id: number;
+        name: string;
+    }>;
+    comments: string | null;
+}

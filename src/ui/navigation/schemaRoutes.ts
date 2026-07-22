@@ -5,10 +5,17 @@ export interface SchemaRoute {
   description: string;
 }
 
+export interface SchemaRouteGroup {
+  id: string;
+  label: string;
+  routes: SchemaRoute[];
+}
+
 export interface SchemaRouteSection {
   id: string;
   label: string;
   routes: SchemaRoute[];
+  groups?: SchemaRouteGroup[];
 }
 
 export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
@@ -202,10 +209,17 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
       },
     ],
   },
-  {
-    id: "reports",
-    label: "Reports",
-    routes: [
+  (() => {
+    const dailyRoutes: SchemaRoute[] = [
+      {
+        id: "daily-sales-report",
+        label: "Daily sales report",
+        table: "Sale",
+        description:
+          "Daily sales by product with DO details and customer-type summary.",
+      },
+    ];
+    const weeklyRoutes: SchemaRoute[] = [
       {
         id: "stock-commitment-report",
         label: "Stock summary report",
@@ -251,8 +265,10 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         label: "Weekly print pack",
         table: "StockBalance",
         description:
-          "Select weekly management reports and export one combined PDF.",
+          "Select weekly management reports and print them as one stack.",
       },
+    ];
+    const monthlyRoutes: SchemaRoute[] = [
       {
         id: "monthly-delivery-report-h1",
         label: "Monthly delivery (Jan–Jun)",
@@ -265,8 +281,19 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         table: "Sale",
         description: "Monthly deliveries and value for July through December.",
       },
-    ],
-  },
+    ];
+    const groups: SchemaRouteGroup[] = [
+      { id: "daily", label: "Daily", routes: dailyRoutes },
+      { id: "weekly", label: "Weekly", routes: weeklyRoutes },
+      { id: "monthly", label: "Monthly", routes: monthlyRoutes },
+    ];
+    return {
+      id: "reports",
+      label: "Reports",
+      groups,
+      routes: groups.flatMap((group) => group.routes),
+    };
+  })(),
   {
     id: "users-access",
     label: "Users & access",

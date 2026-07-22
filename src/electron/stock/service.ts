@@ -20,6 +20,11 @@ import type {
   TransferReviewResult,
 } from "../../shared/stock.types.js";
 import {
+  isIntraSalesPointTransfer,
+  resolveTransferMode,
+  type TransferMode,
+} from "../../shared/stockTransferMode.js";
+import {
   assertRouteWrite,
   canAccessRoute,
   canWriteRoute,
@@ -398,6 +403,38 @@ function loadReceipts(scopedSalesPointId: number | null): ReceiptListRow[] {
   });
 }
 
+function transferLocationSummary(
+  db: ReturnType<typeof getDatabase>,
+  transferId: string,
+  transferMode: TransferMode,
+): string | null {
+  if (transferMode !== "INTRA_SALES_POINT") {
+    return null;
+  }
+
+  const line = db
+    .prepare(
+      `SELECT fl.locationName AS fromName, tl.locationName AS toName
+       FROM StockTransferLine l
+       JOIN StorageLocation fsl ON fsl.id = l.fromStorageLocationId
+       JOIN Location fl ON fl.id = fsl.locationId
+       LEFT JOIN StorageLocation tsl ON tsl.id = l.toStorageLocationId
+       LEFT JOIN Location tl ON tl.id = tsl.locationId
+       WHERE l.transferId = ?
+       ORDER BY l.id ASC
+       LIMIT 1`,
+    )
+    .get(transferId) as { fromName: string; toName: string | null } | undefined;
+
+  if (!line) {
+    return null;
+  }
+  if (!line.toName) {
+    return line.fromName;
+  }
+  return `${line.fromName} → ${line.toName}`;
+}
+
 function loadTransfers(scopedSalesPointId: number | null): TransferListRow[] {
   const db = getDatabase();
   const rows = scopedSalesPointId
@@ -439,12 +476,18 @@ function loadTransfers(scopedSalesPointId: number | null): TransferListRow[] {
     const lines = db
       .prepare(`SELECT qty FROM StockTransferLine WHERE transferId = ?`)
       .all(String(row.id)) as Array<{ qty: string }>;
+    const fromSalesPointId = row.fromSalesPointId as number;
+    const toSalesPointId = row.toSalesPointId as number;
+    const transferMode = resolveTransferMode(fromSalesPointId, toSalesPointId);
+    const transferId = String(row.id);
     return {
-      id: String(row.id),
+      id: transferId,
       transferNo: String(row.transferNo),
-      fromSalesPointId: row.fromSalesPointId as number,
+      transferMode,
+      locationSummary: transferLocationSummary(db, transferId, transferMode),
+      fromSalesPointId,
       fromSalesPointName: row.fromSalesPointName as string,
-      toSalesPointId: row.toSalesPointId as number,
+      toSalesPointId,
       toSalesPointName: row.toSalesPointName as string,
       dispatchedAtIso: row.dispatchedAt ? String(row.dispatchedAt).slice(0, 10) : null,
       receivedAtIso: row.receivedAt ? String(row.receivedAt).slice(0, 10) : null,
@@ -630,12 +673,18 @@ export function loadTransferDetail(id: string, userId: string): TransferDetail |
     )
     .all(id) as Array<Record<string, unknown>>;
 
+  const fromSalesPointId = row.fromSalesPointId as number;
+  const toSalesPointId = row.toSalesPointId as number;
+  const transferMode = resolveTransferMode(fromSalesPointId, toSalesPointId);
+
   return {
     id: String(row.id),
     transferNo: String(row.transferNo),
-    fromSalesPointId: row.fromSalesPointId as number,
+    transferMode,
+    locationSummary: transferLocationSummary(db, id, transferMode),
+    fromSalesPointId,
     fromSalesPointName: row.fromSalesPointName as string,
-    toSalesPointId: row.toSalesPointId as number,
+    toSalesPointId,
     toSalesPointName: row.toSalesPointName as string,
     dispatchedAtIso: row.dispatchedAt ? String(row.dispatchedAt).slice(0, 10) : null,
     receivedAtIso: row.receivedAt ? String(row.receivedAt).slice(0, 10) : null,
@@ -839,7 +888,11 @@ export function saveTransfer(input: SaveTransferInput): StockMutationResult {
     assertStockWrite(actor.role, "stock-transfers");
     assertSalesPointScope(actor, input.fromSalesPointId);
 
-    if (input.fromSalesPointId === input.toSalesPointId) {
+    const isIntra = isIntraSalesPointTransfer(
+      input.fromSalesPointId,
+      input.toSalesPointId,
+    );
+    if (!isIntra && input.fromSalesPointId === input.toSalesPointId) {
       return { ok: false, error: "Source and destination must differ." };
     }
     if (input.lines.length === 0) {
@@ -852,6 +905,14 @@ export function saveTransfer(input: SaveTransferInput): StockMutationResult {
       if (!isPositiveQty(line.qty)) {
         throw new Error("Each line quantity must be greater than zero.");
       }
+      if (isIntra) {
+        if (line.toStorageLocationId == null) {
+          throw new Error("Each line needs a destination storage location.");
+        }
+        if (line.fromStorageLocationId === line.toStorageLocationId) {
+          throw new Error("Source and destination locations must differ on each line.");
+        }
+      }
       return line;
     });
 
@@ -862,8 +923,28 @@ export function saveTransfer(input: SaveTransferInput): StockMutationResult {
           input.fromSalesPointId,
           line.fromStorageLocationId,
         );
+        if (isIntra && line.toStorageLocationId != null) {
+          assertStorageLocationForSalesPoint(
+            db,
+            input.fromSalesPointId,
+            line.toStorageLocationId,
+          );
+        }
       }
-      assertTransferLinesAvailableAtSource(db, input.fromSalesPointId, lines);
+      if (!isIntra) {
+        assertTransferLinesAvailableAtSource(db, input.fromSalesPointId, lines);
+      }
+
+      const insertLine = isIntra
+        ? db.prepare(
+            `INSERT INTO StockTransferLine (
+              id, transferId, productId, qty, fromStorageLocationId, toStorageLocationId
+            ) VALUES (?, ?, ?, ?, ?, ?)`,
+          )
+        : db.prepare(
+            `INSERT INTO StockTransferLine (id, transferId, productId, qty, fromStorageLocationId)
+             VALUES (?, ?, ?, ?, ?)`,
+          );
 
       if (input.id) {
         const existing = db
@@ -890,18 +971,25 @@ export function saveTransfer(input: SaveTransferInput): StockMutationResult {
           input.id,
         );
 
-        const insertLine = db.prepare(
-          `INSERT INTO StockTransferLine (id, transferId, productId, qty, fromStorageLocationId)
-           VALUES (?, ?, ?, ?, ?)`,
-        );
         for (const line of lines) {
-          insertLine.run(
-            randomUUID(),
-            input.id,
-            line.productId,
-            formatQty(parseQty(line.qty)),
-            line.fromStorageLocationId,
-          );
+          if (isIntra) {
+            insertLine.run(
+              randomUUID(),
+              input.id,
+              line.productId,
+              formatQty(parseQty(line.qty)),
+              line.fromStorageLocationId,
+              line.toStorageLocationId!,
+            );
+          } else {
+            insertLine.run(
+              randomUUID(),
+              input.id,
+              line.productId,
+              formatQty(parseQty(line.qty)),
+              line.fromStorageLocationId,
+            );
+          }
         }
 
         const updated = db
@@ -926,18 +1014,25 @@ export function saveTransfer(input: SaveTransferInput): StockMutationResult {
         input.userId,
       );
 
-      const insertLine = db.prepare(
-        `INSERT INTO StockTransferLine (id, transferId, productId, qty, fromStorageLocationId)
-         VALUES (?, ?, ?, ?, ?)`,
-      );
       for (const line of lines) {
-        insertLine.run(
-          randomUUID(),
-          id,
-          line.productId,
-          formatQty(parseQty(line.qty)),
-          line.fromStorageLocationId,
-        );
+        if (isIntra) {
+          insertLine.run(
+            randomUUID(),
+            id,
+            line.productId,
+            formatQty(parseQty(line.qty)),
+            line.fromStorageLocationId,
+            line.toStorageLocationId!,
+          );
+        } else {
+          insertLine.run(
+            randomUUID(),
+            id,
+            line.productId,
+            formatQty(parseQty(line.qty)),
+            line.fromStorageLocationId,
+          );
+        }
       }
 
       return { id, transferNo };
@@ -947,6 +1042,98 @@ export function saveTransfer(input: SaveTransferInput): StockMutationResult {
     return { ok: true, id: result.id, documentNo: result.transferNo };
   } catch (error) {
     return { ok: false, error: describeError(error, "Could not save transfer.") };
+  }
+}
+
+export function postInternalTransfer(userId: string, transferId: string): StockGenericResult {
+  try {
+    const actor = getActor(userId);
+    assertStockWrite(actor.role, "stock-transfers");
+    const db = getDatabase();
+
+    const tx = db.transaction(() => {
+      const existing = db
+        .prepare(`SELECT * FROM StockTransfer WHERE id = ?`)
+        .get(transferId) as Record<string, unknown> | undefined;
+      if (!existing) {
+        throw new Error("Transfer not found.");
+      }
+
+      const fromSalesPointId = existing.fromSalesPointId as number;
+      const toSalesPointId = existing.toSalesPointId as number;
+      if (!isIntraSalesPointTransfer(fromSalesPointId, toSalesPointId)) {
+        throw new Error("Only location moves within a sales point can be posted.");
+      }
+
+      assertSalesPointScope(actor, fromSalesPointId);
+      if (existing.status === "POSTED") {
+        return;
+      }
+      if (existing.status !== "DRAFT") {
+        throw new Error(`Cannot post a transfer in status ${String(existing.status)}.`);
+      }
+
+      const lines = db
+        .prepare(`SELECT * FROM StockTransferLine WHERE transferId = ?`)
+        .all(transferId) as Array<Record<string, unknown>>;
+      if (lines.length === 0) {
+        throw new Error("Add at least one line before posting.");
+      }
+
+      for (const line of lines) {
+        if (line.toStorageLocationId == null) {
+          throw new Error("Each line needs a destination storage location.");
+        }
+      }
+
+      assertTransferLinesAvailableAtSource(
+        db,
+        fromSalesPointId,
+        lines.map((line) => ({
+          productId: line.productId as number,
+          qty: String(line.qty),
+          fromStorageLocationId: line.fromStorageLocationId as number,
+        })),
+      );
+
+      const postedAt = existing.dispatchedAt ? String(existing.dispatchedAt) : nowIso();
+      for (const line of lines) {
+        applyMovement(db, {
+          salesPointId: fromSalesPointId,
+          productId: line.productId as number,
+          storageLocationId: line.fromStorageLocationId as number,
+          qty: String(line.qty),
+          kind: "TRANSFER_OUT",
+          occurredAt: postedAt,
+          userId,
+          sourceKind: "TRANSFER",
+          sourceId: transferId,
+        });
+        applyMovement(db, {
+          salesPointId: fromSalesPointId,
+          productId: line.productId as number,
+          storageLocationId: line.toStorageLocationId as number,
+          qty: String(line.qty),
+          kind: "TRANSFER_IN",
+          occurredAt: postedAt,
+          userId,
+          sourceKind: "TRANSFER",
+          sourceId: transferId,
+        });
+      }
+
+      db.prepare(
+        `UPDATE StockTransfer
+         SET status = 'POSTED', dispatchedAt = ?, receivedAt = ?,
+             dispatchedByUserId = ?, receivedByUserId = ?, updatedAt = datetime('now')
+         WHERE id = ?`,
+      ).run(postedAt, postedAt, userId, userId, transferId);
+    });
+
+    tx();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: describeError(error, "Could not post location move.") };
   }
 }
 
@@ -962,6 +1149,14 @@ export function dispatchTransfer(userId: string, transferId: string): StockGener
         .get(transferId) as Record<string, unknown> | undefined;
       if (!existing) {
         throw new Error("Transfer not found.");
+      }
+      if (
+        isIntraSalesPointTransfer(
+          existing.fromSalesPointId as number,
+          existing.toSalesPointId as number,
+        )
+      ) {
+        throw new Error("Use Post for location moves within a sales point.");
       }
       assertSalesPointScope(actor, existing.fromSalesPointId as number);
       if (existing.status === "DISPATCHED" || existing.status === "RECEIVED") {
@@ -1021,6 +1216,14 @@ export function receiveTransfer(input: ReceiveTransferInput): StockGenericResult
         .get(input.transferId) as Record<string, unknown> | undefined;
       if (!existing) {
         throw new Error("Transfer not found.");
+      }
+      if (
+        isIntraSalesPointTransfer(
+          existing.fromSalesPointId as number,
+          existing.toSalesPointId as number,
+        )
+      ) {
+        throw new Error("Use Post for location moves within a sales point.");
       }
       assertSalesPointScope(actor, existing.toSalesPointId as number);
       if (existing.status === "RECEIVED") {

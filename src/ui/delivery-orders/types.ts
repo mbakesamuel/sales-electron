@@ -56,6 +56,7 @@ export interface DeliveryOrderPaymentInput {
 export interface SaveDeliveryOrderInput {
   userId: string;
   id?: number | null;
+  deliveryOrderNo?: string;
   customerId: number;
   dateIssued: string;
   orderRef?: string;

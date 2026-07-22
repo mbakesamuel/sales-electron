@@ -22,7 +22,7 @@ function handlePrint(landscape = false): void {
   if (landscape) {
     style = document.createElement("style");
     style.id = "sbc-print-landscape-style";
-    style.textContent = `@media print { @page { size: landscape; margin: 10mm; } }`;
+    style.textContent = `@media print { @page { size: A4 landscape; margin: 6mm; } }`;
     document.head.appendChild(style);
   }
 

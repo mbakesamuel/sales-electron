@@ -35,6 +35,10 @@ export interface StockApi {
         userId: string;
         transferId: string;
     }): Promise<StockGenericResult>;
+    postInternalTransfer(payload: {
+        userId: string;
+        transferId: string;
+    }): Promise<StockGenericResult>;
     receiveTransfer(input: ReceiveTransferInput): Promise<StockGenericResult>;
     cancelTransfer(payload: {
         userId: string;

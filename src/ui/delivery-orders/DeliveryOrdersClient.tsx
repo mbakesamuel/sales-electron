@@ -10,6 +10,7 @@ import type {
   DeliveryOrderTaxPreview,
   PendingDeliveryOrderRow,
 } from "./types.ts";
+import { isValidBookletSerial } from "../../shared/bookletSerial.ts";
 import "../sales/sales.css";
 
 function clampDateToPeriod(isoDate: string, period: OpenPostingPeriod | null): string {
@@ -424,6 +425,7 @@ export function DeliveryOrdersClient({
       const result = await getElectronApi().deliveryOrders.save({
         userId: user.id,
         id: orderId,
+        deliveryOrderNo: orderId == null ? deliveryOrderNo : undefined,
         customerId: Number.parseInt(customerId, 10),
         dateIssued,
         orderRef: orderRef || undefined,
@@ -555,6 +557,7 @@ export function DeliveryOrdersClient({
     !isReadOnly &&
     customerId.trim() &&
     salesPointId.trim() &&
+    (orderId != null || isValidBookletSerial(deliveryOrderNo)) &&
     !taxPreviewError &&
     taxPreview != null &&
     lines.some((line) => line.productId && Number.parseInt(line.orderQty, 10) > 0);
@@ -606,7 +609,7 @@ export function DeliveryOrdersClient({
                 type="text"
                 value={lookupNo}
                 disabled={busy !== null}
-                placeholder="DO-2026-000001"
+                placeholder="12345"
                 onInput={(event) =>
                   setLookupNo((event.currentTarget as HTMLInputElement).value)
                 }
@@ -683,6 +686,23 @@ export function DeliveryOrdersClient({
 
         <div class="sales-invoice-form">
           <div class="sales-invoice-grid sales-invoice-grid-2">
+            {orderId == null ? (
+              <label class="sales-field sales-field-span-full">
+                <span>Booklet serial no.</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="\\d*"
+                  value={deliveryOrderNo}
+                  disabled={isReadOnly}
+                  placeholder="12345"
+                  onInput={(event) =>
+                    setDeliveryOrderNo((event.currentTarget as HTMLInputElement).value)
+                  }
+                />
+              </label>
+            ) : null}
+
             <label class="sales-field">
               <span>Customer</span>
               <select

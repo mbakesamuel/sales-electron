@@ -29,6 +29,7 @@ app.whenReady().then(() => {
 
   const result = createSale({
     userId: "seed-admin-001",
+    invoiceNo: "999001",
     customerId: options.customers[0].id,
     salesPointId: options.salesPoints[0]?.id ?? null,
     vehicleNumber: "LT-1234-A",

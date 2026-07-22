@@ -89,6 +89,19 @@
   gap: 1.5rem;
 }
 
+/*
+ * Hide print documents on screen without locking layout to full A4 paper width
+ * (210mm caused Chromium to lay out wider than the printable area, then scale
+ * oddly vs standalone Print which uses width: 100% of the print box).
+ */
+.wpp-print-source {
+  display: none;
+}
+
+html.scr-print-pack-mode .wpp-print-source {
+  display: block;
+}
+
 .wpp-pack-page {
   break-after: page;
   page-break-after: always;
@@ -183,8 +196,10 @@ html.scr-print-pack-mode .scr-document.wpp-pack-page {
   display: block !important;
   position: relative !important;
   width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
   margin: 0 !important;
-  padding: 8mm 0 !important;
+  padding: 0 !important;
   border: none !important;
   border-radius: 0 !important;
   box-shadow: none !important;
@@ -192,7 +207,7 @@ html.scr-print-pack-mode .scr-document.wpp-pack-page {
   background-color: #fff !important;
   color: #111 !important;
   font-family: Arial, sans-serif !important;
-  font-size: 11px !important;
+  /* Do not force a root font-size — match standalone report Print sizing. */
   break-after: page;
   page-break-after: always;
   -webkit-print-color-adjust: exact;
@@ -316,14 +331,14 @@ html.scr-print-pack-mode .wpp-pack-page a {
  * Neat pagination:
  * - each report starts on a fresh page (break-after on .wpp-pack-page)
  * - header/footer and total rows stay intact
- * - table rows do not split mid-cell; thead repeats on continuation pages
- * - major section blocks try to stay together when they fit
+ * - normal table rows may paginate; thead repeats on continuation pages
+ * - tall bottled blocks may split; next block starts on a new page
  */
 html.scr-print-pack-mode .wpp-pack-page .report-header,
 html.scr-print-pack-mode .wpp-pack-page .report-footer,
+html.scr-print-pack-mode .wpp-pack-page .scr-comments,
 html.scr-print-pack-mode .wpp-pack-page .scr-row-total,
-html.scr-print-pack-mode .wpp-pack-page .sbc-foot,
-html.scr-print-pack-mode .wpp-pack-page tr {
+html.scr-print-pack-mode .wpp-pack-page .sbc-foot {
   break-inside: avoid;
   page-break-inside: avoid;
 }
@@ -337,19 +352,23 @@ html.scr-print-pack-mode .wpp-pack-page tfoot {
 }
 
 html.scr-print-pack-mode .wpp-pack-page .scr-bottled-block {
-  break-inside: avoid;
-  page-break-inside: avoid;
+  break-inside: auto;
+  page-break-inside: auto;
 }
 
 html.scr-print-pack-mode .wpp-pack-page .scr-bottled-block + .scr-bottled-block {
-  break-before: page;
-  page-break-before: always;
+  break-before: auto;
+  page-break-before: auto;
 }
 
 @media print {
   @page {
     size: A4 portrait;
-    margin: 14mm;
+    margin: 8mm;
+  }
+
+  html.scr-print-pack-mode .wpp-print-source {
+    display: block !important;
   }
 
   html.scr-print-pack-mode,
@@ -378,19 +397,20 @@ html.scr-print-pack-mode .wpp-pack-page .scr-bottled-block + .scr-bottled-block 
 
   html.scr-print-pack-mode .wpp-pack-page .report-header,
   html.scr-print-pack-mode .wpp-pack-page .report-footer,
+  html.scr-print-pack-mode .wpp-pack-page .scr-comments,
   html.scr-print-pack-mode .wpp-pack-page .scr-row-total,
-  html.scr-print-pack-mode .wpp-pack-page tr {
+  html.scr-print-pack-mode .wpp-pack-page .sbc-foot {
     break-inside: avoid;
     page-break-inside: avoid;
   }
 
   html.scr-print-pack-mode .wpp-pack-page .scr-bottled-block {
-    break-inside: avoid;
-    page-break-inside: avoid;
+    break-inside: auto;
+    page-break-inside: auto;
   }
 
   html.scr-print-pack-mode .wpp-pack-page .scr-bottled-block + .scr-bottled-block {
-    break-before: page;
-    page-break-before: always;
+    break-before: auto;
+    page-break-before: auto;
   }
 }

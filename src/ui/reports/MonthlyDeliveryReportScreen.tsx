@@ -25,6 +25,16 @@ function formatTons(value: number): string {
   });
 }
 
+function formatEstimateTons(value: number): string {
+  if (value === 0) {
+    return "0";
+  }
+  return Math.round(value).toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
+}
+
 /** Display FCFA amounts in thousands (000 FCFA). */
 function toThousands(value: number): number {
   return value / 1000;
@@ -67,7 +77,7 @@ function formatVariance(value: number): string {
 function handlePrint(): void {
   const style = document.createElement("style");
   style.id = "mdr-print-landscape-style";
-  style.textContent = `@media print { @page { size: landscape; margin: 10mm; } }`;
+  style.textContent = `@media print { @page { size: A4 landscape; margin: 6mm 14mm; } }`;
   document.head.appendChild(style);
   document.body.classList.add("scr-print-mode", "mdr-print-landscape");
 
@@ -147,7 +157,7 @@ function buildCsv(report: MonthlyDeliveryReport): string {
     const toDate = [
       "TO-DATE",
       ...section.metrics.flatMap((metric) => [
-        metric.estimateTons,
+        Math.round(metric.estimateTons),
         metric.actualTons,
         Math.round(toThousands(metric.estimateValue)),
         Math.round(toThousands(metric.actualValue)),
@@ -271,7 +281,7 @@ function BudgetTable({
           </tr>
         </thead>
         <tbody>
-          <tr>
+          {/* <tr>
             <td class="mdr-budget-row-label">ESTIMATES</td>
             {section.metrics.flatMap((metric) => [
               <td key={`${metric.id}-eh`} />,
@@ -286,12 +296,12 @@ function BudgetTable({
                 <td />
               </>
             ) : null}
-          </tr>
+          </tr> */}
           <tr class="mdr-budget-to-date">
-            <td class="mdr-budget-row-label">TO-DATE</td>
+            <td class="mdr-budget-row-label">EST TO-DATE</td>
             {section.metrics.flatMap((metric) => [
               <td key={`${metric.id}-et`} class="mdr-num">
-                {formatTons(metric.estimateTons)}
+                {formatEstimateTons(metric.estimateTons)}
               </td>,
               <td key={`${metric.id}-at`} class="mdr-num">
                 {formatTons(metric.actualTons)}
@@ -423,7 +433,7 @@ export function MonthlyDeliveryReportScreen({ half }: MonthlyDeliveryReportScree
         </button>
       </div>
 
-      <div class="scr-document mdr-document">
+      <div class="scr-document mdr-document sr-stock-compact">
         <ReportHeader
           companyName={report.settings.companyName}
           department={report.settings.department ?? null}
@@ -515,7 +525,6 @@ export function MonthlyDeliveryReportScreen({ half }: MonthlyDeliveryReportScree
             </table>
           </div>
         ))}
-
 
         <BudgetTable section={report.kernelPkBudgetSection} showGrandTotal={false} />
         <BudgetTable section={report.budgetSection} showGrandTotal={true} />

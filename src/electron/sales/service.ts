@@ -5,10 +5,12 @@ import type {
   SalesFormOptions,
   SalesListFilters,
   SalesListResult,
+  SalesStorageLocationBalanceOption,
   SaveSaleResult,
   SaleMutationResult,
   UnitPricePreviewResult,
 } from "../../shared/sales.types.js";
+import { validateBookletSerial } from "../../shared/bookletSerial.js";
 import {
   resolveCustomerTaxProfile,
   SALES_TAX_LABEL,
@@ -22,9 +24,12 @@ import {
 import { loadTaxRatesAsOf } from "../tax/resolveRates.js";
 import { assertSaleLinesStockAsOf, deductStockForValidatedSale } from "../stock/sales.js";
 import { isInsufficientStockError } from "../stock/errors.js";
-import { allocateInvoiceNo, newPaymentId, newSaleId, newSaleLineId } from "./invoice.js";
+import { parseQty } from "../stock/decimal.js";
+import { newPaymentId, newSaleId, newSaleLineId } from "./invoice.js";
 import { formatXaf, parseAmount, roundMoney, trimQty } from "./money.js";
 import { assertDateInOpenMonth, resolveListDateRange } from "../financialYears/service.js";
+
+const QTY_EPS = 0.000001;
 
 function nowIso(): string {
   return new Date().toISOString().slice(0, 19).replace("T", " ");
@@ -84,15 +89,53 @@ function getInvoiceOnlyTaxRegimeId(db: ReturnType<typeof getDatabase>): string |
   );
 }
 
+/** Live SELLABLE on-hand locations for a product at a sales point (qty > 0). */
+export function listStorageLocationsWithBalance(
+  salesPointId: number,
+  productId: number,
+): SalesStorageLocationBalanceOption[] {
+  if (!Number.isFinite(salesPointId) || !Number.isFinite(productId)) {
+    return [];
+  }
+
+  const rows = getDatabase()
+    .prepare(
+      `SELECT sl.id, l.locationName AS name, sb.qty
+       FROM StockBalance sb
+       INNER JOIN StorageLocation sl ON sl.id = sb.storageLocationId
+       INNER JOIN Location l ON l.id = sl.locationId
+       WHERE sb.salesPointId = ?
+         AND sb.productId = ?
+         AND sb.condition = 'SELLABLE'
+         AND sl.salesPointId = ?
+       ORDER BY l.locationName ASC`,
+    )
+    .all(salesPointId, productId, salesPointId) as Array<{
+    id: number;
+    name: string;
+    qty: string;
+  }>;
+
+  return rows
+    .map((row) => ({
+      id: row.id,
+      name: row.name,
+      qty: parseQty(row.qty),
+    }))
+    .filter((row) => row.qty > QTY_EPS);
+}
+
 export function getSalesFormOptions(): SalesFormOptions {
   const db = getDatabase();
 
   const customers = db
     .prepare(
       `SELECT c.id, c.name, c.taxRegimeId, c.residency, c.taxpayerId,
-              tr.name AS taxRegimeName, tr.kind AS taxRegimeKind
+              tr.name AS taxRegimeName, tr.kind AS taxRegimeKind,
+              COALESCE(ct.exemptFromSalesTax, 0) AS exemptFromSalesTax
        FROM Customer c
        LEFT JOIN TaxRegime tr ON tr.id = c.taxRegimeId
+       LEFT JOIN CustomerTypeDefinition ct ON ct.id = c.customerTypeId
        WHERE COALESCE(c.isPosPlaceholder, 0) = 0
        ORDER BY c.name ASC
        LIMIT 200`,
@@ -105,6 +148,7 @@ export function getSalesFormOptions(): SalesFormOptions {
     taxpayerId: string | null;
     taxRegimeName: string | null;
     taxRegimeKind: string | null;
+    exemptFromSalesTax: number;
   }>;
 
   const products = db
@@ -177,6 +221,7 @@ export function getSalesFormOptions(): SalesFormOptions {
       residency: customer.residency,
       taxRegimeKind: customer.taxRegimeKind,
       taxpayerId: customer.taxpayerId,
+      salesTaxExempt: customer.exemptFromSalesTax === 1,
       rates,
     });
     return {
@@ -188,6 +233,7 @@ export function getSalesFormOptions(): SalesFormOptions {
       residency: customer.residency,
       taxpayerId: customer.taxpayerId,
       vatApplies: tax.vatApplies,
+      salesTaxExempt: customer.exemptFromSalesTax === 1,
       salesTaxRate: tax.salesTaxRate,
     };
   });
@@ -549,9 +595,11 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
     const customer = db
       .prepare(
         `SELECT c.id, c.name, c.taxRegimeId, c.residency, c.taxpayerId,
-                tr.kind AS taxRegimeKind
+                tr.kind AS taxRegimeKind,
+                COALESCE(ct.exemptFromSalesTax, 0) AS exemptFromSalesTax
          FROM Customer c
          LEFT JOIN TaxRegime tr ON tr.id = c.taxRegimeId
+         LEFT JOIN CustomerTypeDefinition ct ON ct.id = c.customerTypeId
          WHERE c.id = ?`,
       )
       .get(registeredCustomerId!) as
@@ -562,6 +610,7 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
           residency: string;
           taxpayerId: string | null;
           taxRegimeKind: string | null;
+          exemptFromSalesTax: number;
         }
       | undefined;
 
@@ -579,6 +628,7 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
       residency: customer.residency,
       taxRegimeKind: customer.taxRegimeKind,
       taxpayerId: customer.taxpayerId,
+      salesTaxExempt: customer.exemptFromSalesTax === 1,
       rates,
     });
     vatApplies = tax.vatApplies;
@@ -705,8 +755,21 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
     };
   }
 
+  const serialResult = validateBookletSerial(input.invoiceNo);
+  if (!serialResult.ok) {
+    return { ok: false, error: serialResult.error };
+  }
+
+  const invoiceNo = serialResult.serial;
+  const duplicateInvoice = db
+    .prepare(`SELECT 1 AS found FROM Sale WHERE invoiceNo = ?`)
+    .get(invoiceNo) as { found: number } | undefined;
+
+  if (duplicateInvoice) {
+    return { ok: false, error: "This serial number is already used." };
+  }
+
   const saleId = newSaleId();
-  const invoiceNo = allocateInvoiceNo(db);
   const soldAt = input.dateIssued || nowIso().slice(0, 10);
 
   let postingPeriod;

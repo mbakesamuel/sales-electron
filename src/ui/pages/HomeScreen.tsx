@@ -6,6 +6,10 @@ import {
   filterSectionsForPermissions,
   getRouteAccessFromSnapshot,
 } from "../../shared/permissionUtils.ts";
+import {
+  filterSectionsForOpenMonth,
+  isMonthlyDeliveryRouteVisible,
+} from "../../shared/monthlyDeliveryReportRoutes.ts";
 import { formatRoleLabel } from "../../shared/roles.ts";
 import type { AuthUser } from "../auth/session.ts";
 import { TableDataView } from "../components/TableDataView.tsx";
@@ -37,6 +41,7 @@ import {
   MonthlyDeliveryReportH2Screen,
 } from "../reports/MonthlyDeliveryReportScreen.tsx";
 import { WeeklyDeliveriesReportScreen } from "../reports/WeeklyDeliveriesReportScreen.tsx";
+import { DailySalesReportScreen } from "../reports/DailySalesReportScreen.tsx";
 import { CommitmentReportScreen } from "../reports/CommitmentReportScreen.tsx";
 import { StockCommitmentReportScreen } from "../reports/StockCommitmentReport.tsx";
 import { StockReportScreen } from "../reports/StockReportScreen.tsx";
@@ -80,12 +85,14 @@ function RouteContent({
   permissions,
   onPermissionsSaved,
   onNavigate,
+  openCalendarMonth,
 }: {
   route: SchemaRoute;
   user: AuthUser;
   permissions: RolePermissionsSnapshot;
   onPermissionsSaved: (next: RolePermissionsSnapshot) => void;
   onNavigate: (routeId: string) => void;
+  openCalendarMonth: number | null;
 }) {
   const routeAccess = getRouteAccessFromSnapshot(permissions, route.id);
   const readOnly = routeAccess === "read";
@@ -173,15 +180,33 @@ function RouteContent({
     return <WeeklyDeliveriesReportScreen />;
   }
 
+  if (route.id === "daily-sales-report") {
+    return <DailySalesReportScreen />;
+  }
+
   if (route.id === "weekly-print-pack") {
     return <WeeklyPrintPackScreen permissions={permissions} />;
   }
 
   if (route.id === "monthly-delivery-report-h1") {
+    if (!isMonthlyDeliveryRouteVisible(route.id, openCalendarMonth)) {
+      return (
+        <p class="scr-status">
+          Monthly delivery (Jan–Jun) is not available for the current open month.
+        </p>
+      );
+    }
     return <MonthlyDeliveryReportH1Screen />;
   }
 
   if (route.id === "monthly-delivery-report-h2") {
+    if (!isMonthlyDeliveryRouteVisible(route.id, openCalendarMonth)) {
+      return (
+        <p class="scr-status">
+          Monthly delivery (Jul–Dec) is not available for the current open month.
+        </p>
+      );
+    }
     return <MonthlyDeliveryReportH2Screen />;
   }
 
@@ -285,10 +310,13 @@ export function HomeScreen({
   const [openPostingPeriod, setOpenPostingPeriod] =
     useState<OpenPostingPeriod | null>(null);
 
-  const visibleSections = useMemo(
-    () => filterSectionsForPermissions(SCHEMA_ROUTE_SECTIONS, permissions),
-    [permissions],
-  );
+  const visibleSections = useMemo(() => {
+    const permitted = filterSectionsForPermissions(SCHEMA_ROUTE_SECTIONS, permissions);
+    return filterSectionsForOpenMonth(
+      permitted,
+      openPostingPeriod?.calendarMonth ?? null,
+    );
+  }, [permissions, openPostingPeriod]);
 
   const activeRoute = findRouteById(activeRouteId) ?? OVERVIEW_ROUTE;
 
@@ -329,8 +357,13 @@ export function HomeScreen({
 
     if (!canAccess) {
       setActiveRouteId(DEFAULT_ROUTE_ID);
+      return;
     }
-  }, [activeRouteId, permissions]);
+
+    if (!isMonthlyDeliveryRouteVisible(activeRouteId, openPostingPeriod?.calendarMonth ?? null)) {
+      setActiveRouteId(DEFAULT_ROUTE_ID);
+    }
+  }, [activeRouteId, permissions, openPostingPeriod]);
 
   function toggleSection(sectionId: string) {
     setOpenSections((current) => {
@@ -358,6 +391,7 @@ export function HomeScreen({
     "bottle-oil-stock-sales-report",
     "bottled-weekly-issues-report",
     "sales-delivery-report",
+    "daily-sales-report",
     "weekly-print-pack",
     "monthly-delivery-report-h1",
     "monthly-delivery-report-h2",
@@ -430,22 +464,44 @@ export function HomeScreen({
 
                   {isOpen ? (
                     <div class="accordion-panel">
-                      {section.routes.map((route) => (
-                        <button
-                          key={route.id}
-                          type="button"
-                          class={`sidebar-route sidebar-route-nested${
-                            activeRouteId === route.id ? " is-active" : ""
-                          }`}
-                          onClick={() => selectRoute(route.id, section.id)}
-                        >
-                          <SidebarIcon
-                            icon={getRouteIcon(route.id)}
-                            className="sidebar-route-icon"
-                          />
-                          <span class="sidebar-route-label">{route.label}</span>
-                        </button>
-                      ))}
+                      {section.groups?.length
+                        ? section.groups.map((group) => (
+                            <div key={group.id} class="sidebar-route-group">
+                              <div class="sidebar-route-group-label">{group.label}</div>
+                              {group.routes.map((route) => (
+                                <button
+                                  key={route.id}
+                                  type="button"
+                                  class={`sidebar-route sidebar-route-nested${
+                                    activeRouteId === route.id ? " is-active" : ""
+                                  }`}
+                                  onClick={() => selectRoute(route.id, section.id)}
+                                >
+                                  <SidebarIcon
+                                    icon={getRouteIcon(route.id)}
+                                    className="sidebar-route-icon"
+                                  />
+                                  <span class="sidebar-route-label">{route.label}</span>
+                                </button>
+                              ))}
+                            </div>
+                          ))
+                        : section.routes.map((route) => (
+                            <button
+                              key={route.id}
+                              type="button"
+                              class={`sidebar-route sidebar-route-nested${
+                                activeRouteId === route.id ? " is-active" : ""
+                              }`}
+                              onClick={() => selectRoute(route.id, section.id)}
+                            >
+                              <SidebarIcon
+                                icon={getRouteIcon(route.id)}
+                                className="sidebar-route-icon"
+                              />
+                              <span class="sidebar-route-label">{route.label}</span>
+                            </button>
+                          ))}
                     </div>
                   ) : null}
                 </section>
@@ -519,6 +575,7 @@ export function HomeScreen({
               permissions={permissions}
               onPermissionsSaved={onPermissionsSaved}
               onNavigate={(routeId) => selectRoute(routeId, "products")}
+              openCalendarMonth={openPostingPeriod?.calendarMonth ?? null}
             />
           </section>
         )}

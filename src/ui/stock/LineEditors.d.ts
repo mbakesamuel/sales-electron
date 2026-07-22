@@ -8,6 +8,7 @@ export type TransferLineDraft = {
     productId: string;
     qty: string;
     fromStorageLocationId: string;
+    toStorageLocationId?: string;
 };
 export type AdjustmentLineDraft = {
     productId: string;
@@ -28,12 +29,15 @@ interface TransferLineEditorProps {
     products: ProductOption[];
     lines: TransferLineDraft[];
     onChange: (next: TransferLineDraft[]) => void;
+    mode: "inter" | "intra";
     fromSalesPointId: string;
     onHand: StockBalanceRow[];
     fromLocationOptions: StorageLocationOption[];
+    toLocationOptions: StorageLocationOption[];
     defaultFromLocationId: string;
+    defaultToLocationId: string;
 }
-export declare function TransferLineEditor({ products, lines, onChange, fromSalesPointId, onHand, fromLocationOptions, defaultFromLocationId: defFrom, }: TransferLineEditorProps): import("preact").JSX.Element;
+export declare function TransferLineEditor({ products, lines, onChange, mode, fromSalesPointId, onHand, fromLocationOptions, toLocationOptions, defaultFromLocationId: defFrom, defaultToLocationId: defTo, }: TransferLineEditorProps): import("preact").JSX.Element;
 interface AdjustmentLineEditorProps {
     products: ProductOption[];
     lines: AdjustmentLineDraft[];

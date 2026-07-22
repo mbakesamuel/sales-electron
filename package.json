@@ -22,7 +22,9 @@
     "db:verify": "npm run transpile:electron && electron scripts/verify-schema-electron.mjs",
     "db:verify-auth": "npm run transpile:electron && electron scripts/verify-auth-electron.mjs",
     "verify:tax-rules": "npm run transpile:electron && node scripts/verify-tax-rules.mjs",
+    "verify:intra-transfer": "npm run transpile:electron && electron scripts/verify-intra-transfer.mjs",
     "verify:tax-schema": "npm run transpile:electron && electron scripts/verify-tax-schema-electron.mjs",
+    "recalc:sales-tax-exempt": "npm run transpile:electron && electron scripts/recalc-sales-tax-exempt-customers.mjs",
     "postinstall": "electron-builder install-app-deps"
   },
   "build": {

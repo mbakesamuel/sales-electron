@@ -20,6 +20,7 @@ import type {
   SalesBudgetMonthlyCrosstabReport,
   SalesBudgetWeeklyCrosstabReport,
   WeeklyDeliveriesReport,
+  DailySalesReport,
 } from "../../shared/reports.types.ts";
 import type {
   PermissionsApi,
@@ -155,6 +156,11 @@ interface ReportsApi {
     authToken: string,
     reportYear?: number,
   ): Promise<SalesBudgetWeeklyCrosstabReport>;
+  getDailySales(
+    authToken: string,
+    reportDateIso: string,
+    salesPointId?: number | null,
+  ): Promise<DailySalesReport>;
   saveReportComments(
     authToken: string,
     input: { reportId: string; text: string | null },

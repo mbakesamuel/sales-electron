@@ -117,6 +117,8 @@ export function resolveCustomerTaxProfile(input: {
   residency: string | null | undefined;
   taxRegimeKind: string | null | undefined;
   taxpayerId: string | null | undefined;
+  /** When true (customer type flagged exempt), sales tax is not applied. */
+  salesTaxExempt?: boolean | null | undefined;
   /** @deprecated Prefer rates.vatRate from loadTaxRatesAsOf */
   companyVatRate?: string | number | null | undefined;
   rates?: Partial<TaxRatesBag> | null;
@@ -138,11 +140,13 @@ export function resolveCustomerTaxProfile(input: {
   const vatApplies = resolveVatApplies(input.residency);
   const vatRate = vatApplies ? rates.vatRate : 0;
   const taxRegimeKind = normalizeTaxRegimeKind(input.taxRegimeKind);
-  const salesTaxRate = resolveSalesTaxRate({
-    taxRegimeKind,
-    taxpayerId: input.taxpayerId,
-    rates,
-  });
+  const salesTaxRate = input.salesTaxExempt
+    ? 0
+    : resolveSalesTaxRate({
+        taxRegimeKind,
+        taxpayerId: input.taxpayerId,
+        rates,
+      });
 
   return {
     vatApplies,

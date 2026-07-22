@@ -38,6 +38,8 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("sales:loadSalePrintById", saleId),
     previewUnitPrice: (payload) =>
       ipcRenderer.invoke("sales:previewUnitPrice", payload),
+    listStorageLocationsWithBalance: (payload) =>
+      ipcRenderer.invoke("sales:listStorageLocationsWithBalance", payload),
   },
   deliveryOrders: {
     getFormOptions: () => ipcRenderer.invoke("deliveryOrders:getFormOptions"),
@@ -98,6 +100,8 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("reports:getSalesBudgetMonthlyCrosstab", authToken, reportYear),
     getSalesBudgetWeeklyCrosstab: (authToken, reportYear) =>
       ipcRenderer.invoke("reports:getSalesBudgetWeeklyCrosstab", authToken, reportYear),
+    getDailySales: (authToken, reportDateIso, salesPointId) =>
+      ipcRenderer.invoke("reports:getDailySales", authToken, reportDateIso, salesPointId),
     saveReportComments: (authToken, input) =>
       ipcRenderer.invoke("reports:saveReportComments", authToken, input),
   },
@@ -137,6 +141,8 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("stock:loadReceiptForReview", payload),
     saveTransfer: (input) => ipcRenderer.invoke("stock:saveTransfer", input),
     dispatchTransfer: (payload) => ipcRenderer.invoke("stock:dispatchTransfer", payload),
+    postInternalTransfer: (payload) =>
+      ipcRenderer.invoke("stock:postInternalTransfer", payload),
     receiveTransfer: (input) => ipcRenderer.invoke("stock:receiveTransfer", input),
     cancelTransfer: (payload) => ipcRenderer.invoke("stock:cancelTransfer", payload),
     findTransferByNumber: (payload) =>

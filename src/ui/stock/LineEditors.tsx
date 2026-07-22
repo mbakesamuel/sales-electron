@@ -16,6 +16,7 @@ export type TransferLineDraft = {
   productId: string;
   qty: string;
   fromStorageLocationId: string;
+  toStorageLocationId?: string;
 };
 
 export type AdjustmentLineDraft = {
@@ -160,35 +161,43 @@ interface TransferLineEditorProps {
   products: ProductOption[];
   lines: TransferLineDraft[];
   onChange: (next: TransferLineDraft[]) => void;
+  mode: "inter" | "intra";
   fromSalesPointId: string;
   onHand: StockBalanceRow[];
   fromLocationOptions: StorageLocationOption[];
+  toLocationOptions: StorageLocationOption[];
   defaultFromLocationId: string;
+  defaultToLocationId: string;
 }
 
 export function TransferLineEditor({
   products,
   lines,
   onChange,
+  mode,
   fromSalesPointId,
   onHand,
   fromLocationOptions,
+  toLocationOptions,
   defaultFromLocationId: defFrom,
+  defaultToLocationId: defTo,
 }: TransferLineEditorProps) {
   function update(idx: number, patch: Partial<TransferLineDraft>) {
     onChange(lines.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
   }
 
+  function blankLine(): TransferLineDraft {
+    return mode === "intra"
+      ? { productId: "", qty: "", fromStorageLocationId: defFrom, toStorageLocationId: defTo }
+      : { productId: "", qty: "", fromStorageLocationId: defFrom };
+  }
+
   function add() {
-    onChange([...lines, { productId: "", qty: "", fromStorageLocationId: defFrom }]);
+    onChange([...lines, blankLine()]);
   }
 
   function remove(idx: number) {
-    onChange(
-      lines.length === 1
-        ? [{ productId: "", qty: "", fromStorageLocationId: defFrom }]
-        : lines.filter((_, i) => i !== idx),
-    );
+    onChange(lines.length === 1 ? [blankLine()] : lines.filter((_, i) => i !== idx));
   }
 
   return (
@@ -211,6 +220,11 @@ export function TransferLineEditor({
           );
           const availableNum = Number.parseFloat(availableStr);
           const qtyNum = Number.parseFloat(l.qty);
+          const sameLocation =
+            mode === "intra" &&
+            Boolean(l.fromStorageLocationId) &&
+            Boolean(l.toStorageLocationId) &&
+            l.fromStorageLocationId === l.toStorageLocationId;
           const overAvailable =
             Boolean(l.productId) &&
             Boolean(l.fromStorageLocationId) &&
@@ -220,7 +234,11 @@ export function TransferLineEditor({
             qtyNum > availableNum;
           return (
             <div key={idx} class="stock-line-block">
-              <div class="stock-line-row stock-line-row-transfer">
+              <div
+                class={`stock-line-row stock-line-row-transfer${
+                  mode === "intra" ? " stock-line-row-transfer-intra" : ""
+                }`}
+              >
                 <select
                   class="stock-line-select"
                   value={l.productId}
@@ -254,6 +272,27 @@ export function TransferLineEditor({
                     </option>
                   ))}
                 </select>
+                {mode === "intra" ? (
+                  <select
+                    class={`stock-line-select${sameLocation ? " stock-line-input-error" : ""}`}
+                    value={l.toStorageLocationId ?? ""}
+                    onChange={(event) =>
+                      update(idx, {
+                        toStorageLocationId: (event.currentTarget as HTMLSelectElement).value,
+                      })
+                    }
+                    aria-label="To location"
+                    required
+                  >
+                    <option value="">To…</option>
+                    {toLocationOptions.map((loc) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.name}
+                        {loc.isSellable ? "" : " (unsellable)"}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
                 <input
                   type="number"
                   step="0.001"
@@ -276,9 +315,14 @@ export function TransferLineEditor({
                 </button>
               </div>
               {l.productId && l.fromStorageLocationId ? (
-                <p class={`stock-line-note${overAvailable ? " stock-hint-warn" : ""}`}>
+                <p
+                  class={`stock-line-note${
+                    overAvailable || sameLocation ? " stock-hint-warn" : ""
+                  }`}
+                >
                   Available at source: {trimQty(availableStr)} {uom}
                   {overAvailable ? " — exceeds available stock" : ""}
+                  {sameLocation ? " — from and to locations must differ" : ""}
                 </p>
               ) : null}
             </div>

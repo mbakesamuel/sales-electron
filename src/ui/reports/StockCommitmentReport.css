@@ -248,43 +248,9 @@
   min-width: 0;
 }
 
-/* Compact header so stock report fits on one page. */
+/* Compact document layout for page-fit (tables/footer); header uses ReportHeader.css. */
 .sr-stock-compact {
   padding: 10px 14px 12px;
-}
-
-.sr-stock-compact .report-header {
-  margin-bottom: 8px;
-  padding-bottom: 6px;
-  min-height: 0;
-}
-
-.sr-stock-compact .report-header-logo,
-.sr-stock-compact .report-header-logo-placeholder {
-  width: 40px;
-  height: 40px;
-}
-
-.sr-stock-compact .report-header-logo-placeholder svg {
-  width: 18px;
-  height: 18px;
-}
-
-.sr-stock-compact .report-header-company {
-  margin-bottom: 4px;
-}
-
-.sr-stock-compact .report-header-company-name,
-.sr-stock-compact .report-header-department,
-.sr-stock-compact .report-header-commercial-service,
-.sr-stock-compact .report-header-title {
-  line-height: 1.15;
-}
-
-.sr-stock-compact .report-header-department,
-.sr-stock-compact .report-header-commercial-service {
-  margin-top: 1px;
-  font-size: 11px;
 }
 
 .sr-stock-compact .report-footer {
@@ -325,6 +291,11 @@
 }
 
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
   body.scr-print-mode {
     background: #fff !important;
   }
@@ -422,11 +393,12 @@
     color: #111 !important;
   }
 
+  /* Keep short chrome/totals intact; allow normal rows to paginate. */
   body.scr-print-mode .report-header,
   body.scr-print-mode .report-footer,
   body.scr-print-mode .scr-comments,
   body.scr-print-mode .scr-row-total,
-  body.scr-print-mode .scr-document tr {
+  body.scr-print-mode .sbc-foot {
     break-inside: avoid;
     page-break-inside: avoid;
   }
@@ -435,14 +407,18 @@
     display: table-header-group;
   }
 
+  body.scr-print-mode .scr-document tfoot {
+    display: table-footer-group;
+  }
+
   body.scr-print-mode .scr-bottled-block {
-    break-inside: avoid;
-    page-break-inside: avoid;
+    break-inside: auto;
+    page-break-inside: auto;
   }
 
   body.scr-print-mode .scr-bottled-block + .scr-bottled-block {
-    break-before: page;
-    page-break-before: always;
+    break-before: auto;
+    page-break-before: auto;
   }
 
   body.scr-print-mode .sr-stock-compact .scr-table th,
@@ -458,4 +434,48 @@
   body.scr-print-mode .scr-as-at-date {
     color: #444 !important;
   }
+}
+
+.dsr-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.dsr-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 12px;
+  color: var(--text-muted, #6b7280);
+}
+
+.dsr-filter input,
+.dsr-filter select {
+  min-width: 10rem;
+  border: 1px solid var(--border-strong, #d4d4d8);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  background: var(--bg-elevated, #fff);
+  color: var(--text-h, #111827);
+}
+
+.dsr-sales-point-meta {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.dsr-table th,
+.dsr-table td,
+.dsr-summary-table th,
+.dsr-summary-table td {
+  vertical-align: top;
+}
+
+.dsr-summary-table {
+  max-width: 420px;
 }

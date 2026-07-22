@@ -23,7 +23,7 @@ import { getDatabase } from "../db/index.js";
 import { resolveUnitPriceExTax } from "../pricing/resolveUnitPrice.js";
 import { parseAmount } from "../sales/money.js";
 import { loadTaxRatesAsOf } from "../tax/resolveRates.js";
-import { allocateDeliveryOrderNo } from "./doNo.js";
+import { validateBookletSerial } from "../../shared/bookletSerial.js";
 import { assertDateInOpenMonth, resolveListDateRange } from "../financialYears/service.js";
 
 function nowIso(): string {
@@ -71,12 +71,15 @@ function getCustomerTaxInfo(customerId: number | string): {
   residency: string;
   taxpayerId: string | null;
   taxRegimeKind: string | null;
+  salesTaxExempt: boolean;
 } | null {
   const row = getDatabase()
     .prepare(
-      `SELECT c.customerTypeId, c.residency, c.taxpayerId, tr.kind AS taxRegimeKind
+      `SELECT c.customerTypeId, c.residency, c.taxpayerId, tr.kind AS taxRegimeKind,
+              COALESCE(ct.exemptFromSalesTax, 0) AS exemptFromSalesTax
        FROM Customer c
        LEFT JOIN TaxRegime tr ON tr.id = c.taxRegimeId
+       LEFT JOIN CustomerTypeDefinition ct ON ct.id = c.customerTypeId
        WHERE c.id = ?`,
     )
     .get(customerId) as
@@ -85,6 +88,7 @@ function getCustomerTaxInfo(customerId: number | string): {
         residency: string;
         taxpayerId: string | null;
         taxRegimeKind: string | null;
+        exemptFromSalesTax: number;
       }
     | undefined;
 
@@ -97,6 +101,7 @@ function getCustomerTaxInfo(customerId: number | string): {
     residency: row.residency,
     taxpayerId: row.taxpayerId,
     taxRegimeKind: row.taxRegimeKind,
+    salesTaxExempt: row.exemptFromSalesTax === 1,
   };
 }
 
@@ -105,6 +110,7 @@ function buildTaxPreview(
     residency: string | null | undefined;
     taxRegimeKind: string | null | undefined;
     taxpayerId: string | null | undefined;
+    salesTaxExempt?: boolean | null | undefined;
   },
   asOfDate: string,
 ): DeliveryOrderTaxPreview {
@@ -113,6 +119,7 @@ function buildTaxPreview(
     residency: customer.residency,
     taxRegimeKind: customer.taxRegimeKind,
     taxpayerId: customer.taxpayerId,
+    salesTaxExempt: customer.salesTaxExempt,
     rates,
   });
   return {
@@ -129,9 +136,11 @@ export function getDeliveryOrdersFormOptions(): DeliveryOrdersFormOptions {
 
   const customers = db
     .prepare(
-      `SELECT c.id, c.name, c.residency, c.taxpayerId, tr.kind AS taxRegimeKind
+      `SELECT c.id, c.name, c.residency, c.taxpayerId, tr.kind AS taxRegimeKind,
+              COALESCE(ct.exemptFromSalesTax, 0) AS exemptFromSalesTax
        FROM Customer c
        LEFT JOIN TaxRegime tr ON tr.id = c.taxRegimeId
+       LEFT JOIN CustomerTypeDefinition ct ON ct.id = c.customerTypeId
        WHERE COALESCE(c.isPosPlaceholder, 0) = 0
        ORDER BY c.name ASC
        LIMIT 200`,
@@ -142,6 +151,7 @@ export function getDeliveryOrdersFormOptions(): DeliveryOrdersFormOptions {
     residency: string;
     taxpayerId: string | null;
     taxRegimeKind: string | null;
+    exemptFromSalesTax: number;
   }>;
 
   const products = db
@@ -175,6 +185,7 @@ export function getDeliveryOrdersFormOptions(): DeliveryOrdersFormOptions {
         residency: customer.residency,
         taxRegimeKind: customer.taxRegimeKind,
         taxpayerId: customer.taxpayerId,
+        salesTaxExempt: customer.exemptFromSalesTax === 1,
         rates,
       });
       return {
@@ -700,7 +711,19 @@ export function saveDeliveryOrder(input: SaveDeliveryOrderInput): SaveDeliveryOr
     }
   }
 
-  const deliveryOrderNo = allocateDeliveryOrderNo(db);
+  const serialResult = validateBookletSerial(input.deliveryOrderNo);
+  if (!serialResult.ok) {
+    return { ok: false, error: serialResult.error };
+  }
+
+  const deliveryOrderNo = serialResult.serial;
+  const duplicate = db
+    .prepare(`SELECT 1 AS found FROM DeliveryOrder WHERE deliveryOrderNo = ?`)
+    .get(deliveryOrderNo) as { found: number } | undefined;
+
+  if (duplicate) {
+    return { ok: false, error: "This serial number is already used." };
+  }
 
   const tx = db.transaction(() => {
     const result = db

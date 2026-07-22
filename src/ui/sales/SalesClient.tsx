@@ -10,6 +10,7 @@ import {
   resolveCustomerTaxProfile,
   type TaxRatesBag,
 } from "../../shared/taxRules.ts";
+import { isValidBookletSerial } from "../../shared/bookletSerial.ts";
 import { SalePrintView } from "./SalePrintView.tsx";
 import { SalesLineModal, type SalesLineDraft } from "./SalesLineModal.tsx";
 import type {
@@ -270,6 +271,7 @@ export function SalesClient({
           residency: customer.residency,
           taxRegimeKind: customer.taxRegimeKind,
           taxpayerId: customer.taxpayerId,
+          salesTaxExempt: customer.salesTaxExempt,
           rates: taxRates,
         })
       : null;
@@ -808,6 +810,7 @@ export function SalesClient({
 
       const result = await getElectronApi().sales.createSale({
         userId: user.id,
+        invoiceNo,
         customerId: useRegisteredCustomer
           ? Number.parseInt(customerId, 10)
           : null,
@@ -976,6 +979,7 @@ export function SalesClient({
   const canSave =
     busy === null &&
     hasCustomer &&
+    isValidBookletSerial(invoiceNo) &&
     (!vehicleRequired || vehicleNumber.trim()) &&
     (isSpecialDisposition || totals.paid === totals.gross);
 
@@ -1037,7 +1041,7 @@ export function SalesClient({
                 type="text"
                 value={lookupNo}
                 disabled={busy !== null}
-                placeholder="INV-2026-000001"
+                placeholder="12345"
                 onInput={(event) =>
                   setLookupNo((event.currentTarget as HTMLInputElement).value)
                 }
@@ -1107,7 +1111,23 @@ export function SalesClient({
                 : ""}
             </p>
           </div>
-          {invoiceNo ? <div class="sales-invoice-no">{invoiceNo}</div> : null}
+          {saleId ? (
+            <div class="sales-invoice-no">{invoiceNo}</div>
+          ) : (
+            <label class="sales-field sales-invoice-no-field">
+              <span>Booklet serial no.</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="\\d*"
+                value={invoiceNo}
+                placeholder="12345"
+                onInput={(event) =>
+                  setInvoiceNo((event.currentTarget as HTMLInputElement).value)
+                }
+              />
+            </label>
+          )}
         </div>
 
         <div class="sales-invoice-form">
@@ -1885,7 +1905,10 @@ export function SalesClient({
         <SalesLineModal
           line={lineModal.line}
           products={activeProducts}
-          locations={salesPointLocations}
+          salesPointId={(() => {
+            const parsed = Number.parseInt(salesPointId, 10);
+            return Number.isFinite(parsed) ? parsed : null;
+          })()}
           isBottleMode={isBottleMode}
           isSpecialDisposition={isSpecialDisposition}
           useRegisteredCustomer={useRegisteredCustomer}

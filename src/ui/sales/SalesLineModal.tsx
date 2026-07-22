@@ -3,7 +3,7 @@ import { getElectronApi } from "../auth/client.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
 import type {
   SalesProductOption,
-  StorageLocationOption,
+  SalesStorageLocationBalanceOption,
 } from "./types.ts";
 
 export interface SalesLineDraft {
@@ -18,7 +18,7 @@ export interface SalesLineDraft {
 interface SalesLineModalProps {
   line: SalesLineDraft;
   products: SalesProductOption[];
-  locations: StorageLocationOption[];
+  salesPointId: number | null;
   isBottleMode: boolean;
   isSpecialDisposition: boolean;
   useRegisteredCustomer: boolean;
@@ -34,10 +34,17 @@ function parseDecimal(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function formatLocationQty(qty: number): string {
+  return qty.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 3,
+  });
+}
+
 export function SalesLineModal({
   line,
   products,
-  locations,
+  salesPointId,
   isBottleMode,
   isSpecialDisposition,
   useRegisteredCustomer,
@@ -51,6 +58,11 @@ export function SalesLineModal({
   const [error, setError] = useState<string | null>(null);
   const [priceError, setPriceError] = useState<string | null>(null);
   const [priceLoading, setPriceLoading] = useState(false);
+  const [balanceLocations, setBalanceLocations] = useState<
+    SalesStorageLocationBalanceOption[]
+  >([]);
+  const [locationsLoading, setLocationsLoading] = useState(false);
+  const [locationsError, setLocationsError] = useState<string | null>(null);
   const openedProductIdRef = useRef(line.productId);
 
   const title = mode === "add" ? "Add item" : "Edit item";
@@ -136,6 +148,70 @@ export function SalesLineModal({
     useRegisteredCustomer,
   ]);
 
+  useEffect(() => {
+    if (isBottleMode) {
+      setBalanceLocations([]);
+      setLocationsLoading(false);
+      setLocationsError(null);
+      return;
+    }
+
+    const productId = Number.parseInt(draft.productId, 10);
+    if (!salesPointId || !Number.isFinite(productId)) {
+      setBalanceLocations([]);
+      setLocationsLoading(false);
+      setLocationsError(null);
+      setDraft((current) =>
+        current.storageLocationId
+          ? { ...current, storageLocationId: "" }
+          : current,
+      );
+      return;
+    }
+
+    let cancelled = false;
+    setLocationsLoading(true);
+    setLocationsError(null);
+
+    void getElectronApi()
+      .sales.listStorageLocationsWithBalance({
+        salesPointId,
+        productId,
+      })
+      .then((rows) => {
+        if (cancelled) {
+          return;
+        }
+        setLocationsLoading(false);
+        setBalanceLocations(rows);
+        setDraft((current) => {
+          if (
+            !current.storageLocationId ||
+            rows.some((row) => String(row.id) === current.storageLocationId)
+          ) {
+            return current;
+          }
+          return { ...current, storageLocationId: "" };
+        });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLocationsLoading(false);
+          setBalanceLocations([]);
+          setLocationsError("Could not load locations with stock.");
+          setDraft((current) =>
+            current.storageLocationId
+              ? { ...current, storageLocationId: "" }
+              : current,
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [draft.productId, isBottleMode, salesPointId]);
+
   const quantity = parseDecimal(isBottleMode ? draft.qtyUnits : draft.qtyKg);
   const unitPrice = parseDecimal(
     isBottleMode ? draft.unitPricePerUnit : draft.unitPricePerKg,
@@ -177,6 +253,16 @@ export function SalesLineModal({
     onSave(draft);
   }
 
+  const locationHint = !draft.productId
+    ? "Select a product first."
+    : locationsLoading
+      ? "Loading locations with stock…"
+      : locationsError
+        ? locationsError
+        : balanceLocations.length === 0
+          ? "No locations with stock for this product."
+          : null;
+
   return (
     <FormDialog
       ariaLabel={title}
@@ -198,6 +284,7 @@ export function SalesLineModal({
               onChange={(event) =>
                 updateDraft({
                   productId: (event.currentTarget as HTMLSelectElement).value,
+                  storageLocationId: "",
                 })
               }
             >
@@ -221,6 +308,7 @@ export function SalesLineModal({
                 id="sales-line-location"
                 class="form-dialog-input"
                 value={draft.storageLocationId}
+                disabled={!draft.productId || locationsLoading}
                 onChange={(event) =>
                   updateDraft({
                     storageLocationId: (
@@ -230,12 +318,26 @@ export function SalesLineModal({
                 }
               >
                 <option value="">Select a location</option>
-                {locations.map((location) => (
+                {balanceLocations.map((location) => (
                   <option key={location.id} value={String(location.id)}>
-                    {location.name}
+                    {location.name} — {formatLocationQty(location.qty)} kg
                   </option>
                 ))}
               </select>
+              {locationHint ? (
+                <p
+                  class={
+                    locationsError ||
+                    (draft.productId &&
+                      !locationsLoading &&
+                      balanceLocations.length === 0)
+                      ? "form-dialog-error"
+                      : "form-dialog-hint"
+                  }
+                >
+                  {locationHint}
+                </p>
+              ) : null}
             </div>
           </div>
         ) : null}

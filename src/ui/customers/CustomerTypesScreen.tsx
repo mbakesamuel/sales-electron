@@ -22,6 +22,7 @@ interface CustomerTypeRow {
   sortOrder: number;
   isActive: boolean;
   isSystem: boolean;
+  exemptFromSalesTax: boolean;
   customerCount: number;
   createdAt: string;
   updatedAt: string;
@@ -63,6 +64,12 @@ function typeBadgeClass(name: string): string {
   return "customers-badge customers-badge-blue";
 }
 
+function salesTaxBadgeClass(exempt: boolean): string {
+  return exempt
+    ? "customers-badge customers-badge-emerald"
+    : "customers-badge customers-badge-blue";
+}
+
 function statusBadgeClass(isActive: boolean): string {
   return isActive
     ? "customers-badge customers-badge-emerald"
@@ -87,6 +94,7 @@ function exportCsv(rows: CustomerTypeRow[]) {
     "name",
     "sortOrder",
     "isActive",
+    "exemptFromSalesTax",
     "isSystem",
     "customerCount",
     "createdAt",
@@ -100,6 +108,7 @@ function exportCsv(rows: CustomerTypeRow[]) {
       row.name,
       row.sortOrder,
       row.isActive ? "1" : "0",
+      row.exemptFromSalesTax ? "1" : "0",
       row.isSystem ? "1" : "0",
       row.customerCount,
       row.createdAt,
@@ -445,6 +454,8 @@ export function CustomerTypesScreen({ readOnly = false }: CustomerTypesScreenPro
             sortOrder: Number(row.sortOrder ?? 0),
             isActive: row.isActive === 1 || row.isActive === true,
             isSystem: row.isSystem === 1 || row.isSystem === true,
+            exemptFromSalesTax:
+              row.exemptFromSalesTax === 1 || row.exemptFromSalesTax === true,
             customerCount: customerCounts.get(id) ?? 0,
             createdAt: formatDate(row.createdAt),
             updatedAt: formatDate(row.updatedAt),
@@ -856,6 +867,7 @@ export function CustomerTypesScreen({ readOnly = false }: CustomerTypesScreenPro
                 <SortableTh label="Code" col="code" />
                 <SortableTh label="Sort" col="sortOrder" className="customers-col-hide-md" />
                 <th>Status</th>
+                <th>Sales tax</th>
                 <th class="customers-col-hide-md" style="text-align: center;">
                   System
                 </th>
@@ -875,13 +887,13 @@ export function CustomerTypesScreen({ readOnly = false }: CustomerTypesScreenPro
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={9} class="customers-table-empty">
+                  <td colSpan={10} class="customers-table-empty">
                     Loading customer types…
                   </td>
                 </tr>
               ) : paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={9} class="customers-table-empty">
+                  <td colSpan={10} class="customers-table-empty">
                     No customer types match your search.
                   </td>
                 </tr>
@@ -918,6 +930,12 @@ export function CustomerTypesScreen({ readOnly = false }: CustomerTypesScreenPro
                     <td>
                       <span class={statusBadgeClass(row.isActive)}>
                         {row.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+
+                    <td>
+                      <span class={salesTaxBadgeClass(row.exemptFromSalesTax)}>
+                        {row.exemptFromSalesTax ? "Exempt" : "Applies"}
                       </span>
                     </td>
 
@@ -1005,6 +1023,7 @@ export function CustomerTypesScreen({ readOnly = false }: CustomerTypesScreenPro
               ["Name", viewRow.name],
               ["Sort order", String(viewRow.sortOrder)],
               ["Status", viewRow.isActive ? "Active" : "Inactive"],
+              ["Sales tax", viewRow.exemptFromSalesTax ? "Exempt" : "Applies"],
               ["System", viewRow.isSystem ? "Yes" : "No"],
               ["Customers", String(viewRow.customerCount)],
               ["Created", viewRow.createdAt],
