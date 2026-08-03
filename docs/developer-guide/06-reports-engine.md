@@ -6,7 +6,7 @@ Each report:
 
 1. **Builder** in `src/electron/reports/*.ts` returns a typed payload from `src/shared/reports.types.ts`.
 2. **IPC** in `src/electron/ipc/reports.ts` authenticates and calls the builder.
-3. **Screen + Document** in `src/ui/reports/*` — Document is reusable inside Weekly Print Pack.
+3. **Screen + Document** in `src/ui/reports/*` — Document is reusable inside Weekly Print Pack where applicable.
 
 ## Shared helpers
 
@@ -17,7 +17,7 @@ Each report:
 | As-at date | `financialYears/service.ts` → `resolveReportAsAt` | `min(today, open month endDate)` — reopening a past month prints as at that month’s end |
 | Stock qty on stock reports | `stock/asOfBalance.ts` → `loadStockBalancesAsOf` | Reconstruct from `StockMovement` through as-at (not live `StockBalance`) |
 | Commitment outstanding | `commitmentAsOf.ts` → `loadOutstandingCommitmentsAsOf` | Validated DOs with `dateIssued ≤ as-at`, minus sales on those DOs with `dateIssued ≤ as-at` |
-| Open-month week choices | `weekChoices.ts` | Shared by Sales/delivery, Bottled weekly issues, Weekly print pack |
+| Open-month week choices | `weekChoices.ts` | Shared by Sales/delivery, Bottled Sales Report, Weekly print pack |
 
 ### Report comments
 
@@ -29,7 +29,16 @@ Each report:
 
 Reports branch on `ProductCat.isMain` and `isBottled`. Kernel/PKO detection also uses name heuristics in stock/monthly builders (`KERNEL OIL`, `PKO`).
 
-## Weekly deliveries (Sales / delivery)
+## Daily sales report
+
+File: `dailySalesReport.ts`
+
+- IPC: `reports:getDailySales` with `reportDateIso` and optional `salesPointId`.
+- Route: `daily-sales-report` (Reports → Daily).
+- Permissions seeded in migration `035_daily_sales_report_permissions.sql`.
+- UI: `DailySalesReportScreen.tsx` — validated sales by product for the date; DO / vehicle / balance columns; customer-type summary; print / CSV / comments.
+
+## Weekly deliveries (Sales/delivery)
 
 File: `weeklyDeliveriesReport.ts`
 
@@ -42,11 +51,12 @@ File: `weeklyDeliveriesReport.ts`
 
 | Builder | Report |
 |---------|--------|
+| `dailySalesReport.ts` | Daily sales report |
 | `stockCommitment.ts` | Stock summary / stock & commitment |
 | `stockReport.ts` | Stock report |
 | `commitmentReport.ts` | Commitment report |
 | `bottleOilStockSalesReport.ts` | Bottle oil stock & sales |
-| `bottledWeeklyIssuesReport.ts` | Bottled weekly issues |
+| `bottledWeeklyIssuesReport.ts` | Bottled Sales Report (sidebar label; route still `bottled-weekly-issues-report`) |
 | `monthlyDeliveryReport.ts` | Monthly H1/H2 |
 | `salesBudgetMonthlyCrosstab.ts` / `Weekly` | Budget crosstabs |
 
@@ -54,4 +64,5 @@ File: `weeklyDeliveriesReport.ts`
 
 - Class `scr-print-mode` on `body` during print.
 - `no-print` hides toolbars.
-- Weekly Print Pack fetches default payloads (current week for deliveries) and renders Document components only.
+- Weekly Print Pack fetches default payloads (current week for deliveries) and renders Document components only; selectable items include Sales/delivery, Bottled Sales Report, and Sales budget (weekly).
+- Sidebar groups reports under **Daily / Weekly / Monthly** in `schemaRoutes.ts`.

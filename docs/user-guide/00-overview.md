@@ -1,6 +1,8 @@
 # User guide — overview
 
-Sales Electron is a Windows desktop app for palm-oil commercial sales and inventory. It covers master data, delivery orders, sales invoices, stock, budgets, and printable management reports.
+**Sales Management Application** is a Windows desktop app for palm-oil commercial sales and inventory. It covers master data, delivery orders, sales invoices, stock, budgets, and printable management reports.
+
+The window title bar shows **Sales Management Application**. The Windows installer and Start Menu / desktop shortcut may still be labelled **Sales Electron**.
 
 ## Who this guide is for
 
@@ -15,9 +17,9 @@ Staff who create invoices, validate delivery orders, post stock, or print weekly
 | **Products** | Catalog, categories, scheduled unit prices |
 | **Sales budget** | Annual quantities, monthly/weekly phasing views |
 | **Stocks** | Balances, receipts, transfers, adjustments, opening stock |
-| **Delivery Order** | Delivery orders and opening (carry-forward) commitments |
+| **Delivery Order** | Delivery orders, validation queue, and opening (carry-forward) commitments |
 | **Sales** | Sales invoices (POS), including loading lines from a delivery order |
-| **Reports** | Stock, commitment, bottle oil, weekly deliveries, monthly delivery, print pack |
+| **Reports** | Daily sales, stock, commitment, bottle oil, weekly deliveries, monthly delivery, print pack |
 | **Users & access** | Users and role permissions (admin) |
 | **Overview** | Home dashboard: monthly revenue trend, sales by category, and DO vs sales by month |
 

@@ -146,6 +146,8 @@ export type DeliveryOrdersListPeriod = "month" | "year" | "all";
 export interface DeliveryOrdersListFilters {
     q?: string;
     period?: DeliveryOrdersListPeriod;
+    /** When set, only DOs for this sales point. Null/undefined = all. */
+    salesPointId?: number | null;
 }
 export interface DeliveryOrdersListRow {
     id: number;

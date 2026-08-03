@@ -1,10 +1,18 @@
 # Reports
 
-Sidebar section: **Reports**. Most reports use company header settings and an **as-at** date of the earlier of **today** and the **open financial month’s end** (so reopening January prints as at 31 Jan). Stock quantities on stock / stock-commitment / bottle-oil stock sections are rebuilt from movements through that as-at date. **Commitment** outstanding (Commitment report and stock-commitment commitment column) uses validated DOs and linked sales with `dateIssued` on or before as-at — not today’s live Pick DO balances. Several support **Comments** (toolbar) — company-wide text shown above the footer when non-empty.
+Sidebar section: **Reports**, grouped as **Daily**, **Weekly**, and **Monthly**. Most reports use company header settings and an **as-at** date of the earlier of **today** and the **open financial month’s end** (so reopening January prints as at 31 Jan). Stock quantities on stock / stock-commitment / bottle-oil stock sections are rebuilt from movements through that as-at date. **Commitment** outstanding (Commitment report and stock-commitment commitment column) uses validated DOs and linked sales with `dateIssued` on or before as-at — not today’s live Pick DO balances. Several support **Comments** (toolbar) — company-wide text shown above the footer when non-empty.
 
 **Report settings** (General Parameters) can hide zero/empty rows across stock and delivery-style reports.
 
 ## Report catalog
+
+### Daily
+
+| Screen | Purpose |
+|--------|---------|
+| **Daily sales report** | Validated sales for a chosen date (and optional sales point): by product with DO no., vehicle, qty, DO balance; customer-type summary; print / CSV / comments. |
+
+### Weekly
 
 | Screen | Purpose |
 |--------|---------|
@@ -12,14 +20,27 @@ Sidebar section: **Reports**. Most reports use company header settings and an **
 | **Stock report** | Stock by sales point / storage layout (loose, bottled packs, kernel splits, etc.). |
 | **Commitment report** | Outstanding validated DO balances by customer / sales point (**as of** report as-at). |
 | **Bottle oil stock & sales** | Bottled stock matrix and sales by pack. |
-| **Bottled weekly issues** | Bottled issues for a chosen week in the open month (Mon–Fri detail; estimate basis options). |
-| **Sales / delivery report** | Weekly loose + bottled + other/PKO deliveries (week picker). |
-| **Weekly print pack** | Multi-report print bundle (order selectable); shared week picker for Sales/delivery and Bottled weekly issues. |
+| **Bottled Sales Report** | Bottled issues for a chosen week in the open month (Mon–Fri detail; estimate basis options). |
+| **Sales/delivery report** | Weekly loose + bottled + other/PKO deliveries (week picker). |
+| **Weekly print pack** | Multi-report print bundle (order selectable); shared week picker for Sales/delivery and Bottled Sales Report; also includes **Sales budget (weekly)**. |
+
+### Monthly
+
+| Screen | Purpose |
+|--------|---------|
 | **Monthly delivery (Jan–Jun)** | Half-year delivery report H1. |
 | **Monthly delivery (Jul–Dec)** | Half-year delivery report H2. |
 | Budget monthly/weekly crosstabs | See [Sales budgets](07-sales-budgets.md). |
 
-## Sales / delivery report (weekly)
+## Daily sales report
+
+- Includes only **validated** sales on the selected **report date**.
+- Optional **sales point** filter.
+- Lines grouped by product; each line can show DO number, vehicle, quantity, and remaining DO balance where linked.
+- Customer-type summary block at the end.
+- Supports print, CSV export, and report comments.
+
+## Sales/delivery report (weekly)
 
 - Includes only **validated** sales in the selected week.
 - **Week picker** — choose any week that overlaps the **open financial month**, capped at as-at. Local calendar dates are used (no UTC day shift).
@@ -29,7 +50,7 @@ Sidebar section: **Reports**. Most reports use company header settings and an **
 
 If a PKO sale is “missing”, open the correct week and scroll to section 3 — customer names are not printed on this report.
 
-## Bottled weekly issues
+## Bottled Sales Report
 
 - Same **open-month week picker** as Sales/delivery (Mon–Fri day columns for the selected week).
 - Month / YTD / prior-month comparison blocks still use the report **as-at** date.
@@ -37,7 +58,8 @@ If a PKO sale is “missing”, open the correct week and scroll to section 3 �
 
 ## Weekly print pack
 
-- Shared week buttons apply to **Sales/delivery** and **Bottled weekly issues** in the pack; other reports stay as-at / period based.
+- Shared week buttons apply to **Sales/delivery** and **Bottled Sales Report** in the pack; other reports stay as-at / period based.
+- Selectable pack also includes **Sales budget (weekly)** alongside the delivery-style reports.
 
 ## Report comments
 

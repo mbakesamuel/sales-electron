@@ -44,6 +44,8 @@ On Windows this is typically under `%APPDATA%\sales-electron\sales.db` for the `
 | `npm run db:verify-auth` | Auth verify |
 | `npm run verify:tax-rules` | Tax rules check |
 | `npm run verify:tax-schema` | Tax schema check |
+| `npm run verify:intra-transfer` | Intra-transfer stock verify |
+| `npm run recalc:sales-tax-exempt` | Recalculate sales for tax-exempt customer types |
 
 ## Typecheck
 

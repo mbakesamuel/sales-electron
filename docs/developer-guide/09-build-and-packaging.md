@@ -14,6 +14,17 @@ Runs:
 
 Main entry in package.json: `dist-electron/electron/main.js`.
 
+## App naming
+
+| Surface | Current value |
+|---------|----------------|
+| Window / document title | **Sales Management Application** (`BrowserWindow.title`, `index.html`) |
+| Package name / `userData` folder | `sales-electron` |
+| electron-builder `productName` / NSIS shortcut | **Sales Electron** |
+| Installer artifact | `Sales Electron-Setup-{version}-win-x64.exe` under `release/` |
+
+Operators see the window title; the Start Menu / desktop shortcut still uses **Sales Electron** until `productName` / `shortcutName` are renamed in `package.json`.
+
 ## Windows installer
 
 ```bash
@@ -21,8 +32,7 @@ npm run dist:win
 # equivalent: npm run pack:win
 ```
 
-Uses **electron-builder** with NSIS, product name **Sales Electron**, artifact  
-`Sales Electron-Setup-{version}-win-x64.exe` under `release/`.
+Uses **electron-builder** with NSIS as configured above.
 
 ### Packaging notes
 
@@ -39,6 +49,7 @@ Uses **electron-builder** with NSIS, product name **Sales Electron**, artifact
 ## Checklist before release
 
 1. `npm run build` clean
-2. Smoke-test login, open month, create sale, one report print
+2. Smoke-test login, open month, create sale (booklet serial), one report print
 3. `npm run dist:win` on a clean machine if possible
 4. Confirm `sales.db` migrations apply on first launch of the installed app
+5. Confirm window title shows **Sales Management Application**

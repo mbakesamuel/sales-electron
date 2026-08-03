@@ -1,6 +1,10 @@
 import { useEffect, useState } from "preact/hooks";
 import { getElectronApi } from "../auth/client.ts";
-import type { DeliveryOrdersListFilters, DeliveryOrdersListResult } from "./types.ts";
+import type {
+  DeliveryOrdersListFilters,
+  DeliveryOrdersListResult,
+  DeliveryOrdersSalesPointOption,
+} from "./types.ts";
 import "../sales/sales.css";
 
 interface DeliveryOrdersListProps {
@@ -12,11 +16,34 @@ export function DeliveryOrdersList({ onOpenOrder, onOpenScreen }: DeliveryOrders
   const [filters, setFilters] = useState<DeliveryOrdersListFilters>({
     q: "",
     period: "month",
+    salesPointId: null,
   });
   const [draftQ, setDraftQ] = useState("");
+  const [salesPoints, setSalesPoints] = useState<DeliveryOrdersSalesPointOption[]>([]);
   const [result, setResult] = useState<DeliveryOrdersListResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadOptions() {
+      try {
+        const options = await getElectronApi().deliveryOrders.getFormOptions();
+        if (!cancelled) {
+          setSalesPoints(options.salesPoints);
+        }
+      } catch {
+        // Options are best-effort; list can still load without them.
+      }
+    }
+
+    void loadOptions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,7 +90,7 @@ export function DeliveryOrdersList({ onOpenOrder, onOpenScreen }: DeliveryOrders
         <div>
           <h3>Delivery orders</h3>
           <p class="sales-muted">
-            Filter by DO number, or view documents in the open posting month or year.
+            Filter by DO number, sales point, or view documents in the open posting month or year.
           </p>
         </div>
         {onOpenScreen ? (
@@ -101,6 +128,27 @@ export function DeliveryOrdersList({ onOpenOrder, onOpenScreen }: DeliveryOrders
             <option value="month">Open month</option>
             <option value="year">Open year</option>
             <option value="all">All time</option>
+          </select>
+        </label>
+
+        <label class="sales-field">
+          <span>Sales point</span>
+          <select
+            value={filters.salesPointId == null ? "" : String(filters.salesPointId)}
+            onChange={(event) => {
+              const value = (event.currentTarget as HTMLSelectElement).value;
+              setFilters((current) => ({
+                ...current,
+                salesPointId: value ? Number.parseInt(value, 10) : null,
+              }));
+            }}
+          >
+            <option value="">All sales points</option>
+            {salesPoints.map((point) => (
+              <option key={point.id} value={String(point.id)}>
+                {point.name}
+              </option>
+            ))}
           </select>
         </label>
 

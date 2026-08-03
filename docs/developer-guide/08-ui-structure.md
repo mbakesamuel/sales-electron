@@ -11,15 +11,20 @@
 
 | Kind | Examples |
 |------|----------|
-| Custom domain | Sales (`SalesClient`), delivery orders, carry-forward, stock hub, reports, budgets |
+| Custom domain | Sales (`SalesClient` / `SalesScreen`), delivery orders (create, list, validation queue), carry-forward, stock hub, reports, budgets, dashboard |
 | Schema/table CRUD | Many org master-data routes via shared table components + `api.db.*` |
+
+## Overview dashboard
+
+Route **Overview** (`overview`) renders the dashboard under `src/ui/dashboard/` (revenue trend, category pie, DO vs sales bars). Data via `window.api.dashboard.getSummary`.
 
 ## Reports UI
 
 Under `src/ui/reports/`:
 
-- `*Screen.tsx` — toolbar (print, CSV, comments, week/year pickers) + document
-- `*Document` export — used by Weekly Print Pack
+- Sidebar groups: **Daily / Weekly / Monthly** in `schemaRoutes.ts`
+- `*Screen.tsx` — toolbar (print, CSV, comments, week/year/date pickers) + document
+- `*Document` export — used by Weekly Print Pack where applicable
 - Shared: `ReportHeader`, `ReportFooter`, `ReportComments*`
 
 CSS: `StockCommitmentReport.css` (shared report chrome), plus report-specific sheets (e.g. `SalesBudgetCrosstab.css`).

@@ -6,11 +6,7 @@ Sidebar section: **Sales budget**.
 
 Screen: **Sales budget phasing**.
 
-Define annual product (or category) budget quantities and assign **monthly phasing profiles** so the year is spread across months/weeks for planning views.
-
-## Budget phase profiles
-
-Where present in navigation, phase profiles define how an annual quantity is distributed (monthly weights / weekly patterns used by crosstabs).
+Define **annual budgets by product category** — quantity (kg) and unit price (XAF/kg). Monthly phasing is edited **inline** on this screen (how the annual quantity is spread across months for planning views). There is no separate sidebar screen for phase profiles.
 
 ## Crosstab reports (budget views)
 
@@ -19,6 +15,6 @@ Where present in navigation, phase profiles define how an annual quantity is dis
 | **Sales budget phasing (monthly)** | Crosstab of phased kg by budget group × calendar month. |
 | **Sales budget phasing (weekly)** | Crosstab of phased kg by budget group × week within the year. |
 
-These are planning views derived from budgets + phase rules, not live sales. They support year pickers and print/CSV like other reports. Comments can be attached per report (see [Reports](08-reports.md)).
+These are planning views derived from category budgets + phasing, not live sales. They support year pickers and print/CSV like other reports. The weekly crosstab is also available inside the **Weekly print pack**. Comments can be attached per report (see [Reports](08-reports.md)).
 
 Next: [Reports](08-reports.md).

@@ -136,6 +136,14 @@
   box-sizing: border-box;
 }
 
+/* Equalize native control heights so stacked filter labels line up. */
+.sales-filters input,
+.sales-filters select {
+  height: 2.25rem;
+  padding: 0 10px;
+  line-height: 1.25;
+}
+
 .sales-lookup-input-wrap {
   display: flex;
 }

@@ -132,9 +132,9 @@ export function DailySalesReportDocument({ report }: { report: DailySalesReport 
         } */
       />
 
-      <p class="scr-generated">
+    {/*   <p class="scr-generated">
         Report date: {formatReportDate(report.reportDateIso)}
-      </p>
+      </p> */}
 
       {report.sections.length === 0 ? (
         <p class="scr-status">No validated sales for this date.</p>

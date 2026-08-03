@@ -1,6 +1,8 @@
-# Sales Electron
+# Sales Management Application
 
 Desktop sales and inventory application for palm-oil commercial operations. Built with **Electron**, **Preact**, and **SQLite**.
+
+The window title is **Sales Management Application**. The npm package / Windows installer shortcut name is still **Sales Electron** (`sales-electron`).
 
 Operators use it to manage customers and products, raise delivery orders and sales invoices, post stock movements, track budgets, and print management reports. Developers extend domain logic in the Electron main process and UI screens in the renderer.
 
@@ -34,6 +36,12 @@ npm run dist:win       # Windows NSIS installer (x64)
 | Developers | [Developer guide](docs/developer-guide/00-overview.md) |
 | Index | [docs/README.md](docs/README.md) |
 
+Generate PDF and Word bundles (one document per guide) into `docs/export/`:
+
+```bash
+npm run docs:export
+```
+
 ## Scripts (summary)
 
 | Script | Purpose |
@@ -44,5 +52,6 @@ npm run dist:win       # Windows NSIS installer (x64)
 | `npm run dist:win` | Package Windows installer |
 | `npm run db:seed` | Seed demo data (Electron) |
 | `npm run db:verify` | Schema verification |
+| `npm run docs:export` | Export user + developer guides to PDF and Word |
 
 See the [developer guide](docs/developer-guide/02-dev-setup.md) for details.

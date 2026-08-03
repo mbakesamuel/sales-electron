@@ -24,11 +24,11 @@ Default route access is defined per role (admins can change the matrix):
 | Action | Meaning |
 |--------|---------|
 | `validate_sales` | Validate sales invoices. |
-| `validate_delivery_orders` | Validate delivery orders. |
+| `validate_delivery_orders` | Validate delivery orders (including the **Validation queue** tab under Delivery Order). |
 | `cancel_validated_delivery_order` | Cancel an already validated DO. |
 | `manage_permissions` | Edit the permission matrix (**Role permissions**). |
 
-Opening **Sales Invoice** does not by itself allow validation — the action flag must be on.
+Opening **Sales Invoice** does not by itself allow validation — the action flag must be on. The Delivery Order **Validation queue** tab appears only when `validate_delivery_orders` is granted.
 
 ## Role permissions screen
 

@@ -12,7 +12,7 @@
 | Path | Role |
 |------|------|
 | `src/electron/db/migrations/001_init.sql` | Baseline schema for new databases |
-| `src/electron/db/migrations/00N_*.sql` | Incremental migrations |
+| `src/electron/db/migrations/00N_*.sql` | Incremental migrations (latest: **036**) |
 | `scripts/generate-schema-sql.mjs` | Schema generation helper |
 | `db:seed` / seed migrations | Demo/admin seed data |
 
@@ -20,7 +20,14 @@ Migrations are copied into `dist-electron/electron/db/migrations` at transpile t
 
 ## Runner behaviour
 
-`runMigrations` applies files in order. Some migrations use **skip helpers** when a column/table already exists (idempotent upgrades), for example report comments JSON and carry-forward columns. After structural migrations, `seedDefaultPermissions` inserts any new route/action defaults with `INSERT OR IGNORE`.
+`runMigrations` applies files in order. Many migrations use **skip helpers** when a column/table already exists (idempotent upgrades) — covering report comments JSON, carry-forward / `sourceKind` columns, report hide-zero settings, budget-by-category changes, tax-table compressions, and similar additive upgrades (roughly migrations 007–016, 019, 025–026, 029, 031, 033–034, among others). After structural migrations, `seedDefaultPermissions` inserts any new route/action defaults with `INSERT OR IGNORE`.
+
+Recent notable migrations:
+
+| Migration | Purpose |
+|-----------|---------|
+| `035_daily_sales_report_permissions.sql` | Route access for daily sales report |
+| `036_customer_type_sales_tax_exempt.sql` | `CustomerTypeDefinition.exemptFromSalesTax` |
 
 When adding a migration:
 
@@ -34,15 +41,16 @@ When adding a migration:
 | Domain | Examples |
 |--------|----------|
 | Auth | `User`, `AuthSession`, `RoleRoutePermission`, `RoleActionPermission` |
-| Org | `CompanySettings`, `SalesPoint`, `Location`, `StorageLocation`, `FinancialYearPeriod`, `FinancialMonth` |
+| Org | `CompanySettings`, `SalesPoint`, `Location`, `StorageLocation`, `FinancialYearPeriod`, `FinancialMonth`, `CommercialService` |
+| Tax / payments | `TaxRegime`, `TaxRateSchedule`, `PaymentMethodDefinition` |
 | Catalog | `Product`, `ProductCat`, `ProductUnitPriceSchedule`, budgets/phase tables |
-| Customers | `Customer`, `CustomerTypeDefinition` |
-| Delivery | `DeliveryOrder`, `DeliveryOrderDetails`, payments |
-| Sales | `Sale`, `SaleLine`, `SaleAppliedTax`, `Payment` |
-| Stock | `StockBalance`, `StockMovement`, receipts/transfers/adjustments (+ lines) |
+| Customers | `Customer`, `CustomerTypeDefinition` (`exemptFromSalesTax`) |
+| Delivery | `DeliveryOrder` (`sourceKind`), `DeliveryOrderDetails`, `DeliveryOrderPaymentDetails` |
+| Sales | `Sale`, `SaleLine`, `SaleAppliedTax`, `Payment` (sale payments; distinct from DO payment details) |
+| Stock | `StockBalance`, `StockMovement`, receipts/transfers/adjustments (+ lines, `sourceKind` on adjustments) |
 
 Do not dump full SQL into docs — read migrations for authoritative DDL.
 
 ## Company settings extras
 
-Notable report-related columns include `hideZeroReportRows`, legacy `stockCommitmentReportComments`, and `reportCommentsJson` (map of report id → comment text). Legacy stock-commitment comments are migrated into the JSON map at startup when needed.
+Notable report-related columns include `hideZeroReportRows`, legacy `stockCommitmentReportComments`, and `reportCommentsJson` (map of report id → comment text). Legacy stock-commitment comments are migrated into the JSON map at startup when needed. Theme columns (migrations 014/015) drive UI theme via company settings / `applyUiTheme`.

@@ -25,3 +25,8 @@ release*
 *.njsproj
 *.sln
 *.sw?
+
+# Generated documentation exports
+docs/export/*.pdf
+docs/export/*.docx
+docs/export/*.md

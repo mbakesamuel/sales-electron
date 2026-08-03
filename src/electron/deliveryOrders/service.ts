@@ -411,6 +411,12 @@ export function listDeliveryOrders(
     params.push(`%${q}%`);
   }
 
+  const salesPointId = filters.salesPointId;
+  if (salesPointId != null && Number.isFinite(salesPointId)) {
+    whereParts.push(`d.salesPointId = ?`);
+    params.push(salesPointId);
+  }
+
   const { fromIso, toIso, periodLabel } = resolveListDateRange(
     period === "year" || period === "all" ? period : "month",
   );

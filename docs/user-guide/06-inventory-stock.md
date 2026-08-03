@@ -4,7 +4,15 @@ Sidebar section: **Stocks**.
 
 ## Stock hub
 
-**Stock** opens the inventory workspace for balances and related documents (movements, receipts, transfers, adjustments), depending on your navigation/layout.
+**Stock** opens the inventory workspace with tabs:
+
+| Tab | Purpose |
+|-----|---------|
+| **On hand** | Live balances by product and storage location. |
+| **Movements** | Ledger of quantity changes. |
+| **Receipts** | Goods in. |
+| **Transfers** | Move between storage locations. |
+| **Adjustments** | Manual corrections (including carry-forward stock postings tagged as such). |
 
 Core ideas:
 

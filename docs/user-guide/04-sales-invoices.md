@@ -4,6 +4,8 @@ Screen: **Sales → Sales Invoice**.
 
 Use this screen to create, look up, print, and (with permission) validate or delete sales.
 
+The Sales area has two tabs: **Sales screen** (create / edit) and **Invoice list**.
+
 ## Modes and dispositions
 
 - **Loose vs bottle** — At sales points that support bottled product mode, you can switch between loose (kg) and bottle (units) lines. Bottle mode hides delivery-order picking.
@@ -11,14 +13,25 @@ Use this screen to create, look up, print, and (with permission) validate or del
 
 ## Creating a normal sale
 
-1. Select **registered customer** and **sales point**.
-2. Set the transaction date (must fall in the open posting period).
-3. Optionally link a **delivery order** (see below).
-4. Add product lines (qty, price, storage location).
-5. Enter payments so paid total matches the invoice total (for normal dispositions).
-6. Save. The sale is typically **pending** until validated.
+1. Enter the **Booklet serial no.** from the paper booklet (required before save).
+2. Select **registered customer** and **sales point**.
+3. Set the transaction date (must fall in the open posting period).
+4. Optionally link a **delivery order** (see below).
+5. Add product lines (qty, price, storage location).
+6. Enter payments so paid total matches the invoice total (for normal dispositions).
+7. Save. The sale is typically **pending** until validated.
 
 Vehicle number is required for loose/normal sales that need it.
+
+### Booklet serial number
+
+New invoices require a **Booklet serial no.** typed from the physical booklet:
+
+- Digits only (no letters or punctuation).
+- At most 20 digits.
+- Must be unique among invoices (duplicates are rejected).
+- Immutable after save — you cannot change the serial on an existing invoice.
+- Older invoices that still use legacy `INV-…` numbers remain loadable for lookup and printing.
 
 ### Stock as of invoice date
 

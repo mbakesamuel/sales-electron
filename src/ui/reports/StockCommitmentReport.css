@@ -440,7 +440,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
-  align-items: end;
+  align-items: flex-start;
 }
 
 .dsr-filter {
@@ -453,11 +453,14 @@
 
 .dsr-filter input,
 .dsr-filter select {
+  box-sizing: border-box;
+  height: 2.25rem;
   min-width: 10rem;
   border: 1px solid var(--border-strong, #d4d4d8);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 0 10px;
   font: inherit;
+  line-height: 1.25;
   background: var(--bg-elevated, #fff);
   color: var(--text-h, #111827);
 }

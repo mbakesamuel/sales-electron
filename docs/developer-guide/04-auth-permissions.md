@@ -25,11 +25,11 @@ Defaults: [`src/electron/auth/permissions/defaults.ts`](../../src/electron/auth/
 | Key | Use |
 |-----|-----|
 | `validate_sales` | Validate invoices |
-| `validate_delivery_orders` | Validate DOs |
+| `validate_delivery_orders` | Validate DOs (including Validation queue bulk validate) |
 | `cancel_validated_delivery_order` | Cancel validated DO |
 | `manage_permissions` | Edit matrix |
 
-UI screens check route access for navigation; mutation handlers should also enforce actions where relevant.
+UI screens check route access for navigation; mutation handlers should also enforce actions where relevant. New report routes (e.g. `daily-sales-report`) need route-permission seeds so roles can open them.
 
 ## Role permissions UI
 

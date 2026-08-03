@@ -13,6 +13,7 @@
 - `registerStockHandlers`
 - `registerReportsHandlers`
 - `registerFinancialYearsHandlers`
+- `registerDashboardHandlers`
 - `registerDialogHandlers`
 - `registerPrintHandlers`
 
@@ -20,7 +21,7 @@ Each module lives under `src/electron/ipc/`.
 
 ## Preload surface
 
-[`src/electron/preload.cjs`](../../src/electron/preload.cjs) exposes `window.api` namespaces: `db`, `auth`, `permissions`, `sales`, `deliveryOrders`, `carryForward`, `carryForwardStock`, `stock`, `reports`, `financialYears`, dialogs/print helpers as defined in the file.
+[`src/electron/preload.cjs`](../../src/electron/preload.cjs) exposes `window.api` namespaces: `db`, `auth`, `permissions`, `sales`, `deliveryOrders`, `carryForward`, `carryForwardStock`, `stock`, `reports`, `financialYears`, `dashboard`, dialogs/print helpers as defined in the file.
 
 Typed on the UI side via `src/ui/types/electron.d.ts`.
 
@@ -31,7 +32,8 @@ Typed on the UI side via `src/ui/types/electron.d.ts`.
 Many handlers take `authToken` as the first payload argument after the event. Renderer helpers:
 
 - `getAuthenticatedReports()` — `src/ui/auth/reports.ts`
-- Similar patterns for sales / other domains
+- `getAuthenticatedDashboard()` — dashboard summary
+- Similar patterns for sales / financial years / other domains
 
 ## Adding an IPC method
 
@@ -41,4 +43,4 @@ Many handlers take `authToken` as the first payload argument after the event. Re
 4. Extend `electron.d.ts` (+ shared API types if needed).
 5. Call from UI through the typed API.
 
-Channel names are stringly; keep them namespaced (`sales:`, `reports:`, …).
+Channel names are stringly; keep them namespaced (`sales:`, `reports:`, `dashboard:`, …).

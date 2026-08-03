@@ -1,6 +1,6 @@
-# Sales Electron documentation
+# Sales Management Application documentation
 
-Dual-audience documentation for the Sales Electron desktop app.
+Dual-audience documentation for the Sales Management Application desktop app (installer / package name **Sales Electron**).
 
 ## User guide (operators)
 
@@ -36,3 +36,14 @@ Architecture, database, IPC, and how to extend the app.
 ## Related
 
 - Product landing page: [../README.md](../README.md)
+
+## Export PDF / Word
+
+```bash
+npm run docs:export
+```
+
+Writes two separate guides (PDF + DOCX each) under [`export/`](export/):
+
+- `Sales-Management-Application-User-Guide.pdf` / `.docx`
+- `Sales-Management-Application-Developer-Guide.pdf` / `.docx`
