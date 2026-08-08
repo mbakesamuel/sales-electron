@@ -1,4 +1,5 @@
 import { useMemo, useState } from "preact/hooks";
+import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
 import "../components/FormDialog.css";
@@ -34,17 +35,6 @@ function initialPostingMonth(year: number): number {
     return today.getMonth() + 1;
   }
   return 1;
-}
-
-function formatDisplayDate(isoDate: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
-  if (!match) return isoDate;
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  return date.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
 }
 
 export function FinancialYearFormModal({

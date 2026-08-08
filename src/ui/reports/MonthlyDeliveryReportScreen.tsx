@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { getAuthenticatedReports } from "../auth/reports.ts";
+import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type {
   MonthlyDeliveryBudgetSection,
   MonthlyDeliveryReport,
@@ -10,6 +11,7 @@ import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import "./StockCommitmentReport.css";
 import "./MonthlyDeliveryReport.css";
+
 
 interface MonthlyDeliveryReportScreenProps {
   half: 1 | 2;
@@ -444,9 +446,9 @@ export function MonthlyDeliveryReportScreen({ half }: MonthlyDeliveryReportScree
               <p class="scr-meta-line">{report.reportTitle}</p>
               <p class="scr-as-at">
                 AS at{" "}
-                <span class="scr-as-at-date">{formatShortReportDate(report.asAtIso)}</span>
+                <span class="scr-as-at-date">{formatDisplayDate(report.asAtIso)}</span>
               </p>
-              <p class="scr-generated">{formatReportDate(report.asAtIso)}</p>
+              <p class="scr-generated">{formatDisplayDate(report.asAtIso)}</p>
             </>
           } */
         />

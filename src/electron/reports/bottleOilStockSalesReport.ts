@@ -7,6 +7,7 @@ import type {
   BottleOilStockSalesReport,
   BottleOilStockSection,
 } from "../../shared/reports.types.js";
+import { formatDisplayDate } from "../../shared/formatDisplayDate.js";
 import { loadReportCompanySettings, loadReportDisplaySettings, loadReportComments } from "./companySettings.js";
 import { resolveReportAsAt } from "../financialYears/service.js";
 import {
@@ -130,8 +131,7 @@ function buildStockSection(
 ): BottleOilStockSection {
   const bottledProducts = products.filter((product) => product.isBottled === 1);
   const columns = STOCK_PACK_COLUMNS.map(({ packIds: _packIds, ...column }) => column);
-  const asAtDate = new Date(`${asAtIso}T00:00:00`);
-  const title = `1. BOTTLED PALM OIL STOCKS - AS AT ${asAtDate.toLocaleDateString("en-GB")}`.toUpperCase();
+  const title = `1. BOTTLED PALM OIL STOCKS - AS AT ${formatDisplayDate(asAtIso)}`.toUpperCase();
 
   const dataRows: BottleOilStockMatrixRow[] = salesPoints
     .map((salesPoint) => {
@@ -309,9 +309,9 @@ function buildSalesSection(
     grandTotalValue > 0 ? (value / grandTotalValue) * 100 : 0,
   );
 
-  const toDateLabel = toDate.toLocaleDateString("en-GB");
+  const toDateLabel = formatDisplayDate(salesToIso);
   const title =
-    `2. SALES FROM ${fromDate.toLocaleDateString("en-GB")} TO DATE ${toDateLabel}`.toUpperCase();
+    `2. SALES FROM ${formatDisplayDate(salesFromIso)} TO DATE ${toDateLabel}`.toUpperCase();
 
   const rows: BottleOilSalesRow[] = [
     ...activeMonthRows,

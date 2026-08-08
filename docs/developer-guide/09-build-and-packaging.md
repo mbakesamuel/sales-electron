@@ -20,10 +20,10 @@ Main entry in package.json: `dist-electron/electron/main.js`.
 |---------|----------------|
 | Window / document title | **Sales Management Application** (`BrowserWindow.title`, `index.html`) |
 | Package name / `userData` folder | `sales-electron` |
-| electron-builder `productName` / NSIS shortcut | **Sales Electron** |
-| Installer artifact | `Sales Electron-Setup-{version}-win-x64.exe` under `release/` |
+| electron-builder `productName` / NSIS shortcut | **Sales Management Application** |
+| Installer artifact | `Sales Management Application-Setup-{version}-win-x64.exe` under `release/` |
 
-Operators see the window title; the Start Menu / desktop shortcut still uses **Sales Electron** until `productName` / `shortcutName` are renamed in `package.json`.
+Operators see the same display name in the window title, installer, and Start Menu / desktop shortcuts. The npm package name and `%APPDATA%\sales-electron\` folder stay `sales-electron` so existing installs keep their data.
 
 ## Windows installer
 

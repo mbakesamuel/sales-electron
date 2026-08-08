@@ -55,13 +55,61 @@ function yearEndDate(year: number): string {
   return `${year}-12-31`;
 }
 
+/** Detect SQL default expressions accidentally stored as TEXT values. */
+function isLiteralSqlNowExpression(value: unknown): boolean {
+  if (value == null) return false;
+  const trimmed = String(value).trim().replace(/^\(+|\)+$/g, "").trim();
+  return (
+    /^(datetime|date|time)\s*\(\s*'now'\s*\)$/i.test(trimmed) ||
+    /^current_(time|date|timestamp)$/i.test(trimmed)
+  );
+}
+
+function sanitizeStoredTimestamp(value: unknown): string | null {
+  if (value == null || value === "") {
+    return null;
+  }
+  if (isLiteralSqlNowExpression(value)) {
+    return null;
+  }
+  return String(value);
+}
+
+/**
+ * Fix rows where openedAt/closedAt were saved as the literal text datetime('now')
+ * instead of an evaluated timestamp (e.g. via generic form defaults).
+ */
+function repairLiteralSqlTimestamps(): void {
+  const db = getDatabase();
+  const timestamp = nowIso();
+  const bad =
+    `openedAt GLOB 'datetime(*' OR openedAt GLOB 'date(*' OR openedAt GLOB 'time(*' ` +
+    `OR upper(openedAt) IN ('CURRENT_TIMESTAMP','CURRENT_TIME','CURRENT_DATE')`;
+  const badClosed =
+    `closedAt GLOB 'datetime(*' OR closedAt GLOB 'date(*' OR closedAt GLOB 'time(*' ` +
+    `OR upper(closedAt) IN ('CURRENT_TIMESTAMP','CURRENT_TIME','CURRENT_DATE')`;
+
+  db.prepare(
+    `UPDATE FinancialYearPeriod SET openedAt = ? WHERE ${bad}`,
+  ).run(timestamp);
+  db.prepare(
+    `UPDATE FinancialYearPeriod SET closedAt = ? WHERE ${badClosed}`,
+  ).run(timestamp);
+  db.prepare(
+    `UPDATE FinancialMonth SET openedAt = ? WHERE ${bad}`,
+  ).run(timestamp);
+  db.prepare(
+    `UPDATE FinancialMonth SET closedAt = ? WHERE ${badClosed}`,
+  ).run(timestamp);
+}
+
 function mapYearRow(row: Record<string, unknown>): FinancialYearRow {
   return {
     id: String(row.id),
     financialYear: Number(row.financialYear),
     status: String(row.status).toUpperCase() === "OPEN" ? "OPEN" : "CLOSED",
-    openedAt: row.openedAt != null ? String(row.openedAt) : null,
-    closedAt: row.closedAt != null ? String(row.closedAt) : null,
+    openedAt: sanitizeStoredTimestamp(row.openedAt),
+    closedAt: sanitizeStoredTimestamp(row.closedAt),
     startDate: String(row.startDate).slice(0, 10),
     endDate: String(row.endDate).slice(0, 10),
     openMonthCount: Number(row.openMonthCount ?? 0),
@@ -77,8 +125,8 @@ function mapMonthRow(row: Record<string, unknown>): FinancialMonthRow {
     calendarMonth: Number(row.calendarMonth),
     name: String(row.name),
     status: String(row.status).toUpperCase() === "OPEN" ? "OPEN" : "CLOSED",
-    openedAt: row.openedAt != null ? String(row.openedAt) : null,
-    closedAt: row.closedAt != null ? String(row.closedAt) : null,
+    openedAt: sanitizeStoredTimestamp(row.openedAt),
+    closedAt: sanitizeStoredTimestamp(row.closedAt),
   };
 }
 
@@ -141,7 +189,17 @@ function openMonthRow(monthId: string): void {
 
   db.prepare(
     `UPDATE FinancialMonth
-     SET status = 'OPEN', openedAt = COALESCE(openedAt, ?), closedAt = NULL
+     SET status = 'OPEN',
+         openedAt = CASE
+           WHEN openedAt IS NULL
+             OR openedAt GLOB 'datetime(*'
+             OR openedAt GLOB 'date(*'
+             OR openedAt GLOB 'time(*'
+             OR upper(openedAt) IN ('CURRENT_TIMESTAMP','CURRENT_TIME','CURRENT_DATE')
+           THEN ?
+           ELSE openedAt
+         END,
+         closedAt = NULL
      WHERE id = ?`,
   ).run(timestamp, monthId);
 }
@@ -168,6 +226,7 @@ function getYearById(id: string): FinancialYearRow | null {
 }
 
 export function listYears(): FinancialYearRow[] {
+  repairLiteralSqlTimestamps();
   const rows = getDatabase()
     .prepare(
       `SELECT y.*,

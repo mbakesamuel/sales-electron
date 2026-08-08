@@ -281,6 +281,13 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         table: "Sale",
         description: "Monthly deliveries and value for July through December.",
       },
+      {
+        id: "monthly-stock-reconciliation-report",
+        label: "Monthly stock reconciliation",
+        table: "StockBalance",
+        description:
+          "Open-month LPO opening/reception/issues reconciliation with BPO and palm-kernel rows.",
+      },
     ];
     const groups: SchemaRouteGroup[] = [
       { id: "daily", label: "Daily", routes: dailyRoutes },

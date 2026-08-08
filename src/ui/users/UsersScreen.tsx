@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { formatDisplayDate as formatDate } from "../../shared/formatDisplayDate.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
 import {
@@ -49,14 +50,6 @@ function initials(name: string): string {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
-}
-
-function formatDate(value: unknown): string {
-  if (value == null || value === "") {
-    return "—";
-  }
-  const text = String(value);
-  return text.length >= 10 ? text.slice(0, 10) : text;
 }
 
 function normalizeRole(value: unknown): UserRole {

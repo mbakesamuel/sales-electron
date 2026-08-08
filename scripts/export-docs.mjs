@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { marked } from "marked";
 import { mdToPdf } from "md-to-pdf";
 import HTMLtoDOCX from "html-to-docx";
+import JSZip from "jszip";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -158,15 +159,57 @@ async function writePdf(markdown, pdfPath, title) {
  * @param {string} docxPath
  * @param {string} title
  */
+/**
+ * html-to-docx can emit invalid OOXML (e.g. w:gutter="undefined") that desktop
+ * Word rejects. Patch document.xml inside the DOCX zip before writing.
+ * @param {Buffer} buffer
+ */
+async function sanitizeDocxBuffer(buffer) {
+  const zip = await JSZip.loadAsync(buffer);
+  const docFile = zip.file("word/document.xml");
+  if (!docFile) {
+    return Buffer.from(buffer);
+  }
+
+  let documentXml = await docFile.async("string");
+  documentXml = documentXml
+    .replace(/w:gutter="undefined"/g, 'w:gutter="0"')
+    .replace(/w:gutter='undefined'/g, "w:gutter='0'");
+  zip.file("word/document.xml", documentXml);
+
+  return Buffer.from(
+    await zip.generateAsync({
+      type: "nodebuffer",
+      compression: "DEFLATE",
+    }),
+  );
+}
+
+/**
+ * @param {string} html
+ * @param {string} docxPath
+ * @param {string} title
+ */
 async function writeDocx(html, docxPath, title) {
-  const buffer = await HTMLtoDOCX(html, null, {
+  // Pass a complete margins object. Omitting gutter (or other keys) can write
+  // literal "undefined" into w:pgMar and Word refuses to open the file.
+  const raw = await HTMLtoDOCX(html, null, {
     title,
-    margins: { top: 720, right: 720, bottom: 720, left: 720 },
+    margins: {
+      top: 720,
+      right: 720,
+      bottom: 720,
+      left: 720,
+      header: 720,
+      footer: 720,
+      gutter: 0,
+    },
     table: { row: { cantSplit: true } },
     footer: true,
     pageNumber: true,
   });
-  fs.writeFileSync(docxPath, buffer);
+  const bytes = await sanitizeDocxBuffer(Buffer.from(raw));
+  fs.writeFileSync(docxPath, bytes);
 }
 
 /**

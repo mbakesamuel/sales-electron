@@ -15,6 +15,7 @@ import {
   BarElement,
 } from "chart.js";
 import { getAuthenticatedDashboard } from "../auth/dashboard.ts";
+import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type { DashboardSummary } from "../../shared/dashboard.types.ts";
 import "./DashboardScreen.css";
 
@@ -120,10 +121,7 @@ export function DashboardScreen() {
     if (lineCanvasRef.current) {
       const labels =
         summary.revenueByDay.length > 0
-          ? summary.revenueByDay.map((row) => {
-              const d = new Date(`${row.dateIso}T00:00:00`);
-              return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-            })
+          ? summary.revenueByDay.map((row) => formatDisplayDate(row.dateIso))
           : ["No sales"];
       const values =
         summary.revenueByDay.length > 0
@@ -319,7 +317,7 @@ export function DashboardScreen() {
             {summary.openMonth.label}
             {summary.openYear != null ? ` · FY ${summary.openYear}` : ""}
             {" · "}
-            as at {summary.asAtIso}
+            as at {formatDisplayDate(summary.asAtIso)}
           </p>
         </div>
         <button

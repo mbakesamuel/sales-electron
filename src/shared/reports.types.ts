@@ -546,3 +546,45 @@ export interface DailySalesReport {
   comments: string | null;
 }
 
+export type MonthlyStockReconciliationRowKind =
+  | "data"
+  | "section_header"
+  | "total"
+  | "subtotal"
+  | "blank";
+
+/** Matrix row keyed by sales-point id string; null cells render as em dash. */
+export interface MonthlyStockReconciliationMatrixRow {
+  label: string;
+  kind: MonthlyStockReconciliationRowKind;
+  valuesBySalesPointId: Record<string, number | null>;
+  total: number | null;
+}
+
+export interface MonthlyStockReconciliationReport {
+  settings: ReportCompanySettings;
+  asAtIso: string;
+  monthStartIso: string;
+  monthLabel: string;
+  reportTitle: string;
+  generatedAtIso: string;
+  salesPointIds: number[];
+  salesPointNames: string[];
+  openingRow: MonthlyStockReconciliationMatrixRow;
+  receptionSectionTitle: string;
+  receptionRows: MonthlyStockReconciliationMatrixRow[];
+  totalReceptionRow: MonthlyStockReconciliationMatrixRow;
+  openingPlusReceptionRow: MonthlyStockReconciliationMatrixRow;
+  issuesSectionTitle: string;
+  issueRows: MonthlyStockReconciliationMatrixRow[];
+  totalIssuesRow: MonthlyStockReconciliationMatrixRow;
+  calculatedStockRow: MonthlyStockReconciliationMatrixRow;
+  physicalStockRow: MonthlyStockReconciliationMatrixRow;
+  varianceRow: MonthlyStockReconciliationMatrixRow;
+  bpoSectionTitle: string;
+  bpoRows: MonthlyStockReconciliationMatrixRow[];
+  otherSectionTitle: string;
+  otherRows: MonthlyStockReconciliationMatrixRow[];
+  comments: string | null;
+}
+

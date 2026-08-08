@@ -41,7 +41,7 @@ flowchart TB
 5. Register IPC modules (auth, db, sales, deliveryOrders, stock, reports, financial years, dashboard, carry-forward, print, …)
 6. Create `BrowserWindow` with title **Sales Management Application**; load Vite dev URL or production `dist-react` index
 
-Window chrome title is set on `BrowserWindow` and in `index.html`. Packaged `productName` / Start Menu shortcut remain **Sales Electron** (see [Build and packaging](09-build-and-packaging.md)).
+Window chrome title is set on `BrowserWindow` and in `index.html`. Packaged `productName` and Start Menu / desktop shortcuts use **Sales Management Application** (see [Build and packaging](09-build-and-packaging.md)). The npm package / userData folder remains `sales-electron`.
 
 ## Shared types
 

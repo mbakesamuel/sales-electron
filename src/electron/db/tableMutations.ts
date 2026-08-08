@@ -13,6 +13,7 @@ import {
   buildTableSchema,
   createTextPrimaryKey,
   extractPrimaryKey,
+  isSqlExpressionDefault,
   normalizeDefaultValue,
   quoteIdentifier,
 } from "./tableMeta.js";
@@ -190,6 +191,14 @@ function prepareInsertValues(
       );
 
       if (coerced === null && !column.isRequired) {
+        continue;
+      }
+
+      // Empty / SQL-expression placeholders: omit so SQLite column DEFAULT runs.
+      if (
+        (coerced === "" || isSqlExpressionDefault(String(coerced ?? ""))) &&
+        isSqlExpressionDefault(column.defaultValue)
+      ) {
         continue;
       }
 

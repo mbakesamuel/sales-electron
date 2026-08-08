@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { getAuthenticatedReports } from "../auth/reports.ts";
+import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type { CommitmentReport, CommitmentReportSection } from "../../shared/reports.types.ts";
 import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
@@ -7,18 +8,6 @@ import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import "./StockCommitmentReport.css";
 
-function formatReportDate(iso: string): string {
-  const date = new Date(`${iso}T00:00:00`);
-  return date.toLocaleDateString("en-GB");
-}
-
-function formatShortReportDate(iso: string): string {
-  const date = new Date(`${iso}T00:00:00`);
-  const day = date.getDate();
-  const month = date.getMonth() + 1;
-  const year = String(date.getFullYear()).slice(-2);
-  return `${day}/${month}/${year}`;
-}
 
 function formatQty(value: number | null | undefined): string {
   if (value == null) {
@@ -50,7 +39,7 @@ function buildCsv(report: CommitmentReport): string {
   const lines: string[] = [
     `Company:,${report.settings.companyName}`,
     report.settings.department ? `Department:,${report.settings.department}` : "",
-    `AS AT:,${formatReportDate(report.asAtIso)}`,
+    `AS AT:,${formatDisplayDate(report.asAtIso)}`,
     "",
   ].filter((line) => line.length > 0);
 
@@ -130,7 +119,7 @@ export function CommitmentReportDocument({ report }: { report: CommitmentReport 
         companyName={report.settings.companyName}
         department={report.settings.department ?? null}
         serviceName={report.settings.serviceName ?? null}
-        title={`COMMITMENTS AS AT ${formatShortReportDate(report.asAtIso)}`}
+        title={`COMMITMENTS AS AT ${formatDisplayDate(report.asAtIso)}`}
       />
 
       {report.sections.length === 0 ? (

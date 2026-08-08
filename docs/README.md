@@ -1,6 +1,6 @@
 # Sales Management Application documentation
 
-Dual-audience documentation for the Sales Management Application desktop app (installer / package name **Sales Electron**).
+Dual-audience documentation for the Sales Management Application desktop app (installer / shortcuts **Sales Management Application**; npm package `sales-electron`).
 
 ## User guide (operators)
 

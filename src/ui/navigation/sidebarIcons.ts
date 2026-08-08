@@ -76,6 +76,7 @@ export const ROUTE_ICONS: Record<string, LucideIcon> = {
   "weekly-print-pack": FileSpreadsheet,
   "monthly-delivery-report-h1": FileSpreadsheet,
   "monthly-delivery-report-h2": FileSpreadsheet,
+  "monthly-stock-reconciliation-report": FileSpreadsheet,
   "stock-movements": ArrowLeftRight,
   "stock-receipts": PackagePlus,
   "stock-receipt-lines": List,

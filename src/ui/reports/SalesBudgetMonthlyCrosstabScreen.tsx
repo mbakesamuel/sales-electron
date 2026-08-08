@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { getAuthenticatedReports } from "../auth/reports.ts";
+import { formatDisplayDateTime } from "../../shared/formatDisplayDate.ts";
 import type { SalesBudgetMonthlyCrosstabReport } from "../../shared/reports.types.ts";
 import {
   CAL_MONTHS,
@@ -93,10 +94,7 @@ function downloadCsv(report: SalesBudgetMonthlyCrosstabReport): void {
 }
 
 function formatGeneratedAt(iso: string): string {
-  return new Date(iso).toLocaleString("en-GB", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  return formatDisplayDateTime(iso);
 }
 
 export function SalesBudgetMonthlyCrosstabScreen({

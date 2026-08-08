@@ -30,6 +30,7 @@ Sidebar section: **Reports**, grouped as **Daily**, **Weekly**, and **Monthly**.
 |--------|---------|
 | **Monthly delivery (Jan–Jun)** | Half-year delivery report H1. |
 | **Monthly delivery (Jul–Dec)** | Half-year delivery report H2. |
+| **Monthly stock reconciliation** | Open-month LPO opening / reception / issues / calculated stock (physical & variance blank in v1), plus BPO and palm-kernel rows by sales point. |
 | Budget monthly/weekly crosstabs | See [Sales budgets](07-sales-budgets.md). |
 
 ## Daily sales report

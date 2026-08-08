@@ -13,7 +13,7 @@ Default route access is defined per role (admins can change the matrix):
 | **ADMIN** | All routes write; manage permissions. |
 | **MANAGER** | Most routes write (not user admin); validate sales/DOs; can cancel validated DOs. |
 | **SENIOR_SALES_SUPERVISOR** | Operations, customers, inventory read/write; can validate sales/DOs. |
-| **STATISTICS_SUPERVISOR** | Broad **read** on operations, budgets, inventory reports, financial/tax screens; no validate actions by default. |
+| **STATISTICS_SUPERVISOR** | Broad **read** on operations, budgets, inventory, financial/tax screens by default; admins can grant **write** on specific routes. No validate actions by default. |
 | **SALES_CLERK** | Sales, DOs, customers, selected reports/stock balance; cannot validate by default. |
 
 ## Route access vs actions
@@ -29,6 +29,21 @@ Default route access is defined per role (admins can change the matrix):
 | `manage_permissions` | Edit the permission matrix (**Role permissions**). |
 
 Opening **Sales Invoice** does not by itself allow validation — the action flag must be on. The Delivery Order **Validation queue** tab appears only when `validate_delivery_orders` is granted.
+
+## Stock module routes
+
+The **Stock** sidebar screen combines several permission routes. After changing the matrix, affected users must **log out and sign in again** for buttons to update.
+
+| Route | Stock tab / screen | None | Read | Write |
+|-------|-------------------|------|------|-------|
+| `stock-balance` | On hand | Hidden | View balances | View only (no create buttons) |
+| `stock-movements` | Movements | Hidden | View ledger | View only |
+| `stock-receipts` | Receipts | Hidden | View list | New receipt, edit drafts, post, cancel |
+| `stock-transfers` | Transfers | Hidden | View list | New transfer, dispatch/receive, cancel |
+| `stock-adjustments` | Adjustments | Hidden | View list | New adjustment, edit drafts, post, cancel |
+| `carry-forward-stock` | Opening Stock balances | Hidden | View | Batch-set opening quantities |
+
+**Write** on balance or movements does not add create buttons — those tabs are always view-only. Grant **write** on receipts, transfers, or adjustments to allow stock document changes.
 
 ## Role permissions screen
 

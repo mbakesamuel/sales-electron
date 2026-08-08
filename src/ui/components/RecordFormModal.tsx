@@ -52,6 +52,16 @@ function normalizeDefaultValue(defaultValue: string | null): string {
   }
 
   const trimmed = defaultValue.trim();
+  // Do not copy SQL defaults like datetime('now') into form fields — they would
+  // be stored as literal text instead of being evaluated by SQLite.
+  const unwrapped = trimmed.replace(/^\(+|\)+$/g, "").trim();
+  if (
+    /^(datetime|date|time)\s*\(/i.test(unwrapped) ||
+    /^current_(time|date|timestamp)$/i.test(unwrapped)
+  ) {
+    return "";
+  }
+
   if (
     (trimmed.startsWith("'") && trimmed.endsWith("'")) ||
     (trimmed.startsWith('"') && trimmed.endsWith('"'))

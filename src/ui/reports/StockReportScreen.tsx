@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { getAuthenticatedReports } from "../auth/reports.ts";
+import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type {
   StockReport,
   StockReportBottledSection,
@@ -15,13 +16,6 @@ import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import "./StockCommitmentReport.css";
 
-function formatShortReportDate(iso: string): string {
-  const date = new Date(`${iso}T00:00:00`);
-  const day = date.getDate();
-  const month = date.getMonth() + 1;
-  const year = String(date.getFullYear()).slice(-2);
-  return `${day}/${month}/${year}`;
-}
 
 function formatKg(value: number | null | undefined): string {
   if (value == null || value === 0) {
@@ -389,7 +383,7 @@ export function StockReportDocument({ report }: { report: StockReport }) {
         companyName={report.settings.companyName}
         department={report.settings.department ?? null}
         serviceName={report.settings.serviceName ?? null}
-        title={`STOCK REPORT AS AT ${formatShortReportDate(report.asAtIso)}`}
+        title={`STOCK REPORT AS AT ${formatDisplayDate(report.asAtIso)}`}
       />
 
       {report.sections.map((section) => renderSection(section, report.oilGrandTotalKg))}

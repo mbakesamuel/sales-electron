@@ -30,7 +30,7 @@
   },
   "build": {
     "appId": "com.sales-electron.app",
-    "productName": "Sales Electron",
+    "productName": "Sales Management Application",
     "copyright": "Copyright © 2026",
     "directories": {
       "output": "release",
@@ -62,7 +62,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Sales Electron"
+      "shortcutName": "Sales Management Application"
     }
   },
   "dependencies": {

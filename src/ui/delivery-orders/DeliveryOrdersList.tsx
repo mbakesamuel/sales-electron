@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import { getElectronApi } from "../auth/client.ts";
 import type {
   DeliveryOrdersListFilters,
@@ -156,9 +157,9 @@ export function DeliveryOrdersList({ onOpenOrder, onOpenScreen }: DeliveryOrders
           Apply
         </button>
 
-        {result ? (
+       {/*  {result ? (
           <span class="sales-muted sales-filter-label">{result.periodLabel}</span>
-        ) : null}
+        ) : null} */}
       </form>
 
       {error ? <p class="sales-error">{error}</p> : null}
@@ -192,7 +193,7 @@ export function DeliveryOrdersList({ onOpenOrder, onOpenScreen }: DeliveryOrders
               {result?.rows.map((row) => (
                 <tr key={row.id}>
                   <td>{row.deliveryOrderNo}</td>
-                  <td>{row.dateIssuedIso}</td>
+                  <td>{formatDisplayDate(row.dateIssuedIso)}</td>
                   <td>{row.salesPointName}</td>
                   <td>{row.customerName}</td>
                   <td>{row.productSummary}</td>

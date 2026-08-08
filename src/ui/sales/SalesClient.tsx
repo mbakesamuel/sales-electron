@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
+import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import type { AuthUser } from "../auth/session.ts";
@@ -1070,7 +1071,7 @@ export function SalesClient({
                     >
                       <strong>{pending.invoiceNo}</strong>
                       <span>
-                        {pending.customerName} · {pending.soldAtIso}
+                        {pending.customerName} · {formatDisplayDate(pending.soldAtIso)}
                         {pending.totalLabel ? ` · ${pending.totalLabel}` : ""}
                       </span>
                     </button>
@@ -1408,7 +1409,7 @@ export function SalesClient({
                             {row.deliveryOrderNo}
                           </strong>
                           <span>
-                            {row.productName} · {row.dateIssued} ·{" "}
+                            {row.productName} · {formatDisplayDate(row.dateIssued)} ·{" "}
                             {row.balanceKg} kg left
                             {row.isCarryForward ? " · carry-forward" : ""}
                           </span>

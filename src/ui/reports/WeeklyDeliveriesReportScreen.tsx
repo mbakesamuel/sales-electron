@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { getAuthenticatedReports } from "../auth/reports.ts";
+import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type {
   WeeklyDeliveriesBottledSection,
   WeeklyDeliveriesLooseSection,
@@ -13,18 +14,6 @@ import { ReportHeader } from "./ReportHeader.tsx";
 import "./StockCommitmentReport.css";
 import "./SalesBudgetCrosstab.css";
 
-function formatReportDate(iso: string): string {
-  const date = new Date(`${iso}T00:00:00`);
-  return date.toLocaleDateString("en-GB");
-}
-
-function formatShortReportDate(iso: string): string {
-  const date = new Date(`${iso}T00:00:00`);
-  const day = date.getDate();
-  const month = date.getMonth() + 1;
-  const year = String(date.getFullYear()).slice(-2);
-  return `${day}/${month}/${year}`;
-}
 
 function formatQty(value: number | null | undefined): string {
   if (value == null) {
@@ -53,7 +42,7 @@ function buildCsv(report: WeeklyDeliveriesReport): string {
   const lines: string[] = [
     `Company:,${report.settings.companyName}`,
     report.settings.department ? `Department:,${report.settings.department}` : "",
-    `Week:,${formatReportDate(report.weekFromIso)} - ${formatReportDate(report.weekToIso)}`,
+    `Week:,${formatDisplayDate(report.weekFromIso)} - ${formatDisplayDate(report.weekToIso)}`,
     "",
     report.looseSection.title,
     ["", ...report.looseSection.salesPointNames, "TOTAL"].join(","),
@@ -225,7 +214,7 @@ export function WeeklyDeliveriesReportDocument({
         companyName={report.settings.companyName}
         department={report.settings.department ?? null}
         serviceName={report.settings.serviceName ?? null}
-        title={`Deliveries of the week (KGs) ${formatShortReportDate(report.weekFromIso)} – ${formatShortReportDate(report.weekToIso)}`}
+        title={`Deliveries of the week (KGs) ${formatDisplayDate(report.weekFromIso)} – ${formatDisplayDate(report.weekToIso)}`}
       />
 
       <LooseSection section={report.looseSection} />

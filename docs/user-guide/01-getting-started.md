@@ -2,8 +2,8 @@
 
 ## Install
 
-1. Install the Windows build (**Sales Electron** Setup) from your IT package, or run from source with `npm run dev` (developers).
-2. Launch **Sales Electron** from the Start menu or desktop shortcut. The open window is titled **Sales Management Application**.
+1. Install the Windows build (**Sales Management Application** Setup) from your IT package, or run from source with `npm run dev` (developers).
+2. Launch **Sales Management Application** from the Start menu or desktop shortcut.
 3. Sign in with the username and password provided by your administrator.
 
 The application stores data locally in a SQLite database on the PC (Electron user data folder).

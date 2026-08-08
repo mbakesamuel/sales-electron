@@ -206,6 +206,11 @@ export function normalizeDefaultValue(defaultValue: string | null): string | nul
   }
 
   const trimmed = defaultValue.trim();
+  // SQLite expressions like datetime('now') must not be inserted as string literals.
+  if (isSqlExpressionDefault(trimmed)) {
+    return null;
+  }
+
   if (
     (trimmed.startsWith("'") && trimmed.endsWith("'")) ||
     (trimmed.startsWith('"') && trimmed.endsWith('"'))
@@ -214,6 +219,18 @@ export function normalizeDefaultValue(defaultValue: string | null): string | nul
   }
 
   return trimmed;
+}
+
+/** True when pragma dflt_value is a SQL expression, not a literal constant. */
+export function isSqlExpressionDefault(defaultValue: string | null): boolean {
+  if (defaultValue == null) {
+    return false;
+  }
+  const trimmed = defaultValue.trim().replace(/^\(+|\)+$/g, "").trim();
+  return (
+    /^(datetime|date|time)\s*\(/i.test(trimmed) ||
+    /^current_(time|date|timestamp)$/i.test(trimmed)
+  );
 }
 
 export function extractPrimaryKey(

@@ -6,6 +6,7 @@ import type {
   StockCommitmentReport,
   StockReport,
   MonthlyDeliveryReport,
+  MonthlyStockReconciliationReport,
   SalesBudgetMonthlyCrosstabReport,
   SalesBudgetWeeklyCrosstabReport,
   WeeklyDeliveriesReport,
@@ -13,6 +14,7 @@ import type {
 } from "../../shared/reports.types.js";
 import { requireAuthUser } from "../auth/requireUser.js";
 import { getMonthlyDeliveryReport } from "../reports/monthlyDeliveryReport.js";
+import { getMonthlyStockReconciliationReport } from "../reports/monthlyStockReconciliationReport.js";
 import { getBottleOilStockSalesReport } from "../reports/bottleOilStockSalesReport.js";
 import { getBottledWeeklyIssuesReport } from "../reports/bottledWeeklyIssuesReport.js";
 import { getCommitmentReport } from "../reports/commitmentReport.js";
@@ -118,6 +120,14 @@ export function registerReportsHandlers(): void {
       }
       const user = requireAuthUser(authToken);
       return getMonthlyDeliveryReport(half, user.id);
+    },
+  );
+
+  ipcMain.handle(
+    "reports:getMonthlyStockReconciliation",
+    (_event, authToken: string): MonthlyStockReconciliationReport => {
+      const user = requireAuthUser(authToken);
+      return getMonthlyStockReconciliationReport(user.id);
     },
   );
 

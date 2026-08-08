@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { formatDisplayDate } from "../../../shared/formatDisplayDate.ts";
 import type { AuthUser } from "../../auth/session.ts";
 import { getElectronApi } from "../../auth/client.ts";
 import type { ValidationQueuePage } from "../types.ts";
@@ -155,7 +156,7 @@ export function ValidationQueueClient({ user, onOpenOrder }: ValidationQueueClie
                       />
                     </td>
                     <td>{row.deliveryOrderNo}</td>
-                    <td>{row.dateIssuedIso}</td>
+                    <td>{formatDisplayDate(row.dateIssuedIso)}</td>
                     <td>{row.salesPointName}</td>
                     <td>{row.customerName}</td>
                     <td class="sales-num">{row.totalAmountXaf}</td>

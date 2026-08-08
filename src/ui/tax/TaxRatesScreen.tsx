@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { formatDisplayDate as formatDate } from "../../shared/formatDisplayDate.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
 import {
@@ -33,12 +34,6 @@ interface TaxRateRow {
 type FormState = { mode: "create" } | { mode: "edit"; row: Record<string, unknown> };
 
 const PAGE_SIZE = 8;
-
-function formatDate(value: unknown): string {
-  if (value == null || value === "") return "—";
-  const text = String(value);
-  return text.length >= 10 ? text.slice(0, 10) : text;
-}
 
 function formatPercent(value: number): string {
   return `${Number(value.toFixed(4))}%`;

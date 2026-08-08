@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { SalePrintView } from "./SalePrintView.tsx";
 import type { SalesListFilters, SalesListResult } from "./types.ts";
@@ -113,9 +114,9 @@ export function SalesList({ onOpenInvoice, onOpenPos }: SalesListProps) {
           Apply
         </button>
 
-        {result ? (
+       {/*  {result ? (
           <span class="sales-muted sales-filter-label">{result.periodLabel}</span>
-        ) : null}
+        ) : null} */}
       </form>
 
       {error ? <p class="sales-error">{error}</p> : null}
@@ -153,7 +154,7 @@ export function SalesList({ onOpenInvoice, onOpenPos }: SalesListProps) {
               result?.rows.map((row) => (
                 <tr key={row.id}>
                   <td class="sales-strong">{row.invoiceNo}</td>
-                  <td>{row.soldAtIso}</td>
+                  <td>{formatDisplayDate(row.soldAtIso)}</td>
                   <td>{row.salesPointName}</td>
                   <td>{row.deliveryOrderNo ?? ""}</td>
                   <td>{row.customerName}</td>

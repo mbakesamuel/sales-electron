@@ -40,6 +40,7 @@ import {
   MonthlyDeliveryReportH1Screen,
   MonthlyDeliveryReportH2Screen,
 } from "../reports/MonthlyDeliveryReportScreen.tsx";
+import { MonthlyStockReconciliationScreen } from "../reports/MonthlyStockReconciliationScreen.tsx";
 import { WeeklyDeliveriesReportScreen } from "../reports/WeeklyDeliveriesReportScreen.tsx";
 import { DailySalesReportScreen } from "../reports/DailySalesReportScreen.tsx";
 import { CommitmentReportScreen } from "../reports/CommitmentReportScreen.tsx";
@@ -208,6 +209,10 @@ function RouteContent({
       );
     }
     return <MonthlyDeliveryReportH2Screen />;
+  }
+
+  if (route.id === "monthly-stock-reconciliation-report") {
+    return <MonthlyStockReconciliationScreen />;
   }
 
   if (route.id === "sales-budget-monthly-crosstab") {
@@ -395,6 +400,7 @@ export function HomeScreen({
     "weekly-print-pack",
     "monthly-delivery-report-h1",
     "monthly-delivery-report-h2",
+    "monthly-stock-reconciliation-report",
     "sales-budget-monthly-crosstab",
     "sales-budget-weekly-crosstab",
     "sales-budget",

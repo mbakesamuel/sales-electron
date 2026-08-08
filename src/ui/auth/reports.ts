@@ -26,6 +26,8 @@ export function getAuthenticatedReports() {
       api.getWeeklyDeliveries(requireAuthToken(), weekMondayIso),
     getMonthlyDelivery: (half: 1 | 2) =>
       api.getMonthlyDelivery(half, requireAuthToken()),
+    getMonthlyStockReconciliation: () =>
+      api.getMonthlyStockReconciliation(requireAuthToken()),
     getSalesBudgetMonthlyCrosstab: (reportYear?: number) =>
       api.getSalesBudgetMonthlyCrosstab(requireAuthToken(), reportYear),
     getSalesBudgetWeeklyCrosstab: (reportYear?: number) =>

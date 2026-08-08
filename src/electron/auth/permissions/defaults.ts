@@ -41,6 +41,7 @@ const ROUTE_GROUPS = {
     "weekly-print-pack",
     "monthly-delivery-report-h1",
     "monthly-delivery-report-h2",
+    "monthly-stock-reconciliation-report",
   ],
   organization: [
     "commercial-services",
@@ -117,6 +118,7 @@ function buildDefaultRouteMatrix(): Record<string, RouteMatrix> {
       "weekly-print-pack",
       "monthly-delivery-report-h1",
       "monthly-delivery-report-h2",
+      "monthly-stock-reconciliation-report",
     ]),
   };
 }

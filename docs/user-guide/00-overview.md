@@ -2,7 +2,7 @@
 
 **Sales Management Application** is a Windows desktop app for palm-oil commercial sales and inventory. It covers master data, delivery orders, sales invoices, stock, budgets, and printable management reports.
 
-The window title bar shows **Sales Management Application**. The Windows installer and Start Menu / desktop shortcut may still be labelled **Sales Electron**.
+The window title bar, Windows installer, and Start Menu / desktop shortcuts are labelled **Sales Management Application**.
 
 ## Who this guide is for
 

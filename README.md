@@ -2,7 +2,7 @@
 
 Desktop sales and inventory application for palm-oil commercial operations. Built with **Electron**, **Preact**, and **SQLite**.
 
-The window title is **Sales Management Application**. The npm package / Windows installer shortcut name is still **Sales Electron** (`sales-electron`).
+The window title, installer, and Start Menu / desktop shortcuts use **Sales Management Application**. The npm package name remains `sales-electron` (userData folder is unchanged).
 
 Operators use it to manage customers and products, raise delivery orders and sales invoices, post stock movements, track budgets, and print management reports. Developers extend domain logic in the Electron main process and UI screens in the renderer.
 

@@ -1,5 +1,7 @@
+import { formatDisplayDate } from "../../shared/formatDisplayDate.js";
 import type { WeeklyDeliveriesWeekChoice } from "../../shared/reports.types.js";
 import { resolveReportAsAt } from "../financialYears/service.js";
+
 
 /** Neutral alias for open-month week picker rows. */
 export type ReportWeekChoice = WeeklyDeliveriesWeekChoice;
@@ -40,16 +42,7 @@ export function maxIso(a: string, b: string): string {
 }
 
 export function formatWeekLabel(weekFromIso: string, weekToIso: string): string {
-  const from = parseLocalIso(weekFromIso);
-  const to = parseLocalIso(weekToIso);
-  const fromDay = from.getDate();
-  const toDay = to.getDate();
-  const monthShort = to.toLocaleDateString("en-GB", { month: "short" });
-  if (from.getMonth() === to.getMonth() && from.getFullYear() === to.getFullYear()) {
-    return `${fromDay}–${toDay} ${monthShort}`;
-  }
-  const fromMonth = from.toLocaleDateString("en-GB", { month: "short" });
-  return `${fromDay} ${fromMonth} – ${toDay} ${monthShort}`;
+  return `${formatDisplayDate(weekFromIso)} – ${formatDisplayDate(weekToIso)}`;
 }
 
 /** Mondays of weeks that overlap the open month up to as-at. */

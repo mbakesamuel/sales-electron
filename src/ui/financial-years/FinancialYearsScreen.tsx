@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import {
+  formatDisplayDate as formatDate,
+  formatDisplayDateTime as formatDateTime,
+} from "../../shared/formatDisplayDate.ts";
 import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import type { FinancialYearRow } from "../../shared/financialYears.types.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
@@ -12,42 +16,6 @@ type SortDir = "asc" | "desc";
 type ActiveTab = "all" | "OPEN" | "CLOSED";
 
 const PAGE_SIZE = 6;
-
-/** Format stored local `YYYY-MM-DD[ HH:mm:ss]` without UTC shift. */
-function formatDate(value: string | null): string {
-  if (!value) return "—";
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
-  if (!match) return value;
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  return date.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function formatDateTime(value: string | null): string {
-  if (!value) return "—";
-  const match = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(
-    value,
-  );
-  if (!match) return value;
-  const date = new Date(
-    Number(match[1]),
-    Number(match[2]) - 1,
-    Number(match[3]),
-    match[4] != null ? Number(match[4]) : 0,
-    match[5] != null ? Number(match[5]) : 0,
-    match[6] != null ? Number(match[6]) : 0,
-  );
-  return date.toLocaleString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function statusBadgeClass(status: string): string {
   return status === "OPEN"
@@ -554,7 +522,7 @@ export function FinancialYearsScreen({
                       <span class={statusBadgeClass(row.status)}>{row.status}</span>
                     </td>
                     <td class="customers-col-hide-md">
-                      {row.startDate} → {row.endDate}
+                      {formatDate(row.startDate)} → {formatDate(row.endDate)}
                     </td>
                     <td class="customers-col-hide-lg">{row.openMonthCount}</td>
                     <td class="customers-col-hide-lg">{formatDate(row.openedAt)}</td>

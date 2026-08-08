@@ -104,13 +104,6 @@ function assertSalesPointScope(
   }
 }
 
-function canDraftStockDocuments(role: string, hasWrite: boolean): boolean {
-  if (!hasWrite) {
-    return false;
-  }
-  return role !== "MANAGER" && role !== "STATISTICS_SUPERVISOR";
-}
-
 function uomForBottled(isBottled: boolean, uom: string | null): string {
   if (uom?.trim()) {
     return uom.trim();
@@ -184,9 +177,9 @@ export function getStockBootstrap(userId: string): StockBootstrap {
     canReclassifyStock: canWriteAdjustments,
     canCancelDocuments:
       canWriteReceipts || canWriteTransfers || canWriteAdjustments,
-    canDraftReceipts: canDraftStockDocuments(role, canWriteReceipts),
-    canDraftTransfers: canDraftStockDocuments(role, canWriteTransfers),
-    canDraftAdjustments: canDraftStockDocuments(role, canWriteAdjustments),
+    canDraftReceipts: canWriteReceipts,
+    canDraftTransfers: canWriteTransfers,
+    canDraftAdjustments: canWriteAdjustments,
     scopedSalesPointId,
     salesPoints,
     storageLocations,

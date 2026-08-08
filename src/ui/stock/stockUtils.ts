@@ -1,23 +1,15 @@
 import type { StorageLocationOption } from "../../shared/stock.types.ts";
+import {
+  formatDisplayDate,
+  formatDisplayDateTime,
+} from "../../shared/formatDisplayDate.ts";
 
 export function formatDateTime(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleString("en-GB", {
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
+  return formatDisplayDateTime(iso);
 }
 
 export function formatDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  return iso.length > 10 ? iso.slice(0, 10) : iso;
+  return formatDisplayDate(iso);
 }
 
 export function trimQty(qty: string): string {

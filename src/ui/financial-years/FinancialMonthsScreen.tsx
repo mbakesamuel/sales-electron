@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
+import { formatDisplayDate as formatDate } from "../../shared/formatDisplayDate.ts";
 import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import type {
   FinancialMonthRow,
@@ -15,18 +16,6 @@ function statusBadgeClass(status: string): string {
   return status === "OPEN"
     ? "customers-badge customers-badge-emerald"
     : "customers-badge customers-badge-amber";
-}
-
-function formatDate(value: string | null): string {
-  if (!value) return "—";
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
-  if (!match) return value;
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  return date.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
 }
 
 function IconCalendar() {

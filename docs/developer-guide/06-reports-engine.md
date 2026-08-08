@@ -47,6 +47,16 @@ File: `weeklyDeliveriesReport.ts`
 - Optional IPC arg `weekMondayIso`.
 - Sections: loose (main), bottled packs, `miscSection` titled **3) OTHER PRODUCTS / PKO**.
 
+## Monthly stock reconciliation
+
+File: `monthlyStockReconciliationReport.ts`
+
+- IPC: `reports:getMonthlyStockReconciliation`.
+- Route: `monthly-stock-reconciliation-report` (Reports → Monthly).
+- Permissions seeded in migration `036_monthly_stock_reconciliation_permissions.sql`.
+- Open-month only: opening LPO from balances as of day before month start; posted receipts by `supplierLabel`; validated LPO sales by customer-type buckets; calculated = opening + reception − issues; physical/variance blank; BPO issued + stock C/F; fixed palm-kernel / related product rows.
+- UI: `MonthlyStockReconciliationScreen.tsx` — print / CSV / comments.
+
 ## Other builders (quick index)
 
 | Builder | Report |
@@ -58,6 +68,7 @@ File: `weeklyDeliveriesReport.ts`
 | `bottleOilStockSalesReport.ts` | Bottle oil stock & sales |
 | `bottledWeeklyIssuesReport.ts` | Bottled Sales Report (sidebar label; route still `bottled-weekly-issues-report`) |
 | `monthlyDeliveryReport.ts` | Monthly H1/H2 |
+| `monthlyStockReconciliationReport.ts` | Monthly stock reconciliation (open month; LPO + BPO + kernel) |
 | `salesBudgetMonthlyCrosstab.ts` / `Weekly` | Budget crosstabs |
 
 ## UI / print

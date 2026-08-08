@@ -96,6 +96,8 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("reports:getWeeklyDeliveries", authToken, weekMondayIso),
     getMonthlyDelivery: (half, authToken) =>
       ipcRenderer.invoke("reports:getMonthlyDelivery", half, authToken),
+    getMonthlyStockReconciliation: (authToken) =>
+      ipcRenderer.invoke("reports:getMonthlyStockReconciliation", authToken),
     getSalesBudgetMonthlyCrosstab: (authToken, reportYear) =>
       ipcRenderer.invoke("reports:getSalesBudgetMonthlyCrosstab", authToken, reportYear),
     getSalesBudgetWeeklyCrosstab: (authToken, reportYear) =>

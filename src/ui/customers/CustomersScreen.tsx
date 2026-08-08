@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { formatDisplayDate as formatDate, formatDisplayDateTime } from "../../shared/formatDisplayDate.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
 
@@ -57,15 +58,6 @@ function initials(name: string): string {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
-}
-
-function formatDate(value: unknown): string {
-  if (value == null || value === "") {
-    return "—";
-  }
-
-  const text = String(value);
-  return text.length >= 10 ? text.slice(0, 10) : text;
 }
 
 function residencyLabel(value: unknown): string {
@@ -787,7 +779,13 @@ export function CustomersScreen({ readOnly = false }: CustomersScreenProps = {})
 
   const printFilterLabel =
     activeTab === "all" ? "All customers" : `${activeTab} customers`;
-  const printGeneratedAt = new Date().toLocaleString("en-GB");
+  const printGeneratedAt = formatDisplayDateTime(
+    (() => {
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    })(),
+  );
   const printServiceName = [
     ...new Set(
       printRowsList

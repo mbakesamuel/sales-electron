@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { getAuthenticatedReports } from "../auth/reports.ts";
+import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type {
   BottledWeeklyEstimateBasis,
   BottledWeeklyIssuesReport,
@@ -13,6 +14,7 @@ import { ReportHeader } from "./ReportHeader.tsx";
 import "./StockCommitmentReport.css";
 import "./BottledWeeklyIssuesReport.css";
 import "./SalesBudgetCrosstab.css";
+
 
 const ESTIMATE_BASIS_STORAGE_KEY = "bwi-estimate-basis";
 
@@ -187,14 +189,14 @@ export function BottledWeeklyIssuesReportDocument({
           <>
             <p class="scr-meta-line">
               <span class="scr-meta-label">WEEK:</span>{" "}
-              {formatShortReportDate(report.weekFromIso)} –{" "}
-              {formatShortReportDate(report.weekToIso)}
+              {formatDisplayDate(report.weekFromIso)} –{" "}
+              {formatDisplayDate(report.weekToIso)}
             </p>
             <p class="scr-as-at">
               AS at{" "}
-              <span class="scr-as-at-date">{formatShortReportDate(report.asAtIso)}</span>
+              <span class="scr-as-at-date">{formatDisplayDate(report.asAtIso)}</span>
             </p>
-            <p class="scr-generated">{formatReportDate(report.asAtIso)}</p>
+            <p class="scr-generated">{formatDisplayDate(report.asAtIso)}</p>
           </>
         } */
       />

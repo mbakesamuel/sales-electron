@@ -131,6 +131,11 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
     sectionId: "reports",
   },
   {
+    id: "monthly-stock-reconciliation-report",
+    label: "Monthly stock reconciliation",
+    sectionId: "reports",
+  },
+  {
     id: "stock-movements",
     label: "Stock movements",
     sectionId: "inventory",

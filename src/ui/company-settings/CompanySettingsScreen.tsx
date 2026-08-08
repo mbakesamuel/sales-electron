@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
+import { formatDisplayDate as formatDate } from "../../shared/formatDisplayDate.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
 import { normalizeVatRateDecimal } from "../../shared/taxRules.ts";
 import type { TableSchema } from "../types/electron.d.ts";
@@ -66,23 +67,6 @@ const COLUMNS: Array<{ key: SortField; label: string }> = [
   { key: "uiThemePreset", label: "Theme" },
   { key: "updatedAt", label: "Updated" },
 ];
-
-function formatDate(value: string): string {
-  if (!value) {
-    return "—";
-  }
-
-  const date = new Date(value.includes("T") ? value : value.replace(" ", "T"));
-  if (Number.isNaN(date.getTime())) {
-    return value.slice(0, 10);
-  }
-
-  return date.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 function normalizeTheme(value: unknown): ThemePreset {
   return THEME_PRESETS.includes(value as ThemePreset)

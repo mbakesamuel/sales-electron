@@ -17,6 +17,7 @@ import type {
   StockCommitmentReport,
   StockReport,
   MonthlyDeliveryReport,
+  MonthlyStockReconciliationReport,
   SalesBudgetMonthlyCrosstabReport,
   SalesBudgetWeeklyCrosstabReport,
   WeeklyDeliveriesReport,
@@ -148,6 +149,7 @@ interface ReportsApi {
     weekMondayIso?: string,
   ): Promise<WeeklyDeliveriesReport>;
   getMonthlyDelivery(half: 1 | 2, authToken: string): Promise<MonthlyDeliveryReport>;
+  getMonthlyStockReconciliation(authToken: string): Promise<MonthlyStockReconciliationReport>;
   getSalesBudgetMonthlyCrosstab(
     authToken: string,
     reportYear?: number,

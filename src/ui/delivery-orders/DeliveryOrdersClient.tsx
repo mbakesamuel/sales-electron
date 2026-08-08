@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
+import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type { AuthUser } from "../auth/session.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
@@ -638,7 +639,7 @@ export function DeliveryOrdersClient({
                     >
                       <strong>{pending.deliveryOrderNo}</strong>
                       <span>
-                        {pending.customerName} · {pending.dateIssued}
+                        {pending.customerName} · {formatDisplayDate(pending.dateIssued)}
                         {pending.totalLabel ? ` · ${pending.totalLabel}` : ""}
                       </span>
                     </button>

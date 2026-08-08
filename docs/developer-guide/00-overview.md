@@ -1,8 +1,8 @@
 # Developer guide — overview
 
-This guide explains how **Sales Management Application** (package / installer name **Sales Electron**, npm name `sales-electron`) is structured so you can change domain logic, reports, UI, or packaging safely.
+This guide explains how **Sales Management Application** (npm package `sales-electron`) is structured so you can change domain logic, reports, UI, or packaging safely.
 
-The Electron window title is **Sales Management Application**. Packaged shortcuts and `productName` remain **Sales Electron** until renamed in `package.json`. See [Build and packaging](09-build-and-packaging.md).
+The Electron window title, installer `productName`, and Start Menu / desktop shortcuts are **Sales Management Application**. The technical package folder under userData remains `sales-electron`. See [Build and packaging](09-build-and-packaging.md).
 
 ## Stack
 

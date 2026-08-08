@@ -1,0 +1,31 @@
+.msr-document .msr-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.msr-document .msr-table th:first-child,
+.msr-document .msr-table td:first-child {
+  width: 34%;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.msr-document .msr-table th:not(:first-child),
+.msr-document .msr-table td:not(:first-child) {
+  white-space: nowrap;
+  width: auto;
+}
+
+.msr-document .msr-blank-row td.scr-num {
+  color: #6b7280;
+}
+
+.msr-document .msr-section-header-row td {
+  font-weight: 700;
+}
+
+.msr-document .msr-section-title-row td {
+  text-align: left;
+  font-weight: 700;
+  background: #f3f4f6;
+}

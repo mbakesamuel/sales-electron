@@ -1,7 +1,9 @@
 import { useEffect, useState } from "preact/hooks";
+import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import { getElectronApi } from "../auth/client.ts";
 import type { SalePrintPayload } from "./types.ts";
 import "./SalePrintView.css";
+import logoSrc from "../../assets/logo.svg";
 
 interface SalePrintViewProps {
   saleId: string;
@@ -66,7 +68,10 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
   if (error) {
     return (
       <div class="sale-print-backdrop" onClick={onClose}>
-        <div class="sale-print-modal" onClick={(event) => event.stopPropagation()}>
+        <div
+          class="sale-print-modal"
+          onClick={(event) => event.stopPropagation()}
+        >
           <p class="sales-error">{error}</p>
           <button type="button" class="sales-btn-secondary" onClick={onClose}>
             Close
@@ -79,7 +84,10 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
   if (!payload) {
     return (
       <div class="sale-print-backdrop" onClick={onClose}>
-        <div class="sale-print-modal" onClick={(event) => event.stopPropagation()}>
+        <div
+          class="sale-print-modal"
+          onClick={(event) => event.stopPropagation()}
+        >
           <p class="sales-muted">Loading print view…</p>
         </div>
       </div>
@@ -89,7 +97,8 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
   const { sale } = payload;
   const isBottleMode = sale.saleProductMode === "BOTTLE";
   const isSpecialDisposition =
-    sale.saleDisposition === "RATION" || sale.saleDisposition === "PUBLIC_RELATION";
+    sale.saleDisposition === "RATION" ||
+    sale.saleDisposition === "PUBLIC_RELATION";
   const skipTax = isBottleMode || isSpecialDisposition;
   const salesTaxAmount = skipTax
     ? 0
@@ -104,7 +113,10 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
 
   return (
     <div class="sale-print-backdrop" onClick={onClose}>
-      <div class="sale-print-modal" onClick={(event) => event.stopPropagation()}>
+      <div
+        class="sale-print-modal"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div class="sale-print-toolbar no-print">
           <button type="button" class="sales-btn-primary" onClick={handlePrint}>
             Print
@@ -117,15 +129,23 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
         <article class="sale-print-document">
           <header class="sale-print-header">
             <div>
-              <h2>{payload.companyName}</h2>
+              <div class="sales-print-heading">
+                <img
+                  class="login-logo"
+                  src={logoSrc}
+                  alt=""
+                  aria-hidden="true"
+                />             
+               <h2>{payload.companyName}</h2>
+              </div>
               {payload.department ? <p>{payload.department}</p> : null}
               {payload.companyAddress ? <p>{payload.companyAddress}</p> : null}
               {payload.companyPhone ? <p>{payload.companyPhone}</p> : null}
             </div>
             <div class="sale-print-meta">
-              <strong>{sale.invoiceNo}</strong>
+              <span>No: <strong>{sale.invoiceNo}</strong> </span>
               <span>{sale.status}</span>
-              <span>Issued {sale.dateIssuedIso.slice(0, 10)}</span>
+              <span>Issued {formatDisplayDate(sale.dateIssuedIso)}</span>
             </div>
           </header>
 

@@ -31,6 +31,8 @@ Defaults: [`src/electron/auth/permissions/defaults.ts`](../../src/electron/auth/
 
 UI screens check route access for navigation; mutation handlers should also enforce actions where relevant. New report routes (e.g. `daily-sales-report`) need route-permission seeds so roles can open them.
 
+Stock create/edit/post/cancel on the Receipts, Transfers, and Adjustments tabs is driven by route **write** on `stock-receipts`, `stock-transfers`, and `stock-adjustments` (see `getStockBootstrap` in [`src/electron/stock/service.ts`](../../src/electron/stock/service.ts)), not by role name.
+
 ## Role permissions UI
 
 Route `role-permissions` — ADMIN write by default. Matrix load/save via `permissions:*` IPC.

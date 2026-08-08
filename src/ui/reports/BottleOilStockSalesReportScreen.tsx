@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { getAuthenticatedReports } from "../auth/reports.ts";
+import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type {
   BottleOilSalesRow,
   BottleOilSalesSection,
@@ -12,18 +13,6 @@ import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import "./StockCommitmentReport.css";
 
-function formatReportDate(iso: string): string {
-  const date = new Date(`${iso}T00:00:00`);
-  return date.toLocaleDateString("en-GB");
-}
-
-function formatShortReportDate(iso: string): string {
-  const date = new Date(`${iso}T00:00:00`);
-  const day = date.getDate();
-  const month = date.getMonth() + 1;
-  const year = String(date.getFullYear()).slice(-2);
-  return `${day}/${month}/${year}`;
-}
 
 function formatQty(value: number | null | undefined): string {
   if (value == null) {
@@ -73,7 +62,7 @@ function buildCsv(report: BottleOilStockSalesReport): string {
     report.settings.department
       ? `Department:,${report.settings.department}`
       : "",
-    `AS AT:,${formatReportDate(report.asAtIso)}`,
+    `AS AT:,${formatDisplayDate(report.asAtIso)}`,
     "",
     report.stockSection.title,
     ["", ...report.stockSection.columns.map((column) => column.unitLabel)].join(
@@ -311,7 +300,7 @@ export function BottleOilStockSalesReportDocument({
         companyName={report.settings.companyName}
         department={report.settings.department ?? null}
         serviceName={report.settings.serviceName ?? null}
-        title={`BOTTLE OIL STOCK AND SALES TODATE AS AT ${formatShortReportDate(report.asAtIso)}`}
+        title={`BOTTLE OIL STOCK AND SALES TODATE AS AT ${formatDisplayDate(report.asAtIso)}`}
       />
 
       <StockSection section={report.stockSection} />

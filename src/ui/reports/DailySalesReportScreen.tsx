@@ -1,6 +1,7 @@
 import { Fragment } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { getAuthenticatedReports } from "../auth/reports.ts";
+import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type { DailySalesReport } from "../../shared/reports.types.ts";
 import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
@@ -11,19 +12,6 @@ import "./SalesBudgetCrosstab.css";
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
-}
-
-function formatReportDate(iso: string): string {
-  const date = new Date(`${iso}T00:00:00`);
-  return date.toLocaleDateString("en-GB");
-}
-
-function formatShortReportDate(iso: string): string {
-  const date = new Date(`${iso}T00:00:00`);
-  const day = date.getDate();
-  const month = date.getMonth() + 1;
-  const year = String(date.getFullYear()).slice(-2);
-  return `${day}/${month}/${year}`;
 }
 
 function formatQty(value: number | null | undefined): string {
@@ -51,7 +39,7 @@ function handlePrint(): void {
 function buildCsv(report: DailySalesReport): string {
   const lines: string[] = [
     `Company:,${report.settings.companyName}`,
-    `Report date:,${formatReportDate(report.reportDateIso)}`,
+    `Report date:,${formatDisplayDate(report.reportDateIso)}`,
     `Sales point:,${report.salesPointLabel}`,
     "",
     "SN,CUSTOMER,DO. NO.,DATE ISSUED,VEHICLE. NO,QUANTITY,DO. BALANCE",
@@ -65,7 +53,7 @@ function buildCsv(report: DailySalesReport): string {
           row.sn,
           row.customerName,
           row.deliveryOrderNo ?? "",
-          formatShortReportDate(row.dateIssuedIso),
+          formatDisplayDate(row.dateIssuedIso),
           row.vehicleNumber ?? "",
           row.quantity,
           row.doBalance ?? "",
@@ -124,7 +112,7 @@ export function DailySalesReportDocument({ report }: { report: DailySalesReport 
         companyName={report.settings.companyName}
         department={report.settings.department ?? null}
         serviceName={report.settings.serviceName ?? null}
-        title={`DAILY SALES REPORT OF ${formatShortReportDate(report.reportDateIso)}`}
+        title={`DAILY SALES REPORT OF ${formatDisplayDate(report.reportDateIso)}`}
        /*  meta={
           <p class="dsr-sales-point-meta">
             SALES POINT NAME : {report.salesPointLabel}
@@ -133,7 +121,7 @@ export function DailySalesReportDocument({ report }: { report: DailySalesReport 
       />
 
     {/*   <p class="scr-generated">
-        Report date: {formatReportDate(report.reportDateIso)}
+        Report date: {formatDisplayDate(report.reportDateIso)}
       </p> */}
 
       {report.sections.length === 0 ? (
@@ -165,7 +153,7 @@ export function DailySalesReportDocument({ report }: { report: DailySalesReport 
                       <td>{row.sn}</td>
                       <td>{row.customerName}</td>
                       <td>{row.deliveryOrderNo ?? ""}</td>
-                      <td>{formatShortReportDate(row.dateIssuedIso)}</td>
+                      <td>{formatDisplayDate(row.dateIssuedIso)}</td>
                       <td>{row.vehicleNumber ?? ""}</td>
                       <td class="scr-num">{formatQty(row.quantity)}</td>
                       <td class="scr-num">{formatQty(row.doBalance)}</td>
