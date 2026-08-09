@@ -215,6 +215,23 @@
   border-radius: 8px;
 }
 
+/* Opening-stock batch: keep the dialog shorter than commitment batch entry */
+.cf-batch--stock {
+  gap: 8px;
+}
+
+.cf-batch--stock .cf-batch-scope {
+  gap: 8px;
+}
+
+.cf-batch--stock .cf-batch-grid-wrap {
+  max-height: min(28vh, 220px);
+}
+
+.cf-batch--stock .cf-batch-toolbar {
+  gap: 8px;
+}
+
 .cf-batch-grid {
   margin: 0;
 }

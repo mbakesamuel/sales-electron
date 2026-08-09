@@ -376,13 +376,13 @@ export function CarryForwardStockScreen({
         <FormDialog
           ariaLabel="Carry-forward stock batch entry"
           title="Batch Entry Form"
-          subtitle="Pick sales point and product, then enter desired on-hand (SELLABLE) per storage location. Blank rows are skipped; unchanged quantities are not posted."
+          subtitle="Sales point and product, then desired on-hand per location. Blank or unchanged rows are skipped."
           wide
           onClose={() => {
             if (!saving) setBatchOpen(false);
           }}
         >
-          <div class="cf-batch">
+          <div class="cf-batch cf-batch--stock">
             <div class="cf-batch-scope">
               <label class="cf-field">
                 <span>Sales point</span>

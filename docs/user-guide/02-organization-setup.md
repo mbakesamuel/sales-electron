@@ -26,6 +26,7 @@ Changing this affects the next time each report is loaded. See also [Reports](08
 **Rules of thumb**
 
 - Only one year/month should be open for normal posting.
+- You cannot open a **future** financial year (after the current calendar year). You can still reopen the current year or an earlier year for posting or reprinting.
 - Reports use an **as at** date of the earlier of **today** and the **open month’s end**. Reopening a past month (e.g. January) to print shows figures as at that month’s close, not today’s live stock.
 - If save/post fails with a period error, open the correct month first.
 

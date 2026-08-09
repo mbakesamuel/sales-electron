@@ -41,15 +41,14 @@ export function FinancialYearFormModal({
   onClose,
   onSaved,
 }: FinancialYearFormModalProps) {
-  const [financialYear, setFinancialYear] = useState(() =>
-    String(new Date().getFullYear()),
-  );
+  const calendarYear = new Date().getFullYear();
+  const [financialYear, setFinancialYear] = useState(() => String(calendarYear));
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const preview = useMemo(() => {
     const year = Number.parseInt(financialYear, 10);
-    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+    if (!Number.isInteger(year) || year < 2000 || year > calendarYear) {
       return null;
     }
     const postingMonth = initialPostingMonth(year);
@@ -60,17 +59,19 @@ export function FinancialYearFormModal({
       postingMonth,
       postingMonthName: MONTH_NAMES[postingMonth - 1],
       openedOn: formatDisplayDate(
-        `${new Date().getFullYear()}-${pad2(new Date().getMonth() + 1)}-${pad2(new Date().getDate())}`,
+        `${calendarYear}-${pad2(new Date().getMonth() + 1)}-${pad2(new Date().getDate())}`,
       ),
     };
-  }, [financialYear]);
+  }, [calendarYear, financialYear]);
 
   async function handleSubmit(event: Event) {
     event.preventDefault();
     setError(null);
     const year = Number.parseInt(financialYear, 10);
-    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
-      setError("Enter a valid year between 2000 and 2100.");
+    if (!Number.isInteger(year) || year < 2000 || year > calendarYear) {
+      setError(
+        `Enter a year between 2000 and ${calendarYear}. Future years cannot be opened yet.`,
+      );
       return;
     }
 
@@ -110,7 +111,7 @@ export function FinancialYearFormModal({
               value={financialYear}
               disabled={isSubmitting}
               min={2000}
-              max={2100}
+              max={calendarYear}
               onInput={(event) =>
                 setFinancialYear((event.currentTarget as HTMLInputElement).value)
               }
@@ -142,11 +143,14 @@ export function FinancialYearFormModal({
             </dl>
             <p class="form-dialog-hint">
               Creates Jan–Dec months, closes any previously open year, and opens{" "}
-              {preview.postingMonthName} for posting.
+              {preview.postingMonthName} for posting. Future calendar years cannot
+              be opened early.
             </p>
           </div>
         ) : (
-          <p class="form-dialog-hint">Enter a year between 2000 and 2100.</p>
+          <p class="form-dialog-hint">
+            Enter a year between 2000 and {calendarYear} (current calendar year).
+          </p>
         )}
 
         {error ? <p class="form-dialog-error">{error}</p> : null}

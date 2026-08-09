@@ -87,7 +87,7 @@ Customer types may set `exemptFromSalesTax` (migration `036`). Sales for those t
 | Service | `src/electron/financialYears/service.ts` |
 | IPC | `src/electron/ipc/financialYears.ts` |
 
-`getOpenPostingPeriod()` and `resolveReportAsAt()` are shared by posting validation and reports. On startup, `backfillFinancialMonths()` fills missing month rows for open years.
+`getOpenPostingPeriod()` and `resolveReportAsAt()` are shared by posting validation and reports. On startup, `backfillFinancialMonths()` fills missing month rows for open years. `openYear(year)` rejects years after the local calendar year so a future period cannot become the posting year by mistake; past and current years can still be opened.
 
 ## Dashboard
 

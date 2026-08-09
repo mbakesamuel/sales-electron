@@ -404,6 +404,13 @@ export function openYear(financialYear: number): OpenYearResult {
     throw new Error("Enter a valid financial year (2000–2100).");
   }
 
+  const calendarYear = Number.parseInt(localTodayIso().slice(0, 4), 10);
+  if (financialYear > calendarYear) {
+    throw new Error(
+      `Cannot open financial year ${financialYear} while the calendar year is still ${calendarYear}. Open ${calendarYear} (or an earlier year) instead.`,
+    );
+  }
+
   const db = getDatabase();
   const timestamp = nowIso();
 
