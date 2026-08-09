@@ -361,12 +361,12 @@ function buildSalesSection(
 export function getBottleOilStockSalesReport(
   userId?: string | null,
 ): BottleOilStockSalesReport {
-  const settings = loadReportCompanySettings(userId);
+  const { asAtIso, period } = resolveReportAsAt();
+  const settings = loadReportCompanySettings(userId, asAtIso);
   const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
   const salesPoints = loadSalesPoints();
   const products = loadProducts();
 
-  const { asAtIso, period } = resolveReportAsAt();
   const balances = loadBottledStockBalances(asAtIso);
   const salesFromIso = `${period.financialYear}-01-01`;
   const salesToIso = asAtIso;

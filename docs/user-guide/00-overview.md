@@ -19,7 +19,7 @@ Staff who create invoices, validate delivery orders, post stock, or print weekly
 | **Stocks** | Balances, receipts, transfers, adjustments, opening stock |
 | **Delivery Order** | Delivery orders, validation queue, and opening (carry-forward) commitments |
 | **Sales** | Sales invoices (POS), including loading lines from a delivery order |
-| **Reports** | Daily sales, stock, commitment, bottle oil, weekly deliveries, monthly delivery, print pack |
+| **Reports** | Daily sales, stock, commitment, bottle oil, weekly deliveries, monthly delivery |
 | **Users & access** | Users and role permissions (admin) |
 | **Overview** | Home dashboard: monthly revenue trend, sales by category, and DO vs sales by month |
 

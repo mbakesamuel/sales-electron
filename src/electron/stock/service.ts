@@ -25,8 +25,10 @@ import {
   type TransferMode,
 } from "../../shared/stockTransferMode.js";
 import {
+  assertAction,
   assertRouteWrite,
   canAccessRoute,
+  canPerformAction,
   canWriteRoute,
 } from "../auth/permissions/service.js";
 import { getDatabase } from "../db/index.js";
@@ -44,6 +46,7 @@ import {
   allocateReceiptNo,
   allocateTransferNo,
 } from "./sequences.js";
+import { assertDateInOpenMonth } from "../financialYears/service.js";
 
 function nowIso(): string {
   return new Date().toISOString().slice(0, 19).replace("T", " ");
@@ -124,6 +127,18 @@ export function getStockBootstrap(userId: string): StockBootstrap {
   const canWriteReceipts = canWriteRoute(role, "stock-receipts");
   const canWriteTransfers = canWriteRoute(role, "stock-transfers");
   const canWriteAdjustments = canWriteRoute(role, "stock-adjustments");
+  const canDraftReceipts =
+    canWriteReceipts && canPerformAction(role, "draft_stock_receipts");
+  const canPostReceipts =
+    canWriteReceipts && canPerformAction(role, "post_stock_receipts");
+  const canDraftTransfers =
+    canWriteTransfers && canPerformAction(role, "draft_stock_transfers");
+  const canPostTransfers =
+    canWriteTransfers && canPerformAction(role, "post_stock_transfers");
+  const canDraftAdjustments =
+    canWriteAdjustments && canPerformAction(role, "draft_stock_adjustments");
+  const canPostAdjustments =
+    canWriteAdjustments && canPerformAction(role, "post_stock_adjustments");
 
   const salesPoints = db
     .prepare(`SELECT id, name FROM SalesPoint ORDER BY name ASC`)
@@ -170,16 +185,15 @@ export function getStockBootstrap(userId: string): StockBootstrap {
     });
 
   return {
-    canManageReceipts: canWriteReceipts,
-    canDispatchTransfers: canWriteTransfers,
-    canReceiveTransfers: canWriteTransfers,
-    canPostAdjustments: canWriteAdjustments,
-    canReclassifyStock: canWriteAdjustments,
-    canCancelDocuments:
-      canWriteReceipts || canWriteTransfers || canWriteAdjustments,
-    canDraftReceipts: canWriteReceipts,
-    canDraftTransfers: canWriteTransfers,
-    canDraftAdjustments: canWriteAdjustments,
+    canManageReceipts: canPostReceipts,
+    canDispatchTransfers: canPostTransfers,
+    canReceiveTransfers: canPostTransfers,
+    canPostAdjustments,
+    canReclassifyStock: canPostAdjustments,
+    canCancelDocuments: canPostReceipts || canPostTransfers || canPostAdjustments,
+    canDraftReceipts,
+    canDraftTransfers,
+    canDraftAdjustments,
     scopedSalesPointId,
     salesPoints,
     storageLocations,
@@ -707,6 +721,7 @@ export function saveReceipt(input: SaveReceiptInput): StockMutationResult {
   try {
     const actor = getActor(input.userId);
     assertStockWrite(actor.role, "stock-receipts");
+    assertAction(actor.role, "draft_stock_receipts");
     assertSalesPointScope(actor, input.salesPointId);
 
     if (!input.supplierLabel.trim()) {
@@ -717,7 +732,9 @@ export function saveReceipt(input: SaveReceiptInput): StockMutationResult {
     }
 
     const db = getDatabase();
-    const receivedAt = noonUtcIsoDate(normalizeIsoDateInput(input.receivedAt));
+    const receivedAtDate = normalizeIsoDateInput(input.receivedAt);
+    assertDateInOpenMonth(receivedAtDate);
+    const receivedAt = noonUtcIsoDate(receivedAtDate);
     const lines = input.lines.map((line) => {
       if (!isPositiveQty(line.qty)) {
         throw new Error("Each line quantity must be greater than zero.");
@@ -819,6 +836,7 @@ export function postReceipt(userId: string, receiptId: string): StockGenericResu
   try {
     const actor = getActor(userId);
     assertStockWrite(actor.role, "stock-receipts");
+    assertAction(actor.role, "post_stock_receipts");
     const db = getDatabase();
 
     const tx = db.transaction(() => {
@@ -879,6 +897,7 @@ export function saveTransfer(input: SaveTransferInput): StockMutationResult {
   try {
     const actor = getActor(input.userId);
     assertStockWrite(actor.role, "stock-transfers");
+    assertAction(actor.role, "draft_stock_transfers");
     assertSalesPointScope(actor, input.fromSalesPointId);
 
     const isIntra = isIntraSalesPointTransfer(
@@ -893,7 +912,9 @@ export function saveTransfer(input: SaveTransferInput): StockMutationResult {
     }
 
     const db = getDatabase();
-    const dispatchedAt = noonUtcIsoDate(normalizeIsoDateInput(input.dispatchedAt));
+    const dispatchedAtDate = normalizeIsoDateInput(input.dispatchedAt);
+    assertDateInOpenMonth(dispatchedAtDate);
+    const dispatchedAt = noonUtcIsoDate(dispatchedAtDate);
     const lines = input.lines.map((line) => {
       if (!isPositiveQty(line.qty)) {
         throw new Error("Each line quantity must be greater than zero.");
@@ -1042,6 +1063,7 @@ export function postInternalTransfer(userId: string, transferId: string): StockG
   try {
     const actor = getActor(userId);
     assertStockWrite(actor.role, "stock-transfers");
+    assertAction(actor.role, "post_stock_transfers");
     const db = getDatabase();
 
     const tx = db.transaction(() => {
@@ -1134,6 +1156,7 @@ export function dispatchTransfer(userId: string, transferId: string): StockGener
   try {
     const actor = getActor(userId);
     assertStockWrite(actor.role, "stock-transfers");
+    assertAction(actor.role, "post_stock_transfers");
     const db = getDatabase();
 
     const tx = db.transaction(() => {
@@ -1201,6 +1224,7 @@ export function receiveTransfer(input: ReceiveTransferInput): StockGenericResult
   try {
     const actor = getActor(input.userId);
     assertStockWrite(actor.role, "stock-transfers");
+    assertAction(actor.role, "post_stock_transfers");
     const db = getDatabase();
 
     const tx = db.transaction(() => {
@@ -1286,6 +1310,7 @@ export function saveAdjustment(input: SaveAdjustmentInput): StockMutationResult 
   try {
     const actor = getActor(input.userId);
     assertStockWrite(actor.role, "stock-adjustments");
+    assertAction(actor.role, "draft_stock_adjustments");
     assertSalesPointScope(actor, input.salesPointId);
 
     if (!input.reason.trim()) {
@@ -1296,7 +1321,9 @@ export function saveAdjustment(input: SaveAdjustmentInput): StockMutationResult 
     }
 
     const db = getDatabase();
-    const occurredAt = noonUtcIsoDate(normalizeIsoDateInput(input.occurredAt));
+    const occurredAtDate = normalizeIsoDateInput(input.occurredAt);
+    assertDateInOpenMonth(occurredAtDate);
+    const occurredAt = noonUtcIsoDate(occurredAtDate);
     const lines = input.lines.map((line) => {
       if (!isNonZeroQty(line.deltaQty)) {
         throw new Error("Each adjustment line must be non-zero.");
@@ -1402,6 +1429,7 @@ export function postAdjustment(userId: string, adjustmentId: string): StockGener
   try {
     const actor = getActor(userId);
     assertStockWrite(actor.role, "stock-adjustments");
+    assertAction(actor.role, "post_stock_adjustments");
     const db = getDatabase();
 
     const tx = db.transaction(() => {
@@ -1505,6 +1533,18 @@ function cancelStockDocument(
         : kind === "TRANSFER"
           ? "stock-transfers"
           : "stock-adjustments";
+    const draftAction =
+      kind === "RECEIPT"
+        ? "draft_stock_receipts"
+        : kind === "TRANSFER"
+          ? "draft_stock_transfers"
+          : "draft_stock_adjustments";
+    const postAction =
+      kind === "RECEIPT"
+        ? "post_stock_receipts"
+        : kind === "TRANSFER"
+          ? "post_stock_transfers"
+          : "post_stock_adjustments";
     assertStockWrite(actor.role, routeId);
     const db = getDatabase();
 
@@ -1518,12 +1558,14 @@ function cancelStockDocument(
         }
         assertSalesPointScope(actor, existing.salesPointId);
         if (existing.status === "DRAFT") {
+          assertAction(actor.role, draftAction);
           db.prepare(`DELETE FROM StockReceipt WHERE id = ?`).run(documentId);
           return;
         }
         if (existing.status === "CANCELLED") {
           return;
         }
+        assertAction(actor.role, postAction);
         reverseMovementsBySource(db, {
           sourceKind: "RECEIPT",
           sourceId: documentId,
@@ -1546,12 +1588,14 @@ function cancelStockDocument(
         }
         assertSalesPointScope(actor, existing.fromSalesPointId);
         if (existing.status === "DRAFT") {
+          assertAction(actor.role, draftAction);
           db.prepare(`DELETE FROM StockTransfer WHERE id = ?`).run(documentId);
           return;
         }
         if (existing.status === "CANCELLED") {
           return;
         }
+        assertAction(actor.role, postAction);
         reverseMovementsBySource(db, {
           sourceKind: "TRANSFER",
           sourceId: documentId,
@@ -1573,12 +1617,14 @@ function cancelStockDocument(
       }
       assertSalesPointScope(actor, existing.salesPointId);
       if (existing.status === "DRAFT") {
+        assertAction(actor.role, draftAction);
         db.prepare(`DELETE FROM StockAdjustment WHERE id = ?`).run(documentId);
         return;
       }
       if (existing.status === "CANCELLED") {
         return;
       }
+      assertAction(actor.role, postAction);
       reverseMovementsBySource(db, {
         sourceKind: "ADJUSTMENT",
         sourceId: documentId,

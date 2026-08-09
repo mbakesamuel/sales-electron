@@ -11,11 +11,13 @@ import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
 import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
+import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import "./StockCommitmentReport.css";
 import "./SalesBudgetCrosstab.css";
 
 interface SalesBudgetMonthlyCrosstabScreenProps {
   onNavigate?: (routeId: string) => void;
+  windowMode?: boolean;
 }
 
 function handlePrint(landscape = false): void {
@@ -99,6 +101,7 @@ function formatGeneratedAt(iso: string): string {
 
 export function SalesBudgetMonthlyCrosstabScreen({
   onNavigate,
+  windowMode = false,
 }: SalesBudgetMonthlyCrosstabScreenProps) {
   const [report, setReport] = useState<SalesBudgetMonthlyCrosstabReport | null>(null);
   const [reportYear, setReportYear] = useState<number | null>(null);
@@ -167,6 +170,11 @@ export function SalesBudgetMonthlyCrosstabScreen({
           <button type="button" class="scr-btn" onClick={() => handlePrint()}>
             Print
           </button>
+          {windowMode ? (
+            <ReportWindowSaveButton
+              fileName={`sales-budget-monthly-${report.reportYear}.pdf`}
+            />
+          ) : null}
           <button type="button" class="scr-btn" onClick={() => downloadCsv(report)}>
             Export CSV
           </button>
@@ -272,7 +280,7 @@ export function SalesBudgetMonthlyCrosstabScreen({
         )}
 
         <ReportCommentsSection comments={report.comments} />
-        <ReportFooter />
+        <ReportFooter name={report.settings.signatoryName} label={report.settings.signatoryTitle} />
       </div>
     </div>
   );

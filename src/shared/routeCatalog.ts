@@ -116,11 +116,6 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
     sectionId: "reports",
   },
   {
-    id: "weekly-print-pack",
-    label: "Weekly print pack",
-    sectionId: "reports",
-  },
-  {
     id: "monthly-delivery-report-h1",
     label: "Monthly delivery (Jan–Jun)",
     sectionId: "reports",
@@ -133,6 +128,16 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
   {
     id: "monthly-stock-reconciliation-report",
     label: "Monthly stock reconciliation",
+    sectionId: "reports",
+  },
+  {
+    id: "monthly-payment-delivery-report",
+    label: "Monthly Payment/Delivery",
+    sectionId: "reports",
+  },
+  {
+    id: "monthly-deliveries-by-destination-report",
+    label: "Deliveries by Destination",
     sectionId: "reports",
   },
   {

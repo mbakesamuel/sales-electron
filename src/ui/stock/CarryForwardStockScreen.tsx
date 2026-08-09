@@ -5,9 +5,12 @@ import type {
   CarryForwardStockFormOptions,
   CarryForwardStockRow,
 } from "../../shared/carryForwardStock.types.ts";
+import type { OpenPostingPeriod } from "../../shared/financialYears.types.ts";
 import type { AuthUser } from "../auth/session.ts";
 import { getElectronApi } from "../auth/client.ts";
+import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
+import { clampIsoDateToRange, formatDate, utcIsoDateToday } from "./stockUtils.ts";
 import "../components/FormDialog.css";
 import "../commitments/CarryForwardCommitmentsScreen.css";
 
@@ -30,7 +33,9 @@ export function CarryForwardStockScreen({
     canWriteRouteFromSnapshot(permissions, "carry-forward-stock") && !readOnly;
 
   const [rows, setRows] = useState<CarryForwardStockRow[]>([]);
-  const [options, setOptions] = useState<CarryForwardStockFormOptions | null>(null);
+  const [options, setOptions] = useState<CarryForwardStockFormOptions | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -40,11 +45,17 @@ export function CarryForwardStockScreen({
 
   const [batchSalesPointId, setBatchSalesPointId] = useState("");
   const [batchProductId, setBatchProductId] = useState("");
-  const [batchNotes, setBatchNotes] = useState("Carry-forward stock");
+  const [batchOccurredAt, setBatchOccurredAt] = useState(utcIsoDateToday());
+  const [batchNotes, setBatchNotes] = useState("Opening On-hand Balance");
   const [locationFilter, setLocationFilter] = useState("");
-  const [qtyByLocation, setQtyByLocation] = useState<Record<string, string>>({});
+  const [qtyByLocation, setQtyByLocation] = useState<Record<string, string>>(
+    {},
+  );
   const [onHandByLocation, setOnHandByLocation] = useState<Map<number, number>>(
     () => new Map(),
+  );
+  const [postingPeriod, setPostingPeriod] = useState<OpenPostingPeriod | null>(
+    null,
   );
 
   async function reload() {
@@ -72,6 +83,26 @@ export function CarryForwardStockScreen({
 
   useEffect(() => {
     void reload();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getAuthenticatedFinancialYears()
+      .getOpenPostingPeriod()
+      .then((period) => {
+        if (!cancelled) {
+          setPostingPeriod(period);
+          setBatchOccurredAt((current) => clampIsoDateToRange(current, period));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPostingPeriod(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const filtered = useMemo(() => {
@@ -136,10 +167,14 @@ export function CarryForwardStockScreen({
     }
   }
 
-  function openBatchEntry(prefill?: { salesPointId: number; productId: number }) {
+  function openBatchEntry(prefill?: {
+    salesPointId: number;
+    productId: number;
+  }) {
     setActionError(null);
     setLocationFilter("");
     setBatchNotes("Carry-forward stock");
+    setBatchOccurredAt(clampIsoDateToRange(utcIsoDateToday(), postingPeriod));
     const salesPointId = prefill ? String(prefill.salesPointId) : "";
     const productId = prefill ? String(prefill.productId) : "";
     setBatchSalesPointId(salesPointId);
@@ -188,6 +223,17 @@ export function CarryForwardStockScreen({
       return;
     }
 
+    if (!postingPeriod) {
+      setActionError("Open a financial month before posting carry-forward stock.");
+      return;
+    }
+
+    const occurredAt = clampIsoDateToRange(batchOccurredAt, postingPeriod);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(occurredAt)) {
+      setActionError("Select a valid date within the open financial month.");
+      return;
+    }
+
     setSaving(true);
     setActionError(null);
     try {
@@ -195,10 +241,11 @@ export function CarryForwardStockScreen({
         userId: user.id,
         salesPointId,
         productId,
+        occurredAt,
         notes: batchNotes.trim() || null,
         lines,
       });
-      if (!result.ok) {
+      if (result.ok === false) {
         setActionError(result.error);
         return;
       }
@@ -206,7 +253,9 @@ export function CarryForwardStockScreen({
       await reload();
     } catch (saveError) {
       setActionError(
-        saveError instanceof Error ? saveError.message : "Failed to save batch.",
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to save batch.",
       );
     } finally {
       setSaving(false);
@@ -217,11 +266,11 @@ export function CarryForwardStockScreen({
     <div class="cf-screen">
       <header class="cf-header">
         <div>
-          <h2 class="cf-title">Carry-forward stock</h2>
+          <h2 class="cf-title">Broughforward stock Entry</h2>
           <p class="cf-subtitle">
             Batch-set opening on-hand by sales point and product across storage
-            locations. Posts as carry-forward stock adjustments so balances and
-            reports update immediately.
+            locations. Posts as stock adjustments so balances and reports update
+            immediately.
           </p>
         </div>
         <div class="cf-header-actions">
@@ -239,7 +288,7 @@ export function CarryForwardStockScreen({
               class="cf-btn cf-btn-primary"
               onClick={() => openBatchEntry()}
             >
-              Batch entry
+              New Entry
             </button>
           ) : null}
         </div>
@@ -259,7 +308,9 @@ export function CarryForwardStockScreen({
           }
         />
         <span class="cf-count">
-          {loading ? "Loading…" : `${filtered.length} line${filtered.length === 1 ? "" : "s"}`}
+          {loading
+            ? "Loading…"
+            : `${filtered.length} line${filtered.length === 1 ? "" : "s"}`}
         </span>
       </div>
 
@@ -267,12 +318,12 @@ export function CarryForwardStockScreen({
         <table class="cf-table">
           <thead>
             <tr>
+              <th>Last CF adj.</th>
+              <th>Date</th>
               <th>Sales point</th>
               <th>Product</th>
               <th>Location</th>
               <th class="cf-num">On hand</th>
-              <th>Last CF adj.</th>
-              <th>Date</th>
               <th />
             </tr>
           </thead>
@@ -280,7 +331,8 @@ export function CarryForwardStockScreen({
             {filtered.length === 0 && !loading ? (
               <tr>
                 <td colSpan={7} class="cf-empty">
-                  No carry-forward stock yet. Use Batch entry to set opening on-hand.
+                  No carry-forward stock yet. Use Batch entry to set opening
+                  on-hand.
                 </td>
               </tr>
             ) : (
@@ -288,6 +340,8 @@ export function CarryForwardStockScreen({
                 <tr
                   key={`${row.salesPointId}-${row.productId}-${row.storageLocationId}`}
                 >
+                  <td>{row.lastAdjustmentNo ?? "—"}</td>
+                  <td>{formatDate(row.lastOccurredAt)}</td>
                   <td>{row.salesPointName}</td>
                   <td>
                     {row.productName}
@@ -295,8 +349,6 @@ export function CarryForwardStockScreen({
                   </td>
                   <td>{row.storageLocationName}</td>
                   <td class="cf-num">{formatQty(row.currentQty)}</td>
-                  <td>{row.lastAdjustmentNo ?? "—"}</td>
-                  <td>{row.lastOccurredAt ?? "—"}</td>
                   <td class="cf-actions">
                     {canWrite ? (
                       <button
@@ -323,7 +375,7 @@ export function CarryForwardStockScreen({
       {batchOpen ? (
         <FormDialog
           ariaLabel="Carry-forward stock batch entry"
-          title="Batch entry — carry-forward stock"
+          title="Batch Entry Form"
           subtitle="Pick sales point and product, then enter desired on-hand (SELLABLE) per storage location. Blank rows are skipped; unchanged quantities are not posted."
           wide
           onClose={() => {
@@ -338,7 +390,8 @@ export function CarryForwardStockScreen({
                   value={batchSalesPointId}
                   disabled={saving}
                   onChange={(event) => {
-                    const next = (event.currentTarget as HTMLSelectElement).value;
+                    const next = (event.currentTarget as HTMLSelectElement)
+                      .value;
                     onBatchScopeChange(next, batchProductId);
                   }}
                 >
@@ -356,7 +409,8 @@ export function CarryForwardStockScreen({
                   value={batchProductId}
                   disabled={saving}
                   onChange={(event) => {
-                    const next = (event.currentTarget as HTMLSelectElement).value;
+                    const next = (event.currentTarget as HTMLSelectElement)
+                      .value;
                     onBatchScopeChange(batchSalesPointId, next);
                   }}
                 >
@@ -368,6 +422,35 @@ export function CarryForwardStockScreen({
                   ))}
                 </select>
               </label>
+              <label class="cf-field">
+                <span>Date</span>
+                <input
+                  type="date"
+                  value={batchOccurredAt}
+                  min={postingPeriod?.startDate}
+                  max={postingPeriod?.endDate}
+                  disabled={saving || !postingPeriod}
+                  required
+                  onInput={(event) =>
+                    setBatchOccurredAt(
+                      clampIsoDateToRange(
+                        (event.currentTarget as HTMLInputElement).value,
+                        postingPeriod,
+                      ),
+                    )
+                  }
+                />
+                {!postingPeriod ? (
+                  <span class="cf-hint">
+                    Open a financial month to set the date.
+                  </span>
+                ) : (
+                  <span class="cf-hint">
+                    Open month: {postingPeriod.monthName}{" "}
+                    {postingPeriod.financialYear}
+                  </span>
+                )}
+              </label>
               <label class="cf-field cf-field-notes">
                 <span>Notes / reason</span>
                 <input
@@ -375,7 +458,9 @@ export function CarryForwardStockScreen({
                   value={batchNotes}
                   disabled={saving}
                   onInput={(event) =>
-                    setBatchNotes((event.currentTarget as HTMLInputElement).value)
+                    setBatchNotes(
+                      (event.currentTarget as HTMLInputElement).value,
+                    )
                   }
                 />
               </label>
@@ -389,7 +474,9 @@ export function CarryForwardStockScreen({
                 placeholder="Filter locations…"
                 disabled={saving || !batchSalesPointId || !batchProductId}
                 onInput={(event) =>
-                  setLocationFilter((event.currentTarget as HTMLInputElement).value)
+                  setLocationFilter(
+                    (event.currentTarget as HTMLInputElement).value,
+                  )
                 }
               />
               <span class="cf-count">
@@ -400,7 +487,9 @@ export function CarryForwardStockScreen({
             </div>
 
             {!batchSalesPointId || !batchProductId ? (
-              <p class="cf-hint">Select sales point and product to load the location grid.</p>
+              <p class="cf-hint">
+                Select sales point and product to load the location grid.
+              </p>
             ) : locationsForSalesPoint.length === 0 ? (
               <p class="cf-hint">No storage locations for this sales point.</p>
             ) : (
@@ -459,14 +548,17 @@ export function CarryForwardStockScreen({
 
             {actionError ? <p class="cf-error">{actionError}</p> : null}
 
-            <div class="form-dialog-actions" style="padding-left: 0; margin-top: 12px;">
+            <div
+              class="form-dialog-actions"
+              style="padding-left: 0; margin-top: 12px;"
+            >
               <button
                 type="button"
                 class="form-dialog-btn-primary"
                 disabled={saving || !batchSalesPointId || !batchProductId}
                 onClick={() => void saveBatch()}
               >
-                {saving ? "Posting…" : "Post carry-forward"}
+                {saving ? "Posting…" : "Post"}
               </button>
               <button
                 type="button"

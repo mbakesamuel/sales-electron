@@ -247,12 +247,12 @@ export function getWeeklyDeliveriesReport(
   userId?: string | null,
   weekMondayIso?: string | null,
 ): WeeklyDeliveriesReport {
-  const settings = loadReportCompanySettings(userId);
+  const { asAtIso, period } = resolveReportAsAt();
+  const settings = loadReportCompanySettings(userId, asAtIso);
   const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
   const salesPoints = loadSalesPoints();
   const products = loadProducts();
 
-  const { asAtIso, period } = resolveReportAsAt();
   const weekChoices = buildWeekChoices(period.startDate, period.endDate, asAtIso);
   const selected =
     resolveSelectedWeek(weekChoices, asAtIso, weekMondayIso) ??

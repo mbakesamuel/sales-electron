@@ -260,13 +260,6 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         table: "Sale",
         description: "Weekly sales and deliveries by customer category.",
       },
-      {
-        id: "weekly-print-pack",
-        label: "Weekly print pack",
-        table: "StockBalance",
-        description:
-          "Select weekly management reports and print them as one stack.",
-      },
     ];
     const monthlyRoutes: SchemaRoute[] = [
       {
@@ -287,6 +280,20 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         table: "StockBalance",
         description:
           "Open-month LPO opening/reception/issues reconciliation with BPO and palm-kernel rows.",
+      },
+      {
+        id: "monthly-payment-delivery-report",
+        label: "Monthly Payment/Delivery",
+        table: "Sale",
+        description:
+          "Open-month weekly bottled (Payments) vs other-product (Deliveries) sales kg and value.",
+      },
+      {
+        id: "monthly-deliveries-by-destination-report",
+        label: "Deliveries by Destination",
+        table: "Sale",
+        description:
+          "Open-month weekly non-bottled deliveries (kg) by customer-type destination.",
       },
     ];
     const groups: SchemaRouteGroup[] = [

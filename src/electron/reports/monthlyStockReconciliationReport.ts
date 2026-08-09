@@ -291,6 +291,49 @@ function sumSellableLpoBySalesPoint(
   return values;
 }
 
+/**
+ * One-time opening backlog posted via Opening Stock balances (CARRY_FORWARD)
+ * during the open month. Dated inside the month, so it is not in day-before as-of;
+ * add it into the reconciliation opening row.
+ */
+function sumCarryForwardLpoInRange(
+  salesPoints: SalesPointRow[],
+  products: ProductRow[],
+  fromIso: string,
+  toIso: string,
+): Record<string, number | null> {
+  const lpoProductIds = new Set(
+    products.filter((product) => isLooseLpo(product)).map((product) => product.productId),
+  );
+  const values = zeroValues(salesPoints);
+  const rows = getDatabase()
+    .prepare(
+      `SELECT a.salesPointId, l.productId, l.deltaQty
+       FROM StockAdjustment a
+       INNER JOIN StockAdjustmentLine l ON l.adjustmentId = a.id
+       WHERE a.sourceKind = 'CARRY_FORWARD'
+         AND a.status = 'POSTED'
+         AND substr(a.occurredAt, 1, 10) >= ?
+         AND substr(a.occurredAt, 1, 10) <= ?`,
+    )
+    .all(fromIso, toIso) as Array<{
+    salesPointId: number;
+    productId: number;
+    deltaQty: string;
+  }>;
+
+  for (const row of rows) {
+    if (!lpoProductIds.has(row.productId)) {
+      continue;
+    }
+    const key = spKey(row.salesPointId);
+    if (key in values) {
+      values[key] = (values[key] ?? 0) + parseQty(row.deltaQty);
+    }
+  }
+  return values;
+}
+
 function bottledUnitsToKg(units: number, product: ProductRow): number {
   return units * detectBottledPack(product).litresPerUnit * PALM_OIL_KG_PER_LITRE;
 }
@@ -434,11 +477,11 @@ function buildOtherRows(
 export function getMonthlyStockReconciliationReport(
   userId?: string | null,
 ): MonthlyStockReconciliationReport {
-  const settings = loadReportCompanySettings(userId);
+  const { asAtIso, period } = resolveReportAsAt();
+  const settings = loadReportCompanySettings(userId, asAtIso);
   const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
   const salesPoints = loadSalesPoints();
   const products = loadProducts();
-  const { asAtIso, period } = resolveReportAsAt();
   const monthStartIso = period.startDate;
   const openingAsOfIso = dayBeforeIso(monthStartIso);
   const monthLabel = `${period.monthName} ${period.financialYear}`.toUpperCase();
@@ -447,7 +490,22 @@ export function getMonthlyStockReconciliationReport(
   const saleLines = loadSaleLines(monthStartIso, asAtIso);
   const receiptLines = loadReceiptLines(monthStartIso, asAtIso);
 
-  const openingValues = sumSellableLpoBySalesPoint(salesPoints, products, openingAsOfIso);
+  const priorOpeningValues = sumSellableLpoBySalesPoint(
+    salesPoints,
+    products,
+    openingAsOfIso,
+  );
+  const carryForwardOpeningValues = sumCarryForwardLpoInRange(
+    salesPoints,
+    products,
+    monthStartIso,
+    asAtIso,
+  );
+  const openingValues = addVectors(
+    salesPoints,
+    priorOpeningValues,
+    carryForwardOpeningValues,
+  );
   const openingRow = makeRow(
     `OPENING STOCK AS AT ${formatDisplayDate(monthStartIso)}`,
     "data",

@@ -98,6 +98,10 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("reports:getMonthlyDelivery", half, authToken),
     getMonthlyStockReconciliation: (authToken) =>
       ipcRenderer.invoke("reports:getMonthlyStockReconciliation", authToken),
+    getMonthlyPaymentDelivery: (authToken) =>
+      ipcRenderer.invoke("reports:getMonthlyPaymentDelivery", authToken),
+    getMonthlyDeliveriesByDestination: (authToken) =>
+      ipcRenderer.invoke("reports:getMonthlyDeliveriesByDestination", authToken),
     getSalesBudgetMonthlyCrosstab: (authToken, reportYear) =>
       ipcRenderer.invoke("reports:getSalesBudgetMonthlyCrosstab", authToken, reportYear),
     getSalesBudgetWeeklyCrosstab: (authToken, reportYear) =>
@@ -106,6 +110,14 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("reports:getDailySales", authToken, reportDateIso, salesPointId),
     saveReportComments: (authToken, input) =>
       ipcRenderer.invoke("reports:saveReportComments", authToken, input),
+    listSignatories: (authToken) =>
+      ipcRenderer.invoke("reports:listSignatories", authToken),
+    getSignatory: (authToken, asAtIso) =>
+      ipcRenderer.invoke("reports:getSignatory", authToken, asAtIso),
+    upsertSignatory: (authToken, input) =>
+      ipcRenderer.invoke("reports:upsertSignatory", authToken, input),
+    deleteSignatory: (authToken, id) =>
+      ipcRenderer.invoke("reports:deleteSignatory", authToken, id),
   },
   dashboard: {
     getSummary: (authToken) =>
@@ -166,5 +178,31 @@ contextBridge.exposeInMainWorld("api", {
   print: {
     exportPdf: (defaultFileName) =>
       ipcRenderer.invoke("print:exportPdf", defaultFileName),
+  },
+  windows: {
+    openReport: (authToken, reportId) =>
+      ipcRenderer.invoke("windows:openReport", authToken, reportId),
+    onReportClosed: (callback) => {
+      const listener = (_event, payload) => {
+        callback(payload);
+      };
+      ipcRenderer.on("report-window:closed", listener);
+      return () => {
+        ipcRenderer.removeListener("report-window:closed", listener);
+      };
+    },
+  },
+  reportWindow: {
+    getBootstrap: (reportId) =>
+      ipcRenderer.invoke("report-window:getBootstrap", reportId),
+    onBootstrap: (callback) => {
+      const listener = (_event, payload) => {
+        callback(payload);
+      };
+      ipcRenderer.on("report-window:bootstrap", listener);
+      return () => {
+        ipcRenderer.removeListener("report-window:bootstrap", listener);
+      };
+    },
   },
 });

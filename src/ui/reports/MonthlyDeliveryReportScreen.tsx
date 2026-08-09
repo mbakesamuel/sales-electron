@@ -9,12 +9,14 @@ import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
 import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
+import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import "./StockCommitmentReport.css";
 import "./MonthlyDeliveryReport.css";
 
 
 interface MonthlyDeliveryReportScreenProps {
   half: 1 | 2;
+  windowMode?: boolean;
 }
 
 function formatTons(value: number): string {
@@ -353,7 +355,10 @@ function BudgetTable({
   );
 }
 
-export function MonthlyDeliveryReportScreen({ half }: MonthlyDeliveryReportScreenProps) {
+export function MonthlyDeliveryReportScreen({
+  half,
+  windowMode = false,
+}: MonthlyDeliveryReportScreenProps) {
   const [report, setReport] = useState<MonthlyDeliveryReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -406,6 +411,11 @@ export function MonthlyDeliveryReportScreen({ half }: MonthlyDeliveryReportScree
         <button type="button" class="scr-btn" onClick={handlePrint}>
           Print
         </button>
+        {windowMode ? (
+          <ReportWindowSaveButton
+            fileName={`monthly-delivery-h${half}-${report.asAtIso}.pdf`}
+          />
+        ) : null}
         <button
           type="button"
           class="scr-btn scr-btn-secondary"
@@ -541,16 +551,24 @@ export function MonthlyDeliveryReportScreen({ half }: MonthlyDeliveryReportScree
           half-scoped (Jan–Jun or Jul–Dec).
         </p>
         <ReportCommentsSection comments={report.comments} />
-        <ReportFooter />
+        <ReportFooter name={report.settings.signatoryName} label={report.settings.signatoryTitle} />
       </div>
     </div>
   );
 }
 
-export function MonthlyDeliveryReportH1Screen() {
-  return <MonthlyDeliveryReportScreen half={1} />;
+export function MonthlyDeliveryReportH1Screen({
+  windowMode,
+}: {
+  windowMode?: boolean;
+}) {
+  return <MonthlyDeliveryReportScreen half={1} windowMode={windowMode} />;
 }
 
-export function MonthlyDeliveryReportH2Screen() {
-  return <MonthlyDeliveryReportScreen half={2} />;
+export function MonthlyDeliveryReportH2Screen({
+  windowMode,
+}: {
+  windowMode?: boolean;
+}) {
+  return <MonthlyDeliveryReportScreen half={2} windowMode={windowMode} />;
 }

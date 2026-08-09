@@ -28,10 +28,16 @@ Defaults: [`src/electron/auth/permissions/defaults.ts`](../../src/electron/auth/
 | `validate_delivery_orders` | Validate DOs (including Validation queue bulk validate) |
 | `cancel_validated_delivery_order` | Cancel validated DO |
 | `manage_permissions` | Edit matrix |
+| `draft_stock_receipts` | Create / edit / delete draft receipts |
+| `post_stock_receipts` | Post receipts and cancel posted receipts |
+| `draft_stock_transfers` | Create / edit / delete draft transfers |
+| `post_stock_transfers` | Dispatch, post location moves, receive, cancel posted transfers |
+| `draft_stock_adjustments` | Create / edit / delete draft adjustments |
+| `post_stock_adjustments` | Post adjustments (including reclassify) and cancel posted adjustments |
 
 UI screens check route access for navigation; mutation handlers should also enforce actions where relevant. New report routes (e.g. `daily-sales-report`) need route-permission seeds so roles can open them.
 
-Stock create/edit/post/cancel on the Receipts, Transfers, and Adjustments tabs is driven by route **write** on `stock-receipts`, `stock-transfers`, and `stock-adjustments` (see `getStockBootstrap` in [`src/electron/stock/service.ts`](../../src/electron/stock/service.ts)), not by role name.
+Stock document buttons require route **write** on `stock-receipts` / `stock-transfers` / `stock-adjustments` **and** the matching draft or post action (see `getStockBootstrap` in [`src/electron/stock/service.ts`](../../src/electron/stock/service.ts)).
 
 ## Role permissions UI
 

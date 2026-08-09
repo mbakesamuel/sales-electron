@@ -1,8 +1,8 @@
 # Reports
 
-Sidebar section: **Reports**, grouped as **Daily**, **Weekly**, and **Monthly**. Most reports use company header settings and an **as-at** date of the earlier of **today** and the **open financial month’s end** (so reopening January prints as at 31 Jan). Stock quantities on stock / stock-commitment / bottle-oil stock sections are rebuilt from movements through that as-at date. **Commitment** outstanding (Commitment report and stock-commitment commitment column) uses validated DOs and linked sales with `dateIssued` on or before as-at — not today’s live Pick DO balances. Several support **Comments** (toolbar) — company-wide text shown above the footer when non-empty.
+Sidebar section: **Reports**, grouped as **Daily**, **Weekly**, and **Monthly**. Printable report screens open in a **separate window** with **Print** and **Save** (PDF); the main app shows a short placeholder with **Reopen**. Most reports use company header settings and an **as-at** date of the earlier of **today** and the **open financial month’s end** (so reopening January prints as at 31 Jan). Stock quantities on stock / stock-commitment / bottle-oil stock sections are rebuilt from movements through that as-at date. **Commitment** outstanding (Commitment report and stock-commitment commitment column) uses validated DOs and linked sales with `dateIssued` on or before as-at — not today’s live Pick DO balances. Several support **Comments** (toolbar) — company-wide text shown above the footer when non-empty.
 
-**Report settings** (General Parameters) can hide zero/empty rows across stock and delivery-style reports.
+**Report settings** (General Parameters) can hide zero/empty rows across stock and delivery-style reports. The same screen manages the **report signatory** history (name + title + effective-from date). Printed footers use the latest entry whose effective date is on or before the report’s as-at date.
 
 ## Report catalog
 
@@ -22,7 +22,6 @@ Sidebar section: **Reports**, grouped as **Daily**, **Weekly**, and **Monthly**.
 | **Bottle oil stock & sales** | Bottled stock matrix and sales by pack. |
 | **Bottled Sales Report** | Bottled issues for a chosen week in the open month (Mon–Fri detail; estimate basis options). |
 | **Sales/delivery report** | Weekly loose + bottled + other/PKO deliveries (week picker). |
-| **Weekly print pack** | Multi-report print bundle (order selectable); shared week picker for Sales/delivery and Bottled Sales Report; also includes **Sales budget (weekly)**. |
 
 ### Monthly
 
@@ -30,7 +29,9 @@ Sidebar section: **Reports**, grouped as **Daily**, **Weekly**, and **Monthly**.
 |--------|---------|
 | **Monthly delivery (Jan–Jun)** | Half-year delivery report H1. |
 | **Monthly delivery (Jul–Dec)** | Half-year delivery report H2. |
-| **Monthly stock reconciliation** | Open-month LPO opening / reception / issues / calculated stock (physical & variance blank in v1), plus BPO and palm-kernel rows by sales point. |
+| **Monthly stock reconciliation** | Open-month LPO opening (prior balance + **Opening Stock / carry-forward** backlog) / reception / issues / calculated stock (physical & variance blank in v1), plus BPO and palm-kernel rows by sales point. |
+| **Monthly Payment/Delivery** | Open-month weekly breakdown: **Payments** = bottled oil kg + value; **Deliveries** = other products kg + value (sales without taxes). |
+| **Deliveries by Destination** | Open-month weekly non-bottled deliveries (kg) by destination: Industries, Wholesales, Retail, CDC Workers, Makoko Farms. |
 | Budget monthly/weekly crosstabs | See [Sales budgets](07-sales-budgets.md). |
 
 ## Daily sales report
@@ -57,10 +58,21 @@ If a PKO sale is “missing”, open the correct week and scroll to section 3 �
 - Month / YTD / prior-month comparison blocks still use the report **as-at** date.
 - **Week ESTM** basis (working days vs ISO week) affects the budget estimate share only.
 
-## Weekly print pack
+## Monthly Payment/Delivery
 
-- Shared week buttons apply to **Sales/delivery** and **Bottled Sales Report** in the pack; other reports stay as-at / period based.
-- Selectable pack also includes **Sales budget (weekly)** alongside the delivery-style reports.
+- Open financial month only (through report as-at).
+- One row per calendar week (Mon–Sun clipped to the month).
+- **Payments** = validated bottled-oil sales (kg + line net FCFA).
+- **Deliveries** = validated sales of all other (non-bottled) products (kg + line net FCFA).
+- Banner: sales without taxes; TOTAL row; print / CSV / comments.
+
+## Deliveries by Destination
+
+- Open financial month only (through report as-at).
+- One row per calendar week (Mon–Sun clipped to the month).
+- Validated **non-bottled** sales only (kg).
+- Columns: Industries, Wholesales, Retail, CDC Workers, Makoko Farms, Total — matched from customer type (and ration disposition → CDC Workers).
+- Footer: column totals and **TOTAL %** of the grand total; print / CSV / comments.
 
 ## Report comments
 
@@ -68,6 +80,6 @@ Each report route can store its own comments (shared for the company). Empty com
 
 ## Print
 
-Use **Print** on each screen (or the weekly print pack). Print CSS hides toolbars (`no-print`) and formats tables for paper.
+Use **Print** on each screen. Print CSS hides toolbars (`no-print`) and formats tables for paper.
 
 Next: [Users and permissions](09-users-permissions.md). Technical notes: [Reports engine](../developer-guide/06-reports-engine.md).

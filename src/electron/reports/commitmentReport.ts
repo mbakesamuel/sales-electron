@@ -162,9 +162,9 @@ function buildSection(
 }
 
 export function getCommitmentReport(userId?: string | null): CommitmentReport {
-  const settings = loadReportCompanySettings(userId);
-  const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
   const { asAtIso } = resolveReportAsAt();
+  const settings = loadReportCompanySettings(userId, asAtIso);
+  const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
   const salesPoints = loadSalesPoints();
   const categories = loadCategories();
   const products = loadProducts();

@@ -470,9 +470,9 @@ function buildSalesPointQtySection(
 }
 
 export function getStockReport(userId?: string | null): StockReport {
-  const settings = loadReportCompanySettings(userId);
-  const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
   const { asAtIso } = resolveReportAsAt();
+  const settings = loadReportCompanySettings(userId, asAtIso);
+  const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
   const salesPoints = loadSalesPoints();
   const storageLocations = loadStorageLocations();
   const products = loadProducts();

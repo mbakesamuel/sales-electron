@@ -24,6 +24,8 @@ Core ideas:
 | **Transfer** | Move between storage locations. |
 | **Adjustment** | Manual correction (including carry-forward stock postings tagged as such). |
 
+**Storage location rules:** Bottled products may share a location with other bottled products. Non-bottled (bulk) products may occupy a location with only **one** product at a time. Bottled and bulk stock must **not** share a location. Receipts, transfers in, adjustments, and opening stock that would break these rules are blocked until the conflicting stock is cleared.
+
 All posting dates must fall in the **open financial month**.
 
 ## Opening stock balances (carry-forward stock)
@@ -34,11 +36,12 @@ Enter opening / carried-forward on-hand quantities by **sales point** and **stor
 
 These post as stock adjustments with a carry-forward source kind so movements and reports can distinguish them from ordinary adjustments.
 
-**Dating:** Carry-forward stock only counts from its posting date on period-faithful stock reports. For a January report to show opening stock, post CF dated on or before January’s month end (not with a later month’s date).
+**Dating:** Choose a date in the batch form (must fall in the **open financial month**). That date becomes the adjustment / movement `occurredAt`. On the **Stock report** it counts from that date. On **Monthly stock reconciliation**, posted carry-forward LPO qty in the open month is included in **Opening stock** (one-time backlog), not under Reception.
 
 ## Practical tips
 
 - Sellable storage locations must exist for the sales point used on invoices.
+- Do not mix bulk products in one location (e.g. LPO and PKO in one pit tank), and do not mix bottled oil with bulk in the same location; clear the conflicting stock first. Multiple bottled products in one location are allowed.
 - After large opening-stock entry, refresh **Stock report** / **Stock summary** to verify (stock report qty is reconstructed as of the report as-at date from movements).
 - Hide-zero report settings can hide empty locations; turn that off in **Report settings** if you need to see zeros.
 

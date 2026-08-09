@@ -35,6 +35,27 @@ export function signedDeltaForKind(kind: StockMovementKind, qty: string): number
   }
 }
 
+const QTY_EPS = 0.000001;
+
+function productLabel(db: Database.Database, productId: number): string {
+  const row = db
+    .prepare(`SELECT productName FROM Product WHERE productId = ?`)
+    .get(productId) as { productName: string } | undefined;
+  return row?.productName?.trim() || `product ${productId}`;
+}
+
+function storageLocationLabel(db: Database.Database, storageLocationId: number): string {
+  const row = db
+    .prepare(
+      `SELECT l.locationName AS name
+       FROM StorageLocation sl
+       INNER JOIN Location l ON l.id = sl.locationId
+       WHERE sl.id = ?`,
+    )
+    .get(storageLocationId) as { name: string } | undefined;
+  return row?.name?.trim() || `location ${storageLocationId}`;
+}
+
 function getBalanceQty(
   db: Database.Database,
   salesPointId: number,
@@ -50,6 +71,89 @@ function getBalanceQty(
     .get(salesPointId, productId, storageLocationId, condition) as { qty: string } | undefined;
 
   return row ? parseQty(row.qty) : 0;
+}
+
+/**
+ * Storage location occupancy rules (non-zero on-hand, any condition):
+ * - Bottled products may share a location with other bottled products.
+ * - Non-bottled (bulk) products: at most one product per location.
+ * - Bottled and non-bottled stock must never share a location.
+ */
+function assertStorageLocationProductRules(
+  db: Database.Database,
+  salesPointId: number,
+  storageLocationId: number,
+  productId: number,
+): void {
+  const incoming = db
+    .prepare(
+      `SELECT p.productName, COALESCE(pc.isBottled, 0) AS isBottled
+       FROM Product p
+       LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
+       WHERE p.productId = ?`,
+    )
+    .get(productId) as { productName: string; isBottled: number } | undefined;
+  const incomingName = incoming?.productName ?? `product #${productId}`;
+  const incomingBottled = (incoming?.isBottled ?? 0) === 1;
+
+  const others = db
+    .prepare(
+      `SELECT sb.productId, p.productName, loc.locationName, sb.qty,
+              COALESCE(pc.isBottled, 0) AS isBottled
+       FROM StockBalance sb
+       INNER JOIN Product p ON p.productId = sb.productId
+       LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
+       INNER JOIN StorageLocation sl ON sl.id = sb.storageLocationId
+       INNER JOIN Location loc ON loc.id = sl.locationId
+       WHERE sb.salesPointId = ?
+         AND sb.storageLocationId = ?
+         AND sb.productId != ?`,
+    )
+    .all(salesPointId, storageLocationId, productId) as Array<{
+    productId: number;
+    productName: string;
+    locationName: string;
+    qty: string;
+    isBottled: number;
+  }>;
+
+  const occupied = others.filter((row) => Math.abs(parseQty(row.qty)) > QTY_EPS);
+  if (occupied.length === 0) {
+    return;
+  }
+
+  const locationName = occupied[0].locationName;
+  const kindMismatch = occupied.find(
+    (row) => ((row.isBottled === 1) !== incomingBottled),
+  );
+  if (kindMismatch) {
+    if (incomingBottled) {
+      throw new Error(
+        `"${locationName}" already holds bulk stock (${kindMismatch.productName}). ` +
+          `Clear that stock before storing bottled product ${incomingName} in the same location.`,
+      );
+    }
+    throw new Error(
+      `"${locationName}" already holds bottled stock (${kindMismatch.productName}). ` +
+        `Clear that stock before storing bulk product ${incomingName} in the same location.`,
+    );
+  }
+
+  // Bottled products may co-mingle with other bottled products.
+  if (incomingBottled) {
+    return;
+  }
+
+  // Non-bottled: at most one product with non-zero on-hand.
+  const bulkOther = occupied.find((row) => row.isBottled !== 1);
+  if (!bulkOther) {
+    return;
+  }
+
+  throw new Error(
+    `"${locationName}" already holds ${bulkOther.productName}. ` +
+      `Clear that stock before storing ${incomingName} in the same location.`,
+  );
 }
 
 function upsertBalance(
@@ -95,9 +199,19 @@ export function applyMovement(db: Database.Database, input: ApplyMovementInput):
   );
   const next = current + signedDelta;
 
-  if (next < -0.000001) {
+  if (next < -QTY_EPS) {
     throw new InsufficientStockError(
-      `Insufficient stock for product ${input.productId} at location ${input.storageLocationId}.`,
+      `Insufficient stock for ${productLabel(db, input.productId)} at ${storageLocationLabel(db, input.storageLocationId)}.`,
+    );
+  }
+
+  // Incoming stock into a location that already holds incompatible stock.
+  if (signedDelta > QTY_EPS && next > QTY_EPS) {
+    assertStorageLocationProductRules(
+      db,
+      input.salesPointId,
+      input.storageLocationId,
+      input.productId,
     );
   }
 
@@ -215,7 +329,7 @@ export function assertTransferLinesAvailableAtSource(
     );
     if (available + 0.000001 < parseQty(line.qty)) {
       throw new InsufficientStockError(
-        `Insufficient stock for product ${line.productId} at the selected source location.`,
+        `Insufficient stock for ${productLabel(db, line.productId)} at the selected source location.`,
       );
     }
   }

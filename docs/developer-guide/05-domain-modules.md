@@ -69,6 +69,8 @@ One validated `CARRY_FORWARD` DO per customer + sales point; lines upserted per 
 | IPC | `src/electron/ipc/stock.ts`, `carryForwardStock.ts` |
 | UI | stock screens under `src/ui/` (stock hub, CF stock) |
 
+`applyMovement` in `post.ts` enforces storage location occupancy: bottled products may co-mingle; non-bottled products are one SKU per location; bottled and bulk stock cannot share a location (non-zero on-hand).
+
 ## Pricing and tax
 
 | Piece | Path |

@@ -28,6 +28,10 @@ export function getAuthenticatedReports() {
       api.getMonthlyDelivery(half, requireAuthToken()),
     getMonthlyStockReconciliation: () =>
       api.getMonthlyStockReconciliation(requireAuthToken()),
+    getMonthlyPaymentDelivery: () =>
+      api.getMonthlyPaymentDelivery(requireAuthToken()),
+    getMonthlyDeliveriesByDestination: () =>
+      api.getMonthlyDeliveriesByDestination(requireAuthToken()),
     getSalesBudgetMonthlyCrosstab: (reportYear?: number) =>
       api.getSalesBudgetMonthlyCrosstab(requireAuthToken(), reportYear),
     getSalesBudgetWeeklyCrosstab: (reportYear?: number) =>
@@ -36,5 +40,16 @@ export function getAuthenticatedReports() {
       api.getDailySales(requireAuthToken(), reportDateIso, salesPointId ?? null),
     saveReportComments: (input: { reportId: string; text: string | null }) =>
       api.saveReportComments(requireAuthToken(), input),
+    listSignatories: () => api.listSignatories(requireAuthToken()),
+    getSignatory: (asAtIso?: string | null) =>
+      api.getSignatory(requireAuthToken(), asAtIso ?? null),
+    upsertSignatory: (input: {
+      id?: string | null;
+      name: string;
+      title: string;
+      effectiveFrom: string;
+    }) => api.upsertSignatory(requireAuthToken(), input),
+    deleteSignatory: (id: string) =>
+      api.deleteSignatory(requireAuthToken(), id),
   };
 }

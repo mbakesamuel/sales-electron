@@ -11,6 +11,7 @@ import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
 import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
+import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import "./StockCommitmentReport.css";
 import "./SalesBudgetCrosstab.css";
 
@@ -221,12 +222,16 @@ export function WeeklyDeliveriesReportDocument({
       <BottledSection section={report.bottledSection} />
       <MiscSection section={report.miscSection} />
       <ReportCommentsSection comments={report.comments} />
-      <ReportFooter />
+      <ReportFooter name={report.settings.signatoryName} label={report.settings.signatoryTitle} />
     </div>
   );
 }
 
-export function WeeklyDeliveriesReportScreen() {
+export function WeeklyDeliveriesReportScreen({
+  windowMode = false,
+}: {
+  windowMode?: boolean;
+}) {
   const [report, setReport] = useState<WeeklyDeliveriesReport | null>(null);
   const [weekMondayIso, setWeekMondayIso] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
@@ -304,6 +309,9 @@ export function WeeklyDeliveriesReportScreen() {
           <button type="button" class="scr-btn" onClick={handlePrint}>
             Print
           </button>
+          {windowMode ? (
+            <ReportWindowSaveButton fileName={`weekly-deliveries-${report.weekToIso}.pdf`} />
+          ) : null}
           <button
             type="button"
             class="scr-btn scr-btn-secondary"

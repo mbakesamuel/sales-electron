@@ -11,6 +11,7 @@ import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
 import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
+import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import "./StockCommitmentReport.css";
 
 
@@ -306,12 +307,16 @@ export function BottleOilStockSalesReportDocument({
       <StockSection section={report.stockSection} />
       <SalesSection section={report.salesSection} />
       <ReportCommentsSection comments={report.comments} />
-      <ReportFooter />
+      <ReportFooter name={report.settings.signatoryName} label={report.settings.signatoryTitle} />
     </div>
   );
 }
 
-export function BottleOilStockSalesReportScreen() {
+export function BottleOilStockSalesReportScreen({
+  windowMode = false,
+}: {
+  windowMode?: boolean;
+}) {
   const [report, setReport] = useState<BottleOilStockSalesReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -368,6 +373,11 @@ export function BottleOilStockSalesReportScreen() {
         <button type="button" class="scr-btn" onClick={handlePrint}>
           Print
         </button>
+        {windowMode ? (
+          <ReportWindowSaveButton
+            fileName={`bottle-oil-stock-sales-${report.asAtIso ?? new Date().toISOString().slice(0, 10)}.pdf`}
+          />
+        ) : null}
         <button
           type="button"
           class="scr-btn scr-btn-secondary"

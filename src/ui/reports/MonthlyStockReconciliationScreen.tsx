@@ -8,6 +8,7 @@ import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
 import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
+import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import "./StockCommitmentReport.css";
 import "./MonthlyStockReconciliationReport.css";
 
@@ -206,12 +207,16 @@ export function MonthlyStockReconciliationDocument({
       <ReportMatrix report={report} />
 
       <ReportCommentsSection comments={report.comments} />
-      <ReportFooter />
+      <ReportFooter name={report.settings.signatoryName} label={report.settings.signatoryTitle} />
     </div>
   );
 }
 
-export function MonthlyStockReconciliationScreen() {
+export function MonthlyStockReconciliationScreen({
+  windowMode = false,
+}: {
+  windowMode?: boolean;
+}) {
   const [report, setReport] = useState<MonthlyStockReconciliationReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -264,6 +269,11 @@ export function MonthlyStockReconciliationScreen() {
         <button type="button" class="scr-btn" onClick={handlePrint}>
           Print
         </button>
+        {windowMode ? (
+          <ReportWindowSaveButton
+            fileName={`monthly-stock-reconciliation-${report.asAtIso}.pdf`}
+          />
+        ) : null}
         <button
           type="button"
           class="scr-btn scr-btn-secondary"

@@ -51,4 +51,4 @@ Cross-cutting TypeScript types live under `src/shared/` (routes, permissions, re
 
 - Business rules and SQL belong in `src/electron/**` services.
 - UI calls authenticated wrappers (e.g. `getAuthenticatedReports()`) that attach the session token.
-- Reports are pure builders: load settings + query DB → typed payload → Preact document component for screen/print pack.
+- Reports are pure builders: load settings + query DB → typed payload → Preact document component for screen/print.

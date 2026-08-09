@@ -10,6 +10,7 @@ import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
 import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
+import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import "./StockCommitmentReport.css";
 
 
@@ -234,12 +235,16 @@ export function StockCommitmentReportDocument({
       {report.bottledSection ? <BottledSection section={report.bottledSection} /> : null}
 
       <ReportCommentsSection comments={report.comments} />
-      <ReportFooter />
+      <ReportFooter name={report.settings.signatoryName} label={report.settings.signatoryTitle} />
     </div>
   );
 }
 
-export function StockCommitmentReportScreen() {
+export function StockCommitmentReportScreen({
+  windowMode = false,
+}: {
+  windowMode?: boolean;
+}) {
   const [report, setReport] = useState<StockCommitmentReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -296,6 +301,9 @@ export function StockCommitmentReportScreen() {
         <button type="button" class="scr-btn" onClick={handlePrint}>
           Print
         </button>
+        {windowMode ? (
+          <ReportWindowSaveButton fileName={`stock-commitment-${report.asAtIso}.pdf`} />
+        ) : null}
         <button type="button" class="scr-btn scr-btn-secondary" onClick={() => downloadCsv(report)}>
           Export CSV
         </button>

@@ -290,9 +290,9 @@ function buildBottledSection(
 export function getStockCommitmentReport(
   userId?: string | null,
 ): StockCommitmentReport {
-  const settings = loadReportCompanySettings(userId);
-  const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
   const { asAtIso } = resolveReportAsAt();
+  const settings = loadReportCompanySettings(userId, asAtIso);
+  const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
   const salesPoints = loadSalesPoints();
   const categories = loadCategories();
   const products = loadProducts();

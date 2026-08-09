@@ -7,6 +7,9 @@ import type {
   StockReport,
   MonthlyDeliveryReport,
   MonthlyStockReconciliationReport,
+  MonthlyPaymentDeliveryReport,
+  MonthlyDeliveriesByDestinationReport,
+  ReportSignatoryRow,
   SalesBudgetMonthlyCrosstabReport,
   SalesBudgetWeeklyCrosstabReport,
   WeeklyDeliveriesReport,
@@ -15,6 +18,8 @@ import type {
 import { requireAuthUser } from "../auth/requireUser.js";
 import { getMonthlyDeliveryReport } from "../reports/monthlyDeliveryReport.js";
 import { getMonthlyStockReconciliationReport } from "../reports/monthlyStockReconciliationReport.js";
+import { getMonthlyPaymentDeliveryReport } from "../reports/monthlyPaymentDeliveryReport.js";
+import { getMonthlyDeliveriesByDestinationReport } from "../reports/monthlyDeliveriesByDestinationReport.js";
 import { getBottleOilStockSalesReport } from "../reports/bottleOilStockSalesReport.js";
 import { getBottledWeeklyIssuesReport } from "../reports/bottledWeeklyIssuesReport.js";
 import { getCommitmentReport } from "../reports/commitmentReport.js";
@@ -27,8 +32,16 @@ import { getDailySalesReport } from "../reports/dailySalesReport.js";
 import { getOpenMonthWeekChoices } from "../reports/weekChoices.js";
 import {
   saveReportComments,
+  loadReportSignatory,
   type SaveReportCommentsResult,
 } from "../reports/companySettings.js";
+import {
+  deleteReportSignatory,
+  listReportSignatories,
+  upsertReportSignatory,
+  type DeleteReportSignatoryResult,
+  type UpsertReportSignatoryResult,
+} from "../reports/reportSignatory.js";
 
 function parseReportYear(value: unknown): number | undefined {
   if (value == null || value === "") {
@@ -132,6 +145,22 @@ export function registerReportsHandlers(): void {
   );
 
   ipcMain.handle(
+    "reports:getMonthlyPaymentDelivery",
+    (_event, authToken: string): MonthlyPaymentDeliveryReport => {
+      const user = requireAuthUser(authToken);
+      return getMonthlyPaymentDeliveryReport(user.id);
+    },
+  );
+
+  ipcMain.handle(
+    "reports:getMonthlyDeliveriesByDestination",
+    (_event, authToken: string): MonthlyDeliveriesByDestinationReport => {
+      const user = requireAuthUser(authToken);
+      return getMonthlyDeliveriesByDestinationReport(user.id);
+    },
+  );
+
+  ipcMain.handle(
     "reports:getSalesBudgetMonthlyCrosstab",
     (_event, authToken: string, reportYear?: unknown): SalesBudgetMonthlyCrosstabReport => {
       const user = requireAuthUser(authToken);
@@ -180,6 +209,63 @@ export function registerReportsHandlers(): void {
     ): SaveReportCommentsResult => {
       requireAuthUser(authToken);
       return saveReportComments(input.reportId, input.text);
+    },
+  );
+
+  ipcMain.handle(
+    "reports:listSignatories",
+    (_event, authToken: string): ReportSignatoryRow[] => {
+      requireAuthUser(authToken);
+      return listReportSignatories();
+    },
+  );
+
+  ipcMain.handle(
+    "reports:getSignatory",
+    (
+      _event,
+      authToken: string,
+      asAtIso?: unknown,
+    ): { name: string; title: string } => {
+      requireAuthUser(authToken);
+      return loadReportSignatory(
+        typeof asAtIso === "string" ? asAtIso : null,
+      );
+    },
+  );
+
+  ipcMain.handle(
+    "reports:upsertSignatory",
+    (
+      _event,
+      authToken: string,
+      input: {
+        id?: string | null;
+        name: string;
+        title: string;
+        effectiveFrom: string;
+      },
+    ): UpsertReportSignatoryResult => {
+      const user = requireAuthUser(authToken);
+      return upsertReportSignatory({
+        userId: user.id,
+        id: input.id,
+        name: input.name,
+        title: input.title,
+        effectiveFrom: input.effectiveFrom,
+      });
+    },
+  );
+
+  ipcMain.handle(
+    "reports:deleteSignatory",
+    (
+      _event,
+      authToken: string,
+      id: unknown,
+    ): DeleteReportSignatoryResult => {
+      const user = requireAuthUser(authToken);
+      return deleteReportSignatory(user.id, String(id ?? ""));
     },
   );
 }

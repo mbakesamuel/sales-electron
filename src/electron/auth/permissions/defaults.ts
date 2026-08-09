@@ -38,10 +38,11 @@ const ROUTE_GROUPS = {
     "bottled-weekly-issues-report",
     "sales-delivery-report",
     "daily-sales-report",
-    "weekly-print-pack",
     "monthly-delivery-report-h1",
     "monthly-delivery-report-h2",
     "monthly-stock-reconciliation-report",
+    "monthly-payment-delivery-report",
+    "monthly-deliveries-by-destination-report",
   ],
   organization: [
     "commercial-services",
@@ -115,20 +116,40 @@ function buildDefaultRouteMatrix(): Record<string, RouteMatrix> {
       "bottled-weekly-issues-report",
       "sales-delivery-report",
       "daily-sales-report",
-      "weekly-print-pack",
       "monthly-delivery-report-h1",
       "monthly-delivery-report-h2",
       "monthly-stock-reconciliation-report",
+      "monthly-payment-delivery-report",
+      "monthly-deliveries-by-destination-report",
     ]),
   };
 }
 
 function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
+  const stockDocumentActions = {
+    draft_stock_receipts: true,
+    post_stock_receipts: true,
+    draft_stock_transfers: true,
+    post_stock_transfers: true,
+    draft_stock_adjustments: true,
+    post_stock_adjustments: true,
+  } as const;
+
+  const stockDocumentNone = {
+    draft_stock_receipts: false,
+    post_stock_receipts: false,
+    draft_stock_transfers: false,
+    post_stock_transfers: false,
+    draft_stock_adjustments: false,
+    post_stock_adjustments: false,
+  } as const;
+
   const validator: ActionMatrix = {
     validate_sales: true,
     validate_delivery_orders: true,
     cancel_validated_delivery_order: false,
     manage_permissions: false,
+    ...stockDocumentActions,
   };
 
   const manager: ActionMatrix = {
@@ -146,6 +167,7 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
     validate_delivery_orders: false,
     cancel_validated_delivery_order: false,
     manage_permissions: false,
+    ...stockDocumentNone,
   };
 
   return {

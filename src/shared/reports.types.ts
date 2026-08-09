@@ -3,6 +3,19 @@ export interface ReportCompanySettings {
   department: string | null;
   serviceName: string | null;
   logoUrl: string | null;
+  /** Resolved report footer signatory name for the report as-at date. */
+  signatoryName: string | null;
+  /** Role/title under the signatory name. */
+  signatoryTitle: string;
+}
+
+export interface ReportSignatoryRow {
+  id: string;
+  name: string;
+  title: string;
+  /** YYYY-MM-DD */
+  effectiveFrom: string;
+  createdAt: string;
 }
 
 export interface StockCommitmentReportRow {
@@ -585,6 +598,80 @@ export interface MonthlyStockReconciliationReport {
   bpoRows: MonthlyStockReconciliationMatrixRow[];
   otherSectionTitle: string;
   otherRows: MonthlyStockReconciliationMatrixRow[];
+  comments: string | null;
+}
+
+export interface MonthlyPaymentDeliveryWeekRow {
+  weekIndex: number;
+  weekFromIso: string;
+  weekToIso: string;
+  /** Compact day range within the month, e.g. "1-4" or "5-11". */
+  datesLabel: string;
+  paymentsKg: number;
+  paymentsValue: number;
+  deliveriesKg: number;
+  deliveriesValue: number;
+}
+
+export interface MonthlyPaymentDeliveryTotals {
+  paymentsKg: number;
+  paymentsValue: number;
+  deliveriesKg: number;
+  deliveriesValue: number;
+}
+
+export interface MonthlyPaymentDeliveryReport {
+  settings: ReportCompanySettings;
+  asAtIso: string;
+  monthStartIso: string;
+  monthEndIso: string;
+  monthName: string;
+  financialYear: number;
+  reportTitle: string;
+  generatedAtIso: string;
+  weeks: MonthlyPaymentDeliveryWeekRow[];
+  totals: MonthlyPaymentDeliveryTotals;
+  comments: string | null;
+}
+
+export interface MonthlyDeliveriesByDestinationKgRow {
+  industriesKg: number;
+  wholesalesKg: number;
+  retailKg: number;
+  cdcWorkersKg: number;
+  makokoKg: number;
+  totalKg: number;
+}
+
+export interface MonthlyDeliveriesByDestinationWeekRow extends MonthlyDeliveriesByDestinationKgRow {
+  weekIndex: number;
+  weekFromIso: string;
+  weekToIso: string;
+  /** Compact day range within the month, e.g. "1-4" or "5-11". */
+  datesLabel: string;
+}
+
+export interface MonthlyDeliveriesByDestinationPercentages {
+  industriesPct: number | null;
+  wholesalesPct: number | null;
+  retailPct: number | null;
+  cdcWorkersPct: number | null;
+  makokoPct: number | null;
+  totalPct: number | null;
+}
+
+export interface MonthlyDeliveriesByDestinationReport {
+  settings: ReportCompanySettings;
+  asAtIso: string;
+  monthStartIso: string;
+  monthEndIso: string;
+  monthName: string;
+  financialYear: number;
+  reportTitle: string;
+  generatedAtIso: string;
+  weeks: MonthlyDeliveriesByDestinationWeekRow[];
+  totals: MonthlyDeliveriesByDestinationKgRow;
+  percentages: MonthlyDeliveriesByDestinationPercentages;
   comments: string | null;
 }
 

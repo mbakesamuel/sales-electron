@@ -1,8 +1,57 @@
 import type { ReportCompanySettings } from "../../shared/reports.types.js";
 import { getDatabase } from "../db/index.js";
 
+const DEFAULT_SIGNATORY_NAME = "NYAKE VICTORINE Epse MBUA";
+const DEFAULT_SIGNATORY_TITLE = "Manager, Palm Oil Sales";
+
+export interface ReportSignatoryResolved {
+  name: string;
+  title: string;
+}
+
+function normalizeAsAtIso(asAtIso?: string | null): string {
+  const raw = (asAtIso ?? "").trim().slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return raw;
+  }
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Latest signatory with effectiveFrom <= as-at; falls back to seeded defaults. */
+export function loadReportSignatory(asAtIso?: string | null): ReportSignatoryResolved {
+  const asAt = normalizeAsAtIso(asAtIso);
+  try {
+    const row = getDatabase()
+      .prepare(
+        `SELECT name, title
+         FROM ReportSignatory
+         WHERE effectiveFrom <= ?
+         ORDER BY effectiveFrom DESC
+         LIMIT 1`,
+      )
+      .get(asAt) as { name: string; title: string } | undefined;
+
+    if (row) {
+      return {
+        name: row.name.trim() || DEFAULT_SIGNATORY_NAME,
+        title: row.title.trim() || DEFAULT_SIGNATORY_TITLE,
+      };
+    }
+  } catch {
+    // Table may not exist yet during early boot; use defaults.
+  }
+
+  return {
+    name: DEFAULT_SIGNATORY_NAME,
+    title: DEFAULT_SIGNATORY_TITLE,
+  };
+}
+
 export function loadReportCompanySettings(
   userId?: string | null,
+  asAtIso?: string | null,
 ): ReportCompanySettings {
   const db = getDatabase();
   const row = db
@@ -28,11 +77,15 @@ export function loadReportCompanySettings(
     serviceName = service?.serviceName?.trim() || null;
   }
 
+  const signatory = loadReportSignatory(asAtIso);
+
   return {
     companyName: row?.companyName?.trim() || "MPOS",
     department: row?.department?.trim() || null,
     serviceName,
     logoUrl: row?.logoUrl?.trim() || null,
+    signatoryName: signatory.name,
+    signatoryTitle: signatory.title,
   };
 }
 

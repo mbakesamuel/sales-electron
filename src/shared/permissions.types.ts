@@ -5,6 +5,12 @@ export const PERMISSION_ACTIONS = [
   "validate_delivery_orders",
   "cancel_validated_delivery_order",
   "manage_permissions",
+  "draft_stock_receipts",
+  "post_stock_receipts",
+  "draft_stock_transfers",
+  "post_stock_transfers",
+  "draft_stock_adjustments",
+  "post_stock_adjustments",
 ] as const;
 
 export type PermissionActionKey = (typeof PERMISSION_ACTIONS)[number];

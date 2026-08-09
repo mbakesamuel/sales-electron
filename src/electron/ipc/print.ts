@@ -18,10 +18,10 @@ export function registerPrintHandlers(): void {
       const suggestedName =
         typeof defaultFileName === "string" && defaultFileName.trim().length > 0
           ? defaultFileName.trim()
-          : `weekly-print-pack-${new Date().toISOString().slice(0, 10)}.pdf`;
+          : `report-${new Date().toISOString().slice(0, 10)}.pdf`;
 
       const { canceled, filePath } = await dialog.showSaveDialog(win, {
-        title: "Save print pack PDF",
+        title: "Save PDF",
         defaultPath: suggestedName,
         filters: [{ name: "PDF", extensions: ["pdf"] }],
       });

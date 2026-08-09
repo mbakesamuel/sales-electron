@@ -38,12 +38,27 @@ The **Stock** sidebar screen combines several permission routes. After changing 
 |-------|-------------------|------|------|-------|
 | `stock-balance` | On hand | Hidden | View balances | View only (no create buttons) |
 | `stock-movements` | Movements | Hidden | View ledger | View only |
-| `stock-receipts` | Receipts | Hidden | View list | New receipt, edit drafts, post, cancel |
-| `stock-transfers` | Transfers | Hidden | View list | New transfer, dispatch/receive, cancel |
-| `stock-adjustments` | Adjustments | Hidden | View list | New adjustment, edit drafts, post, cancel |
+| `stock-receipts` | Receipts | Hidden | View list | Needed for any receipt changes (also requires draft/post **actions**) |
+| `stock-transfers` | Transfers | Hidden | View list | Needed for any transfer changes (also requires draft/post **actions**) |
+| `stock-adjustments` | Adjustments | Hidden | View list | Needed for any adjustment changes (also requires draft/post **actions**) |
 | `carry-forward-stock` | Opening Stock balances | Hidden | View | Batch-set opening quantities |
 
-**Write** on balance or movements does not add create buttons — those tabs are always view-only. Grant **write** on receipts, transfers, or adjustments to allow stock document changes.
+**Write** on balance or movements does not add create buttons — those tabs are always view-only. Grant **write** on receipts, transfers, or adjustments **plus** the matching action flags below.
+
+### Stock document actions
+
+These boolean actions appear on **Role permissions** next to Validate sales / Validate delivery orders:
+
+| Action | Allows |
+|--------|--------|
+| Draft stock receipts | New receipt, edit/delete drafts |
+| Post stock receipts | Post and cancel posted receipts |
+| Draft stock transfers | New transfer, edit/delete drafts |
+| Post / dispatch / receive stock transfers | Post location moves, dispatch, receive, cancel posted |
+| Draft stock adjustments | New adjustment, edit/delete drafts |
+| Post stock adjustments | Post (including reclassify) and cancel posted |
+
+Example: give a clerk **write** on `stock-receipts` and **Draft stock receipts** only so they can prepare vouchers; grant **Post stock receipts** to supervisors who approve them.
 
 ## Role permissions screen
 

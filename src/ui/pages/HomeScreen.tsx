@@ -34,25 +34,13 @@ import { DeliveryOrdersScreen } from "../delivery-orders/DeliveryOrdersScreen.ts
 import { CarryForwardCommitmentsScreen } from "../commitments/CarryForwardCommitmentsScreen.tsx";
 import { CarryForwardStockScreen } from "../stock/CarryForwardStockScreen.tsx";
 import { StockScreen } from "../stock/StockScreen.tsx";
-import { BottleOilStockSalesReportScreen } from "../reports/BottleOilStockSalesReportScreen.tsx";
-import { BottledWeeklyIssuesReportScreen } from "../reports/BottledWeeklyIssuesReportScreen.tsx";
-import {
-  MonthlyDeliveryReportH1Screen,
-  MonthlyDeliveryReportH2Screen,
-} from "../reports/MonthlyDeliveryReportScreen.tsx";
-import { MonthlyStockReconciliationScreen } from "../reports/MonthlyStockReconciliationScreen.tsx";
-import { WeeklyDeliveriesReportScreen } from "../reports/WeeklyDeliveriesReportScreen.tsx";
-import { DailySalesReportScreen } from "../reports/DailySalesReportScreen.tsx";
-import { CommitmentReportScreen } from "../reports/CommitmentReportScreen.tsx";
-import { StockCommitmentReportScreen } from "../reports/StockCommitmentReport.tsx";
-import { StockReportScreen } from "../reports/StockReportScreen.tsx";
-import { WeeklyPrintPackScreen } from "../reports/WeeklyPrintPackScreen.tsx";
-import { SalesBudgetMonthlyCrosstabScreen } from "../reports/SalesBudgetMonthlyCrosstabScreen.tsx";
-import { SalesBudgetWeeklyCrosstabScreen } from "../reports/SalesBudgetWeeklyCrosstabScreen.tsx";
 import { SalesBudgetScreen } from "../sales-budget/SalesBudgetScreen.tsx";
 import { canAccessStockModule } from "../../shared/stockModule.ts";
+import { opensInReportWindow } from "../../shared/reportWindow.ts";
 import { PermissionsScreen } from "../permissions/PermissionsScreen.tsx";
 import { UsersScreen } from "../users/UsersScreen.tsx";
+import { getAuthToken } from "../auth/db.ts";
+import { getElectronApi } from "../auth/client.ts";
 import {
   DEFAULT_ROUTE_ID,
   findRouteById,
@@ -85,15 +73,15 @@ function RouteContent({
   user,
   permissions,
   onPermissionsSaved,
-  onNavigate,
   openCalendarMonth,
+  onOpenReportWindow,
 }: {
   route: SchemaRoute;
   user: AuthUser;
   permissions: RolePermissionsSnapshot;
   onPermissionsSaved: (next: RolePermissionsSnapshot) => void;
-  onNavigate: (routeId: string) => void;
   openCalendarMonth: number | null;
+  onOpenReportWindow: (reportId: string) => void;
 }) {
   const routeAccess = getRouteAccessFromSnapshot(permissions, route.id);
   const readOnly = routeAccess === "read";
@@ -157,70 +145,35 @@ function RouteContent({
     return <StockScreen user={user} permissions={permissions} />;
   }
 
-  if (route.id === "stock-commitment-report") {
-    return <StockCommitmentReportScreen />;
-  }
-
-  if (route.id === "stock-report") {
-    return <StockReportScreen />;
-  }
-
-  if (route.id === "commitment-report") {
-    return <CommitmentReportScreen />;
-  }
-
-  if (route.id === "bottle-oil-stock-sales-report") {
-    return <BottleOilStockSalesReportScreen />;
-  }
-
-  if (route.id === "bottled-weekly-issues-report") {
-    return <BottledWeeklyIssuesReportScreen />;
-  }
-
-  if (route.id === "sales-delivery-report") {
-    return <WeeklyDeliveriesReportScreen />;
-  }
-
-  if (route.id === "daily-sales-report") {
-    return <DailySalesReportScreen />;
-  }
-
-  if (route.id === "weekly-print-pack") {
-    return <WeeklyPrintPackScreen permissions={permissions} />;
-  }
-
-  if (route.id === "monthly-delivery-report-h1") {
-    if (!isMonthlyDeliveryRouteVisible(route.id, openCalendarMonth)) {
+  if (opensInReportWindow(route.id)) {
+    if (
+      (route.id === "monthly-delivery-report-h1" ||
+        route.id === "monthly-delivery-report-h2") &&
+      !isMonthlyDeliveryRouteVisible(route.id, openCalendarMonth)
+    ) {
       return (
         <p class="scr-status">
-          Monthly delivery (Jan–Jun) is not available for the current open month.
+          {route.id === "monthly-delivery-report-h1"
+            ? "Monthly delivery (Jan–Jun) is not available for the current open month."
+            : "Monthly delivery (Jul–Dec) is not available for the current open month."}
         </p>
       );
     }
-    return <MonthlyDeliveryReportH1Screen />;
-  }
 
-  if (route.id === "monthly-delivery-report-h2") {
-    if (!isMonthlyDeliveryRouteVisible(route.id, openCalendarMonth)) {
-      return (
+    return (
+      <div class="report-window-placeholder">
         <p class="scr-status">
-          Monthly delivery (Jul–Dec) is not available for the current open month.
+          {route.label} opens in a separate window with Print and Save.
         </p>
-      );
-    }
-    return <MonthlyDeliveryReportH2Screen />;
-  }
-
-  if (route.id === "monthly-stock-reconciliation-report") {
-    return <MonthlyStockReconciliationScreen />;
-  }
-
-  if (route.id === "sales-budget-monthly-crosstab") {
-    return <SalesBudgetMonthlyCrosstabScreen onNavigate={onNavigate} />;
-  }
-
-  if (route.id === "sales-budget-weekly-crosstab") {
-    return <SalesBudgetWeeklyCrosstabScreen onNavigate={onNavigate} />;
+        <button
+          type="button"
+          class="scr-btn"
+          onClick={() => onOpenReportWindow(route.id)}
+        >
+          Reopen report window
+        </button>
+      </div>
+    );
   }
 
   if (route.id === "sales-budget") {
@@ -351,6 +304,18 @@ export function HomeScreen({
   }, [activeRouteId]);
 
   useEffect(() => {
+    const api = getElectronApi();
+    if (!api.windows?.onReportClosed) {
+      return;
+    }
+    return api.windows.onReportClosed(({ reportId }) => {
+      setActiveRouteId((current) =>
+        current === reportId ? DEFAULT_ROUTE_ID : current,
+      );
+    });
+  }, []);
+
+  useEffect(() => {
     if (activeRouteId === DEFAULT_ROUTE_ID) {
       return;
     }
@@ -386,6 +351,25 @@ export function HomeScreen({
     if (sectionId) {
       setOpenSections({ [sectionId]: true });
     }
+    if (opensInReportWindow(routeId)) {
+      void openReportWindow(routeId);
+    }
+  }
+
+  async function openReportWindow(reportId: string) {
+    const token = getAuthToken();
+    if (!token) {
+      window.alert("Login required.");
+      return;
+    }
+    try {
+      const result = await getElectronApi().windows.openReport(token, reportId);
+      if (!result.ok) {
+        window.alert(result.error);
+      }
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Failed to open report window.");
+    }
   }
 
   const customScreenRoutes = new Set([
@@ -397,10 +381,11 @@ export function HomeScreen({
     "bottled-weekly-issues-report",
     "sales-delivery-report",
     "daily-sales-report",
-    "weekly-print-pack",
     "monthly-delivery-report-h1",
     "monthly-delivery-report-h2",
     "monthly-stock-reconciliation-report",
+    "monthly-payment-delivery-report",
+    "monthly-deliveries-by-destination-report",
     "sales-budget-monthly-crosstab",
     "sales-budget-weekly-crosstab",
     "sales-budget",
@@ -580,8 +565,10 @@ export function HomeScreen({
               user={user}
               permissions={permissions}
               onPermissionsSaved={onPermissionsSaved}
-              onNavigate={(routeId) => selectRoute(routeId, "products")}
               openCalendarMonth={openPostingPeriod?.calendarMonth ?? null}
+              onOpenReportWindow={(reportId) => {
+                void openReportWindow(reportId);
+              }}
             />
           </section>
         )}

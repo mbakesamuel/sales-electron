@@ -6,12 +6,14 @@ import {
 } from "../../shared/salesBudgetPhase.js";
 import { loadReportCompanySettings, loadReportComments } from "./companySettings.js";
 import { loadSalesBudgetCrosstabContext } from "./salesBudgetCrosstabShared.js";
+import { resolveReportAsAt } from "../financialYears/service.js";
 
 export function getSalesBudgetMonthlyCrosstabReport(
   userId?: string | null,
   reportYearRaw?: number | null,
 ): SalesBudgetMonthlyCrosstabReport {
-  const settings = loadReportCompanySettings(userId);
+  const { asAtIso } = resolveReportAsAt();
+  const settings = loadReportCompanySettings(userId, asAtIso);
   const context = loadSalesBudgetCrosstabContext(reportYearRaw);
   const monthlyCache = new Map<string, number[]>();
 

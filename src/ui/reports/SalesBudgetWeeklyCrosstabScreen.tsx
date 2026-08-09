@@ -12,11 +12,13 @@ import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
 import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
+import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import "./StockCommitmentReport.css";
 import "./SalesBudgetCrosstab.css";
 
 interface SalesBudgetWeeklyCrosstabScreenProps {
   onNavigate?: (routeId: string) => void;
+  windowMode?: boolean;
 }
 
 function handlePrint(): void {
@@ -220,13 +222,14 @@ export function SalesBudgetWeeklyCrosstabDocument({
       )}
 
       <ReportCommentsSection comments={report.comments} />
-      <ReportFooter />
+      <ReportFooter name={report.settings.signatoryName} label={report.settings.signatoryTitle} />
     </div>
   );
 }
 
 export function SalesBudgetWeeklyCrosstabScreen({
   onNavigate,
+  windowMode = false,
 }: SalesBudgetWeeklyCrosstabScreenProps) {
   const [report, setReport] = useState<SalesBudgetWeeklyCrosstabReport | null>(null);
   const [reportYear, setReportYear] = useState<number | null>(null);
@@ -297,6 +300,11 @@ export function SalesBudgetWeeklyCrosstabScreen({
           <button type="button" class="scr-btn" onClick={() => handlePrint()}>
             Print
           </button>
+          {windowMode ? (
+            <ReportWindowSaveButton
+              fileName={`sales-budget-weekly-${report.reportYear}.pdf`}
+            />
+          ) : null}
           <button
             type="button"
             class="scr-btn"
@@ -448,7 +456,7 @@ export function SalesBudgetWeeklyCrosstabScreen({
         )}
 
         <ReportCommentsSection comments={report.comments} />
-        <ReportFooter />
+        <ReportFooter name={report.settings.signatoryName} label={report.settings.signatoryTitle} />
       </div>
     </div>
   );

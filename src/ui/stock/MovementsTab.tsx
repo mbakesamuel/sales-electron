@@ -5,7 +5,7 @@ import type {
   StockMovementRow,
 } from "../../shared/stock.types.ts";
 import { STOCK_MOVEMENT_KIND_LABELS, movementQtyColumns } from "./stockDisplay.ts";
-import { formatDateTime, trimQty } from "./stockUtils.ts";
+import { formatDate, trimQty } from "./stockUtils.ts";
 
 interface MovementsTabProps {
   rows: StockMovementRow[];
@@ -179,7 +179,7 @@ export function MovementsTab({ rows, salesPoints, scopedSalesPointId }: Movement
                       {r.documentNo ?? "—"}
                     </td>
                     <td class="stock-nowrap" title={r.createdAtIso}>
-                      {formatDateTime(r.occurredAtIso)}
+                      {formatDate(r.occurredAtIso)}
                     </td>
                     <td>{r.salesPointName}</td>
                     <td>{r.storageLocationName}</td>

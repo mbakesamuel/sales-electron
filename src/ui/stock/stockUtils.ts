@@ -39,3 +39,20 @@ export function defaultLocationId(
 export function utcIsoDateToday(): string {
   return new Date().toISOString().slice(0, 10);
 }
+
+/** Clamp YYYY-MM-DD into [startDate, endDate] when a period is provided. */
+export function clampIsoDateToRange(
+  isoDate: string,
+  range: { startDate: string; endDate: string } | null | undefined,
+): string {
+  if (!range) {
+    return isoDate;
+  }
+  if (isoDate < range.startDate) {
+    return range.startDate;
+  }
+  if (isoDate > range.endDate) {
+    return range.endDate;
+  }
+  return isoDate;
+}

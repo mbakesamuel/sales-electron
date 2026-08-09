@@ -3,6 +3,7 @@ import type {
   PermissionMatrix,
   RolePermissionsSnapshot,
 } from "../../../shared/permissions.types.js";
+import { PERMISSION_ACTIONS } from "../../../shared/permissions.types.js";
 import { ROUTE_DEFINITIONS, ROUTE_IDS } from "../../../shared/routeCatalog.js";
 import {
   normalizeUserRole,
@@ -21,7 +22,20 @@ const ACTION_LABELS: Record<PermissionActionKey, string> = {
   validate_delivery_orders: "Validate delivery orders",
   cancel_validated_delivery_order: "Cancel validated delivery orders",
   manage_permissions: "Manage role permissions",
+  draft_stock_receipts: "Draft stock receipts",
+  post_stock_receipts: "Post stock receipts",
+  draft_stock_transfers: "Draft stock transfers",
+  post_stock_transfers: "Post / dispatch / receive stock transfers",
+  draft_stock_adjustments: "Draft stock adjustments",
+  post_stock_adjustments: "Post stock adjustments",
 };
+
+function emptyActionAccess(): Record<PermissionActionKey, boolean> {
+  return Object.fromEntries(PERMISSION_ACTIONS.map((key) => [key, false])) as Record<
+    PermissionActionKey,
+    boolean
+  >;
+}
 
 function normalizeRouteAccess(value: string): RouteAccess {
   const normalized = value.toUpperCase();
@@ -44,12 +58,7 @@ export function loadRolePermissionsSnapshot(role: string): RolePermissionsSnapsh
     string,
     RouteAccess
   >;
-  const actions: Record<PermissionActionKey, boolean> = {
-    validate_sales: false,
-    validate_delivery_orders: false,
-    cancel_validated_delivery_order: false,
-    manage_permissions: false,
-  };
+  const actions = emptyActionAccess();
 
   if (!normalizedRole) {
     return { routes, actions };
@@ -153,15 +162,7 @@ export function getPermissionMatrix(): PermissionMatrix {
   ) as Record<string, Record<string, RouteAccess>>;
 
   const actionAccess = Object.fromEntries(
-    USER_ROLES.map((role) => [
-      role,
-      {
-        validate_sales: false,
-        validate_delivery_orders: false,
-        cancel_validated_delivery_order: false,
-        manage_permissions: false,
-      },
-    ]),
+    USER_ROLES.map((role) => [role, emptyActionAccess()]),
   ) as Record<string, Record<PermissionActionKey, boolean>>;
 
   const routeRows = db
@@ -227,7 +228,7 @@ export function savePermissionMatrix(
         insertRoute.run(userRole, routeId, toDbRouteAccess(access));
       }
 
-      for (const actionKey of Object.keys(ACTION_LABELS) as PermissionActionKey[]) {
+      for (const actionKey of PERMISSION_ACTIONS) {
         const allowed = actionAccess[userRole]?.[actionKey] ? 1 : 0;
         insertAction.run(userRole, actionKey, allowed);
       }

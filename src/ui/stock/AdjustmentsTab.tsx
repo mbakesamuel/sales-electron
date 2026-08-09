@@ -1,5 +1,7 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { getElectronApi } from "../auth/client.ts";
+import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
+import type { OpenPostingPeriod } from "../../shared/financialYears.types.ts";
 import type {
   AdjustmentDetail,
   AdjustmentListRow,
@@ -10,7 +12,14 @@ import type {
 } from "../../shared/stock.types.ts";
 import { ConfirmDialog, DocDialog, ReviewKeyValue, ReviewLineTable, StatusBadge } from "./StockDialogs.tsx";
 import { AdjustmentLineEditor, type AdjustmentLineDraft } from "./LineEditors.tsx";
-import { defaultLocationId, formatDate, formatDateTime, locationsForSalesPoint, utcIsoDateToday } from "./stockUtils.ts";
+import {
+  clampIsoDateToRange,
+  defaultLocationId,
+  formatDate,
+  formatDateTime,
+  locationsForSalesPoint,
+  utcIsoDateToday,
+} from "./stockUtils.ts";
 
 interface AdjustmentsTabProps {
   rows: AdjustmentListRow[];
@@ -59,6 +68,31 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
   const [lookupBusy, setLookupBusy] = useState(false);
   const [reviewDetail, setReviewDetail] = useState<AdjustmentDetail | null>(null);
   const [reviewBusy, setReviewBusy] = useState(false);
+  const [postingPeriod, setPostingPeriod] = useState<OpenPostingPeriod | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getAuthenticatedFinancialYears()
+      .getOpenPostingPeriod()
+      .then((period) => {
+        if (!cancelled) {
+          setPostingPeriod(period);
+          setOccurredAt((current) => clampIsoDateToRange(current, period));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPostingPeriod(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function defaultOccurredAt(): string {
+    return clampIsoDateToRange(utcIsoDateToday(), postingPeriod);
+  }
 
   function resetForm() {
     setEditingId(null);
@@ -66,7 +100,7 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
     setSalesPointId(sp);
     setReason("");
     setMode("ADJUST");
-    setOccurredAt(utcIsoDateToday());
+    setOccurredAt(defaultOccurredAt());
     setLines([
       {
         productId: "",
@@ -84,11 +118,8 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
     setLines((prev) =>
       prev.map((l) => ({
         ...l,
-        storageLocationId: locationsForSalesPoint(storageLocations, nextId).some(
-          (loc) => String(loc.id) === l.storageLocationId,
-        )
-          ? l.storageLocationId
-          : defLoc,
+        productId: "",
+        storageLocationId: defLoc,
       })),
     );
   }
@@ -104,9 +135,11 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
     setSalesPointId(String(detail.salesPointId));
     setReason(detail.reason);
     setMode(detailMode);
-    setOccurredAt(
-      detail.occurredAtIso.length > 10 ? detail.occurredAtIso.slice(0, 10) : detail.occurredAtIso,
-    );
+    const rawDate =
+      detail.occurredAtIso.length > 10
+        ? detail.occurredAtIso.slice(0, 10)
+        : detail.occurredAtIso;
+    setOccurredAt(clampIsoDateToRange(rawDate, postingPeriod));
     setLines(
       detail.lines.length > 0
         ? detail.lines.map((line) => ({
@@ -267,7 +300,7 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
     }
   }
 
-  const canCreate = props.canDraft && (props.canPost || props.canReclassify);
+  const canCreate = props.canDraft;
 
   return (
     <section class="stock-section">
@@ -321,15 +354,13 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
               <th>Reason</th>
               <th class="stock-num">Lines</th>
               <th>Status</th>
-              <th>Created by</th>
-              <th>Posted by</th>
               <th class="stock-actions-col">Actions</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={9} class="stock-empty-cell">
+                <td colSpan={7} class="stock-empty-cell">
                   No adjustments recorded yet.
                   {canCreate ? (
                     <>
@@ -357,20 +388,6 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
                   <td class="stock-num">{r.lineCount}</td>
                   <td>
                     <StatusBadge status={r.status} />
-                  </td>
-                  <td class="stock-muted">
-                    <div>{r.createdByName}</div>
-                    <div class="stock-subtext">{formatDateTime(r.createdAtIso)}</div>
-                  </td>
-                  <td class="stock-muted">
-                    {r.postedByName ? (
-                      <>
-                        <div>{r.postedByName}</div>
-                        <div class="stock-subtext">{formatDateTime(r.postedAtIso)}</div>
-                      </>
-                    ) : (
-                      "—"
-                    )}
                   </td>
                   <td class="stock-actions-col">
                     <div class="stock-actions-cell">
@@ -404,7 +421,8 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
                         Post
                       </button>
                     ) : null}
-                    {r.status === "DRAFT" || (r.status === "POSTED" && props.canCancel) ? (
+                    {(r.status === "DRAFT" && props.canDraft) ||
+                    (r.status === "POSTED" && props.canCancel) ? (
                       <button
                         type="button"
                         disabled={busy}
@@ -468,7 +486,8 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
               <button type="button" class="stock-btn-secondary" onClick={() => setReviewDetail(null)}>
                 Close
               </button>
-              {reviewDetail.status === "DRAFT" || (reviewDetail.status === "POSTED" && props.canCancel) ? (
+              {(reviewDetail.status === "DRAFT" && props.canDraft) ||
+              (reviewDetail.status === "POSTED" && props.canCancel) ? (
                 <button
                   type="button"
                   disabled={busy}
@@ -527,13 +546,32 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
             ) : null}
             <label class="stock-form-row">
               <span class="stock-form-label">Date</span>
-              <input
-                type="date"
-                class="stock-form-control"
-                value={occurredAt}
-                onInput={(event) => setOccurredAt((event.currentTarget as HTMLInputElement).value)}
-                required
-              />
+              <span class="stock-form-control-wrap">
+                <input
+                  type="date"
+                  class="stock-form-control"
+                  value={occurredAt}
+                  min={postingPeriod?.startDate}
+                  max={postingPeriod?.endDate}
+                  disabled={!postingPeriod}
+                  onInput={(event) =>
+                    setOccurredAt(
+                      clampIsoDateToRange(
+                        (event.currentTarget as HTMLInputElement).value,
+                        postingPeriod,
+                      ),
+                    )
+                  }
+                  required
+                />
+                {!postingPeriod ? (
+                  <span class="stock-form-hint">Open a financial month to set the adjustment date.</span>
+                ) : (
+                  <span class="stock-form-hint">
+                    Open month: {postingPeriod.monthName} {postingPeriod.financialYear}
+                  </span>
+                )}
+              </span>
             </label>
             <label class="stock-form-row">
               <span class="stock-form-label">Reason</span>

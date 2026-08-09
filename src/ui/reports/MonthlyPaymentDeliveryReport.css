@@ -1,0 +1,58 @@
+.mpd-section {
+  margin-top: 8px;
+}
+
+.mpd-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.mpd-table th,
+.mpd-table td {
+  border: 1.5px solid #111;
+  padding: 6px 8px;
+  vertical-align: middle;
+}
+
+.mpd-table thead th {
+  text-align: center;
+  font-weight: 700;
+  background: #f3f4f6;
+}
+
+.mpd-banner {
+  letter-spacing: 0.04em;
+}
+
+.mpd-weeks-col {
+  width: 4.5rem;
+}
+
+.mpd-dates-col {
+  width: 5.5rem;
+}
+
+.mpd-center {
+  text-align: center;
+}
+
+.mpd-legend {
+  margin: 8px 0 0;
+  font-size: 11px;
+  text-transform: none;
+  color: var(--text-muted, #6b7280);
+}
+
+@media print {
+  .mpd-document {
+    border: none;
+    border-radius: 0;
+    padding: 0;
+  }
+
+  .mpd-table th,
+  .mpd-table td {
+    border-color: #000;
+  }
+}

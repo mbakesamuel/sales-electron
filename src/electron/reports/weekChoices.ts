@@ -108,7 +108,7 @@ export function resolveSelectedWeek(
   );
 }
 
-/** Week choices for the open posting month (reports / print pack toolbar). */
+/** Week choices for the open posting month (weekly report toolbars). */
 export function getOpenMonthWeekChoices(): {
   asAtIso: string;
   weekChoices: ReportWeekChoice[];

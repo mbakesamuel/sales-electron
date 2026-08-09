@@ -11,6 +11,7 @@ import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
 import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
+import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import "./StockCommitmentReport.css";
 import "./BottledWeeklyIssuesReport.css";
 import "./SalesBudgetCrosstab.css";
@@ -375,12 +376,16 @@ export function BottledWeeklyIssuesReportDocument({
         <p class="scr-status">No weekday columns in the current week window.</p>
       ) : null}
       <ReportCommentsSection comments={report.comments} />
-      <ReportFooter />
+      <ReportFooter name={report.settings.signatoryName} label={report.settings.signatoryTitle} />
     </div>
   );
 }
 
-export function BottledWeeklyIssuesReportScreen() {
+export function BottledWeeklyIssuesReportScreen({
+  windowMode = false,
+}: {
+  windowMode?: boolean;
+}) {
   const [estimateBasis, setEstimateBasis] = useState<BottledWeeklyEstimateBasis>(
     readStoredEstimateBasis,
   );
@@ -488,6 +493,11 @@ export function BottledWeeklyIssuesReportScreen() {
           <button type="button" class="scr-btn" onClick={handlePrint}>
             Print
           </button>
+          {windowMode ? (
+            <ReportWindowSaveButton
+              fileName={`bottled-weekly-issues-${report.weekToIso ?? report.asAtIso}.pdf`}
+            />
+          ) : null}
           <button
             type="button"
             class="scr-btn scr-btn-secondary"

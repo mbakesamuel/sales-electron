@@ -15,6 +15,7 @@ import {
 } from "../../shared/salesBudgetCategories.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
 import { getElectronApi } from "../auth/client.ts";
+import { getAuthenticatedReports } from "../auth/reports.ts";
 import { ReportFooter } from "../reports/ReportFooter.tsx";
 import "./SalesBudgetScreen.css";
 
@@ -269,6 +270,8 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
   const [previewPricePerKg, setPreviewPricePerKg] = useState<string>("");
   const [previewBusy, setPreviewBusy] = useState(false);
   const [preview, setPreview] = useState<SalesBudgetPhaseResult | null>(null);
+  const [signatoryName, setSignatoryName] = useState<string | null>(null);
+  const [signatoryTitle, setSignatoryTitle] = useState("Manager, Palm Oil Sales");
 
   const api = useMemo(() => getElectronApi(), []);
   const db = useMemo(() => getAuthenticatedDb(), []);
@@ -324,6 +327,23 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
     setPctsByCatId(nextPctsMap);
     setProfileIdByCatId(nextProfileIdMap);
   }
+
+  useEffect(() => {
+    let cancelled = false;
+    void getAuthenticatedReports()
+      .getSignatory()
+      .then((s) => {
+        if (cancelled) return;
+        setSignatoryName(s.name);
+        setSignatoryTitle(s.title);
+      })
+      .catch(() => {
+        /* keep defaults */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -492,7 +512,7 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
           No financial years exist yet. Add one under Financial years before entering
           budgets.
         </p>
-        <ReportFooter />
+        <ReportFooter name={signatoryName} label={signatoryTitle} />
       </div>
     );
   }
@@ -501,7 +521,7 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
     return (
       <div class="sbb-page">
         <div class="sbb-alert sbb-alert-error">{error}</div>
-        <ReportFooter />
+        <ReportFooter name={signatoryName} label={signatoryTitle} />
       </div>
     );
   }
@@ -941,7 +961,7 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
         </section>
       ) : null}
 
-      <ReportFooter />
+      <ReportFooter name={signatoryName} label={signatoryTitle} />
     </div>
   );
 }

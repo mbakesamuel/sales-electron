@@ -8,7 +8,7 @@ import type {
 } from "../../shared/carryForwardStock.types.js";
 import { assertRouteWrite } from "../auth/permissions/service.js";
 import { getDatabase } from "../db/index.js";
-import { getOpenPostingPeriod } from "../financialYears/service.js";
+import { getOpenPostingPeriod, assertDateInOpenMonth } from "../financialYears/service.js";
 import { formatQty, parseQty } from "./decimal.js";
 import { applyMovement } from "./post.js";
 import { allocateAdjustmentNo } from "./sequences.js";
@@ -20,12 +20,6 @@ function nowIso(): string {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
-
-function todayIsoDate(): string {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 function noonUtcIsoDate(isoDate: string): string {
@@ -207,6 +201,17 @@ export function upsertCarryForwardStockBatch(
     return { ok: false, error: "Open a financial month before posting carry-forward stock." };
   }
 
+  let occurredDate: string;
+  try {
+    assertDateInOpenMonth(String(input.occurredAt ?? ""));
+    occurredDate = String(input.occurredAt).trim().slice(0, 10);
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Invalid occurrence date.",
+    };
+  }
+
   const salesPointId = Number(input.salesPointId);
   const productId = Number(input.productId);
   if (!Number.isFinite(salesPointId) || !Number.isFinite(productId)) {
@@ -256,9 +261,6 @@ export function upsertCarryForwardStockBatch(
     return { ok: true, saved: 0, adjustmentNo: null };
   }
 
-  const today = todayIsoDate();
-  const occurredDate =
-    today >= period.startDate && today <= period.endDate ? today : period.endDate;
   const occurredAt = noonUtcIsoDate(occurredDate);
   const reason = (input.notes ?? "").trim() || "Carry-forward stock";
 

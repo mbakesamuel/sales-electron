@@ -1,5 +1,7 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { getElectronApi } from "../auth/client.ts";
+import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
+import type { OpenPostingPeriod } from "../../shared/financialYears.types.ts";
 import type {
   ProductOption,
   ReceiptDetail,
@@ -9,7 +11,15 @@ import type {
 } from "../../shared/stock.types.ts";
 import { ConfirmDialog, DocDialog, ReviewKeyValue, ReviewLineTable, StatusBadge } from "./StockDialogs.tsx";
 import { ReceiptLineEditor, type ReceiptLineDraft } from "./LineEditors.tsx";
-import { defaultLocationId, formatDate, formatDateTime, locationsForSalesPoint, trimQty, utcIsoDateToday } from "./stockUtils.ts";
+import {
+  clampIsoDateToRange,
+  defaultLocationId,
+  formatDate,
+  formatDateTime,
+  locationsForSalesPoint,
+  trimQty,
+  utcIsoDateToday,
+} from "./stockUtils.ts";
 
 interface ReceiptsTabProps {
   rows: ReceiptListRow[];
@@ -48,13 +58,38 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
   const [lookupBusy, setLookupBusy] = useState(false);
   const [reviewDetail, setReviewDetail] = useState<ReceiptDetail | null>(null);
   const [reviewBusy, setReviewBusy] = useState(false);
+  const [postingPeriod, setPostingPeriod] = useState<OpenPostingPeriod | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getAuthenticatedFinancialYears()
+      .getOpenPostingPeriod()
+      .then((period) => {
+        if (!cancelled) {
+          setPostingPeriod(period);
+          setReceivedAt((current) => clampIsoDateToRange(current, period));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPostingPeriod(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function defaultReceivedAt(): string {
+    return clampIsoDateToRange(utcIsoDateToday(), postingPeriod);
+  }
 
   function resetForm() {
     setEditingId(null);
     const sp = scopedSalesPointId != null ? String(scopedSalesPointId) : "";
     setSalesPointId(sp);
     setSupplierLabel("");
-    setReceivedAt(utcIsoDateToday());
+    setReceivedAt(defaultReceivedAt());
     setNotes("");
     setLines([
       { productId: "", qty: "", storageLocationId: defaultLocationId(storageLocations, sp) },
@@ -166,9 +201,9 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
     setEditingId(detail.id);
     setSalesPointId(String(detail.salesPointId));
     setSupplierLabel(detail.supplierLabel);
-    setReceivedAt(
-      detail.receivedAtIso.length > 10 ? detail.receivedAtIso.slice(0, 10) : detail.receivedAtIso,
-    );
+    const rawDate =
+      detail.receivedAtIso.length > 10 ? detail.receivedAtIso.slice(0, 10) : detail.receivedAtIso;
+    setReceivedAt(clampIsoDateToRange(rawDate, postingPeriod));
     setNotes(detail.notes ?? "");
     setLines(
       detail.lines.length > 0
@@ -332,7 +367,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
                     >
                       Review
                     </button>
-                    {r.status === "DRAFT" ? (
+                    {r.status === "DRAFT" && props.canDraft ? (
                       <button
                         type="button"
                         disabled={busy || reviewBusy}
@@ -353,7 +388,8 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
                         Post
                       </button>
                     ) : null}
-                    {r.status === "DRAFT" || (r.status === "POSTED" && props.canCancel) ? (
+                    {(r.status === "DRAFT" && props.canDraft) ||
+                    (r.status === "POSTED" && props.canCancel) ? (
                       <button
                         type="button"
                         disabled={busy}
@@ -404,7 +440,8 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
               <button type="button" class="stock-btn-secondary" onClick={() => setReviewDetail(null)}>
                 Close
               </button>
-              {reviewDetail.status === "DRAFT" || (reviewDetail.status === "POSTED" && props.canCancel) ? (
+              {(reviewDetail.status === "DRAFT" && props.canDraft) ||
+              (reviewDetail.status === "POSTED" && props.canCancel) ? (
                 <button
                   type="button"
                   disabled={busy}
@@ -414,7 +451,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
                   {reviewDetail.status === "DRAFT" ? "Delete draft" : "Cancel receipt"}
                 </button>
               ) : null}
-              {reviewDetail.status === "DRAFT" ? (
+              {reviewDetail.status === "DRAFT" && props.canDraft ? (
                 <button
                   type="button"
                   disabled={busy}
@@ -463,13 +500,32 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
             ) : null}
             <label class="stock-form-row">
               <span class="stock-form-label">Received on</span>
-              <input
-                type="date"
-                class="stock-form-control"
-                value={receivedAt}
-                onInput={(event) => setReceivedAt((event.currentTarget as HTMLInputElement).value)}
-                required
-              />
+              <span class="stock-form-control-wrap">
+                <input
+                  type="date"
+                  class="stock-form-control"
+                  value={receivedAt}
+                  min={postingPeriod?.startDate}
+                  max={postingPeriod?.endDate}
+                  disabled={!postingPeriod}
+                  onInput={(event) =>
+                    setReceivedAt(
+                      clampIsoDateToRange(
+                        (event.currentTarget as HTMLInputElement).value,
+                        postingPeriod,
+                      ),
+                    )
+                  }
+                  required
+                />
+                {!postingPeriod ? (
+                  <span class="stock-form-hint">Open a financial month to set the receipt date.</span>
+                ) : (
+                  <span class="stock-form-hint">
+                    Open month: {postingPeriod.monthName} {postingPeriod.financialYear}
+                  </span>
+                )}
+              </span>
             </label>
             <label class="stock-form-row">
               <span class="stock-form-label">Supplier label</span>

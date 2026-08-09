@@ -39,6 +39,24 @@
   font-size: 11px;
 }
 
+.company-settings-secondary-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text-h);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.company-settings-secondary-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .company-settings-primary-btn,
 .company-settings-delete-btn {
   display: inline-flex;
@@ -334,8 +352,62 @@
   padding: 9px 11px;
   background: var(--bg-elevated);
   color: #172033;
+  font: inherit;
   font-size: 13px;
+  line-height: 1.35;
   outline: none;
+}
+
+.company-settings-input:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  background: color-mix(in srgb, var(--bg-elevated) 70%, #e2e8f0);
+}
+
+.company-settings-input::placeholder {
+  color: #94a3b8;
+}
+
+.report-signatory-form-card {
+  max-width: 40rem;
+  margin: 0;
+}
+
+.report-signatory-form-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.report-signatory-form-heading strong {
+  color: var(--text-h);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.report-signatory-form-heading p {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.report-signatory-date-input {
+  min-height: 38px;
+  color-scheme: light;
+}
+
+.report-signatory-date-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.report-signatory-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding-top: 4px;
 }
 
 .company-settings-field-error {

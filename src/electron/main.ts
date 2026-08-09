@@ -15,6 +15,7 @@ import { registerStockHandlers } from "./ipc/stock.js";
 import { registerFinancialYearsHandlers } from "./ipc/financialYears.js";
 import { registerDialogHandlers } from "./ipc/dialog.js";
 import { registerPrintHandlers } from "./ipc/print.js";
+import { registerWindowsHandlers } from "./ipc/windows.js";
 import { backfillFinancialMonths } from "./financialYears/service.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -113,6 +114,7 @@ app.whenReady().then(() => {
   registerPermissionsHandlers();
   registerDialogHandlers();
   registerPrintHandlers();
+  registerWindowsHandlers();
   createWindow();
 
   app.on("activate", () => {

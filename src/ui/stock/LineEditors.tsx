@@ -157,6 +157,207 @@ function transferAvailableQty(
   return row?.qty ?? "0";
 }
 
+const STOCK_OPTION_SEP = "|";
+
+type TransferStockOption = {
+  key: string;
+  productId: string;
+  fromStorageLocationId: string;
+  productName: string;
+  storageLocationName: string;
+  uom: string;
+  qtyLabel: string;
+};
+
+type AdjustmentStockOption = {
+  key: string;
+  productId: string;
+  storageLocationId: string;
+  productName: string;
+  storageLocationName: string;
+  uom: string;
+  qtyLabel: string;
+};
+
+function stockOptionKey(productId: string, fromStorageLocationId: string): string {
+  return `${productId}${STOCK_OPTION_SEP}${fromStorageLocationId}`;
+}
+
+function parseStockOptionKey(
+  value: string,
+): { productId: string; fromStorageLocationId: string } | null {
+  const sep = value.indexOf(STOCK_OPTION_SEP);
+  if (sep <= 0 || sep === value.length - 1) {
+    return null;
+  }
+  return {
+    productId: value.slice(0, sep),
+    fromStorageLocationId: value.slice(sep + 1),
+  };
+}
+
+function formatStockQtyLabel(qty: string): string {
+  const n = Number.parseFloat(qty);
+  if (!Number.isFinite(n)) {
+    return trimQty(qty);
+  }
+  return Math.round(n).toLocaleString("en-US");
+}
+
+function buildAdjustmentStockOptions(
+  onHand: StockBalanceRow[],
+  salesPointId: string,
+  lines: AdjustmentLineDraft[],
+  products: ProductOption[],
+  locationOptions: StorageLocationOption[],
+  condition: StockCondition,
+): AdjustmentStockOption[] {
+  if (!salesPointId) {
+    return [];
+  }
+
+  const byKey = new Map<string, AdjustmentStockOption>();
+
+  for (const row of onHand) {
+    if (String(row.salesPointId) !== salesPointId) {
+      continue;
+    }
+    if (row.condition !== condition) {
+      continue;
+    }
+    const qtyNum = Number.parseFloat(row.qty);
+    if (!Number.isFinite(qtyNum) || qtyNum <= 0) {
+      continue;
+    }
+    const productId = String(row.productId);
+    const storageLocationId = String(row.storageLocationId);
+    const key = stockOptionKey(productId, storageLocationId);
+    byKey.set(key, {
+      key,
+      productId,
+      storageLocationId,
+      productName: row.productName,
+      storageLocationName: row.storageLocationName,
+      uom: row.uom,
+      qtyLabel: formatStockQtyLabel(row.qty),
+    });
+  }
+
+  for (const line of lines) {
+    if (!line.productId || !line.storageLocationId) {
+      continue;
+    }
+    const key = stockOptionKey(line.productId, line.storageLocationId);
+    if (byKey.has(key)) {
+      continue;
+    }
+    const product = products.find((p) => String(p.productId) === line.productId);
+    const location = locationOptions.find((loc) => String(loc.id) === line.storageLocationId);
+    const onHandRow = onHand.find(
+      (r) =>
+        String(r.salesPointId) === salesPointId &&
+        String(r.productId) === line.productId &&
+        String(r.storageLocationId) === line.storageLocationId &&
+        r.condition === condition,
+    );
+    byKey.set(key, {
+      key,
+      productId: line.productId,
+      storageLocationId: line.storageLocationId,
+      productName: product?.productName ?? onHandRow?.productName ?? `Product ${line.productId}`,
+      storageLocationName:
+        location?.name ?? onHandRow?.storageLocationName ?? `Location ${line.storageLocationId}`,
+      uom: product?.uom ?? onHandRow?.uom ?? "",
+      qtyLabel: formatStockQtyLabel(onHandRow?.qty ?? "0"),
+    });
+  }
+
+  return [...byKey.values()].sort((a, b) => {
+    const byName = a.productName.localeCompare(b.productName);
+    if (byName !== 0) {
+      return byName;
+    }
+    return a.storageLocationName.localeCompare(b.storageLocationName);
+  });
+}
+
+function buildTransferStockOptions(
+  onHand: StockBalanceRow[],
+  fromSalesPointId: string,
+  lines: TransferLineDraft[],
+  products: ProductOption[],
+  fromLocationOptions: StorageLocationOption[],
+): TransferStockOption[] {
+  if (!fromSalesPointId) {
+    return [];
+  }
+
+  const byKey = new Map<string, TransferStockOption>();
+
+  for (const row of onHand) {
+    if (String(row.salesPointId) !== fromSalesPointId) {
+      continue;
+    }
+    if (row.condition !== "SELLABLE") {
+      continue;
+    }
+    const qtyNum = Number.parseFloat(row.qty);
+    if (!Number.isFinite(qtyNum) || qtyNum <= 0) {
+      continue;
+    }
+    const productId = String(row.productId);
+    const fromStorageLocationId = String(row.storageLocationId);
+    const key = stockOptionKey(productId, fromStorageLocationId);
+    byKey.set(key, {
+      key,
+      productId,
+      fromStorageLocationId,
+      productName: row.productName,
+      storageLocationName: row.storageLocationName,
+      uom: row.uom,
+      qtyLabel: formatStockQtyLabel(row.qty),
+    });
+  }
+
+  for (const line of lines) {
+    if (!line.productId || !line.fromStorageLocationId) {
+      continue;
+    }
+    const key = stockOptionKey(line.productId, line.fromStorageLocationId);
+    if (byKey.has(key)) {
+      continue;
+    }
+    const product = products.find((p) => String(p.productId) === line.productId);
+    const location = fromLocationOptions.find(
+      (loc) => String(loc.id) === line.fromStorageLocationId,
+    );
+    const onHandRow = onHand.find(
+      (r) =>
+        String(r.salesPointId) === fromSalesPointId &&
+        String(r.productId) === line.productId &&
+        String(r.storageLocationId) === line.fromStorageLocationId,
+    );
+    byKey.set(key, {
+      key,
+      productId: line.productId,
+      fromStorageLocationId: line.fromStorageLocationId,
+      productName: product?.productName ?? onHandRow?.productName ?? `Product ${line.productId}`,
+      storageLocationName:
+        location?.name ?? onHandRow?.storageLocationName ?? `Location ${line.fromStorageLocationId}`,
+      uom: product?.uom ?? onHandRow?.uom ?? "",
+      qtyLabel: formatStockQtyLabel(onHandRow?.qty ?? "0"),
+    });
+  }
+
+  return [...byKey.values()].sort((a, b) => {
+    const byName = a.productName.localeCompare(b.productName);
+    if (byName !== 0) {
+      return byName;
+    }
+    return a.storageLocationName.localeCompare(b.storageLocationName);
+  });
+}
+
 interface TransferLineEditorProps {
   products: ProductOption[];
   lines: TransferLineDraft[];
@@ -200,6 +401,14 @@ export function TransferLineEditor({
     onChange(lines.length === 1 ? [blankLine()] : lines.filter((_, i) => i !== idx));
   }
 
+  const stockOptions = buildTransferStockOptions(
+    onHand,
+    fromSalesPointId,
+    lines,
+    products,
+    fromLocationOptions,
+  );
+
   return (
     <div class="stock-line-editor">
       <div class="stock-line-editor-header">
@@ -232,6 +441,10 @@ export function TransferLineEditor({
             Number.isFinite(qtyNum) &&
             Number.isFinite(availableNum) &&
             qtyNum > availableNum;
+          const productSelectValue =
+            l.productId && l.fromStorageLocationId
+              ? stockOptionKey(l.productId, l.fromStorageLocationId)
+              : "";
           return (
             <div key={idx} class="stock-line-block">
               <div
@@ -241,16 +454,34 @@ export function TransferLineEditor({
               >
                 <select
                   class="stock-line-select"
-                  value={l.productId}
-                  onChange={(event) =>
-                    update(idx, { productId: (event.currentTarget as HTMLSelectElement).value })
-                  }
+                  value={productSelectValue}
+                  disabled={!fromSalesPointId}
+                  onChange={(event) => {
+                    const raw = (event.currentTarget as HTMLSelectElement).value;
+                    if (!raw) {
+                      update(idx, { productId: "", fromStorageLocationId: defFrom });
+                      return;
+                    }
+                    const parsed = parseStockOptionKey(raw);
+                    if (!parsed) {
+                      return;
+                    }
+                    update(idx, {
+                      productId: parsed.productId,
+                      fromStorageLocationId: parsed.fromStorageLocationId,
+                    });
+                  }}
                   aria-label="Product"
                 >
-                  <option value="">Select product…</option>
-                  {products.map((p) => (
-                    <option key={p.productId} value={p.productId}>
-                      {p.productName}
+                  <option value="">
+                    {fromSalesPointId
+                      ? "Select product with stock…"
+                      : "Select From sales point first…"}
+                  </option>
+                  {stockOptions.map((opt) => (
+                    <option key={opt.key} value={opt.key}>
+                      {opt.productName} — {opt.storageLocationName} ({opt.qtyLabel}
+                      {opt.uom ? ` ${opt.uom}` : ""})
                     </option>
                   ))}
                 </select>
@@ -403,6 +634,16 @@ export function AdjustmentLineEditor({
           const locIdNum = Number.parseInt(l.storageLocationId, 10);
           const productIdNum = Number.parseInt(l.productId, 10);
           const fromCond = l.fromCondition ?? "SELLABLE";
+          const stockCondition: StockCondition =
+            mode === "RECLASSIFY" ? fromCond : "SELLABLE";
+          const stockOptions = buildAdjustmentStockOptions(
+            onHand,
+            salesPointId,
+            [l],
+            products,
+            locationOptions,
+            stockCondition,
+          );
           const availableStr =
             mode === "RECLASSIFY" &&
             Number.isFinite(spIdNum) &&
@@ -425,6 +666,10 @@ export function AdjustmentLineEditor({
             Number.isFinite(qtyNum) &&
             Number.isFinite(availableNum) &&
             qtyNum > availableNum;
+          const productSelectValue =
+            l.productId && l.storageLocationId
+              ? stockOptionKey(l.productId, l.storageLocationId)
+              : "";
           return (
             <div key={idx} class="stock-line-block">
               <div
@@ -434,16 +679,34 @@ export function AdjustmentLineEditor({
               >
                 <select
                   class="stock-line-select"
-                  value={l.productId}
-                  onChange={(event) =>
-                    update(idx, { productId: (event.currentTarget as HTMLSelectElement).value })
-                  }
+                  value={productSelectValue}
+                  disabled={!salesPointId}
+                  onChange={(event) => {
+                    const raw = (event.currentTarget as HTMLSelectElement).value;
+                    if (!raw) {
+                      update(idx, { productId: "", storageLocationId: defLoc });
+                      return;
+                    }
+                    const parsed = parseStockOptionKey(raw);
+                    if (!parsed) {
+                      return;
+                    }
+                    update(idx, {
+                      productId: parsed.productId,
+                      storageLocationId: parsed.fromStorageLocationId,
+                    });
+                  }}
                   aria-label="Product"
                 >
-                  <option value="">Select product…</option>
-                  {products.map((p) => (
-                    <option key={p.productId} value={p.productId}>
-                      {p.productName}
+                  <option value="">
+                    {salesPointId
+                      ? "Select product with stock…"
+                      : "Select sales point first…"}
+                  </option>
+                  {stockOptions.map((opt) => (
+                    <option key={opt.key} value={opt.key}>
+                      {opt.productName} — {opt.storageLocationName} ({opt.qtyLabel}
+                      {opt.uom ? ` ${opt.uom}` : ""})
                     </option>
                   ))}
                 </select>
@@ -485,6 +748,8 @@ export function AdjustmentLineEditor({
                         update(idx, {
                           fromCondition: (event.currentTarget as HTMLSelectElement)
                             .value as StockCondition,
+                          productId: "",
+                          storageLocationId: defLoc,
                         })
                       }
                       aria-label="From condition"

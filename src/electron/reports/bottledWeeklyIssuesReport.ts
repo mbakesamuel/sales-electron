@@ -622,8 +622,8 @@ export function getBottledWeeklyIssuesReport(
   weekMondayIso?: string | null,
 ): BottledWeeklyIssuesReport {
   const estimateBasis = normalizeBottledWeeklyEstimateBasis(estimateBasisRaw);
-  const settings = loadReportCompanySettings(userId);
   const { asAtIso, period } = resolveReportAsAt();
+  const settings = loadReportCompanySettings(userId, asAtIso);
   const asAt = startOfDay(new Date(`${asAtIso}T00:00:00`));
 
   const weekChoices = buildWeekChoices(period.startDate, period.endDate, asAtIso);

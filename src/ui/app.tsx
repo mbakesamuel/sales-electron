@@ -7,10 +7,12 @@ import {
 import { getElectronApi } from "./auth/client.ts";
 import { HomeScreen } from "./pages/HomeScreen.tsx";
 import { LoginScreen } from "./pages/LoginScreen.tsx";
+import { ReportWindowApp } from "./pages/ReportWindowApp.tsx";
+import { parseReportWindowHash } from "../shared/reportWindow.ts";
 import { applyUiTheme, loadAndApplyCompanyTheme } from "./theme/applyUiTheme.ts";
 import "./app.css";
 
-export function App() {
+function MainApp() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [permissions, setPermissions] = useState<RolePermissionsSnapshot | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
@@ -91,4 +93,11 @@ export function App() {
       onLogout={() => void handleLogout()}
     />
   );
+}
+
+export function App() {
+  if (parseReportWindowHash()) {
+    return <ReportWindowApp />;
+  }
+  return <MainApp />;
 }

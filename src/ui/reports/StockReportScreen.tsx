@@ -14,6 +14,7 @@ import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
 import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
+import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import "./StockCommitmentReport.css";
 
 
@@ -389,12 +390,16 @@ export function StockReportDocument({ report }: { report: StockReport }) {
       {report.sections.map((section) => renderSection(section, report.oilGrandTotalKg))}
 
       <ReportCommentsSection comments={report.comments} />
-      <ReportFooter />
+      <ReportFooter name={report.settings.signatoryName} label={report.settings.signatoryTitle} />
     </div>
   );
 }
 
-export function StockReportScreen() {
+export function StockReportScreen({
+  windowMode = false,
+}: {
+  windowMode?: boolean;
+}) {
   const [report, setReport] = useState<StockReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -447,6 +452,9 @@ export function StockReportScreen() {
         <button type="button" class="scr-btn" onClick={handlePrint}>
           Print
         </button>
+        {windowMode ? (
+          <ReportWindowSaveButton fileName={`stock-report-${report.asAtIso}.pdf`} />
+        ) : null}
         <button
           type="button"
           class="scr-btn scr-btn-secondary"

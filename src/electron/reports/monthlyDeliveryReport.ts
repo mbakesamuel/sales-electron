@@ -838,8 +838,8 @@ export function getMonthlyDeliveryReport(
   half: 1 | 2,
   userId?: string | null,
 ): MonthlyDeliveryReport {
-  const settings = loadReportCompanySettings(userId);
   const { asAtIso, period } = resolveReportAsAt();
+  const settings = loadReportCompanySettings(userId, asAtIso);
   const financialYear = period.financialYear;
   const categories = loadCategories();
   const products = loadProducts();

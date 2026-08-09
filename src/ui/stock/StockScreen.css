@@ -233,12 +233,14 @@ textarea.stock-form-control:focus,
   border-bottom-right-radius: 0;
 }
 
-.stock-lookup-row .stock-btn-secondary {
+.stock-lookup-row > button {
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
   height: 32px;
   padding: 0 12px;
   font-size: 13px;
+  box-sizing: border-box;
+  align-self: stretch;
 }
 
 /* Tables */
@@ -543,6 +545,11 @@ textarea.stock-form-control:focus,
   gap: 6px;
 }
 
+.stock-form-hint {
+  font-size: 12px;
+  color: var(--text-muted, #6b7280);
+}
+
 .stock-form-control-wrap .stock-hint {
   margin-top: 6px;
 }
@@ -642,6 +649,10 @@ textarea.stock-form-control {
   grid-template-columns: minmax(0, 1fr) 10rem 7rem 3rem 2rem;
 }
 
+.stock-line-row-transfer-intra {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) 7rem 3rem 2rem;
+}
+
 .stock-line-row-adjust {
   grid-template-columns: minmax(0, 1fr) 10rem 7rem 3rem 2rem;
 }
@@ -736,6 +747,7 @@ textarea.stock-form-control {
 
   .stock-line-row-receipt,
   .stock-line-row-transfer,
+  .stock-line-row-transfer-intra,
   .stock-line-row-adjust,
   .stock-line-row-reclassify {
     grid-template-columns: 1fr;

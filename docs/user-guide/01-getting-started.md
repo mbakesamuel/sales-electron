@@ -31,6 +31,6 @@ Access to each sidebar screen depends on your **role**. Action rights (for examp
 2. Enter or validate delivery orders if used.
 3. Create and validate sales invoices.
 4. Post stock receipts / transfers as needed.
-5. Print or export the weekly reports / print pack at week end.
+5. Print or export weekly reports at week end.
 
 Next: [Organization setup](02-organization-setup.md).

@@ -33,6 +33,8 @@ export interface UpsertCarryForwardStockBatchInput {
   userId: string;
   salesPointId: number;
   productId: number;
+  /** Business date (YYYY-MM-DD) within the open financial month. */
+  occurredAt: string;
   notes?: string | null;
   lines: UpsertCarryForwardStockBatchLine[];
 }

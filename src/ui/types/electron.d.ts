@@ -18,10 +18,13 @@ import type {
   StockReport,
   MonthlyDeliveryReport,
   MonthlyStockReconciliationReport,
+  MonthlyPaymentDeliveryReport,
+  MonthlyDeliveriesByDestinationReport,
   SalesBudgetMonthlyCrosstabReport,
   SalesBudgetWeeklyCrosstabReport,
   WeeklyDeliveriesReport,
   DailySalesReport,
+  ReportSignatoryRow,
 } from "../../shared/reports.types.ts";
 import type {
   PermissionsApi,
@@ -150,6 +153,10 @@ interface ReportsApi {
   ): Promise<WeeklyDeliveriesReport>;
   getMonthlyDelivery(half: 1 | 2, authToken: string): Promise<MonthlyDeliveryReport>;
   getMonthlyStockReconciliation(authToken: string): Promise<MonthlyStockReconciliationReport>;
+  getMonthlyPaymentDelivery(authToken: string): Promise<MonthlyPaymentDeliveryReport>;
+  getMonthlyDeliveriesByDestination(
+    authToken: string,
+  ): Promise<MonthlyDeliveriesByDestinationReport>;
   getSalesBudgetMonthlyCrosstab(
     authToken: string,
     reportYear?: number,
@@ -167,6 +174,24 @@ interface ReportsApi {
     authToken: string,
     input: { reportId: string; text: string | null },
   ): Promise<{ ok: true; comments: string | null } | { ok: false; error: string }>;
+  listSignatories(authToken: string): Promise<ReportSignatoryRow[]>;
+  getSignatory(
+    authToken: string,
+    asAtIso?: string | null,
+  ): Promise<{ name: string; title: string }>;
+  upsertSignatory(
+    authToken: string,
+    input: {
+      id?: string | null;
+      name: string;
+      title: string;
+      effectiveFrom: string;
+    },
+  ): Promise<{ ok: true; row: ReportSignatoryRow } | { ok: false; error: string }>;
+  deleteSignatory(
+    authToken: string,
+    id: string,
+  ): Promise<{ ok: true } | { ok: false; error: string }>;
 }
 
 interface DashboardApi {
@@ -238,6 +263,23 @@ export interface ElectronAppApi {
       | { ok: false; cancelled: true }
       | { ok: false; cancelled: false; error: string }
     >;
+  };
+  windows: {
+    openReport(
+      authToken: string,
+      reportId: string,
+    ): Promise<{ ok: true } | { ok: false; error: string }>;
+    onReportClosed(
+      callback: (payload: { reportId: string }) => void,
+    ): () => void;
+  };
+  reportWindow: {
+    getBootstrap(
+      reportId: string,
+    ): Promise<{ reportId: string; authToken: string } | null>;
+    onBootstrap(
+      callback: (payload: { reportId: string; authToken: string }) => void,
+    ): () => void;
   };
 }
 

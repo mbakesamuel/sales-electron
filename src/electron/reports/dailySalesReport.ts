@@ -331,7 +331,7 @@ export function getDailySalesReport(
   const summaryGrandTotal = summaryRows.reduce((total, row) => total + row.quantity, 0);
 
   return {
-    settings: loadReportCompanySettings(),
+    settings: loadReportCompanySettings(undefined, normalizedDate),
     reportDateIso: normalizedDate,
     selectedSalesPointId,
     salesPointLabel,
