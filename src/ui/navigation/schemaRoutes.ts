@@ -25,7 +25,7 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
     routes: [
       {
         id: "company-settings",
-        label:"App settings",
+        label: "App settings",
         table: "CompanySettings",
         description: "Company-wide configuration.",
       },
@@ -45,7 +45,8 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         id: "financial-months",
         label: "Financial months",
         table: "FinancialMonth",
-        description: "Open and close calendar months for the current financial year.",
+        description:
+          "Open and close calendar months for the current financial year.",
       },
       {
         id: "commercial-services",
@@ -162,38 +163,58 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
     label: "Stocks",
     routes: [
       {
-        id: "stock",
-        label: "Stock",
-        table: "StockBalance",
-        description:
-          "Manage stock balance, movements, receipts, transfers, and adjustments.",
-      },
-      {
         id: "carry-forward-stock",
         label: "Opening Stock balances",
         table: "StockBalance",
         description:
           "Enter opening / carried-forward on-hand quantities by sales point and location.",
       },
+      {
+        id: "stock-bin-card",
+        label: "Bin card",
+        table: "StockMovement",
+        description:
+          "Product stock ledger with opening balance, movements in/out, running balance, and print.",
+      },
+      {
+        id: "stock",
+        label: "Stock",
+        table: "StockBalance",
+        description:
+          "Manage stock balance, movements, receipts, transfers, and adjustments.",
+      },
     ],
   },
- 
   {
     id: "delivery",
     label: "Delivery Order",
     routes: [
       {
+        id: "carry-forward-commitments",
+        label: "Opening commitments",
+        table: "DeliveryOrder",
+        description:
+          "Enter opening / carried-forward customer commitments by product and sales point.",
+      },
+      {
         id: "delivery-orders",
-        label: "Delivery orders",
+        label: "Delivery Orders",
         table: "DeliveryOrder",
         description: "Create and manage delivery orders.",
       },
       {
-        id: "carry-forward-commitments",
-        label: "Opening commitment balances",
+        id: "delivery-order-tracking",
+        label: "DO tracking",
         table: "DeliveryOrder",
         description:
-          "Enter opening / carried-forward customer commitments by product and sales point.",
+          "Track a delivery order by number: commitment, lifts, and remaining.",
+      },
+      {
+        id: "delivery-order-transfer",
+        label: "Transfer DO balance",
+        table: "DeliveryOrder",
+        description:
+          "Move remaining DO commitment from one sales point to another.",
       },
     ],
   },
@@ -203,7 +224,7 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
     routes: [
       {
         id: "sales",
-        label: "Sales Invoice",
+        label: "Sales Invoicing",
         table: "Sale",
         description: "Create and manage sales invoices (POS screen).",
       },
@@ -242,21 +263,21 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
       },
       {
         id: "bottle-oil-stock-sales-report",
-        label: "Bottle oil stock & sales",
+        label: "Bottle Oil stock & sales",
         table: "StockBalance",
         description:
           "Bottled palm oil stock by sales point and monthly sales to date.",
       },
       {
         id: "bottled-weekly-issues-report",
-        label: "Bottled Sales Report",
+        label: "Bottled Oil Issues",
         table: "Sale",
         description:
           "Bottled palm oil issues Mon–Fri by payment method, with MTD and YTD summary.",
       },
       {
         id: "sales-delivery-report",
-        label: "Sales/delivery report",
+        label: "Sales/Delivery By Product",
         table: "Sale",
         description: "Weekly sales and deliveries by customer category.",
       },
@@ -264,7 +285,7 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
     const monthlyRoutes: SchemaRoute[] = [
       {
         id: "monthly-delivery-report-h1",
-        label: "Monthly delivery (Jan–Jun)",
+        label: "Monthly Delivery By Product/Cust Category (Jan–Jun)",
         table: "Sale",
         description: "Monthly deliveries and value for January through June.",
       },
@@ -276,24 +297,59 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
       },
       {
         id: "monthly-stock-reconciliation-report",
-        label: "Monthly stock reconciliation",
+        label: "Stock reconciliation",
         table: "StockBalance",
         description:
           "Open-month LPO opening/reception/issues reconciliation with BPO and palm-kernel rows.",
       },
       {
         id: "monthly-payment-delivery-report",
-        label: "Monthly Payment/Delivery",
+        label: "Palm Oil Payment/Delivery",
         table: "Sale",
         description:
           "Open-month weekly bottled (Payments) vs other-product (Deliveries) sales kg and value.",
       },
       {
         id: "monthly-deliveries-by-destination-report",
-        label: "Deliveries by Destination",
+        label: "Palm Oil Deliveries/Destination",
         table: "Sale",
         description:
           "Open-month weekly non-bottled deliveries (kg) by customer-type destination.",
+      },
+      {
+        id: "monthly-palm-oil-sales-report",
+        label: "Monthly By Month Palm Oil Sales",
+        table: "Sale",
+        description:
+          "Full-year LPO by destination and BPO in tons and '000 FRS (taxes excluded).",
+      },
+      {
+        id: "revenue-taxes-report",
+        label: "Revenue & taxes",
+        table: "Sale",
+        description:
+          "Validated invoice net, VAT, sales tax, and gross for the open month or FY to date.",
+      },
+      {
+        id: "industry-product-monthly-sales-report",
+        label: "Industry Product Monthly sales",
+        table: "Sale",
+        description:
+          "Full-year Industry sales by sales point for each non-LPO, non-bottled product (tons and '000 FRS).",
+      },
+      {
+        id: "bottled-palm-oil-sales-return-report",
+        label: "Bottled Palm Oil Stock Reconciliation",
+        table: "Sale",
+        description:
+          "Open-month bottled B/F, receptions, cash/PR issues, and balance by pack (qty, kg, value without taxes).",
+      },
+      {
+        id: "other-product-sales-deliveries-report",
+        label: "Other Products Sales/Deliveries",
+        table: "Sale",
+        description:
+          "Open-month non-LPO / non-bottled sales by sales point and product (deliveries kg and F.CFA without taxes).",
       },
     ];
     const groups: SchemaRouteGroup[] = [
@@ -314,13 +370,13 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
     routes: [
       {
         id: "users",
-        label: "Users",
+        label: "Manage Users",
         table: "User",
         description: "Application user accounts.",
       },
       {
         id: "role-permissions",
-        label: "Role permissions",
+        label: "Manage Role permissions",
         table: "",
         description: "Configure module access and actions per role.",
       },

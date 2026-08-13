@@ -1,0 +1,8 @@
+.qr-code {
+  display: block;
+  background: #fff;
+}
+
+.qr-code-placeholder {
+  border: 1px solid #d1d5db;
+}

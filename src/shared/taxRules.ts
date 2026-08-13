@@ -113,6 +113,29 @@ export function resolveSalesTaxRate(input: {
   return kind === "REAL" ? rates.salesActual : rates.salesSimplified;
 }
 
+export function formatTaxLabelWithPercent(
+  baseLabel: string,
+  rateDecimal: string | number | null | undefined,
+): string {
+  const rate = normalizeTaxRateDecimal(rateDecimal);
+  const percent = (rate * 100).toFixed(2);
+  return `${baseLabel} (${percent}%)`;
+}
+
+export function formatTaxLabelFromAmounts(
+  baseLabel: string,
+  subtotalExTax: string | number,
+  taxAmount: string | number,
+): string {
+  const subtotal = parseTaxRateDecimal(subtotalExTax);
+  const tax = parseTaxRateDecimal(taxAmount);
+  if (subtotal <= 0 || tax <= 0) {
+    return baseLabel;
+  }
+  const percent = ((tax / subtotal) * 100).toFixed(2);
+  return `${baseLabel} (${percent}%)`;
+}
+
 export function resolveCustomerTaxProfile(input: {
   residency: string | null | undefined;
   taxRegimeKind: string | null | undefined;

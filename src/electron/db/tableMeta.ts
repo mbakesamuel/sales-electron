@@ -12,6 +12,7 @@ export const BLOCKED_TABLES = new Set([
 export const HIDDEN_COLUMNS = new Set([
   "passwordHash",
   "passwordPlain",
+  "mustChangePassword",
   "tokenHash",
 ]);
 

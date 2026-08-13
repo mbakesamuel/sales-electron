@@ -1,5 +1,5 @@
 export type SaleStatus = "PENDING" | "VALIDATED" | "REJECTED";
-export type PaymentMethodKind = "SIMPLE" | "CHEQUE" | "TRAITE" | "CREDIT";
+export type PaymentMethodKind = "SIMPLE" | "CHEQUE" | "TRAITE" | "CREDIT" | "BANK_TRANSFER";
 export type SaleProductMode = "LOOSE" | "BOTTLE";
 export type SaleDisposition = "NORMAL" | "RATION" | "PUBLIC_RELATION";
 export interface SalesCustomerOption {
@@ -194,6 +194,7 @@ export interface DeliveryOrderLookupResult {
 }
 export interface SalePrintLine {
     lineNo: number;
+    productCode: string | null;
     productName: string;
     productCat: string;
     qty: string;
@@ -204,9 +205,12 @@ export interface SalePrintLine {
 export interface SalePrintPayload {
     companyName: string;
     department: string | null;
+    serviceName: string | null;
     companyPhone: string | null;
     companyAddress: string | null;
     logoUrl: string | null;
+    signatoryName: string;
+    signatoryTitle: string;
     sale: {
         invoiceNo: string;
         status: string;
@@ -216,7 +220,11 @@ export interface SalePrintPayload {
         deliveryOrderNo: string | null;
         referenceNumber: string | null;
         customerName: string;
+        customerAddress: string | null;
+        customerPhone: string | null;
         taxpayerId: string | null;
+        salespersonName: string | null;
+        salesPointName: string | null;
         saleProductMode: string | null;
         saleDisposition: string | null;
         netAmount: string;
@@ -231,6 +239,7 @@ export interface SalePrintPayload {
         payments: Array<{
             methodName: string;
             amount: string;
+            paymentDate: string | null;
         }>;
     };
 }
@@ -293,5 +302,6 @@ export interface SalesApi {
     listStorageLocationsWithBalance(payload: {
         salesPointId: number;
         productId: number;
+        asOfDate?: string | null;
     }): Promise<SalesStorageLocationBalanceOption[]>;
 }

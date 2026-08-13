@@ -1,0 +1,21 @@
+.rtr-basis {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: #4b5563;
+  text-transform: none;
+}
+
+.rtr-section {
+  margin-top: 16px;
+}
+
+.rtr-section-title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rtr-summary {
+  margin-top: 8px;
+  margin-bottom: 8px;
+}

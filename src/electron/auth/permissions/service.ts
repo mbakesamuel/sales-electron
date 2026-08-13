@@ -21,6 +21,7 @@ const ACTION_LABELS: Record<PermissionActionKey, string> = {
   validate_sales: "Validate sales invoices",
   validate_delivery_orders: "Validate delivery orders",
   cancel_validated_delivery_order: "Cancel validated delivery orders",
+  transfer_delivery_order_balance: "Transfer delivery order balance",
   manage_permissions: "Manage role permissions",
   draft_stock_receipts: "Draft stock receipts",
   post_stock_receipts: "Post stock receipts",

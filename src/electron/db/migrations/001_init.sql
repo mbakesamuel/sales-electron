@@ -155,7 +155,7 @@ CREATE TABLE IF NOT EXISTS PaymentMethodDefinition (
   id TEXT PRIMARY KEY NOT NULL,
   code TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
-  kind TEXT NOT NULL CHECK (kind IN ('SIMPLE','CHEQUE','TRAITE','CREDIT')),
+  kind TEXT NOT NULL CHECK (kind IN ('SIMPLE','CHEQUE','TRAITE','CREDIT','BANK_TRANSFER')),
   sortOrder INTEGER NOT NULL DEFAULT 0,
   isActive INTEGER NOT NULL DEFAULT 1 CHECK (isActive IN (0, 1)),
   isSystem INTEGER NOT NULL DEFAULT 0 CHECK (isSystem IN (0, 1)),
@@ -186,6 +186,7 @@ CREATE TABLE IF NOT EXISTS User (
   passwordPlain TEXT,
   salesPointId INTEGER REFERENCES SalesPoint(id),
   passwordHash TEXT,
+  mustChangePassword INTEGER NOT NULL DEFAULT 0 CHECK (mustChangePassword IN (0, 1)),
   commercialServiceId TEXT REFERENCES CommercialService(id),
   createdAt TEXT NOT NULL DEFAULT (datetime('now')),
   updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
@@ -442,7 +443,9 @@ CREATE TABLE IF NOT EXISTS DeliveryOrder (
   cancelledAt TEXT,
   cancelledByUserId TEXT REFERENCES User(id),
   cancelReason TEXT,
-  sourceKind TEXT NOT NULL DEFAULT 'NORMAL' CHECK (sourceKind IN ('NORMAL','CARRY_FORWARD'))
+  sourceKind TEXT NOT NULL DEFAULT 'NORMAL'
+    CHECK (sourceKind IN ('NORMAL','CARRY_FORWARD','TRANSFER')),
+  transferredFromDeliveryOrderId INTEGER REFERENCES DeliveryOrder(id)
 );
 CREATE INDEX IF NOT EXISTS DeliveryOrder_customer_idx ON DeliveryOrder (customerId);
 CREATE INDEX IF NOT EXISTS DeliveryOrder_salesPoint_idx ON DeliveryOrder (salesPointId);
@@ -451,6 +454,32 @@ CREATE INDEX IF NOT EXISTS DeliveryOrder_status_date_idx ON DeliveryOrder (statu
 CREATE INDEX IF NOT EXISTS DeliveryOrder_status_reviewed_idx ON DeliveryOrder (status, reviewedAt);
 CREATE INDEX IF NOT EXISTS DeliveryOrder_status_cancelled_idx ON DeliveryOrder (status, cancelledAt);
 CREATE INDEX IF NOT EXISTS DeliveryOrder_commercialService_idx ON DeliveryOrder (commercialServiceId);
+CREATE INDEX IF NOT EXISTS DeliveryOrder_transferredFrom_idx
+  ON DeliveryOrder (transferredFromDeliveryOrderId);
+
+CREATE TABLE IF NOT EXISTS DeliveryOrderTransfer (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  fromDeliveryOrderId INTEGER NOT NULL REFERENCES DeliveryOrder(id),
+  toDeliveryOrderId INTEGER NOT NULL UNIQUE REFERENCES DeliveryOrder(id),
+  fromSalesPointId INTEGER NOT NULL REFERENCES SalesPoint(id),
+  toSalesPointId INTEGER NOT NULL REFERENCES SalesPoint(id),
+  transferredAt TEXT NOT NULL,
+  transferredByUserId TEXT NOT NULL REFERENCES User(id),
+  notes TEXT
+);
+CREATE INDEX IF NOT EXISTS DeliveryOrderTransfer_from_idx
+  ON DeliveryOrderTransfer (fromDeliveryOrderId);
+CREATE INDEX IF NOT EXISTS DeliveryOrderTransfer_to_idx
+  ON DeliveryOrderTransfer (toDeliveryOrderId);
+
+CREATE TABLE IF NOT EXISTS DeliveryOrderTransferLine (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  transferId INTEGER NOT NULL REFERENCES DeliveryOrderTransfer(id) ON DELETE CASCADE,
+  productId INTEGER NOT NULL REFERENCES Product(productId),
+  qtyKg INTEGER NOT NULL CHECK (qtyKg > 0)
+);
+CREATE INDEX IF NOT EXISTS DeliveryOrderTransferLine_transfer_idx
+  ON DeliveryOrderTransferLine (transferId);
 
 CREATE TABLE IF NOT EXISTS DeliveryOrderDetails (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

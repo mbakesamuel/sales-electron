@@ -7,6 +7,7 @@ interface StockClientProps {
     user: AuthUser;
     permissions: RolePermissionsSnapshot;
     onRefresh: () => void | Promise<void>;
+    onOpenBinCard?: () => void;
 }
-export declare function StockClient({ bootstrap, user, permissions, onRefresh }: StockClientProps): import("preact").JSX.Element;
+export declare function StockClient({ bootstrap, user, permissions, onRefresh, onOpenBinCard, }: StockClientProps): import("preact").JSX.Element;
 export {};

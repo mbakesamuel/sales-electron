@@ -1,7 +1,14 @@
 .sbc-root {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 16px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.sbc-root .scr-document {
+  font-size: 13px;
+  text-transform: none;
 }
 
 .sbc-toolbar {
@@ -9,51 +16,59 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 12px;
 }
 
 .sbc-year-picker {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 6px;
 }
 
 .sbc-year-btn {
-  border: 1px solid var(--border, #d4d4d8);
-  border-radius: 0.375rem;
-  background: transparent;
-  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border-strong, var(--border, #d4d4d8));
+  border-radius: 8px;
+  background: var(--bg-elevated, transparent);
+  padding: 6px 10px;
   font: inherit;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
 }
 
 .sbc-year-btn.is-active {
-  border-color: color-mix(in srgb, currentColor 25%, transparent);
-  background: color-mix(in srgb, currentColor 8%, transparent);
+  border-color: var(--accent-border, color-mix(in srgb, currentColor 25%, transparent));
+  background: var(--accent-bg, color-mix(in srgb, currentColor 8%, transparent));
+  font-weight: 600;
 }
 
 .sbc-year-btn:hover {
-  background: color-mix(in srgb, currentColor 6%, transparent);
+  background: var(--nav-hover, color-mix(in srgb, currentColor 6%, transparent));
 }
 
 .sbc-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .sbc-intro {
   margin: 0;
-  font-size: 0.875rem;
-  opacity: 0.85;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted, inherit);
+}
+
+.sbc-intro strong {
+  color: var(--text-h, inherit);
+  font-weight: 600;
 }
 
 .sbc-intro-meta {
-  margin: 0.25rem 0 0;
-  font-size: 0.75rem;
+  margin: 4px 0 0;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
-  opacity: 0.7;
+  color: var(--text-muted, inherit);
 }
 
 .sbc-link-btn {
@@ -61,42 +76,45 @@
   background: none;
   padding: 0;
   font: inherit;
-  color: inherit;
+  font-size: inherit;
+  color: var(--accent, inherit);
   text-decoration: underline;
   cursor: pointer;
 }
 
 .sbc-empty {
   margin: 0;
-  font-size: 0.875rem;
-  opacity: 0.75;
+  font-size: 13px;
+  color: var(--text-muted, inherit);
 }
 
 .sbc-table-wrap {
   overflow-x: auto;
   border: 1px solid var(--border, #d4d4d8);
-  border-radius: 0.5rem;
+  border-radius: 8px;
 }
 
 .sbc-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.875rem;
+  font-size: 13px;
 }
 
 .sbc-table-weekly {
   width: max-content;
   min-width: 100%;
-  font-size: 0.75rem;
+  font-size: 12px;
 }
 
 .sbc-table th,
 .sbc-table td {
-  padding: 0.5rem 0.75rem;
+  padding: 6px 8px;
   border-bottom: 1px solid var(--border, #d4d4d8);
+  line-height: 1.25;
 }
 
 .sbc-table th {
+  font-size: 12px;
   font-weight: 600;
   text-align: right;
   white-space: nowrap;
@@ -112,6 +130,7 @@
 
 .sbc-product-col {
   max-width: min(24rem, 50vw);
+  font-size: 13px;
   font-weight: 600;
   white-space: normal;
 }
@@ -131,31 +150,38 @@
 }
 
 .sbc-week-col {
-  min-width: 6rem;
+  min-width: 5.5rem;
   border-right: 1px solid var(--border, #d4d4d8);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.6875rem;
+  font-family: var(--mono, ui-monospace, Consolas, monospace);
+  font-size: 11px;
 }
 
 .sbc-product-group {
   border-left: 1px solid var(--border, #d4d4d8);
-  background: color-mix(in srgb, currentColor 4%, transparent);
+  background: var(--bg-soft, color-mix(in srgb, currentColor 4%, transparent));
   text-align: center;
+  font-size: 12px;
 }
 
 .sbc-month-head {
-  min-width: 3.5rem;
+  min-width: 3.25rem;
   border-left: 1px solid var(--border, #d4d4d8);
-  background: color-mix(in srgb, currentColor 2%, transparent);
+  background: var(--bg-soft, color-mix(in srgb, currentColor 2%, transparent));
 }
 
 .sbc-foot {
   border-top: 2px solid var(--border, #d4d4d8);
   font-weight: 600;
+  font-size: 12px;
 }
 
 .sbc-foot td {
   background: var(--bg-soft);
+}
+
+.sbc-root .report-footer {
+  font-size: 13px;
+  text-transform: none;
 }
 
 @media print {
@@ -176,9 +202,18 @@
   body.scr-print-mode .sbc-root .scr-document {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 12px;
     background: #fff !important;
     color: #000 !important;
+    font-size: 11px;
+  }
+
+  body.scr-print-mode .sbc-table {
+    font-size: 10px;
+  }
+
+  body.scr-print-mode .sbc-table-weekly {
+    font-size: 9px;
   }
 
   body.scr-print-mode .sbc-table th,
@@ -186,6 +221,7 @@
     color: #000 !important;
     background: #fff !important;
     border-color: #333 !important;
+    padding: 4px 5px;
   }
 
   body.scr-print-mode .sbc-product-group,

@@ -4,6 +4,7 @@ export const PERMISSION_ACTIONS = [
   "validate_sales",
   "validate_delivery_orders",
   "cancel_validated_delivery_order",
+  "transfer_delivery_order_balance",
   "manage_permissions",
   "draft_stock_receipts",
   "post_stock_receipts",

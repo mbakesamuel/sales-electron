@@ -14,6 +14,7 @@ export function registerWindowsHandlers(): void {
       _event,
       authToken: string,
       reportId: unknown,
+      query?: unknown,
     ): Promise<{ ok: true } | { ok: false; error: string }> => {
       requireAuthUser(authToken);
       if (typeof reportId !== "string" || !reportId.trim()) {
@@ -23,7 +24,7 @@ export function registerWindowsHandlers(): void {
       if (!REPORT_WINDOW_ROUTE_IDS.has(id)) {
         return { ok: false, error: `Report window is not enabled for "${id}".` };
       }
-      return openOrFocusReportWindow(id, authToken);
+      return openOrFocusReportWindow(id, authToken, query);
     },
   );
 

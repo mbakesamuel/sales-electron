@@ -4,6 +4,8 @@
 
 **Users** (Users & access) maintains login accounts and role assignment.
 
+When you create a user (or reset their password), enter a **temporary password** and share it with them. On first sign-in they must change that password before they can use the app.
+
 ## Roles (defaults)
 
 Default route access is defined per role (admins can change the matrix):
@@ -26,9 +28,18 @@ Default route access is defined per role (admins can change the matrix):
 | `validate_sales` | Validate sales invoices. |
 | `validate_delivery_orders` | Validate delivery orders (including the **Validation queue** tab under Delivery Order). |
 | `cancel_validated_delivery_order` | Cancel an already validated DO. |
+| `transfer_delivery_order_balance` | Move remaining DO kg to another sales point (**Transfer DO balance** screen). |
 | `manage_permissions` | Edit the permission matrix (**Role permissions**). |
 
 Opening **Sales Invoice** does not by itself allow validation — the action flag must be on. The Delivery Order **Validation queue** tab appears only when `validate_delivery_orders` is granted.
+
+### Delivery order routes
+
+| Route | Screen |
+|-------|--------|
+| `delivery-orders` | Create / edit, DO list, validation queue |
+| `delivery-order-tracking` | DO tracking lookup and printable tracking report |
+| `delivery-order-transfer` | Transfer remaining DO balance between sales points |
 
 ## Stock module routes
 
@@ -42,6 +53,7 @@ The **Stock** sidebar screen combines several permission routes. After changing 
 | `stock-transfers` | Transfers | Hidden | View list | Needed for any transfer changes (also requires draft/post **actions**) |
 | `stock-adjustments` | Adjustments | Hidden | View list | Needed for any adjustment changes (also requires draft/post **actions**) |
 | `carry-forward-stock` | Opening Stock balances | Hidden | View | Batch-set opening quantities |
+| `stock-bin-card` | Bin card (ledger + printable report) | Hidden | View / filter / open report | Same as read unless write on related stock routes |
 
 **Write** on balance or movements does not add create buttons — those tabs are always view-only. Grant **write** on receipts, transfers, or adjustments **plus** the matching action flags below.
 

@@ -1,10 +1,17 @@
 import { ipcMain } from "electron";
 import type {
   AuthSessionResponse,
+  ChangePasswordInput,
+  ChangePasswordResponse,
   LoginInput,
   LoginResponse,
 } from "../../shared/database.types.js";
-import { getAuthSession, login, logout } from "../auth/session.js";
+import {
+  changePassword,
+  getAuthSession,
+  login,
+  logout,
+} from "../auth/session.js";
 
 export function registerAuthHandlers(): void {
   ipcMain.handle(
@@ -37,4 +44,18 @@ export function registerAuthHandlers(): void {
 
     logout(token);
   });
+
+  ipcMain.handle(
+    "auth:changePassword",
+    (_event, data: ChangePasswordInput): ChangePasswordResponse => {
+      const authToken =
+        typeof data?.authToken === "string" ? data.authToken : "";
+      const currentPassword =
+        typeof data?.currentPassword === "string" ? data.currentPassword : "";
+      const newPassword =
+        typeof data?.newPassword === "string" ? data.newPassword : "";
+
+      return changePassword(authToken, currentPassword, newPassword);
+    },
+  );
 }

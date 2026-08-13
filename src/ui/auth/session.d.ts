@@ -5,5 +5,6 @@ export interface AuthUser {
     name: string;
     role: string;
     commercialServiceId: string | null;
+    mustChangePassword: boolean;
 }
 export { AUTH_TOKEN_KEY };

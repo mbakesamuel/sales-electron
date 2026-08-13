@@ -25,6 +25,7 @@ type DestinationId =
 interface SaleLineRecord {
   dateIssued: string;
   saleDisposition: string | null;
+  customerName: string;
   customerTypeCode: string;
   customerTypeName: string;
   isBottled: number;
@@ -46,6 +47,7 @@ function compactDatesLabel(weekFromIso: string, weekToIso: string): string {
 
 function resolveDestinationId(
   saleDisposition: string | null,
+  customerName: string,
   customerTypeCode: string,
   customerTypeName: string,
 ): DestinationId {
@@ -53,7 +55,7 @@ function resolveDestinationId(
     return "cdcWorkers";
   }
 
-  const text = `${customerTypeCode} ${customerTypeName}`.toUpperCase();
+  const text = `${customerName} ${customerTypeCode} ${customerTypeName}`.toUpperCase();
   if (text.includes("MAKOKO")) {
     return "makoko";
   }
@@ -119,6 +121,7 @@ function loadValidatedNonBottledSaleLines(fromIso: string, toIso: string): SaleL
   return getDatabase()
     .prepare(
       `SELECT s.dateIssued, s.saleDisposition,
+              COALESCE(c.name, '') AS customerName,
               COALESCE(ct.code, '') AS customerTypeCode,
               COALESCE(ct.name, '') AS customerTypeName,
               COALESCE(pc.isBottled, 0) AS isBottled,
@@ -138,6 +141,7 @@ function loadValidatedNonBottledSaleLines(fromIso: string, toIso: string): SaleL
     .map((row) => ({
       dateIssued: String((row as { dateIssued: string }).dateIssued).slice(0, 10),
       saleDisposition: (row as { saleDisposition: string | null }).saleDisposition,
+      customerName: String((row as { customerName: string }).customerName ?? ""),
       customerTypeCode: String((row as { customerTypeCode: string }).customerTypeCode ?? ""),
       customerTypeName: String((row as { customerTypeName: string }).customerTypeName ?? ""),
       isBottled: (row as { isBottled: number }).isBottled,
@@ -173,6 +177,7 @@ export function getMonthlyDeliveriesByDestinationReport(
     }
     const destination = resolveDestinationId(
       line.saleDisposition,
+      line.customerName,
       line.customerTypeCode,
       line.customerTypeName,
     );

@@ -303,6 +303,10 @@ function applySimplifiedRolesMigration(database: Database.Database): void {
     userColumns.has("globalRoleDefinitionId") ||
     !rolesSchemaIsCurrent(database)
   ) {
+    const mustChangeSelect = userColumns.has("mustChangePassword")
+      ? "COALESCE(mustChangePassword, 0)"
+      : "0";
+
     database.exec(`
       DROP TABLE IF EXISTS User__new;
       CREATE TABLE User__new (
@@ -314,6 +318,7 @@ function applySimplifiedRolesMigration(database: Database.Database): void {
         passwordPlain TEXT,
         salesPointId INTEGER REFERENCES SalesPoint(id),
         passwordHash TEXT,
+        mustChangePassword INTEGER NOT NULL DEFAULT 0 CHECK (mustChangePassword IN (0, 1)),
         commercialServiceId TEXT REFERENCES CommercialService(id),
         createdAt TEXT NOT NULL DEFAULT (datetime('now')),
         updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
@@ -328,6 +333,7 @@ function applySimplifiedRolesMigration(database: Database.Database): void {
         passwordPlain,
         salesPointId,
         passwordHash,
+        mustChangePassword,
         commercialServiceId,
         createdAt,
         updatedAt
@@ -341,6 +347,7 @@ function applySimplifiedRolesMigration(database: Database.Database): void {
         passwordPlain,
         salesPointId,
         passwordHash,
+        ${mustChangeSelect},
         commercialServiceId,
         createdAt,
         updatedAt
@@ -635,6 +642,7 @@ const USER_TABLE_COLUMN_ORDER = [
   "passwordPlain",
   "salesPointId",
   "passwordHash",
+  "mustChangePassword",
   "commercialServiceId",
   "createdAt",
   "updatedAt",
@@ -678,6 +686,10 @@ function companySettingsHasStockCommitmentComments(database: Database.Database):
 
 function companySettingsHasReportCommentsJson(database: Database.Database): boolean {
   return getTableColumns(database, "CompanySettings").has("reportCommentsJson");
+}
+
+function userHasMustChangePassword(database: Database.Database): boolean {
+  return getTableColumns(database, "User").has("mustChangePassword");
 }
 
 function migrateLegacyStockCommitmentComments(database: Database.Database): void {
@@ -731,6 +743,11 @@ function applyUserDropServiceFactoryMigration(database: Database.Database): void
     return;
   }
 
+  const userColumns = getTableColumns(database, "User");
+  const mustChangeSelect = userColumns.has("mustChangePassword")
+    ? "COALESCE(mustChangePassword, 0)"
+    : "0";
+
   database.pragma("foreign_keys = OFF");
   database.exec(`
     DROP INDEX IF EXISTS User_factory_idx;
@@ -746,6 +763,7 @@ function applyUserDropServiceFactoryMigration(database: Database.Database): void
       passwordPlain TEXT,
       salesPointId INTEGER REFERENCES SalesPoint(id),
       passwordHash TEXT,
+      mustChangePassword INTEGER NOT NULL DEFAULT 0 CHECK (mustChangePassword IN (0, 1)),
       commercialServiceId TEXT REFERENCES CommercialService(id),
       createdAt TEXT NOT NULL DEFAULT (datetime('now')),
       updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
@@ -760,6 +778,7 @@ function applyUserDropServiceFactoryMigration(database: Database.Database): void
       passwordPlain,
       salesPointId,
       passwordHash,
+      mustChangePassword,
       commercialServiceId,
       createdAt,
       updatedAt
@@ -773,6 +792,7 @@ function applyUserDropServiceFactoryMigration(database: Database.Database): void
       passwordPlain,
       salesPointId,
       passwordHash,
+      ${mustChangeSelect},
       commercialServiceId,
       createdAt,
       updatedAt
@@ -962,6 +982,14 @@ function runMigrations(database: Database.Database): void {
         database.exec(sql);
       }
       migrateLegacyStockCommitmentComments(database);
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (
+      fileName === "042_user_must_change_password.sql" &&
+      userHasMustChangePassword(database)
+    ) {
       database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
       continue;
     }

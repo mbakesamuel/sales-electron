@@ -3,4 +3,6 @@ import "./StockCommitmentReport.css";
 export declare function StockReportDocument({ report }: {
     report: StockReport;
 }): import("preact").JSX.Element;
-export declare function StockReportScreen(): import("preact").JSX.Element;
+export declare function StockReportScreen({ windowMode, }: {
+    windowMode?: boolean;
+}): import("preact").JSX.Element;

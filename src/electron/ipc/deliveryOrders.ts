@@ -4,12 +4,16 @@ import type {
   DeliveryOrdersListFilters,
   DeliveryOrdersListResult,
   DeliveryOrderMutationResult,
+  DeliveryOrderPrintPayload,
+  DeliveryOrderTrackPayload,
   LoadedDeliveryOrderView,
   PendingDeliveryOrderRow,
   SaveDeliveryOrderInput,
   SaveDeliveryOrderResult,
   StockOnHandPreviewResult,
   TaxPreviewResult,
+  TransferDeliveryOrderBalanceInput,
+  TransferDeliveryOrderBalanceResult,
   UnitPricePreviewResult,
   ValidationQueuePage,
 } from "../../shared/deliveryOrders.types.js";
@@ -28,6 +32,9 @@ import {
   validateDeliveryOrder,
   validateManyDeliveryOrders,
 } from "../deliveryOrders/service.js";
+import { loadDeliveryOrderPrintById } from "../deliveryOrders/print.js";
+import { trackDeliveryOrderByNo } from "../deliveryOrders/track.js";
+import { transferDeliveryOrderBalance } from "../deliveryOrders/transfer.js";
 
 export function registerDeliveryOrdersHandlers(): void {
   ipcMain.handle("deliveryOrders:getFormOptions", (): DeliveryOrdersFormOptions => {
@@ -42,6 +49,42 @@ export function registerDeliveryOrdersHandlers(): void {
       }
 
       return loadDeliveryOrderByNo(deliveryOrderNo);
+    },
+  );
+
+  ipcMain.handle(
+    "deliveryOrders:loadPrintById",
+    (_event, orderId: number): DeliveryOrderPrintPayload | null => {
+      if (typeof orderId !== "number") {
+        return null;
+      }
+
+      return loadDeliveryOrderPrintById(orderId);
+    },
+  );
+
+  ipcMain.handle(
+    "deliveryOrders:trackByNo",
+    (_event, deliveryOrderNo: string): DeliveryOrderTrackPayload | null => {
+      if (typeof deliveryOrderNo !== "string") {
+        return null;
+      }
+
+      return trackDeliveryOrderByNo(deliveryOrderNo);
+    },
+  );
+
+  ipcMain.handle(
+    "deliveryOrders:transferBalance",
+    (
+      _event,
+      input: TransferDeliveryOrderBalanceInput,
+    ): TransferDeliveryOrderBalanceResult => {
+      if (!input?.userId) {
+        return { ok: false, error: "Login required." };
+      }
+
+      return transferDeliveryOrderBalance(input);
     },
   );
 

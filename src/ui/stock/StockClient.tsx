@@ -30,9 +30,16 @@ interface StockClientProps {
   user: AuthUser;
   permissions: RolePermissionsSnapshot;
   onRefresh: () => void | Promise<void>;
+  onOpenBinCard?: () => void;
 }
 
-export function StockClient({ bootstrap, user, permissions, onRefresh }: StockClientProps) {
+export function StockClient({
+  bootstrap,
+  user,
+  permissions,
+  onRefresh,
+  onOpenBinCard,
+}: StockClientProps) {
   const visibleTabs = useMemo(
     () =>
       TAB_DEFINITIONS.filter((tab) =>
@@ -76,6 +83,13 @@ export function StockClient({ bootstrap, user, permissions, onRefresh }: StockCl
           adjustments. Every operation is recorded with the actor and timestamp on the movement
           ledger.
         </p>
+        {onOpenBinCard ? (
+          <p class="stock-header-subtitle">
+            <button type="button" class="scr-btn scr-btn-secondary" onClick={onOpenBinCard}>
+              Open bin card
+            </button>
+          </p>
+        ) : null}
       </header>
 
       {banner ? (

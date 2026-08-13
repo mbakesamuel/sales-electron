@@ -14,6 +14,11 @@ export declare function getAuthenticatedReports(): {
     getMonthlyStockReconciliation: () => Promise<import("../../shared/reports.types.ts").MonthlyStockReconciliationReport>;
     getMonthlyPaymentDelivery: () => Promise<import("../../shared/reports.types.ts").MonthlyPaymentDeliveryReport>;
     getMonthlyDeliveriesByDestination: () => Promise<import("../../shared/reports.types.ts").MonthlyDeliveriesByDestinationReport>;
+    getMonthlyPalmOilSales: () => Promise<import("../../shared/reports.types.ts").MonthlyPalmOilSalesReport>;
+    getIndustryProductMonthlySales: () => Promise<import("../../shared/reports.types.ts").IndustryProductMonthlySalesReport>;
+    getBottledPalmOilSalesReturn: () => Promise<import("../../shared/reports.types.ts").BottledPalmOilSalesReturnReport>;
+    getOtherProductSalesDeliveries: () => Promise<import("../../shared/reports.types.ts").OtherProductSalesDeliveriesReport>;
+    getRevenueTaxes: (period?: import("../../shared/reports.types.ts").RevenueTaxesPeriod, salesPointId?: number | null) => Promise<import("../../shared/reports.types.ts").RevenueTaxesReport>;
     getSalesBudgetMonthlyCrosstab: (reportYear?: number) => Promise<import("../../shared/reports.types.ts").SalesBudgetMonthlyCrosstabReport>;
     getSalesBudgetWeeklyCrosstab: (reportYear?: number) => Promise<import("../../shared/reports.types.ts").SalesBudgetWeeklyCrosstabReport>;
     getDailySales: (reportDateIso: string, salesPointId?: number | null) => Promise<import("../../shared/reports.types.ts").DailySalesReport>;

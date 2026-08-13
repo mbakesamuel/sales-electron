@@ -7,7 +7,7 @@ type RouteMatrix = Record<string, RouteAccess>;
 type ActionMatrix = Record<PermissionActionKey, boolean>;
 
 const ROUTE_GROUPS = {
-  operations: ["sales", "delivery-orders", "carry-forward-commitments", "vehicle-consignment-notes"],
+  operations: ["sales", "delivery-orders", "delivery-order-tracking", "delivery-order-transfer", "carry-forward-commitments", "vehicle-consignment-notes"],
   customerOps: ["customers"],
   productConfig: [
     "products",
@@ -31,6 +31,7 @@ const ROUTE_GROUPS = {
     "stock-balance",
     "stock-movements",
     "carry-forward-stock",
+    "stock-bin-card",
     "stock-commitment-report",
     "stock-report",
     "commitment-report",
@@ -43,6 +44,11 @@ const ROUTE_GROUPS = {
     "monthly-stock-reconciliation-report",
     "monthly-payment-delivery-report",
     "monthly-deliveries-by-destination-report",
+    "monthly-palm-oil-sales-report",
+    "revenue-taxes-report",
+    "industry-product-monthly-sales-report",
+    "bottled-palm-oil-sales-return-report",
+    "other-product-sales-deliveries-report",
   ],
   organization: [
     "commercial-services",
@@ -109,6 +115,7 @@ function buildDefaultRouteMatrix(): Record<string, RouteMatrix> {
       ...ROUTE_GROUPS.operations,
       ...ROUTE_GROUPS.customerOps,
       "stock-balance",
+      "stock-bin-card",
       "stock-commitment-report",
       "stock-report",
       "commitment-report",
@@ -121,6 +128,11 @@ function buildDefaultRouteMatrix(): Record<string, RouteMatrix> {
       "monthly-stock-reconciliation-report",
       "monthly-payment-delivery-report",
       "monthly-deliveries-by-destination-report",
+      "monthly-palm-oil-sales-report",
+      "revenue-taxes-report",
+      "industry-product-monthly-sales-report",
+      "bottled-palm-oil-sales-return-report",
+      "other-product-sales-deliveries-report",
     ]),
   };
 }
@@ -148,6 +160,7 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
     validate_sales: true,
     validate_delivery_orders: true,
     cancel_validated_delivery_order: false,
+    transfer_delivery_order_balance: true,
     manage_permissions: false,
     ...stockDocumentActions,
   };
@@ -166,6 +179,7 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
     validate_sales: false,
     validate_delivery_orders: false,
     cancel_validated_delivery_order: false,
+    transfer_delivery_order_balance: false,
     manage_permissions: false,
     ...stockDocumentNone,
   };

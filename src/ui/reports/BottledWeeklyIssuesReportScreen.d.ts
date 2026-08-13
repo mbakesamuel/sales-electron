@@ -5,4 +5,6 @@ import "./SalesBudgetCrosstab.css";
 export declare function BottledWeeklyIssuesReportDocument({ report, }: {
     report: BottledWeeklyIssuesReport;
 }): import("preact").JSX.Element;
-export declare function BottledWeeklyIssuesReportScreen(): import("preact").JSX.Element;
+export declare function BottledWeeklyIssuesReportScreen({ windowMode, }: {
+    windowMode?: boolean;
+}): import("preact").JSX.Element;

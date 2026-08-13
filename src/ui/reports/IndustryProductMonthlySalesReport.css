@@ -1,0 +1,73 @@
+.ipms-document {
+  overflow-x: auto;
+}
+
+.ipms-product-section {
+  margin-top: 18px;
+}
+
+.ipms-product-section + .ipms-product-section {
+  page-break-before: always;
+  margin-top: 28px;
+  padding-top: 8px;
+  border-top: 1px solid #d1d5db;
+}
+
+.ipms-meta {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.ipms-meta p {
+  margin: 0;
+}
+
+.ipms-section {
+  overflow-x: auto;
+  margin-top: 12px;
+}
+
+.ipms-table {
+  min-width: 980px;
+  table-layout: fixed;
+}
+
+.ipms-label-col,
+.ipms-table tbody td.ipms-label-col {
+  width: 160px;
+  min-width: 140px;
+  max-width: 180px;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.ipms-footnote {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: #4b5563;
+  text-transform: none;
+}
+
+.ipms-empty {
+  margin: 16px 0;
+  font-size: 13px;
+  color: #4b5563;
+  text-transform: none;
+}
+
+@media print {
+  body.scr-print-mode .ipms-table {
+    min-width: 0;
+  }
+
+  body.scr-print-mode .ipms-label-col,
+  body.scr-print-mode .ipms-table tbody td.ipms-label-col {
+    width: 100px;
+    min-width: 100px;
+  }
+
+  body.scr-print-mode .ipms-product-section + .ipms-product-section {
+    border-top: none;
+  }
+}

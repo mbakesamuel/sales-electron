@@ -5,6 +5,7 @@ import {
   type AuthUser,
 } from "./auth/session.ts";
 import { getElectronApi } from "./auth/client.ts";
+import { ChangePasswordScreen } from "./pages/ChangePasswordScreen.tsx";
 import { HomeScreen } from "./pages/HomeScreen.tsx";
 import { LoginScreen } from "./pages/LoginScreen.tsx";
 import { ReportWindowApp } from "./pages/ReportWindowApp.tsx";
@@ -62,6 +63,14 @@ function MainApp() {
     void loadAndApplyCompanyTheme();
   }
 
+  function handlePasswordChanged(
+    nextUser: AuthUser,
+    nextPermissions: RolePermissionsSnapshot,
+  ) {
+    setUser(nextUser);
+    setPermissions(nextPermissions);
+  }
+
   async function handleLogout() {
     const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
     sessionStorage.removeItem(AUTH_TOKEN_KEY);
@@ -83,6 +92,16 @@ function MainApp() {
 
   if (!user || !permissions) {
     return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  if (user.mustChangePassword) {
+    return (
+      <ChangePasswordScreen
+        user={user}
+        onPasswordChanged={handlePasswordChanged}
+        onLogout={() => void handleLogout()}
+      />
+    );
   }
 
   return (

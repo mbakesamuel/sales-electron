@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { getElectronApi } from "../auth/client.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
+import {
+  locationCoversQty,
+  pickLocationForQty,
+} from "./storageLocationPick.ts";
 import type {
   SalesProductOption,
   SalesStorageLocationBalanceOption,
@@ -19,6 +23,7 @@ interface SalesLineModalProps {
   line: SalesLineDraft;
   products: SalesProductOption[];
   salesPointId: number | null;
+  preferredStorageLocationId?: string;
   isBottleMode: boolean;
   isSpecialDisposition: boolean;
   useRegisteredCustomer: boolean;
@@ -45,6 +50,7 @@ export function SalesLineModal({
   line,
   products,
   salesPointId,
+  preferredStorageLocationId = "",
   isBottleMode,
   isSpecialDisposition,
   useRegisteredCustomer,
@@ -89,6 +95,15 @@ export function SalesLineModal({
     }
 
     if (mode === "edit" && draft.productId === openedProductIdRef.current) {
+      return;
+    }
+
+    // Keep DO / prefilled price until the user changes product.
+    if (
+      mode === "add" &&
+      draft.productId &&
+      draft.productId === openedProductIdRef.current
+    ) {
       return;
     }
 
@@ -177,6 +192,7 @@ export function SalesLineModal({
       .sales.listStorageLocationsWithBalance({
         salesPointId,
         productId,
+        asOfDate: transactionDate,
       })
       .then((rows) => {
         if (cancelled) {
@@ -185,13 +201,22 @@ export function SalesLineModal({
         setLocationsLoading(false);
         setBalanceLocations(rows);
         setDraft((current) => {
+          const qty = parseDecimal(current.qtyKg);
           if (
-            !current.storageLocationId ||
-            rows.some((row) => String(row.id) === current.storageLocationId)
+            current.storageLocationId &&
+            locationCoversQty(rows, current.storageLocationId, qty)
           ) {
             return current;
           }
-          return { ...current, storageLocationId: "" };
+          const picked = pickLocationForQty(
+            rows,
+            qty,
+            preferredStorageLocationId,
+          );
+          if (picked === current.storageLocationId) {
+            return current;
+          }
+          return { ...current, storageLocationId: picked };
         });
       })
       .catch(() => {
@@ -210,7 +235,44 @@ export function SalesLineModal({
     return () => {
       cancelled = true;
     };
-  }, [draft.productId, isBottleMode, salesPointId]);
+  }, [
+    draft.productId,
+    isBottleMode,
+    preferredStorageLocationId,
+    salesPointId,
+    transactionDate,
+  ]);
+
+  useEffect(() => {
+    if (isBottleMode || locationsLoading || balanceLocations.length === 0) {
+      return;
+    }
+
+    setDraft((current) => {
+      const qty = parseDecimal(current.qtyKg);
+      if (
+        current.storageLocationId &&
+        locationCoversQty(balanceLocations, current.storageLocationId, qty)
+      ) {
+        return current;
+      }
+      const picked = pickLocationForQty(
+        balanceLocations,
+        qty,
+        preferredStorageLocationId,
+      );
+      if (picked === current.storageLocationId) {
+        return current;
+      }
+      return { ...current, storageLocationId: picked };
+    });
+  }, [
+    balanceLocations,
+    draft.qtyKg,
+    isBottleMode,
+    locationsLoading,
+    preferredStorageLocationId,
+  ]);
 
   const quantity = parseDecimal(isBottleMode ? draft.qtyUnits : draft.qtyKg);
   const unitPrice = parseDecimal(

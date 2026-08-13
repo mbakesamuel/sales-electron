@@ -4,7 +4,7 @@
 
 1. Install the Windows build (**Sales Management Application** Setup) from your IT package, or run from source with `npm run dev` (developers).
 2. Launch **Sales Management Application** from the Start menu or desktop shortcut.
-3. Sign in with the username and password provided by your administrator.
+3. Sign in with the username and temporary password provided by your administrator. On first login the app asks you to choose a new password before you can continue.
 
 The application stores data locally in a SQLite database on the PC (Electron user data folder).
 

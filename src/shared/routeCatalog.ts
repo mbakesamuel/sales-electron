@@ -62,6 +62,18 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
     table: "DeliveryOrder",
   },
   {
+    id: "delivery-order-tracking",
+    label: "DO tracking",
+    sectionId: "delivery",
+    table: "DeliveryOrder",
+  },
+  {
+    id: "delivery-order-transfer",
+    label: "Transfer DO balance",
+    sectionId: "delivery",
+    table: "DeliveryOrder",
+  },
+  {
     id: "carry-forward-commitments",
     label: "Carry-forward commitments",
     sectionId: "delivery",
@@ -79,6 +91,17 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
     label: "Carry-forward stock",
     sectionId: "inventory",
     table: "StockBalance",
+  },
+  {
+    id: "stock-bin-card",
+    label: "Bin card",
+    sectionId: "inventory",
+    table: "StockMovement",
+  },
+  {
+    id: "stock-bin-card-report",
+    label: "Bin card report",
+    sectionId: "reports",
   },
   {
     id: "stock-commitment-report",
@@ -138,6 +161,31 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
   {
     id: "monthly-deliveries-by-destination-report",
     label: "Deliveries by Destination",
+    sectionId: "reports",
+  },
+  {
+    id: "monthly-palm-oil-sales-report",
+    label: "Monthly Palm Oil Sales",
+    sectionId: "reports",
+  },
+  {
+    id: "revenue-taxes-report",
+    label: "Revenue & taxes",
+    sectionId: "reports",
+  },
+  {
+    id: "industry-product-monthly-sales-report",
+    label: "Industry product monthly sales",
+    sectionId: "reports",
+  },
+  {
+    id: "bottled-palm-oil-sales-return-report",
+    label: "Bottled palm oil sales return",
+    sectionId: "reports",
+  },
+  {
+    id: "other-product-sales-deliveries-report",
+    label: "Other product sales and deliveries",
     sectionId: "reports",
   },
   {

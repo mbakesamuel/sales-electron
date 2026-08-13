@@ -1,0 +1,51 @@
+.opsd-document {
+  overflow-x: auto;
+}
+
+.opsd-section {
+  overflow-x: auto;
+  margin-top: 12px;
+}
+
+.opsd-table {
+  min-width: 760px;
+  table-layout: fixed;
+}
+
+.opsd-sp-col,
+.opsd-table tbody td.opsd-sp-col {
+  width: 140px;
+  min-width: 120px;
+  white-space: normal;
+  word-break: break-word;
+  font-weight: 700;
+}
+
+.opsd-product-col,
+.opsd-table tbody td.opsd-product-col {
+  width: 200px;
+  min-width: 160px;
+  white-space: normal;
+  word-break: break-word;
+  font-weight: 700;
+}
+
+.opsd-footnote {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: #4b5563;
+  text-transform: none;
+}
+
+.opsd-empty {
+  margin: 16px 0;
+  font-size: 13px;
+  color: #4b5563;
+  text-transform: none;
+}
+
+@media print {
+  body.scr-print-mode .opsd-table {
+    min-width: 0;
+  }
+}

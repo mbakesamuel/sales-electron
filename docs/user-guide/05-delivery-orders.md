@@ -2,7 +2,7 @@
 
 ## Delivery orders
 
-Screen: **Delivery Order → Delivery orders**.
+Screen: **Delivery Order → Delivery ordering**.
 
 Delivery orders (DOs) record customer commitments by product and sales point. After validation, remaining quantities can be drawn down on sales invoices.
 
@@ -17,6 +17,39 @@ The Delivery Order workspace has three tabs: **Delivery order** (create / edit),
 5. Optional: cancel a validated DO if you have `cancel_validated_delivery_order`.
 
 Pending DOs do **not** appear in Pick DO. Only **validated** DOs with remaining kg are listed.
+
+### DO tracking
+
+Screen: **Delivery Order → DO tracking**.
+
+Look up a delivery order by booklet / DO / CF number to see:
+
+1. **Header** — status, customer, collection point, date, and totals (ordered / lifted / remaining kg).
+2. **Commitment by product** — ordered, lifted, remaining, and % lifted per product.
+3. **Lift history** — pending and validated sales invoices linked to that DO, with line quantities.
+
+Use **Open in Delivery ordering** to jump to the create/edit screen for that number. Use **Print tracking report** to preview and print a **Delivery Order Tracking Report** (commitment by product, lift history, transfers out) with the company report header. Pick DO still only offers **validated** DOs; tracking shows any DO status and linked sales.
+
+### Transfer DO balance
+
+Screen: **Delivery Order → Transfer DO balance**.
+
+When a sales point is short of stock but another point can fulfil the remaining commitment, authorized users (action `transfer_delivery_order_balance`) can move **remaining** kg per product from a **validated** source DO to a different sales point.
+
+**What happens**
+
+1. Look up the source DO and enter transfer kg per product (up to remaining).
+2. Choose the destination sales point.
+3. On confirm, the source DO’s `orderQty` is reduced by the transferred amounts, and the app creates a new **validated** DO at the destination with number `DT-{year}-{seq}` (`sourceKind = TRANSFER`), linked back to the source.
+4. Pick DO at the destination sales point then lists the new DO for that customer.
+
+This moves **commitment only** — it does not move physical stock. Use inventory stock transfers separately if goods must move.
+
+DO tracking shows **Transferred from** on destination DOs and a **Transfers out** section on source DOs.
+
+### Print
+
+On a saved delivery order, use **Print delivery order** to preview and print a **Delivery Order Report**. The printout uses the company report header and includes order number, order date, customer (with address/phone when on file), sales point, line items, tax totals, payments, and Authorized By / Received By signature lines. There is no separate customer delivery date on the report. A **QR code** (top right) encodes the delivery order number, date, customer, sales point, and net/gross totals (plus taxpayer ID when present) so those fields can be verified against the printed report.
 
 ### Booklet serial number
 

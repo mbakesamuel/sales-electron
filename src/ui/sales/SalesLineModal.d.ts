@@ -11,6 +11,7 @@ interface SalesLineModalProps {
     line: SalesLineDraft;
     products: SalesProductOption[];
     salesPointId: number | null;
+    preferredStorageLocationId?: string;
     isBottleMode: boolean;
     isSpecialDisposition: boolean;
     useRegisteredCustomer: boolean;
@@ -20,5 +21,5 @@ interface SalesLineModalProps {
     onClose: () => void;
     onSave: (line: SalesLineDraft) => void;
 }
-export declare function SalesLineModal({ line, products, salesPointId, isBottleMode, isSpecialDisposition, useRegisteredCustomer, customerId, transactionDate, mode, onClose, onSave, }: SalesLineModalProps): import("preact").JSX.Element;
+export declare function SalesLineModal({ line, products, salesPointId, preferredStorageLocationId, isBottleMode, isSpecialDisposition, useRegisteredCustomer, customerId, transactionDate, mode, onClose, onSave, }: SalesLineModalProps): import("preact").JSX.Element;
 export {};

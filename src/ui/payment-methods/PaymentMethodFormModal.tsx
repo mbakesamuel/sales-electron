@@ -25,13 +25,19 @@ export const PAYMENT_METHOD_KIND_LABELS: Record<PaymentMethodKind, string> = {
   CHEQUE: "Cheque",
   TRAITE: "Traite",
   CREDIT: "Credit",
+  BANK_TRANSFER: "Bank transfer",
 };
 
 const KIND_OPTIONS = Object.keys(PAYMENT_METHOD_KIND_LABELS) as PaymentMethodKind[];
 
 function normalizeKind(value: unknown): PaymentMethodKind {
   const kind = String(value ?? "SIMPLE").toUpperCase();
-  if (kind === "CHEQUE" || kind === "TRAITE" || kind === "CREDIT") {
+  if (
+    kind === "CHEQUE" ||
+    kind === "TRAITE" ||
+    kind === "CREDIT" ||
+    kind === "BANK_TRANSFER"
+  ) {
     return kind;
   }
   return "SIMPLE";

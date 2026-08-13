@@ -50,15 +50,14 @@ Delivery order fields show for **loose**, **normal** disposition, with a **regis
 1. Choose the customer and sales point first.
 2. Click **Pick DO**. The list shows only **validated** DOs for **that customer and sales point** that still have remaining balance.
 3. The list is **split by product**: each row is one product with remaining kg (not a single bulk total for the whole DO). Carry-forward DOs are marked **CF**.
-4. Click a row — the app **looks up the DO and loads that product’s remaining qty and price onto the invoice in one step**. Other products on the same DO remain available for later picks.
+4. Click a row — the app **links that delivery order**, switches to the DO’s customer if needed, and **opens Add line** with that product, remaining qty, and DO unit price. Confirm storage location (auto-picked from stock when possible) and save the line.
+5. Use **Add line** again for more products; if a DO product was linked but the modal was closed, Add line still prefills that product until you save a line or clear the DO.
 
 ### Manual Lookup
 
-1. Type a DO number (or pick first without applying — pick already loads).
-2. Click **Lookup** to preview ordered / sold / balance per product.
-3. Click **Load lines from DO** to load **all** products with remaining balance (replaces invoice lines).
-
-If the DO customer differs from the selected customer, loading lines switches the customer to the DO’s customer.
+1. Type a DO number (or use Pick DO).
+2. Click **Lookup** to confirm the DO and link it (sets the DO number and adopts the DO customer). If the DO has exactly one product with remaining balance, Add line will prefill that product.
+3. Add products with **Add line**.
 
 ### After save
 
@@ -75,6 +74,6 @@ Screen tab: **Invoice list**. Default filter is the **open posting month** (`dat
 
 ## Print
 
-Use the invoice print flow from the sales screen after save. Company header comes from app settings.
+Use the invoice print flow from the sales screen after save. Company header comes from app settings. The printout includes a **QR code** (top right) encoding the invoice number, date, customer, net/gross totals, and taxpayer ID when present — scan it to verify those fields against the printed invoice.
 
 Next: [Delivery orders](05-delivery-orders.md). Developer detail for Pick DO: [Domain modules](../developer-guide/05-domain-modules.md).

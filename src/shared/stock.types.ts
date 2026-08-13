@@ -255,3 +255,52 @@ export interface StockUserActionInput {
   userId: string;
   id: string;
 }
+
+export type BinCardConditionFilter = StockCondition | "ALL";
+
+export interface BinCardQuery {
+  productId: number;
+  salesPointId?: number | null;
+  storageLocationId?: number | null;
+  condition?: BinCardConditionFilter;
+  fromIso: string;
+  toIso: string;
+}
+
+export interface BinCardLine {
+  id: string;
+  occurredAtIso: string;
+  reference: string;
+  particulars: string;
+  kind: StockMovementKind;
+  condition: StockCondition;
+  salesPointName: string;
+  storageLocationName: string;
+  qtyIn: number;
+  qtyOut: number;
+  balance: number;
+  documentNo: string | null;
+  notes: string | null;
+  isCarryForward: boolean;
+}
+
+export interface BinCardReport {
+  productId: number;
+  productName: string;
+  uom: string;
+  isBottled: boolean;
+  salesPointId: number | null;
+  salesPointLabel: string;
+  storageLocationId: number | null;
+  storageLocationLabel: string;
+  condition: BinCardConditionFilter;
+  fromIso: string;
+  toIso: string;
+  openingBalance: number;
+  closingBalance: number;
+  lines: BinCardLine[];
+  truncated: boolean;
+  companyName: string;
+  department: string | null;
+  serviceName: string | null;
+}

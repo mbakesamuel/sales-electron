@@ -13,6 +13,7 @@ interface DeliveryOrdersScreenProps {
   user: AuthUser;
   permissions: RolePermissionsSnapshot;
   readOnly?: boolean;
+  initialLookupNo?: string;
 }
 
 type DeliveryOrdersView = "screen" | "list" | "queue";
@@ -21,6 +22,7 @@ export function DeliveryOrdersScreen({
   user,
   permissions,
   readOnly = false,
+  initialLookupNo = "",
 }: DeliveryOrdersScreenProps) {
   const canUseScreen =
     canWriteRouteFromSnapshot(permissions, "delivery-orders") && !readOnly;
@@ -29,7 +31,7 @@ export function DeliveryOrdersScreen({
     "validate_delivery_orders",
   );
   const [view, setView] = useState<DeliveryOrdersView>(canUseScreen ? "screen" : "list");
-  const [lookupNo, setLookupNo] = useState("");
+  const [lookupNo, setLookupNo] = useState(initialLookupNo);
 
   function openOrder(deliveryOrderNo: string) {
     setLookupNo(deliveryOrderNo);

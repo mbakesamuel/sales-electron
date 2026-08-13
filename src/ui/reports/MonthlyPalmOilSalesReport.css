@@ -1,0 +1,41 @@
+.mpos-document {
+  overflow-x: auto;
+}
+
+.mpos-section {
+  overflow-x: auto;
+  margin-top: 14px;
+}
+
+.mpos-table {
+  min-width: 980px;
+  table-layout: fixed;
+}
+
+.mpos-label-col,
+.mpos-table tbody td.mpos-label-col {
+  width: 160px;
+  min-width: 140px;
+  max-width: 180px;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.mpos-footnote {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: #4b5563;
+  text-transform: none;
+}
+
+@media print {
+  body.scr-print-mode .mpos-table {
+    min-width: 0;
+  }
+
+  body.scr-print-mode .mpos-label-col,
+  body.scr-print-mode .mpos-table tbody td.mpos-label-col {
+    width: 100px;
+    min-width: 100px;
+  }
+}

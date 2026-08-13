@@ -15,6 +15,19 @@ Keep types named consistently so weekly/monthly delivery reports group sales cor
 
 Invoice-only / walk-in flows (no registered customer) are available on sales for certain dispositions; see [Sales invoices](04-sales-invoices.md).
 
+### Add / edit customer
+
+Use **Add Customer** (or edit from the customers list). The form is a **four-step wizard** (Basic → Contact → Tax & IDs → Service), matching the standard modal layout used elsewhere in the app.
+
+| Step | Fields |
+|------|--------|
+| **Basic** | Full name, customer type, residency (Domestic / Foreign), optional **POS placeholder** (generic walk-in account). |
+| **Contact** | Email, phone, address (all optional except where your process requires them). |
+| **Tax & IDs** | Tax regime (optional), **Has TPN?** checkbox, and **Tax Payer's No.** when TPN applies. |
+| **Service** | Commercial service (required) and a **Review** summary before save. |
+
+Annual-style figures elsewhere in the app use thousand separators; customer fields are plain text except where noted above.
+
 ## Customer types
 
 **Customer types** is the master list of type definitions assigned to customers.

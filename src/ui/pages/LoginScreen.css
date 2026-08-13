@@ -105,6 +105,26 @@
   cursor: not-allowed;
 }
 
+.login-secondary-button {
+  font: inherit;
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-h);
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.login-secondary-button:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.login-secondary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .login-hint {
   margin: 20px 0 0;
   font-size: 13px;

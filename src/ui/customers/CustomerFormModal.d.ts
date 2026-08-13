@@ -1,3 +1,4 @@
+import "../components/FormDialog.css";
 import "./CustomerFormModal.css";
 interface CustomerFormModalProps {
     mode: "create" | "edit";
@@ -5,5 +6,5 @@ interface CustomerFormModalProps {
     onClose: () => void;
     onSaved: () => void;
 }
-export declare function CustomerFormModal({ mode, row, onClose, onSaved, }: CustomerFormModalProps): import("preact").VNode<any>;
+export declare function CustomerFormModal({ mode, row, onClose, onSaved, }: CustomerFormModalProps): import("preact").JSX.Element;
 export {};

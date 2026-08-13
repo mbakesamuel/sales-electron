@@ -16,17 +16,29 @@ import {
 import { MonthlyStockReconciliationScreen } from "../reports/MonthlyStockReconciliationScreen.tsx";
 import { MonthlyPaymentDeliveryScreen } from "../reports/MonthlyPaymentDeliveryScreen.tsx";
 import { MonthlyDeliveriesByDestinationScreen } from "../reports/MonthlyDeliveriesByDestinationScreen.tsx";
+import { MonthlyPalmOilSalesScreen } from "../reports/MonthlyPalmOilSalesScreen.tsx";
+import { IndustryProductMonthlySalesScreen } from "../reports/IndustryProductMonthlySalesScreen.tsx";
+import { BottledPalmOilSalesReturnScreen } from "../reports/BottledPalmOilSalesReturnScreen.tsx";
+import { OtherProductSalesDeliveriesScreen } from "../reports/OtherProductSalesDeliveriesScreen.tsx";
+import { RevenueTaxesReportScreen } from "../reports/RevenueTaxesReportScreen.tsx";
 import { SalesBudgetMonthlyCrosstabScreen } from "../reports/SalesBudgetMonthlyCrosstabScreen.tsx";
 import { SalesBudgetWeeklyCrosstabScreen } from "../reports/SalesBudgetWeeklyCrosstabScreen.tsx";
+import { BinCardReportScreen } from "../stock/BinCardReportScreen.tsx";
 import { loadAndApplyCompanyTheme, applyUiTheme } from "../theme/applyUiTheme.ts";
 import "../app.css";
 
 type BootstrapState =
   | { status: "waiting" }
-  | { status: "ready"; reportId: string }
+  | { status: "ready"; reportId: string; query?: unknown }
   | { status: "error"; message: string };
 
-function ReportBody({ reportId }: { reportId: string }) {
+function ReportBody({
+  reportId,
+  query,
+}: {
+  reportId: string;
+  query?: unknown;
+}) {
   switch (reportId) {
     case "stock-commitment-report":
       return <StockCommitmentReportScreen windowMode />;
@@ -52,6 +64,20 @@ function ReportBody({ reportId }: { reportId: string }) {
       return <MonthlyPaymentDeliveryScreen windowMode />;
     case "monthly-deliveries-by-destination-report":
       return <MonthlyDeliveriesByDestinationScreen windowMode />;
+    case "monthly-palm-oil-sales-report":
+      return <MonthlyPalmOilSalesScreen windowMode />;
+    case "industry-product-monthly-sales-report":
+      return <IndustryProductMonthlySalesScreen windowMode />;
+    case "bottled-palm-oil-sales-return-report":
+      return <BottledPalmOilSalesReturnScreen windowMode />;
+    case "other-product-sales-deliveries-report":
+      return <OtherProductSalesDeliveriesScreen windowMode />;
+    case "stock-bin-card-report":
+      return (
+        <BinCardReportScreen windowMode initialQuery={query ?? null} />
+      );
+    case "revenue-taxes-report":
+      return <RevenueTaxesReportScreen windowMode />;
     case "sales-budget-monthly-crosstab":
       return <SalesBudgetMonthlyCrosstabScreen windowMode />;
     case "sales-budget-weekly-crosstab":
@@ -83,7 +109,11 @@ export function ReportWindowApp() {
     const api = getElectronApi();
     let cancelled = false;
 
-    async function applyBootstrap(payload: { reportId: string; authToken: string }) {
+    async function applyBootstrap(payload: {
+      reportId: string;
+      authToken: string;
+      query?: unknown;
+    }) {
       if (cancelled) {
         return;
       }
@@ -111,6 +141,7 @@ export function ReportWindowApp() {
         setState({
           status: "ready",
           reportId: payload.reportId,
+          query: payload.query,
         });
       } catch (error) {
         if (!cancelled) {
@@ -151,7 +182,7 @@ export function ReportWindowApp() {
 
   return (
     <main class="report-window-root">
-      <ReportBody reportId={state.reportId} />
+      <ReportBody reportId={state.reportId} query={state.query} />
     </main>
   );
 }

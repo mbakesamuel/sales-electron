@@ -1,6 +1,11 @@
 export type DeliveryOrderStatus = "PENDING" | "VALIDATED" | "REJECTED";
 
-export type PaymentMethodKind = "SIMPLE" | "CHEQUE" | "TRAITE" | "CREDIT";
+export type PaymentMethodKind =
+  | "SIMPLE"
+  | "CHEQUE"
+  | "TRAITE"
+  | "CREDIT"
+  | "BANK_TRANSFER";
 
 export interface DeliveryOrdersCustomerOption {
   id: number;
@@ -76,6 +81,7 @@ export type DeliveryOrderMutationResult =
 export interface DeliveryOrderTaxPreview {
   vatRate: string;
   vatPercentLabel: string;
+  vatLabel: string | null;
   otherRate: string;
   otherPercentLabel: string;
   otherLabel: string | null;
@@ -187,9 +193,161 @@ export interface ValidationQueuePage {
   totalPending: number;
 }
 
+export interface DeliveryOrderPrintLine {
+  lineNo: number;
+  productName: string;
+  orderQty: string;
+  orderUnit: string;
+  unitPrice: string;
+  lineSubtotalExTax: string;
+  vatAmount: string;
+  otherTaxAmount: string;
+  amount: string;
+}
+
+export interface DeliveryOrderPrintPayment {
+  methodName: string;
+  paymentDate: string;
+  detail: string | null;
+}
+
+export interface DeliveryOrderPrintPayload {
+  companyName: string;
+  department: string | null;
+  serviceName: string | null;
+  companyPhone: string | null;
+  companyAddress: string | null;
+  signatoryName: string;
+  signatoryTitle: string;
+  order: {
+    deliveryOrderNo: string;
+    status: DeliveryOrderStatus;
+    dateIssuedIso: string;
+    orderRef: string | null;
+    salesPointName: string;
+    customerName: string;
+    customerAddress: string | null;
+    customerPhone: string | null;
+    taxpayerId: string | null;
+    createdByName: string | null;
+    validatedByName: string | null;
+    subtotalExTax: string;
+    vatAmount: string;
+    vatRate: string | null;
+    otherTaxAmount: string;
+    otherTaxLabel: string | null;
+    grandTotal: string;
+    lines: DeliveryOrderPrintLine[];
+    payments: DeliveryOrderPrintPayment[];
+  };
+}
+
+export type DeliveryOrderSourceKind = "NORMAL" | "CARRY_FORWARD" | "TRANSFER";
+
+export interface DeliveryOrderTrackProductRow {
+  productId: number;
+  productName: string;
+  orderQty: string;
+  liftedQty: string;
+  remainingQty: string;
+  liftedPercent: string;
+}
+
+export interface DeliveryOrderTrackLiftLine {
+  productId: number;
+  productName: string;
+  qtyKg: string;
+  unitPricePerKg: string;
+  lineNet: string;
+}
+
+export interface DeliveryOrderTrackLiftInvoice {
+  saleId: string;
+  invoiceNo: string;
+  dateIssued: string;
+  status: DeliveryOrderStatus;
+  customerName: string;
+  lines: DeliveryOrderTrackLiftLine[];
+}
+
+export interface DeliveryOrderTrackTransferLine {
+  productId: number;
+  productName: string;
+  qtyKg: string;
+}
+
+export interface DeliveryOrderTrackTransferOut {
+  transferId: number;
+  toDeliveryOrderNo: string;
+  toSalesPointName: string;
+  transferredAt: string;
+  lines: DeliveryOrderTrackTransferLine[];
+}
+
+export interface DeliveryOrderTrackPayload {
+  companyName: string;
+  department: string | null;
+  serviceName: string | null;
+  signatoryName: string | null;
+  signatoryTitle: string;
+  order: {
+    id: number;
+    deliveryOrderNo: string;
+    status: DeliveryOrderStatus;
+    sourceKind: DeliveryOrderSourceKind;
+    dateIssued: string;
+    orderRef: string | null;
+    customerId: number;
+    customerName: string;
+    salesPointId: number;
+    salesPointName: string;
+    transferredFromDeliveryOrderNo: string | null;
+  };
+  totals: {
+    orderedKg: string;
+    liftedKg: string;
+    remainingKg: string;
+  };
+  products: DeliveryOrderTrackProductRow[];
+  lifts: DeliveryOrderTrackLiftInvoice[];
+  transfersOut: DeliveryOrderTrackTransferOut[];
+}
+
+export interface TransferDeliveryOrderBalanceLineInput {
+  productId: number;
+  qtyKg: number;
+}
+
+export interface TransferDeliveryOrderBalanceInput {
+  userId: string;
+  fromDeliveryOrderId?: number;
+  fromDeliveryOrderNo?: string;
+  toSalesPointId: number;
+  lines: TransferDeliveryOrderBalanceLineInput[];
+  notes?: string;
+}
+
+export type TransferDeliveryOrderBalanceResult =
+  | {
+      ok: true;
+      transferId: number;
+      fromDeliveryOrderId: number;
+      fromDeliveryOrderNo: string;
+      toDeliveryOrderId: number;
+      toDeliveryOrderNo: string;
+      toSalesPointName: string;
+      lines: Array<{ productId: number; productName: string; qtyKg: number }>;
+    }
+  | { ok: false; error: string };
+
 export interface DeliveryOrdersApi {
   getFormOptions(): Promise<DeliveryOrdersFormOptions>;
   loadByNo(deliveryOrderNo: string): Promise<LoadedDeliveryOrderView | null>;
+  loadPrintById(orderId: number): Promise<DeliveryOrderPrintPayload | null>;
+  trackByNo(deliveryOrderNo: string): Promise<DeliveryOrderTrackPayload | null>;
+  transferBalance(
+    input: TransferDeliveryOrderBalanceInput,
+  ): Promise<TransferDeliveryOrderBalanceResult>;
   listPending(): Promise<PendingDeliveryOrderRow[]>;
   listOrders(filters?: DeliveryOrdersListFilters): Promise<DeliveryOrdersListResult>;
   save(input: SaveDeliveryOrderInput): Promise<SaveDeliveryOrderResult>;

@@ -166,7 +166,11 @@ export function registerSalesHandlers(): void {
     "sales:listStorageLocationsWithBalance",
     (
       _event,
-      payload: { salesPointId: number; productId: number },
+      payload: {
+        salesPointId: number;
+        productId: number;
+        asOfDate?: string | null;
+      },
     ): SalesStorageLocationBalanceOption[] => {
       if (
         !payload ||
@@ -176,7 +180,14 @@ export function registerSalesHandlers(): void {
         return [];
       }
 
-      return listStorageLocationsWithBalance(payload.salesPointId, payload.productId);
+      const asOfDate =
+        typeof payload.asOfDate === "string" ? payload.asOfDate : null;
+
+      return listStorageLocationsWithBalance(
+        payload.salesPointId,
+        payload.productId,
+        asOfDate,
+      );
     },
   );
 }

@@ -20,6 +20,12 @@ import type {
   MonthlyStockReconciliationReport,
   MonthlyPaymentDeliveryReport,
   MonthlyDeliveriesByDestinationReport,
+  MonthlyPalmOilSalesReport,
+  IndustryProductMonthlySalesReport,
+  BottledPalmOilSalesReturnReport,
+  OtherProductSalesDeliveriesReport,
+  RevenueTaxesPeriod,
+  RevenueTaxesReport,
   SalesBudgetMonthlyCrosstabReport,
   SalesBudgetWeeklyCrosstabReport,
   WeeklyDeliveriesReport,
@@ -35,6 +41,26 @@ interface LoginInput {
   username: string;
   password: string;
 }
+
+interface ChangePasswordInput {
+  authToken: string;
+  currentPassword: string;
+  newPassword: string;
+}
+
+interface ChangePasswordResult {
+  user: AuthUser;
+  permissions: RolePermissionsSnapshot;
+  error?: never;
+}
+
+interface ChangePasswordErrorResult {
+  error: string;
+  user?: never;
+  permissions?: never;
+}
+
+type ChangePasswordResponse = ChangePasswordResult | ChangePasswordErrorResult;
 
 interface LoginResult {
   token: string;
@@ -130,6 +156,7 @@ interface AuthApi {
   login(data: LoginInput): Promise<LoginResponse>;
   getSession(token: string): Promise<AuthSessionResponse | null>;
   logout(token: string): Promise<void>;
+  changePassword(data: ChangePasswordInput): Promise<ChangePasswordResponse>;
 }
 
 interface ReportsApi {
@@ -157,6 +184,21 @@ interface ReportsApi {
   getMonthlyDeliveriesByDestination(
     authToken: string,
   ): Promise<MonthlyDeliveriesByDestinationReport>;
+  getMonthlyPalmOilSales(authToken: string): Promise<MonthlyPalmOilSalesReport>;
+  getIndustryProductMonthlySales(
+    authToken: string,
+  ): Promise<IndustryProductMonthlySalesReport>;
+  getBottledPalmOilSalesReturn(
+    authToken: string,
+  ): Promise<BottledPalmOilSalesReturnReport>;
+  getOtherProductSalesDeliveries(
+    authToken: string,
+  ): Promise<OtherProductSalesDeliveriesReport>;
+  getRevenueTaxes(
+    authToken: string,
+    period?: RevenueTaxesPeriod,
+    salesPointId?: number | null,
+  ): Promise<RevenueTaxesReport>;
   getSalesBudgetMonthlyCrosstab(
     authToken: string,
     reportYear?: number,
@@ -268,6 +310,7 @@ export interface ElectronAppApi {
     openReport(
       authToken: string,
       reportId: string,
+      query?: unknown,
     ): Promise<{ ok: true } | { ok: false; error: string }>;
     onReportClosed(
       callback: (payload: { reportId: string }) => void,
@@ -276,9 +319,13 @@ export interface ElectronAppApi {
   reportWindow: {
     getBootstrap(
       reportId: string,
-    ): Promise<{ reportId: string; authToken: string } | null>;
+    ): Promise<{ reportId: string; authToken: string; query?: unknown } | null>;
     onBootstrap(
-      callback: (payload: { reportId: string; authToken: string }) => void,
+      callback: (payload: {
+        reportId: string;
+        authToken: string;
+        query?: unknown;
+      }) => void,
     ): () => void;
   };
 }

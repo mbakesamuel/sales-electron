@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import type { ComponentChildren, JSX } from "preact";
-import { createPortal } from "preact/compat";
+import { useEffect, useMemo, useState } from "preact/hooks";
+import type { ComponentChildren } from "preact";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
-
+import { FormDialog } from "../components/FormDialog.tsx";
+import { buildRowKey } from "../utils/formRowKey.ts";
+import "../components/FormDialog.css";
 import "./CustomerFormModal.css";
 
 interface CustomerFormModalProps {
@@ -49,101 +50,14 @@ const EMPTY_FORM: CustomerFormData = {
   commercialServiceId: "",
 };
 
-function IconX() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M18 6 6 18M6 6l12 12" />
-    </svg>
-  );
-}
+const STEPS = [
+  { id: "basic", label: "Basic" },
+  { id: "contact", label: "Contact" },
+  { id: "tax", label: "Tax & IDs" },
+  { id: "service", label: "Service" },
+] as const;
 
-function IconUser() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
-  );
-}
-
-function IconMail() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <rect width="20" height="16" x="2" y="4" rx="2" />
-      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-    </svg>
-  );
-}
-
-function IconPhone() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
-    </svg>
-  );
-}
-
-function IconMapPin() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z" />
-      <circle cx="12" cy="10" r="3" />
-    </svg>
-  );
-}
-
-function IconShield() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
-      <path d="m9 12 2 2 4-4" />
-    </svg>
-  );
-}
-
-function IconBuilding() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <rect x="4" y="2" width="16" height="20" rx="2" />
-      <path d="M9 22v-4h6v4" />
-      <path d="M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01" />
-    </svg>
-  );
-}
-
-function IconCheckCircle() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-      <path d="m9 11 3 3L22 4" />
-    </svg>
-  );
-}
-
-function IconArrow() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M5 12h14M12 5l7 7-7 7" />
-    </svg>
-  );
-}
-
-type StepIcon = () => JSX.Element;
-
-interface StepDef {
-  id: string;
-  label: string;
-  icon: StepIcon;
-}
-
-const STEPS: StepDef[] = [
-  { id: "basic", label: "Basic", icon: IconUser },
-  { id: "contact", label: "Contact", icon: IconMail },
-  { id: "tax", label: "Tax & IDs", icon: IconShield },
-  { id: "service", label: "Service", icon: IconBuilding },
-];
-
-function Field({
+function FieldRow({
   label,
   required,
   error,
@@ -157,44 +71,16 @@ function Field({
   children: ComponentChildren;
 }) {
   return (
-    <div class="cfm-field">
-      <label
-        class={`cfm-label${required ? " cfm-label-required" : ""}`}
-        for={htmlFor}
-      >
+    <div class="form-dialog-row">
+      <label class="form-dialog-label" for={htmlFor}>
         {label}
+        {required ? " *" : ""}
       </label>
-      {children}
-      {error ? <span class="cfm-error-text">{error}</span> : null}
+      <div class="form-dialog-control">
+        {children}
+        {error ? <p class="form-dialog-hint cfm-field-error">{error}</p> : null}
+      </div>
     </div>
-  );
-}
-
-function Toggle({
-  checked,
-  onChange,
-  label,
-  description,
-}: {
-  checked: boolean;
-  onChange: (value: boolean) => void;
-  label: string;
-  description: string;
-}) {
-  return (
-    <button
-      type="button"
-      class="cfm-toggle"
-      onClick={() => onChange(!checked)}
-    >
-      <span class={`cfm-toggle-switch${checked ? " is-on" : ""}`}>
-        <span class="cfm-toggle-knob" />
-      </span>
-      <span class="cfm-toggle-text">
-        <span class="cfm-toggle-label">{label}</span>
-        <span class="cfm-toggle-desc">{description}</span>
-      </span>
-    </button>
   );
 }
 
@@ -254,25 +140,14 @@ export function CustomerFormModal({
   const [customerTypes, setCustomerTypes] = useState<LookupOption[]>([]);
   const [taxRegimes, setTaxRegimes] = useState<LookupOption[]>([]);
   const [commercialServices, setCommercialServices] = useState<LookupOption[]>([]);
-  const overlayRef = useRef<HTMLDivElement>(null);
+  const rowKey = useMemo(() => buildRowKey(row, ["id"]), [row]);
 
   useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
-
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, []);
+    setForm(initFromRow(mode, row));
+    setStep(0);
+    setErrors({});
+    setSubmitError(null);
+  }, [mode, rowKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -326,7 +201,7 @@ export function CustomerFormModal({
     };
   }, []);
 
-  function set<K extends FieldKey>(key: K, value: CustomerFormData[K]) {
+  function setField<K extends FieldKey>(key: K, value: CustomerFormData[K]) {
     setForm((current) => ({ ...current, [key]: value }));
     setErrors((current) => ({ ...current, [key]: undefined }));
   }
@@ -336,28 +211,28 @@ export function CustomerFormModal({
 
     if (target === 0) {
       if (!form.name.trim()) {
-        stepErrors.name = "Name is required";
+        stepErrors.name = "Name is required.";
       }
       if (!form.customerTypeId) {
-        stepErrors.customerTypeId = "Required";
+        stepErrors.customerTypeId = "Customer type is required.";
       }
     }
 
     if (target === 1) {
       if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-        stepErrors.email = "Invalid email";
+        stepErrors.email = "Invalid email address.";
       }
     }
 
     if (target === 2) {
       if (form.hasTaxpayerId && !form.taxpayerId.trim()) {
-        stepErrors.taxpayerId = "Taxpayer ID is required when enabled";
+        stepErrors.taxpayerId = "Taxpayer ID is required when enabled.";
       }
     }
 
     if (target === 3) {
       if (!form.commercialServiceId) {
-        stepErrors.commercialServiceId = "Required";
+        stepErrors.commercialServiceId = "Commercial service is required.";
       }
     }
 
@@ -395,7 +270,6 @@ export function CustomerFormModal({
   );
 
   async function submit() {
-    // Validate every step so nothing required is skipped.
     for (let index = 0; index < STEPS.length; index += 1) {
       if (!validateStep(index)) {
         setStep(index);
@@ -445,384 +319,345 @@ export function CustomerFormModal({
     }
   }
 
+  const title = mode === "create" ? "Add Customer" : "Edit Customer";
   const isLast = step === STEPS.length - 1;
 
-  return createPortal(
-    <div
-      ref={overlayRef}
-      class="cfm-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-label={mode === "create" ? "Add Customer" : "Edit Customer"}
-      onClick={(event) => {
-        if (event.target === overlayRef.current) {
-          onClose();
-        }
-      }}
+  return (
+    <FormDialog
+      ariaLabel={title}
+      title={title}
+      subtitle={`Step ${step + 1} of ${STEPS.length} — ${STEPS[step].label}`}
+      wide
+      onClose={onClose}
     >
-      <div class="cfm-panel">
-        <div class="cfm-header">
-          <div>
-            <h2 class="cfm-title">
-              {mode === "create" ? "Add Customer" : "Edit Customer"}
-            </h2>
-            <p class="cfm-subtitle">
-              Step {step + 1} of {STEPS.length} — {STEPS[step].label}
-            </p>
-          </div>
-          <button type="button" class="cfm-close" onClick={onClose} aria-label="Close">
-            <IconX />
-          </button>
+      <form
+        class="form-dialog-form cfm-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (isLast) {
+            void submit();
+          } else {
+            goNext();
+          }
+        }}
+      >
+        <div class="cfm-steps" aria-hidden="true">
+          {STEPS.map((stepDef, index) => (
+            <span
+              key={stepDef.id}
+              class={`cfm-step-dot${index === step ? " is-active" : ""}${
+                index < step ? " is-done" : ""
+              }`}
+            />
+          ))}
         </div>
 
-        <div class="cfm-steps">
-          {STEPS.map((stepDef, index) => {
-            const Icon = stepDef.icon;
-            const done = index < step;
-            const active = index === step;
-            return (
-              <div key={stepDef.id} class="cfm-step">
-                <button
-                  type="button"
-                  class={`cfm-step-btn${active ? " is-active" : ""}${
-                    done ? " is-done" : ""
-                  }`}
-                  disabled={index > step}
-                  onClick={() => {
-                    if (index < step) {
-                      setStep(index);
-                    }
-                  }}
-                >
-                  <span class="cfm-step-dot">
-                    {done ? <IconCheckCircle /> : <Icon />}
-                  </span>
-                  <span class="cfm-step-label">{stepDef.label}</span>
-                </button>
-                {index < STEPS.length - 1 ? (
-                  <span class={`cfm-step-line${index < step ? " is-done" : ""}`} />
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-
-        <div class="cfm-body">
-          {step === 0 ? (
-            <>
-              <Field label="Full Name" required error={errors.name} htmlFor="cfm-name">
-                <div class="cfm-input-wrap">
-                  <span class="cfm-input-prefix">
-                    <IconUser />
-                  </span>
-                  <input
-                    id="cfm-name"
-                    class={`cfm-input has-prefix${errors.name ? " is-error" : ""}`}
-                    value={form.name}
-                    placeholder="e.g. Martina Voss"
-                    onInput={(event) =>
-                      set("name", (event.currentTarget as HTMLInputElement).value)
-                    }
-                  />
-                </div>
-              </Field>
-
-              <div class="cfm-grid-2">
-                <Field
-                  label="Customer Type"
-                  required
-                  error={errors.customerTypeId}
-                  htmlFor="cfm-type"
-                >
-                  <select
-                    id="cfm-type"
-                    class={`cfm-select${errors.customerTypeId ? " is-error" : ""}`}
-                    value={form.customerTypeId}
-                    onChange={(event) =>
-                      set(
-                        "customerTypeId",
-                        (event.currentTarget as HTMLSelectElement).value,
-                      )
-                    }
-                  >
-                    <option value="">Select…</option>
-                    {customerTypes.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-
-                <Field label="Residency" required htmlFor="cfm-residency">
-                  <select
-                    id="cfm-residency"
-                    class="cfm-select"
-                    value={form.residency}
-                    onChange={(event) =>
-                      set(
-                        "residency",
-                        (event.currentTarget as HTMLSelectElement).value as
-                          | "LOCAL"
-                          | "OVERSEAS",
-                      )
-                    }
-                  >
-                    <option value="LOCAL">Domestic</option>
-                    <option value="OVERSEAS">Foreign</option>
-                  </select>
-                </Field>
-              </div>
-
-              <Toggle
-                checked={form.isPosPlaceholder}
-                onChange={(value) => set("isPosPlaceholder", value)}
-                label="POS Placeholder"
-                description="Mark this as a generic walk-in customer for point-of-sale"
+        {step === 0 ? (
+          <>
+            <FieldRow label="Full name" required error={errors.name} htmlFor="cfm-name">
+              <input
+                id="cfm-name"
+                class="form-dialog-input"
+                value={form.name}
+                disabled={isSubmitting}
+                placeholder="e.g. Martina Voss"
+                onInput={(event) =>
+                  setField("name", (event.currentTarget as HTMLInputElement).value)
+                }
               />
-            </>
-          ) : null}
+            </FieldRow>
 
-          {step === 1 ? (
-            <>
-              <Field label="Email Address" error={errors.email} htmlFor="cfm-email">
-                <div class="cfm-input-wrap">
-                  <span class="cfm-input-prefix">
-                    <IconMail />
-                  </span>
+            <FieldRow
+              label="Customer type"
+              required
+              error={errors.customerTypeId}
+              htmlFor="cfm-type"
+            >
+              <select
+                id="cfm-type"
+                class="form-dialog-input"
+                value={form.customerTypeId}
+                disabled={isSubmitting}
+                onChange={(event) =>
+                  setField(
+                    "customerTypeId",
+                    (event.currentTarget as HTMLSelectElement).value,
+                  )
+                }
+              >
+                <option value="">Select…</option>
+                {customerTypes.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </FieldRow>
+
+            <FieldRow label="Residency" required htmlFor="cfm-residency">
+              <select
+                id="cfm-residency"
+                class="form-dialog-input"
+                value={form.residency}
+                disabled={isSubmitting}
+                onChange={(event) =>
+                  setField(
+                    "residency",
+                    (event.currentTarget as HTMLSelectElement).value as
+                      | "LOCAL"
+                      | "OVERSEAS",
+                  )
+                }
+              >
+                <option value="LOCAL">Domestic</option>
+                <option value="OVERSEAS">Foreign</option>
+              </select>
+            </FieldRow>
+
+            <div class="form-dialog-row">
+              <span class="form-dialog-label">POS placeholder</span>
+              <div class="form-dialog-control">
+                <label class="form-dialog-checkbox-label">
                   <input
-                    id="cfm-email"
-                    type="email"
-                    class={`cfm-input has-prefix${errors.email ? " is-error" : ""}`}
-                    value={form.email}
-                    placeholder="name@example.com"
-                    onInput={(event) =>
-                      set("email", (event.currentTarget as HTMLInputElement).value)
-                    }
-                  />
-                </div>
-              </Field>
-
-              <Field label="Phone Number" htmlFor="cfm-phone">
-                <div class="cfm-input-wrap">
-                  <span class="cfm-input-prefix">
-                    <IconPhone />
-                  </span>
-                  <input
-                    id="cfm-phone"
-                    type="tel"
-                    class="cfm-input has-prefix"
-                    value={form.phone}
-                    placeholder="e.g. +237 6 99 99 99 99"
-                    onInput={(event) =>
-                      set("phone", (event.currentTarget as HTMLInputElement).value)
-                    }
-                  />
-                </div>
-              </Field>
-
-              <div class="cfm-section-divider">
-                <p class="cfm-section-title">
-                  <IconMapPin /> Address
-                </p>
-                <Field label="Full Address" htmlFor="cfm-address">
-                  <textarea
-                    id="cfm-address"
-                    class="cfm-textarea"
-                    value={form.address}
-                    placeholder="enter full address here"
-                    onInput={(event) =>
-                      set(
-                        "address",
-                        (event.currentTarget as HTMLTextAreaElement).value,
+                    type="checkbox"
+                    checked={form.isPosPlaceholder}
+                    disabled={isSubmitting}
+                    onChange={(event) =>
+                      setField(
+                        "isPosPlaceholder",
+                        (event.currentTarget as HTMLInputElement).checked,
                       )
                     }
                   />
-                </Field>
+                  Generic walk-in customer for point-of-sale
+                </label>
               </div>
-            </>
-          ) : null}
+            </div>
+          </>
+        ) : null}
 
-          {step === 2 ? (
-            <>
-              <Field label="Tax Regime" htmlFor="cfm-regime">
-                <select
-                  id="cfm-regime"
-                  class="cfm-select"
-                  value={form.taxRegimeId}
-                  onChange={(event) =>
-                    set("taxRegimeId", (event.currentTarget as HTMLSelectElement).value)
-                  }
-                >
-                  <option value="">— None —</option>
-                  {taxRegimes.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <p class="cfm-hint">
-                  Determines how this customer is taxed on invoices.
-                </p>
-              </Field>
+        {step === 1 ? (
+          <>
+            <FieldRow label="Email" error={errors.email} htmlFor="cfm-email">
+              <input
+                id="cfm-email"
+                type="email"
+                class="form-dialog-input"
+                value={form.email}
+                disabled={isSubmitting}
+                placeholder="name@example.com"
+                onInput={(event) =>
+                  setField("email", (event.currentTarget as HTMLInputElement).value)
+                }
+              />
+            </FieldRow>
 
-              <div class="cfm-stack">
-                <Toggle
-                  checked={form.hasTaxpayerId}
-                  onChange={(value) => set("hasTaxpayerId", value)}
-                  label="Has Taxpayer ID"
-                  description="Enable if this customer has a registered tax ID"
-                />
-                {form.hasTaxpayerId ? (
-                  <Field
-                    label="Taxpayer ID"
-                    required
-                    error={errors.taxpayerId}
-                    htmlFor="cfm-taxpayer"
-                  >
-                    <div class="cfm-input-wrap">
-                      <span class="cfm-input-prefix">
-                        <IconShield />
-                      </span>
-                      <input
-                        id="cfm-taxpayer"
-                        class={`cfm-input has-prefix${
-                          errors.taxpayerId ? " is-error" : ""
-                        }`}
-                        value={form.taxpayerId}
-                        placeholder="e.g. MVS-847291"
-                        onInput={(event) =>
-                          set(
-                            "taxpayerId",
-                            (event.currentTarget as HTMLInputElement).value,
-                          )
-                        }
-                      />
-                    </div>
-                  </Field>
-                ) : null}
-              </div>
+            <FieldRow label="Phone" htmlFor="cfm-phone">
+              <input
+                id="cfm-phone"
+                type="tel"
+                class="form-dialog-input"
+                value={form.phone}
+                disabled={isSubmitting}
+                placeholder="e.g. +237 6 99 99 99 99"
+                onInput={(event) =>
+                  setField("phone", (event.currentTarget as HTMLInputElement).value)
+                }
+              />
+            </FieldRow>
 
-              <div class="cfm-callout">
-                <IconShield />
-                <p>
-                  Taxpayer IDs are validated against the tax authority registry.
-                  Ensure the ID matches exactly.
-                </p>
-              </div>
-            </>
-          ) : null}
-
-          {step === 3 ? (
-            <>
-              <Field
-                label="Commercial Service"
-                required
-                error={errors.commercialServiceId}
-                htmlFor="cfm-service"
-              >
-                <select
-                  id="cfm-service"
-                  class={`cfm-select${errors.commercialServiceId ? " is-error" : ""}`}
-                  value={form.commercialServiceId}
-                  onChange={(event) =>
-                    set(
-                      "commercialServiceId",
-                      (event.currentTarget as HTMLSelectElement).value,
+            <div class="form-dialog-row form-dialog-row-stretch">
+              <label class="form-dialog-label" for="cfm-address">
+                Address
+              </label>
+              <div class="form-dialog-control">
+                <textarea
+                  id="cfm-address"
+                  class="form-dialog-input"
+                  value={form.address}
+                  disabled={isSubmitting}
+                  placeholder="Full address"
+                  onInput={(event) =>
+                    setField(
+                      "address",
+                      (event.currentTarget as HTMLTextAreaElement).value,
                     )
                   }
-                >
-                  <option value="">Select a service…</option>
-                  {commercialServices.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <p class="cfm-hint">
-                  Assigns the customer to a commercial service and pricing structure.
-                </p>
-              </Field>
-
-              <div class="cfm-review">
-                <p class="cfm-review-title">Review</p>
-                <div class="cfm-review-rows">
-                  {[
-                    { label: "Name", value: form.name || "—" },
-                    { label: "Type", value: typeLabel || "—" },
-                    { label: "Email", value: form.email || "—" },
-                    { label: "Phone", value: form.phone || "—" },
-                    {
-                      label: "Residency",
-                      value: form.residency === "OVERSEAS" ? "Foreign" : "Domestic",
-                    },
-                    { label: "Tax Regime", value: regimeLabel },
-                    {
-                      label: "Taxpayer ID",
-                      value: form.hasTaxpayerId ? form.taxpayerId || "—" : "N/A",
-                    },
-                    { label: "Service", value: serviceLabel },
-                  ].map((reviewRow) => (
-                    <div key={reviewRow.label} class="cfm-review-row">
-                      <span class="cfm-review-label">{reviewRow.label}</span>
-                      <span class="cfm-review-value">{reviewRow.value}</span>
-                    </div>
-                  ))}
-                </div>
+                />
               </div>
-            </>
-          ) : null}
-        </div>
+            </div>
+          </>
+        ) : null}
 
-        <div class="cfm-footer">
+        {step === 2 ? (
+          <>
+            <FieldRow label="Tax regime" htmlFor="cfm-regime">
+              <select
+                id="cfm-regime"
+                class="form-dialog-input"
+                value={form.taxRegimeId}
+                disabled={isSubmitting}
+                onChange={(event) =>
+                  setField("taxRegimeId", (event.currentTarget as HTMLSelectElement).value)
+                }
+              >
+                <option value="">— None —</option>
+                {taxRegimes.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p class="form-dialog-hint">
+                Determines how this customer is taxed on invoices.
+              </p>
+            </FieldRow>
+
+            <div class="form-dialog-row">
+              <span class="form-dialog-label">Has TPN?</span>
+              <div class="form-dialog-control">
+                <label class="form-dialog-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={form.hasTaxpayerId}
+                    disabled={isSubmitting}
+                    onChange={(event) =>
+                      setField(
+                        "hasTaxpayerId",
+                        (event.currentTarget as HTMLInputElement).checked,
+                      )
+                    }
+                  />
+                  Customer has a registered tax ID
+                </label>
+              </div>
+            </div>
+
+            {form.hasTaxpayerId ? (
+              <FieldRow
+                label="Tax Payer's No."
+                required
+                error={errors.taxpayerId}
+                htmlFor="cfm-taxpayer"
+              >
+                <input
+                  id="cfm-taxpayer"
+                  class="form-dialog-input form-dialog-input-mono"
+                  value={form.taxpayerId}
+                  disabled={isSubmitting}
+                  placeholder="e.g. MVS-847291"
+                  onInput={(event) =>
+                    setField(
+                      "taxpayerId",
+                      (event.currentTarget as HTMLInputElement).value,
+                    )
+                  }
+                />
+              </FieldRow>
+            ) : null}
+
+            <p class="form-dialog-hint">
+              Taxpayer IDs should match the tax authority registry exactly.
+            </p>
+          </>
+        ) : null}
+
+        {step === 3 ? (
+          <>
+            <FieldRow
+              label="Commercial service"
+              required
+              error={errors.commercialServiceId}
+              htmlFor="cfm-service"
+            >
+              <select
+                id="cfm-service"
+                class="form-dialog-input"
+                value={form.commercialServiceId}
+                disabled={isSubmitting}
+                onChange={(event) =>
+                  setField(
+                    "commercialServiceId",
+                    (event.currentTarget as HTMLSelectElement).value,
+                  )
+                }
+              >
+                <option value="">Select a service…</option>
+                {commercialServices.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p class="form-dialog-hint">
+                Assigns the customer to a commercial service and pricing structure.
+              </p>
+            </FieldRow>
+
+            <div class="cfm-review">
+              <p class="cfm-review-title">Review</p>
+              {[
+                { label: "Name", value: form.name || "—" },
+                { label: "Type", value: typeLabel || "—" },
+                { label: "Email", value: form.email || "—" },
+                { label: "Phone", value: form.phone || "—" },
+                {
+                  label: "Residency",
+                  value: form.residency === "OVERSEAS" ? "Foreign" : "Domestic",
+                },
+                { label: "Tax regime", value: regimeLabel },
+                {
+                  label: "Tax Payer's No.",
+                  value: form.hasTaxpayerId ? form.taxpayerId || "—" : "N/A",
+                },
+                { label: "Service", value: serviceLabel },
+              ].map((reviewRow) => (
+                <div key={reviewRow.label} class="cfm-review-row">
+                  <span>{reviewRow.label}</span>
+                  <span>{reviewRow.value}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : null}
+
+        {submitError ? <p class="form-dialog-error">{submitError}</p> : null}
+
+        <div class="form-dialog-actions cfm-actions">
           {step > 0 ? (
-            <button type="button" class="cfm-btn-text" onClick={goBack}>
+            <button
+              type="button"
+              class="form-dialog-btn-secondary"
+              disabled={isSubmitting}
+              onClick={goBack}
+            >
               Back
             </button>
           ) : (
-            <button type="button" class="cfm-btn-text" onClick={onClose}>
+            <button
+              type="button"
+              class="form-dialog-btn-secondary"
+              disabled={isSubmitting}
+              onClick={onClose}
+            >
               Cancel
             </button>
           )}
-
-          {submitError ? <span class="cfm-footer-error">{submitError}</span> : null}
-
-          <div class="cfm-footer-right">
-            <div class="cfm-dots">
-              {STEPS.map((stepDef, index) => (
-                <span
-                  key={stepDef.id}
-                  class={`cfm-dot${index === step ? " is-active" : ""}${
-                    index < step ? " is-done" : ""
-                  }`}
-                />
-              ))}
-            </div>
-
-            {isLast ? (
-              <button
-                type="button"
-                class="cfm-btn-primary"
-                disabled={isSubmitting}
-                onClick={() => void submit()}
-              >
-                <IconCheckCircle />
-                {isSubmitting
-                  ? "Saving…"
-                  : mode === "create"
-                    ? "Save Customer"
-                    : "Save Changes"}
-              </button>
-            ) : (
-              <button type="button" class="cfm-btn-primary" onClick={goNext}>
-                Continue
-                <IconArrow />
-              </button>
-            )}
-          </div>
+          <button
+            type="submit"
+            class="form-dialog-btn-primary"
+            disabled={isSubmitting}
+          >
+            {isSubmitting
+              ? "Saving…"
+              : isLast
+                ? mode === "create"
+                  ? "Add customer"
+                  : "Save changes"
+                : "Continue"}
+          </button>
         </div>
-      </div>
-    </div>,
-    document.body,
+      </form>
+    </FormDialog>
   );
 }

@@ -9,11 +9,28 @@ export interface AuthUser {
     name: string;
     role: string;
     commercialServiceId: string | null;
+    mustChangePassword: boolean;
 }
 export interface LoginInput {
     username: string;
     password: string;
 }
+export interface ChangePasswordInput {
+    authToken: string;
+    currentPassword: string;
+    newPassword: string;
+}
+export interface ChangePasswordResult {
+    user: AuthUser;
+    permissions: RolePermissionsSnapshot;
+    error?: never;
+}
+export interface ChangePasswordErrorResult {
+    error: string;
+    user?: never;
+    permissions?: never;
+}
+export type ChangePasswordResponse = ChangePasswordResult | ChangePasswordErrorResult;
 export interface LoginResult {
     token: string;
     user: AuthUser;
@@ -90,6 +107,7 @@ export interface AuthApi {
     login(data: LoginInput): Promise<LoginResponse>;
     getSession(token: string): Promise<AuthSessionResponse | null>;
     logout(token: string): Promise<void>;
+    changePassword(data: ChangePasswordInput): Promise<ChangePasswordResponse>;
 }
 export interface AppApi {
     db: DatabaseApi;

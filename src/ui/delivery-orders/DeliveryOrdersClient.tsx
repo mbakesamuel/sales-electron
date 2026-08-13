@@ -12,9 +12,13 @@ import type {
   PendingDeliveryOrderRow,
 } from "./types.ts";
 import { isValidBookletSerial } from "../../shared/bookletSerial.ts";
+import { DeliveryOrderPrintView } from "./DeliveryOrderPrintView.tsx";
 import "../sales/sales.css";
 
-function clampDateToPeriod(isoDate: string, period: OpenPostingPeriod | null): string {
+function clampDateToPeriod(
+  isoDate: string,
+  period: OpenPostingPeriod | null,
+): string {
   if (!period) return isoDate;
   if (isoDate < period.startDate) return period.startDate;
   if (isoDate > period.endDate) return period.endDate;
@@ -54,6 +58,13 @@ function parseDec(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function formatAmount(value: number): string {
+  return Math.round(value).toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
+}
+
 function statusClass(status: string): string {
   if (status === "VALIDATED") {
     return "sales-status sales-status-validated";
@@ -71,12 +82,16 @@ export function DeliveryOrdersClient({
   onOpenList,
   onOpenQueue,
 }: DeliveryOrdersClientProps) {
-  const [options, setOptions] = useState<DeliveryOrdersFormOptions | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [banner, setBanner] = useState<{ type: "ok" | "error"; text: string } | null>(
+  const [options, setOptions] = useState<DeliveryOrdersFormOptions | null>(
     null,
   );
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [banner, setBanner] = useState<{
+    type: "ok" | "error";
+    text: string;
+  } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [printOpen, setPrintOpen] = useState(false);
 
   const [orderId, setOrderId] = useState<number | null>(null);
   const [deliveryOrderNo, setDeliveryOrderNo] = useState("");
@@ -85,16 +100,22 @@ export function DeliveryOrdersClient({
   const [lookupNo, setLookupNo] = useState(initialLookupNo);
   const [customerId, setCustomerId] = useState("");
   const [dateIssued, setDateIssued] = useState(todayIsoDate());
-  const [postingPeriod, setPostingPeriod] = useState<OpenPostingPeriod | null>(null);
+  const [postingPeriod, setPostingPeriod] = useState<OpenPostingPeriod | null>(
+    null,
+  );
   const [orderRef, setOrderRef] = useState("");
   const [salesPointId, setSalesPointId] = useState("");
   const [lines, setLines] = useState<LineRow[]>([]);
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [pendingDos, setPendingDos] = useState<PendingDeliveryOrderRow[]>([]);
   const [pendingOpen, setPendingOpen] = useState(false);
-  const [taxPreview, setTaxPreview] = useState<DeliveryOrderTaxPreview | null>(null);
+  const [taxPreview, setTaxPreview] = useState<DeliveryOrderTaxPreview | null>(
+    null,
+  );
   const [taxPreviewError, setTaxPreviewError] = useState<string | null>(null);
-  const [linePriceErrors, setLinePriceErrors] = useState<Record<number, string>>({});
+  const [linePriceErrors, setLinePriceErrors] = useState<
+    Record<number, string>
+  >({});
   const [lineOnHand, setLineOnHand] = useState<Record<number, string>>({});
   const [allowAutoUnitPrice, setAllowAutoUnitPrice] = useState(true);
 
@@ -107,10 +128,6 @@ export function DeliveryOrdersClient({
     () => options?.paymentMethods ?? [],
     [options],
   );
-  const defaultPaymentMethodId =
-    paymentMethods.find((method) => method.code === "CASH")?.id ??
-    paymentMethods[0]?.id ??
-    "";
 
   const lineSummaries = useMemo(() => {
     const vatRate = taxPreview ? parseDec(taxPreview.vatRate) : 0;
@@ -147,7 +164,7 @@ export function DeliveryOrdersClient({
 
   function emptyPayment(): PaymentRow {
     return {
-      paymentMethodId: defaultPaymentMethodId,
+      paymentMethodId: "",
       paymentDate: todayIsoDate(),
       chequeNo: "",
       bank: "",
@@ -166,16 +183,14 @@ export function DeliveryOrdersClient({
         setOptions(formOptions);
         setPostingPeriod(period);
         setDateIssued((current) => clampDateToPeriod(current, period));
-        setCustomerId(
-          formOptions.customers[0]?.id != null
-            ? String(formOptions.customers[0].id)
-            : "",
-        );
-        setSalesPointId(String(formOptions.salesPoints[0]?.id ?? ""));
+        setCustomerId("");
+        setSalesPointId("");
         setLines(formOptions.products.length > 0 ? [emptyLine()] : []);
       } catch (error) {
         setLoadError(
-          error instanceof Error ? error.message : "Failed to load delivery order options.",
+          error instanceof Error
+            ? error.message
+            : "Failed to load delivery order options.",
         );
       }
     }
@@ -249,11 +264,13 @@ export function DeliveryOrdersClient({
             return;
           }
 
-          const result = await getElectronApi().deliveryOrders.previewUnitPrice({
-            customerId: Number.parseInt(customerId, 10),
-            productId,
-            dateIssued,
-          });
+          const result = await getElectronApi().deliveryOrders.previewUnitPrice(
+            {
+              customerId: Number.parseInt(customerId, 10),
+              productId,
+              dateIssued,
+            },
+          );
 
           if (cancelled) {
             return;
@@ -282,7 +299,12 @@ export function DeliveryOrdersClient({
     return () => {
       cancelled = true;
     };
-  }, [allowAutoUnitPrice, customerId, dateIssued, lines.map((l) => l.productId).join(",")]);
+  }, [
+    allowAutoUnitPrice,
+    customerId,
+    dateIssued,
+    lines.map((l) => l.productId).join(","),
+  ]);
 
   useEffect(() => {
     const spId = Number.parseInt(salesPointId, 10);
@@ -301,10 +323,11 @@ export function DeliveryOrdersClient({
             return;
           }
 
-          const result = await getElectronApi().deliveryOrders.previewStockOnHand({
-            salesPointId: spId,
-            productId,
-          });
+          const result =
+            await getElectronApi().deliveryOrders.previewStockOnHand({
+              salesPointId: spId,
+              productId,
+            });
 
           if (!cancelled && result.ok) {
             next[index] = result.onHand;
@@ -332,17 +355,16 @@ export function DeliveryOrdersClient({
     setDocStatus(null);
     setValidatedByName("");
     setLookupNo("");
-    setCustomerId(
-      options.customers[0]?.id != null ? String(options.customers[0].id) : "",
-    );
+    setCustomerId("");
     setDateIssued(todayIsoDate());
     setOrderRef("");
-    setSalesPointId(String(options.salesPoints[0]?.id ?? ""));
+    setSalesPointId("");
     setLines(options.products.length > 0 ? [emptyLine()] : []);
     setPayments([]);
     setAllowAutoUnitPrice(true);
     setLinePriceErrors({});
     setBanner(null);
+    setPrintOpen(false);
   }
 
   async function loadOrder(rawNo?: string) {
@@ -397,7 +419,10 @@ export function DeliveryOrdersClient({
     } catch (error) {
       setBanner({
         type: "error",
-        text: error instanceof Error ? error.message : "Failed to load delivery order.",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Failed to load delivery order.",
       });
     } finally {
       setBusy(null);
@@ -461,13 +486,19 @@ export function DeliveryOrdersClient({
       setDocStatus("PENDING");
       setBanner({
         type: "ok",
-        text: orderId == null ? `Created ${result.deliveryOrderNo}.` : "Delivery order updated.",
+        text:
+          orderId == null
+            ? `Created ${result.deliveryOrderNo}.`
+            : "Delivery order updated.",
       });
       await loadOrder(result.deliveryOrderNo);
     } catch (error) {
       setBanner({
         type: "error",
-        text: error instanceof Error ? error.message : "Failed to save delivery order.",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Failed to save delivery order.",
       });
     } finally {
       setBusy(null);
@@ -499,7 +530,10 @@ export function DeliveryOrdersClient({
     } catch (error) {
       setBanner({
         type: "error",
-        text: error instanceof Error ? error.message : "Failed to validate delivery order.",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Failed to validate delivery order.",
       });
     } finally {
       setBusy(null);
@@ -533,7 +567,10 @@ export function DeliveryOrdersClient({
     } catch (error) {
       setBanner({
         type: "error",
-        text: error instanceof Error ? error.message : "Failed to delete delivery order.",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Failed to delete delivery order.",
       });
     } finally {
       setBusy(null);
@@ -561,16 +598,24 @@ export function DeliveryOrdersClient({
     (orderId != null || isValidBookletSerial(deliveryOrderNo)) &&
     !taxPreviewError &&
     taxPreview != null &&
-    lines.some((line) => line.productId && Number.parseInt(line.orderQty, 10) > 0);
+    lines.some(
+      (line) => line.productId && Number.parseInt(line.orderQty, 10) > 0,
+    );
 
   if (setupRequired) {
     return (
       <div class="sales-setup">
         <h3>Setup required</h3>
         <ul>
-          {options.customers.length === 0 ? <li>Add at least one customer.</li> : null}
-          {options.products.length === 0 ? <li>Add at least one product.</li> : null}
-          {options.salesPoints.length === 0 ? <li>Add at least one sales point.</li> : null}
+          {options.customers.length === 0 ? (
+            <li>Add at least one customer.</li>
+          ) : null}
+          {options.products.length === 0 ? (
+            <li>Add at least one product.</li>
+          ) : null}
+          {options.salesPoints.length === 0 ? (
+            <li>Add at least one sales point.</li>
+          ) : null}
         </ul>
       </div>
     );
@@ -579,7 +624,9 @@ export function DeliveryOrdersClient({
   return (
     <div class="sales-client">
       {banner ? (
-        <div class={`sales-banner sales-banner-${banner.type}`}>{banner.text}</div>
+        <div class={`sales-banner sales-banner-${banner.type}`}>
+          {banner.text}
+        </div>
       ) : null}
 
       <div class="sales-panel">
@@ -591,11 +638,19 @@ export function DeliveryOrdersClient({
             </p>
           </div>
           <div class="sales-header-actions">
-            <button type="button" class="sales-btn-secondary" onClick={onOpenList}>
+            <button
+              type="button"
+              class="sales-btn-primary"
+              onClick={onOpenList}
+            >
               View all DOs
             </button>
             {canValidate ? (
-              <button type="button" class="sales-btn-secondary" onClick={onOpenQueue}>
+              <button
+                type="button"
+                class="sales-btn-primary"
+                onClick={onOpenQueue}
+              >
                 Validation queue
               </button>
             ) : null}
@@ -639,7 +694,8 @@ export function DeliveryOrdersClient({
                     >
                       <strong>{pending.deliveryOrderNo}</strong>
                       <span>
-                        {pending.customerName} · {formatDisplayDate(pending.dateIssued)}
+                        {pending.customerName} ·{" "}
+                        {formatDisplayDate(pending.dateIssued)}
                         {pending.totalLabel ? ` · ${pending.totalLabel}` : ""}
                       </span>
                     </button>
@@ -659,7 +715,7 @@ export function DeliveryOrdersClient({
           </button>
           <button
             type="button"
-            class="sales-btn-secondary"
+            class="sales-btn-primary"
             disabled={busy !== null}
             onClick={resetNew}
           >
@@ -674,7 +730,9 @@ export function DeliveryOrdersClient({
             <h3>1 · Header</h3>
             {deliveryOrderNo ? (
               <p class="sales-muted">
-                <span class={statusClass(docStatus ?? "PENDING")}>{docStatus ?? "DRAFT"}</span>
+                <span class={statusClass(docStatus ?? "PENDING")}>
+                  {docStatus ?? "DRAFT"}
+                </span>
                 {" · "}
                 <strong>{deliveryOrderNo}</strong>
                 {validatedByName ? ` · Validated by ${validatedByName}` : ""}
@@ -698,7 +756,9 @@ export function DeliveryOrdersClient({
                   disabled={isReadOnly}
                   placeholder="12345"
                   onInput={(event) =>
-                    setDeliveryOrderNo((event.currentTarget as HTMLInputElement).value)
+                    setDeliveryOrderNo(
+                      (event.currentTarget as HTMLInputElement).value,
+                    )
                   }
                 />
               </label>
@@ -711,9 +771,12 @@ export function DeliveryOrdersClient({
                 disabled={isReadOnly}
                 onChange={(event) => {
                   setAllowAutoUnitPrice(true);
-                  setCustomerId((event.currentTarget as HTMLSelectElement).value);
+                  setCustomerId(
+                    (event.currentTarget as HTMLSelectElement).value,
+                  );
                 }}
               >
+                <option value="">Select customer</option>
                 {options.customers.map((customer) => (
                   <option key={customer.id} value={String(customer.id)}>
                     {customer.name}
@@ -732,7 +795,9 @@ export function DeliveryOrdersClient({
                 disabled={isReadOnly || !postingPeriod}
                 onInput={(event) => {
                   setAllowAutoUnitPrice(true);
-                  setDateIssued((event.currentTarget as HTMLInputElement).value);
+                  setDateIssued(
+                    (event.currentTarget as HTMLInputElement).value,
+                  );
                 }}
               />
               {!postingPeriod ? (
@@ -741,7 +806,8 @@ export function DeliveryOrdersClient({
                 </span>
               ) : (
                 <span class="sales-muted sales-checkbox-hint">
-                  Open month: {postingPeriod.monthName} {postingPeriod.financialYear}
+                  Open month: {postingPeriod.monthName}{" "}
+                  {postingPeriod.financialYear}
                 </span>
               )}
             </label>
@@ -765,9 +831,12 @@ export function DeliveryOrdersClient({
                 value={salesPointId}
                 disabled={isReadOnly}
                 onChange={(event) =>
-                  setSalesPointId((event.currentTarget as HTMLSelectElement).value)
+                  setSalesPointId(
+                    (event.currentTarget as HTMLSelectElement).value,
+                  )
                 }
               >
+                <option value="">Select sales point</option>
                 {options.salesPoints.map((point) => (
                   <option key={point.id} value={String(point.id)}>
                     {point.name}
@@ -795,12 +864,14 @@ export function DeliveryOrdersClient({
         <div class="sales-section-header">
           <div>
             <h3>2 · Line items</h3>
-            <p class="sales-muted">Unit prices come from product pricing schedules.</p>
+            <p class="sales-muted">
+              Unit prices come from product pricing schedules.
+            </p>
           </div>
           {!isReadOnly ? (
             <button
               type="button"
-              class="sales-btn-secondary"
+              class="sales-btn-primary"
               onClick={() => {
                 setAllowAutoUnitPrice(true);
                 setLines((current) => [...current, emptyLine()]);
@@ -813,7 +884,12 @@ export function DeliveryOrdersClient({
 
         <div class="sales-lines-list">
           {lines.map((line, index) => {
-            const summary = lineSummaries[index] ?? { net: 0, vat: 0, other: 0, total: 0 };
+            const summary = lineSummaries[index] ?? {
+              net: 0,
+              vat: 0,
+              other: 0,
+              total: 0,
+            };
 
             return (
               <div class="sales-line-card" key={index}>
@@ -824,7 +900,9 @@ export function DeliveryOrdersClient({
                     disabled={isReadOnly}
                     onChange={(event) => {
                       setAllowAutoUnitPrice(true);
-                      const productId = (event.currentTarget as HTMLSelectElement).value;
+                      const productId = (
+                        event.currentTarget as HTMLSelectElement
+                      ).value;
                       setLines((current) =>
                         current.map((item, itemIndex) =>
                           itemIndex === index ? { ...item, productId } : item,
@@ -834,7 +912,10 @@ export function DeliveryOrdersClient({
                   >
                     <option value="">Select product</option>
                     {options.products.map((product) => (
-                      <option key={product.productId} value={String(product.productId)}>
+                      <option
+                        key={product.productId}
+                        value={String(product.productId)}
+                      >
                         {product.productName}
                       </option>
                     ))}
@@ -855,7 +936,9 @@ export function DeliveryOrdersClient({
                             itemIndex === index
                               ? {
                                   ...item,
-                                  orderQty: (event.currentTarget as HTMLInputElement).value,
+                                  orderQty: (
+                                    event.currentTarget as HTMLInputElement
+                                  ).value,
                                 }
                               : item,
                           ),
@@ -863,7 +946,9 @@ export function DeliveryOrdersClient({
                       }
                     />
                     {lineOnHand[index] != null ? (
-                      <span class="sales-hint">On hand: {lineOnHand[index]} {line.orderUnit}</span>
+                      <span class="sales-hint">
+                        On hand: {lineOnHand[index]} {line.orderUnit}
+                      </span>
                     ) : null}
                   </label>
 
@@ -879,7 +964,9 @@ export function DeliveryOrdersClient({
                             itemIndex === index
                               ? {
                                   ...item,
-                                  orderUnit: (event.currentTarget as HTMLInputElement).value,
+                                  orderUnit: (
+                                    event.currentTarget as HTMLInputElement
+                                  ).value,
                                 }
                               : item,
                           ),
@@ -890,15 +977,31 @@ export function DeliveryOrdersClient({
 
                   <label class="sales-field">
                     <span>Unit price (ex VAT)</span>
-                    <input type="text" value={line.unitPrice} readOnly disabled={isReadOnly} />
+                    <input
+                      type="text"
+                      value={
+                        line.unitPrice
+                          ? formatAmount(parseDec(line.unitPrice))
+                          : ""
+                      }
+                      readOnly
+                      disabled={isReadOnly}
+                    />
                     {linePriceErrors[index] ? (
-                      <span class="sales-hint sales-hint-warn">{linePriceErrors[index]}</span>
+                      <span class="sales-hint sales-hint-warn">
+                        {linePriceErrors[index]}
+                      </span>
                     ) : null}
                   </label>
 
                   <label class="sales-field">
-                    <span>Line total</span>
-                    <input type="text" value={summary.total.toFixed(2)} readOnly disabled />
+                    <span>Line total (ex VAT)</span>
+                    <input
+                      type="text"
+                      value={formatAmount(summary.net)}
+                      readOnly
+                      disabled
+                    />
                   </label>
                 </div>
 
@@ -907,7 +1010,9 @@ export function DeliveryOrdersClient({
                     type="button"
                     class="sales-btn-link"
                     onClick={() =>
-                      setLines((current) => current.filter((_, itemIndex) => itemIndex !== index))
+                      setLines((current) =>
+                        current.filter((_, itemIndex) => itemIndex !== index),
+                      )
                     }
                   >
                     Remove line
@@ -919,10 +1024,16 @@ export function DeliveryOrdersClient({
         </div>
 
         <div class="sales-totals-row">
-          <div>VAT: {totalsPreview.vat.toFixed(2)} XAF</div>
-          <div>Sales tax: {totalsPreview.other.toFixed(2)} XAF</div>
           <div>
-            <strong>Total: {totalsPreview.total.toFixed(2)} XAF</strong>
+            {taxPreview?.vatLabel ?? "VAT"}: {formatAmount(totalsPreview.vat)}{" "}
+            XAF
+          </div>
+          <div>
+            {taxPreview?.otherLabel ?? "Sales tax"}:{" "}
+            {formatAmount(totalsPreview.other)} XAF
+          </div>
+          <div>
+            <strong>Total: {formatAmount(totalsPreview.total)} XAF</strong>
           </div>
         </div>
       </div>
@@ -936,8 +1047,10 @@ export function DeliveryOrdersClient({
           {!isReadOnly ? (
             <button
               type="button"
-              class="sales-btn-secondary"
-              onClick={() => setPayments((current) => [...current, emptyPayment()])}
+              class="sales-btn-primary"
+              onClick={() =>
+                setPayments((current) => [...current, emptyPayment()])
+              }
             >
               Add payment
             </button>
@@ -949,83 +1062,124 @@ export function DeliveryOrdersClient({
         ) : (
           <div class="sales-payments-form">
             {payments.map((payment, index) => {
-              const method = paymentMethods.find((item) => item.id === payment.paymentMethodId);
+              const method = paymentMethods.find(
+                (item) => item.id === payment.paymentMethodId,
+              );
               const isCheque = method?.kind === "CHEQUE";
+              const isBankTransfer = method?.kind === "BANK_TRANSFER";
+              const fieldCount = isCheque ? 4 : 3;
 
               return (
                 <div class="sales-payment-row" key={index}>
-                  <label class="sales-field">
-                    <span>Method</span>
-                    <select
-                      value={payment.paymentMethodId}
-                      disabled={isReadOnly}
-                      onChange={(event) =>
-                        setPayments((current) =>
-                          current.map((item, itemIndex) =>
-                            itemIndex === index
-                              ? {
-                                  ...item,
-                                  paymentMethodId: (event.currentTarget as HTMLSelectElement)
-                                    .value,
-                                }
-                              : item,
-                          ),
-                        )
-                      }
-                    >
-                      {paymentMethods.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <div
+                    class={`sales-payment-grid sales-payment-grid--cols-${fieldCount}`}
+                    style={{ "--sales-payment-cols": String(fieldCount) }}
+                  >
+                    <label class="sales-field">
+                      <span>Method</span>
+                      <select
+                        value={payment.paymentMethodId}
+                        disabled={isReadOnly}
+                        onChange={(event) =>
+                          setPayments((current) =>
+                            current.map((item, itemIndex) =>
+                              itemIndex === index
+                                ? {
+                                    ...item,
+                                    paymentMethodId: (
+                                      event.currentTarget as HTMLSelectElement
+                                    ).value,
+                                    chequeNo: "",
+                                    bank: "",
+                                    cashReceiptNo: "",
+                                  }
+                                : item,
+                            ),
+                          )
+                        }
+                      >
+                        <option value="">Select payment method</option>
+                        {paymentMethods.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
 
-                  <label class="sales-field">
-                    <span>Date</span>
-                    <input
-                      type="date"
-                      value={payment.paymentDate}
-                      min={postingPeriod?.startDate}
-                      max={postingPeriod?.endDate}
-                      disabled={isReadOnly || !postingPeriod}
-                      onInput={(event) =>
-                        setPayments((current) =>
-                          current.map((item, itemIndex) =>
-                            itemIndex === index
-                              ? {
-                                  ...item,
-                                  paymentDate: (event.currentTarget as HTMLInputElement).value,
-                                }
-                              : item,
-                          ),
-                        )
-                      }
-                    />
-                  </label>
+                    <label class="sales-field">
+                      <span>Date</span>
+                      <input
+                        type="date"
+                        value={payment.paymentDate}
+                        min={postingPeriod?.startDate}
+                        max={postingPeriod?.endDate}
+                        disabled={isReadOnly || !postingPeriod}
+                        onInput={(event) =>
+                          setPayments((current) =>
+                            current.map((item, itemIndex) =>
+                              itemIndex === index
+                                ? {
+                                    ...item,
+                                    paymentDate: (
+                                      event.currentTarget as HTMLInputElement
+                                    ).value,
+                                  }
+                                : item,
+                            ),
+                          )
+                        }
+                      />
+                    </label>
 
-                  {isCheque ? (
-                    <>
-                      <label class="sales-field">
-                        <span>Cheque no.</span>
-                        <input
-                          type="text"
-                          value={payment.chequeNo}
-                          disabled={isReadOnly}
-                          onInput={(event) =>
-                            setPayments((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index
-                                  ? {
-                                      ...item,
-                                      chequeNo: (event.currentTarget as HTMLInputElement).value,
-                                    }
-                                  : item,
-                              ),
-                            )
-                          }
-                        />
-                      </label>
+                    {isCheque ? (
+                      <>
+                        <label class="sales-field">
+                          <span>Cheque no.</span>
+                          <input
+                            type="text"
+                            value={payment.chequeNo}
+                            disabled={isReadOnly}
+                            onInput={(event) =>
+                              setPayments((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index
+                                    ? {
+                                        ...item,
+                                        chequeNo: (
+                                          event.currentTarget as HTMLInputElement
+                                        ).value,
+                                      }
+                                    : item,
+                                ),
+                              )
+                            }
+                          />
+                        </label>
+                        <label class="sales-field">
+                          <span>Bank</span>
+                          <input
+                            type="text"
+                            value={payment.bank}
+                            disabled={isReadOnly}
+                            onInput={(event) =>
+                              setPayments((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index
+                                    ? {
+                                        ...item,
+                                        bank: (
+                                          event.currentTarget as HTMLInputElement
+                                        ).value,
+                                      }
+                                    : item,
+                                ),
+                              )
+                            }
+                          />
+                        </label>
+                      </>
+                    ) : isBankTransfer ? (
                       <label class="sales-field">
                         <span>Bank</span>
                         <input
@@ -1038,7 +1192,9 @@ export function DeliveryOrdersClient({
                                 itemIndex === index
                                   ? {
                                       ...item,
-                                      bank: (event.currentTarget as HTMLInputElement).value,
+                                      bank: (
+                                        event.currentTarget as HTMLInputElement
+                                      ).value,
                                     }
                                   : item,
                               ),
@@ -1046,34 +1202,36 @@ export function DeliveryOrdersClient({
                           }
                         />
                       </label>
-                    </>
-                  ) : (
-                    <label class="sales-field">
-                      <span>CDC receipt no.</span>
-                      <input
-                        type="text"
-                        value={payment.cashReceiptNo}
-                        disabled={isReadOnly}
-                        onInput={(event) =>
-                          setPayments((current) =>
-                            current.map((item, itemIndex) =>
-                              itemIndex === index
-                                ? {
-                                    ...item,
-                                    cashReceiptNo: (event.currentTarget as HTMLInputElement).value,
-                                  }
-                                : item,
-                            ),
-                          )
-                        }
-                      />
-                    </label>
-                  )}
+                    ) : (
+                      <label class="sales-field">
+                        <span>Cash receipt no.</span>
+                        <input
+                          type="text"
+                          value={payment.cashReceiptNo}
+                          disabled={isReadOnly}
+                          onInput={(event) =>
+                            setPayments((current) =>
+                              current.map((item, itemIndex) =>
+                                itemIndex === index
+                                  ? {
+                                      ...item,
+                                      cashReceiptNo: (
+                                        event.currentTarget as HTMLInputElement
+                                      ).value,
+                                    }
+                                  : item,
+                              ),
+                            )
+                          }
+                        />
+                      </label>
+                    )}
+                  </div>
 
                   {!isReadOnly ? (
                     <button
                       type="button"
-                      class="sales-btn-link"
+                      class="sales-btn-primary sales-payment-remove"
                       onClick={() =>
                         setPayments((current) =>
                           current.filter((_, itemIndex) => itemIndex !== index),
@@ -1106,10 +1264,21 @@ export function DeliveryOrdersClient({
           </button>
         ) : null}
 
+        {orderId != null ? (
+          <button
+            type="button"
+            class="sales-btn-primary"
+            disabled={busy !== null}
+            onClick={() => setPrintOpen(true)}
+          >
+            Print delivery order
+          </button>
+        ) : null}
+
         {orderId != null && docStatus === "PENDING" && canValidate ? (
           <button
             type="button"
-            class="sales-btn-secondary"
+            class="sales-btn-primary"
             disabled={busy !== null}
             onClick={() => void validateOrder()}
           >
@@ -1128,6 +1297,13 @@ export function DeliveryOrdersClient({
           </button>
         ) : null}
       </div>
+
+      {printOpen && orderId != null ? (
+        <DeliveryOrderPrintView
+          orderId={orderId}
+          onClose={() => setPrintOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

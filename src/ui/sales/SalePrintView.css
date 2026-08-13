@@ -8,21 +8,15 @@
   background: rgba(16, 24, 40, 0.45);
 }
 
-.sales-print-heading {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
 .sale-print-modal {
-  width: min(820px, 100%);
-  max-height: min(90svh, 900px);
+  width: min(1000px, 100%);
+  height: min(800px, 90svh);
+  max-height: min(800px, 90svh);
   overflow: auto;
   border-radius: 14px;
   background: #fff;
   padding: 20px;
+  box-sizing: border-box;
 }
 
 .sale-print-toolbar {
@@ -34,48 +28,49 @@
 
 .sale-print-document {
   color: #111827;
+  font-family: "Arial Narrow", Arial, sans-serif;
 }
 
-.sale-print-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 20px;
+.sale-print-label {
+  font-weight: 700;
+}
+
+.sale-print-meta-grid,
+.sale-print-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 24px;
+  margin-bottom: 16px;
   padding-bottom: 12px;
+  border-bottom: 1px solid #111827;
+}
+
+.sale-print-meta-col p,
+.sale-print-info-body p {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+
+.sale-print-info-block {
+  border: 1px solid #d1d5db;
+  overflow: hidden;
+}
+
+.sale-print-info-heading {
+  padding: 8px 10px;
+  background: #f3f4f6;
+  font-size: 13px;
+  font-weight: 700;
   border-bottom: 1px solid #e5e7eb;
 }
 
-.sale-print-header h2 {
-  margin: 0 0 4px;
+.sale-print-info-body {
+  padding: 10px;
+  min-height: 72px;
 }
 
-.sale-print-header p {
-  margin: 0;
-  color: #4b5563;
-  font-size: 13px;
-}
-
-.sale-print-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  font-size: 13px;
-}
-
-.sale-print-section {
-  margin-bottom: 16px;
-  font-size: 14px;
-}
-
-.sale-print-section h3 {
-  margin: 0 0 8px;
-  font-size: 15px;
-}
-
-.sale-print-section ul {
-  margin: 0;
-  padding-left: 18px;
+.sale-print-muted {
+  color: #6b7280;
 }
 
 .sale-print-table {
@@ -83,41 +78,135 @@
   border-collapse: collapse;
   margin-bottom: 16px;
   font-size: 13px;
+  table-layout: fixed;
 }
 
-.sale-print-table th,
-.sale-print-table td {
+.sale-print-col-code {
+  width: 16%;
+}
+
+.sale-print-col-desc {
+  width: 36%;
+}
+
+.sale-print-col-qty {
+  width: 14%;
+}
+
+.sale-print-col-price,
+.sale-print-col-total {
+  width: 17%;
+}
+
+.sale-print-table thead th {
   padding: 8px 10px;
-  border-bottom: 1px solid #e5e7eb;
+  background: #f3f4f6;
+  border: 1px solid #111827;
   text-align: left;
+  font-weight: 700;
+}
+
+.sale-print-table tbody td {
+  padding: 8px 10px;
+  border: 1px solid #111827;
+  vertical-align: top;
+}
+
+.sale-print-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.sale-print-table thead th.sale-print-num {
+  text-align: center;
 }
 
 .sale-print-cat {
   color: #6b7280;
 }
 
-.sale-print-totals {
-  max-width: 320px;
-  margin-left: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 14px;
+.sale-print-bottom {
+  display: grid;
+  grid-template-columns: 1fr minmax(240px, 320px);
+  gap: 24px;
+  align-items: start;
+  margin-bottom: 18px;
 }
 
-.sale-print-totals div {
+.sale-print-payment-block {
+  font-size: 13px;
+}
+
+.sale-print-payment-block p {
+  margin: 0 0 6px;
+}
+
+.sale-print-payment-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.sale-print-totals {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  font-size: 13px;
+  border-top: 1px solid #111827;
+}
+
+.sale-print-totals > div {
   display: flex;
   justify-content: space-between;
   gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid #d1d5db;
 }
 
-.sale-print-total {
+.sale-print-grand-total {
   font-weight: 700;
-  border-top: 1px solid #e5e7eb;
+  background: #f3f4f6;
+  border-bottom: none !important;
+  border-top: 2px solid #111827;
+  margin-top: 2px;
+  padding: 8px 10px !important;
+}
+
+.sale-print-notes {
+  margin-bottom: 28px;
+  padding-top: 12px;
+  border-top: 1px solid #111827;
+  font-size: 13px;
+}
+
+.sale-print-notes p {
+  margin: 0;
+}
+
+.sale-print-signatures {
+  margin-top: 40px;
   padding-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.sale-print-signatures .report-footer {
+  margin-top: 0;
+  width: min(280px, 42%);
+}
+
+.sale-print-signatures .report-footer-signature {
+  margin-left: auto;
+  margin-right: 0;
+  width: 100%;
+  text-align: right;
 }
 
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
   body.sale-print-mode {
     background: #fff !important;
   }
@@ -165,8 +254,28 @@
     box-shadow: none !important;
   }
 
-  body.sale-print-mode .sale-print-header p,
+  body.sale-print-mode .sale-print-muted,
   body.sale-print-mode .sale-print-cat {
-    color: #000 !important;
+    color: #444 !important;
+  }
+
+  body.sale-print-mode .sale-print-signatures .report-footer-signature {
+    text-align: right;
+  }
+
+  body.sale-print-mode .sale-print-info-heading,
+  body.sale-print-mode .sale-print-table thead th,
+  body.sale-print-mode .sale-print-grand-total {
+    background: #f3f4f6 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body.sale-print-mode .report-header-meta,
+  body.sale-print-mode .report-header-meta *,
+  body.sale-print-mode .qr-code {
+    visibility: visible !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }

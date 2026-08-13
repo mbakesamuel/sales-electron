@@ -150,7 +150,7 @@ function ReportTable({ report }: { report: MonthlyDeliveriesByDestinationReport 
             <td class="mdd-center">TOTAL</td>
             <KgCells {...report.totals} />
           </tr>
-          <tr class="scr-row mdd-pct-row">
+          <tr class="scr-row scr-row-total">
             <td />
             <td class="mdd-center">TOTAL %</td>
             <td class="scr-num">{formatPct(report.percentages.industriesPct)}</td>

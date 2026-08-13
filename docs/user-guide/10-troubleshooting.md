@@ -28,6 +28,7 @@
 - Outstanding is **as of report as-at**: DOs and draw-down sales with `dateIssued` on or before that date.
 - CF commitments only appear from their DO **`dateIssued`**. Pick DO always shows live remaining (not frozen by month).
 - Later edits to CF line `orderQty` are not historical — reports use the current ordered qty minus sales through as-at.
+
 ## Pick DO is empty or missing a DO
 
 - Customer and sales point must be selected (list is filtered to both).
@@ -35,10 +36,9 @@
 - Remaining balance must be greater than zero (fully sold DOs are omitted).
 - Carry-forward commitments appear as **CF** rows, one line per product.
 
-## Pick DO loaded the wrong quantity
+## Pick DO did not add lines
 
-- One-click pick loads **only the selected product’s** remaining balance.
-- Use **Lookup → Load lines from DO** to load **all** remaining products at once.
+- Pick DO / Lookup **link** the delivery order; Pick opens **Add line** with the selected product prefilled. Confirm and save the line (or use **Add line** manually).
 
 ## Wrong report section for a product
 
@@ -57,6 +57,12 @@
 
 - Use the in-app **Print** control so `scr-print-mode` styles apply.
 - Toolbars are hidden via `no-print`; if content is clipped, try landscape where the screen offers it.
+
+## App shows a blank screen or never reaches login
+
+- Run the desktop app via **`npm run dev`** (or the installed **Sales Management Application** shortcut) — do **not** open `http://localhost:5173` in a browser tab. The UI requires the Electron preload API (`window.api`).
+- If the window stays blank after a code update, restart **`npm run dev`** so Vite and Electron reload. Check the terminal for a red **Transform failed** or module import error.
+- A broken import in a screen loaded at startup (for example the customers or stock modules) can block the whole app shell, including the login screen.
 
 ## Still stuck
 

@@ -10,9 +10,10 @@ import "./StockScreen.css";
 interface StockScreenProps {
   user: AuthUser;
   permissions: RolePermissionsSnapshot;
+  onOpenBinCard?: () => void;
 }
 
-export function StockScreen({ user, permissions }: StockScreenProps) {
+export function StockScreen({ user, permissions, onOpenBinCard }: StockScreenProps) {
   const [bootstrap, setBootstrap] = useState<StockBootstrap | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,5 +50,13 @@ export function StockScreen({ user, permissions }: StockScreenProps) {
     return <p class="stock-muted">Loading stock data…</p>;
   }
 
-  return <StockClient bootstrap={bootstrap} user={user} permissions={permissions} onRefresh={refresh} />;
+  return (
+    <StockClient
+      bootstrap={bootstrap}
+      user={user}
+      permissions={permissions}
+      onRefresh={refresh}
+      onOpenBinCard={onOpenBinCard}
+    />
+  );
 }

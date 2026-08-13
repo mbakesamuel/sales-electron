@@ -1,9 +1,18 @@
 import { randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
-import type { AuthUser, LoginResponse } from "../../shared/database.types.js";
+import type {
+  AuthUser,
+  ChangePasswordResponse,
+  LoginResponse,
+} from "../../shared/database.types.js";
 import type { RolePermissionsSnapshot } from "../../shared/permissions.types.js";
 import { loadRolePermissionsSnapshot } from "./permissions/service.js";
-import { createSessionToken, hashToken, verifyPassword } from "./password.js";
+import {
+  createSessionToken,
+  hashPassword,
+  hashToken,
+  verifyPassword,
+} from "./password.js";
 import { getDatabase } from "../db/index.js";
 
 export type { AuthUser };
@@ -19,6 +28,7 @@ interface UserRow {
   passwordHash: string | null;
   passwordPlain: string | null;
   commercialServiceId: string | null;
+  mustChangePassword: number;
 }
 
 export interface AuthSession {
@@ -33,6 +43,7 @@ function mapUser(row: UserRow): AuthUser {
     name: row.name,
     role: row.role,
     commercialServiceId: row.commercialServiceId ?? null,
+    mustChangePassword: row.mustChangePassword === 1,
   };
 }
 
@@ -52,6 +63,18 @@ function verifyUserPassword(row: UserRow, password: string): boolean {
   return false;
 }
 
+function loadUserById(db: Database.Database, userId: string): UserRow | undefined {
+  return db
+    .prepare(
+      `SELECT id, username, name, role, isActive, passwordHash, passwordPlain,
+              commercialServiceId, mustChangePassword
+       FROM User
+       WHERE id = ?
+       LIMIT 1`,
+    )
+    .get(userId) as UserRow | undefined;
+}
+
 export function login(
   username: string,
   password: string,
@@ -67,7 +90,7 @@ export function login(
   const user = db
     .prepare(
       `SELECT id, username, name, role, isActive, passwordHash, passwordPlain,
-              commercialServiceId
+              commercialServiceId, mustChangePassword
        FROM User
        WHERE lower(username) = ?
        LIMIT 1`,
@@ -105,16 +128,15 @@ export function getAuthSession(token: string): AuthSession | null {
 
   const row = db
     .prepare(
-      `SELECT u.id, u.username, u.name, u.role, u.isActive, u.commercialServiceId
+      `SELECT u.id, u.username, u.name, u.role, u.isActive, u.commercialServiceId,
+              u.mustChangePassword, u.passwordHash, u.passwordPlain
        FROM AuthSession s
        INNER JOIN User u ON u.id = s.userId
        WHERE s.tokenHash = ?
          AND s.expiresAt > datetime('now')
        LIMIT 1`,
     )
-    .get(hashToken(token)) as
-    | (UserRow & { isActive: number })
-    | undefined;
+    .get(hashToken(token)) as UserRow | undefined;
 
   if (!row || row.isActive !== 1) {
     return null;
@@ -123,6 +145,58 @@ export function getAuthSession(token: string): AuthSession | null {
   return {
     user: mapUser(row),
     permissions: loadRolePermissionsSnapshot(row.role),
+  };
+}
+
+export function changePassword(
+  token: string,
+  currentPassword: string,
+  newPassword: string,
+): ChangePasswordResponse {
+  const session = getAuthSession(token);
+  if (!session) {
+    return { error: "Login required." };
+  }
+
+  const trimmedCurrent = currentPassword.trim();
+  const trimmedNew = newPassword.trim();
+
+  if (!trimmedCurrent || !trimmedNew) {
+    return { error: "Current and new passwords are required." };
+  }
+
+  if (trimmedNew === trimmedCurrent) {
+    return { error: "New password must be different from the current password." };
+  }
+
+  const db = getDatabase();
+  const user = loadUserById(db, session.user.id);
+  if (!user || user.isActive !== 1) {
+    return { error: "Login required." };
+  }
+
+  if (!verifyUserPassword(user, trimmedCurrent)) {
+    return { error: "Current password is incorrect." };
+  }
+
+  const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+  db.prepare(
+    `UPDATE User
+     SET passwordHash = ?,
+         passwordPlain = NULL,
+         mustChangePassword = 0,
+         updatedAt = ?
+     WHERE id = ?`,
+  ).run(hashPassword(trimmedNew), now, user.id);
+
+  const updated = loadUserById(db, user.id);
+  if (!updated) {
+    return { error: "Unable to update password." };
+  }
+
+  return {
+    user: mapUser(updated),
+    permissions: loadRolePermissionsSnapshot(updated.role),
   };
 }
 

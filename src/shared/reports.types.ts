@@ -675,3 +675,218 @@ export interface MonthlyDeliveriesByDestinationReport {
   comments: string | null;
 }
 
+export interface MonthlyPalmOilSalesCell {
+  tons: number;
+  /** Full FCFA (tax-excluded line net); UI divides by 1000 for '000 FRS. */
+  value: number;
+}
+
+export interface MonthlyPalmOilSalesMonthColumn {
+  /** Calendar month 1–12. */
+  month: number;
+  label: string;
+}
+
+export type MonthlyPalmOilSalesRowKind =
+  | "section"
+  | "data"
+  | "subtotal"
+  | "total";
+
+export interface MonthlyPalmOilSalesRow {
+  id: string;
+  label: string;
+  kind: MonthlyPalmOilSalesRowKind;
+  /** Twelve calendar-month cells (Jan=0 … Dec=11). */
+  months: MonthlyPalmOilSalesCell[];
+  ytd: MonthlyPalmOilSalesCell;
+}
+
+export interface MonthlyPalmOilSalesReport {
+  settings: ReportCompanySettings;
+  asAtIso: string;
+  monthName: string;
+  financialYear: number;
+  reportTitle: string;
+  generatedAtIso: string;
+  monthColumnsH1: MonthlyPalmOilSalesMonthColumn[];
+  monthColumnsH2: MonthlyPalmOilSalesMonthColumn[];
+  rows: MonthlyPalmOilSalesRow[];
+  comments: string | null;
+}
+
+export type RevenueTaxesPeriod = "month" | "year";
+
+export interface RevenueTaxesTotals {
+  invoiceCount: number;
+  netAmount: number;
+  vatAmount: number;
+  salesTaxAmount: number;
+  grossAmount: number;
+}
+
+export interface RevenueTaxesBucketRow extends RevenueTaxesTotals {
+  key: string;
+  label: string;
+}
+
+export interface RevenueTaxesSalesPointOption {
+  id: number;
+  name: string;
+}
+
+export interface RevenueTaxesReport {
+  settings: ReportCompanySettings;
+  asAtIso: string;
+  period: RevenueTaxesPeriod;
+  periodLabel: string;
+  fromIso: string;
+  toIso: string;
+  monthName: string;
+  financialYear: number;
+  salesPointId: number | null;
+  salesPointLabel: string;
+  salesPointOptions: RevenueTaxesSalesPointOption[];
+  reportTitle: string;
+  generatedAtIso: string;
+  totals: RevenueTaxesTotals;
+  /** By calendar day (month mode) or calendar month (FY mode). */
+  byPeriod: RevenueTaxesBucketRow[];
+  bySalesPoint: RevenueTaxesBucketRow[];
+  comments: string | null;
+}
+
+export interface IndustryProductMonthlySalesCell {
+  tons: number;
+  /** Full FCFA (tax-excluded line net); UI divides by 1000 for '000 FRS. */
+  value: number;
+}
+
+export interface IndustryProductMonthlySalesMonthColumn {
+  /** Calendar month 1–12. */
+  month: number;
+  label: string;
+}
+
+export type IndustryProductMonthlySalesRowKind = "data" | "total";
+
+export interface IndustryProductMonthlySalesRow {
+  id: string;
+  label: string;
+  kind: IndustryProductMonthlySalesRowKind;
+  /** Twelve calendar-month cells (Jan=0 … Dec=11). */
+  months: IndustryProductMonthlySalesCell[];
+  ytd: IndustryProductMonthlySalesCell;
+}
+
+export interface IndustryProductMonthlySalesSection {
+  productId: number;
+  productName: string;
+  sectionTitle: string;
+  salesPointRows: IndustryProductMonthlySalesRow[];
+  totalRow: IndustryProductMonthlySalesRow;
+}
+
+export interface IndustryProductMonthlySalesReport {
+  settings: ReportCompanySettings;
+  asAtIso: string;
+  monthName: string;
+  financialYear: number;
+  reportTitle: string;
+  customerCategoryLabel: string;
+  generatedAtIso: string;
+  monthColumnsH1: IndustryProductMonthlySalesMonthColumn[];
+  monthColumnsH2: IndustryProductMonthlySalesMonthColumn[];
+  sections: IndustryProductMonthlySalesSection[];
+  comments: string | null;
+}
+
+export type BottledPalmOilSalesReturnPackId = "jug20" | "carton5" | "carton15";
+
+export interface BottledPalmOilSalesReturnPackColumn {
+  id: BottledPalmOilSalesReturnPackId;
+  label: string;
+  litresPerUnit: number;
+}
+
+export interface BottledPalmOilSalesReturnCell {
+  qty: number;
+  /** Tax-excluded FCFA; 0 when the row does not carry amounts. */
+  amount: number;
+}
+
+export type BottledPalmOilSalesReturnRowKind =
+  | "bf"
+  | "reception"
+  | "totalStock"
+  | "section"
+  | "cashSales"
+  | "publicRelation"
+  | "totalIssues"
+  | "issuesLitres"
+  | "issuesKg"
+  | "balance"
+  | "balanceLitres"
+  | "balanceKg";
+
+export interface BottledPalmOilSalesReturnRow {
+  id: string;
+  label: string;
+  kind: BottledPalmOilSalesReturnRowKind;
+  /** Pack cells in packColumns order. Empty for section rows. */
+  packs: BottledPalmOilSalesReturnCell[];
+  totalKg: number;
+  grandTotalFcfa: number;
+}
+
+export interface BottledPalmOilSalesReturnReport {
+  settings: ReportCompanySettings;
+  asAtIso: string;
+  monthStartIso: string;
+  monthName: string;
+  financialYear: number;
+  reportTitle: string;
+  generatedAtIso: string;
+  packColumns: BottledPalmOilSalesReturnPackColumn[];
+  rows: BottledPalmOilSalesReturnRow[];
+  comments: string | null;
+}
+
+export interface OtherProductSalesDeliveriesMetrics {
+  paymentsKg: number;
+  paymentsValue: number;
+  deliveriesKg: number;
+  deliveriesValue: number;
+}
+
+export type OtherProductSalesDeliveriesRowKind = "product" | "subtotal" | "grandTotal";
+
+export interface OtherProductSalesDeliveriesRow extends OtherProductSalesDeliveriesMetrics {
+  id: string;
+  kind: OtherProductSalesDeliveriesRowKind;
+  /** Sales point label; blank on continuation product rows when UI uses rowspan. */
+  salesPointLabel: string;
+  productLabel: string;
+  productId: number | null;
+}
+
+export interface OtherProductSalesDeliveriesSection {
+  salesPointId: number | null;
+  salesPointName: string;
+  productRows: OtherProductSalesDeliveriesRow[];
+  subtotal: OtherProductSalesDeliveriesRow;
+}
+
+export interface OtherProductSalesDeliveriesReport {
+  settings: ReportCompanySettings;
+  asAtIso: string;
+  monthStartIso: string;
+  monthName: string;
+  financialYear: number;
+  reportTitle: string;
+  generatedAtIso: string;
+  sections: OtherProductSalesDeliveriesSection[];
+  grandTotal: OtherProductSalesDeliveriesRow;
+  comments: string | null;
+}
+

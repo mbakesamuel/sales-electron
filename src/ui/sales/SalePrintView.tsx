@@ -1,9 +1,12 @@
 import { useEffect, useState } from "preact/hooks";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
+import { buildSaleInvoiceQrText } from "../../shared/saleInvoiceQr.ts";
 import { getElectronApi } from "../auth/client.ts";
+import { QrCode } from "../components/QrCode.tsx";
+import { ReportHeader } from "../reports/ReportHeader.tsx";
+import { ReportFooter } from "../reports/ReportFooter.tsx";
 import type { SalePrintPayload } from "./types.ts";
 import "./SalePrintView.css";
-import logoSrc from "../../assets/logo.svg";
 
 interface SalePrintViewProps {
   saleId: string;
@@ -33,6 +36,10 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
       try {
         const data = await getElectronApi().sales.loadSalePrintById(saleId);
         if (!cancelled) {
+          if (!data) {
+            setError("Sale not found.");
+            return;
+          }
           setPayload(data);
         }
       } catch (loadError) {
@@ -54,11 +61,18 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
   }, [saleId]);
 
   function handlePrint() {
+    const style = document.createElement("style");
+    style.id = "sale-print-portrait-style";
+    style.textContent =
+      "@media print { @page { size: A4 portrait; margin: 8mm; } }";
+    document.head.appendChild(style);
+
     document.body.classList.add("sale-print-mode");
     window.addEventListener(
       "afterprint",
       () => {
         document.body.classList.remove("sale-print-mode");
+        style.remove();
       },
       { once: true },
     );
@@ -73,7 +87,7 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
           onClick={(event) => event.stopPropagation()}
         >
           <p class="sales-error">{error}</p>
-          <button type="button" class="sales-btn-secondary" onClick={onClose}>
+          <button type="button" class="sales-btn-primary" onClick={onClose}>
             Close
           </button>
         </div>
@@ -100,16 +114,17 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
     sale.saleDisposition === "RATION" ||
     sale.saleDisposition === "PUBLIC_RELATION";
   const skipTax = isBottleMode || isSpecialDisposition;
-  const salesTaxAmount = skipTax
-    ? 0
-    : Math.max(
-        0,
-        Math.round(
-          (Number.parseFloat(sale.grossAmount) || 0) -
-            (Number.parseFloat(sale.netAmount) || 0) -
-            (Number.parseFloat(sale.vatAmount) || 0),
-        ),
-      );
+  const showTaxes = !skipTax && sale.appliedTaxes.length > 0;
+  const paymentMethods = sale.payments
+    .map((payment) => payment.methodName)
+    .filter(Boolean);
+  const paymentMethodLabel =
+    paymentMethods.length > 0
+      ? [...new Set(paymentMethods)].join(", ")
+      : "—";
+  const firstPaymentDate = sale.payments.find(
+    (payment) => payment.paymentDate,
+  )?.paymentDate;
 
   return (
     <div class="sale-print-backdrop" onClick={onClose}>
@@ -121,123 +136,215 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
           <button type="button" class="sales-btn-primary" onClick={handlePrint}>
             Print
           </button>
-          <button type="button" class="sales-btn-secondary" onClick={onClose}>
+          <button type="button" class="sales-btn-primary" onClick={onClose}>
             Close
           </button>
         </div>
 
         <article class="sale-print-document">
-          <header class="sale-print-header">
-            <div>
-              <div class="sales-print-heading">
-                <img
-                  class="login-logo"
-                  src={logoSrc}
-                  alt=""
-                  aria-hidden="true"
-                />             
-               <h2>{payload.companyName}</h2>
-              </div>
-              {payload.department ? <p>{payload.department}</p> : null}
-              {payload.companyAddress ? <p>{payload.companyAddress}</p> : null}
-              {payload.companyPhone ? <p>{payload.companyPhone}</p> : null}
-            </div>
-            <div class="sale-print-meta">
-              <span>No: <strong>{sale.invoiceNo}</strong> </span>
-              <span>{sale.status}</span>
-              <span>Issued {formatDisplayDate(sale.dateIssuedIso)}</span>
-            </div>
-          </header>
+          <ReportHeader
+            companyName={payload.companyName}
+            department={payload.department}
+            serviceName={payload.serviceName}
+            title="SALES INVOICE"
+            meta={
+              <QrCode
+                value={buildSaleInvoiceQrText(sale, payload.companyName)}
+                size={96}
+                alt="Invoice verification QR code"
+              />
+            }
+          />
 
-          <section class="sale-print-section">
-            <p>
-              <strong>Customer:</strong> {sale.customerName}
-            </p>
-            {sale.taxpayerId ? (
+          <section class="sale-print-meta-grid">
+            <div class="sale-print-meta-col">
               <p>
-                <strong>Taxpayer ID:</strong> {sale.taxpayerId}
+                <span class="sale-print-label">Invoice No:</span>{" "}
+                <strong>{sale.invoiceNo}</strong>
               </p>
-            ) : null}
-            {sale.deliveryOrderNo ? (
               <p>
-                <strong>Delivery order:</strong> {sale.deliveryOrderNo}
+                <span class="sale-print-label">Invoice Date:</span>{" "}
+                {formatDisplayDate(sale.dateIssuedIso)}
               </p>
-            ) : null}
-            {sale.referenceNumber ? (
+              {sale.deliveryOrderNo ? (
+                <p>
+                  <span class="sale-print-label">Delivery Order:</span>{" "}
+                  {sale.deliveryOrderNo}
+                </p>
+              ) : null}
+              {sale.referenceNumber ? (
+                <p>
+                  <span class="sale-print-label">Reference:</span>{" "}
+                  {sale.referenceNumber}
+                </p>
+              ) : null}
+            </div>
+            <div class="sale-print-meta-col">
               <p>
-                <strong>Reference:</strong> {sale.referenceNumber}
+                <span class="sale-print-label">Customer:</span>{" "}
+                <strong>{sale.customerName}</strong>
               </p>
-            ) : null}
-            {sale.vehicleNumber && sale.vehicleNumber !== "BPO-OUTBOUND" ? (
               <p>
-                <strong>Vehicle:</strong> {sale.vehicleNumber}
+                <span class="sale-print-label">Salesperson:</span>{" "}
+                {sale.salespersonName?.trim() || "—"}
               </p>
-            ) : null}
+              {sale.taxpayerId ? (
+                <p>
+                  <span class="sale-print-label">Taxpayer ID:</span>{" "}
+                  {sale.taxpayerId}
+                </p>
+              ) : null}
+              {sale.vehicleNumber && sale.vehicleNumber !== "BPO-OUTBOUND" ? (
+                <p>
+                  <span class="sale-print-label">Vehicle:</span>{" "}
+                  {sale.vehicleNumber}
+                </p>
+              ) : null}
+            </div>
+          </section>
+
+          <section class="sale-print-info-grid">
+            <div class="sale-print-info-block">
+              <div class="sale-print-info-heading">Billing Address:</div>
+              <div class="sale-print-info-body">
+                <p>{sale.customerName}</p>
+                {sale.customerAddress ? (
+                  <p>{sale.customerAddress}</p>
+                ) : (
+                  <p class="sale-print-muted">No address on file</p>
+                )}
+                {sale.customerPhone ? <p>{sale.customerPhone}</p> : null}
+              </div>
+            </div>
+            <div class="sale-print-info-block">
+              <div class="sale-print-info-heading">Shipping Address:</div>
+              <div class="sale-print-info-body">
+                {sale.salesPointName ? (
+                  <>
+                    <p>{sale.salesPointName}</p>
+                    <p class="sale-print-muted">Collection / sales point</p>
+                  </>
+                ) : (
+                  <p>Same as billing</p>
+                )}
+              </div>
+            </div>
           </section>
 
           <table class="sale-print-table">
+            <colgroup>
+              <col class="sale-print-col-code" />
+              <col class="sale-print-col-desc" />
+              <col class="sale-print-col-qty" />
+              <col class="sale-print-col-price" />
+              <col class="sale-print-col-total" />
+            </colgroup>
             <thead>
               <tr>
-                <th>#</th>
-                <th>Product</th>
-                <th>Qty</th>
-                <th>Unit price</th>
-                <th>Net</th>
+                <th>Item Code</th>
+                <th>Description</th>
+                <th class="sale-print-num">Quantity</th>
+                <th class="sale-print-num">Unit Price</th>
+                <th class="sale-print-num">Total</th>
               </tr>
             </thead>
             <tbody>
               {sale.lines.map((line) => (
                 <tr key={line.lineNo}>
-                  <td>{line.lineNo}</td>
+                  <td>{line.productCode?.trim() || "—"}</td>
                   <td>
                     {line.productName}
-                    <span class="sale-print-cat"> ({line.productCat})</span>
+                    {line.productCat ? (
+                      <span class="sale-print-cat"> ({line.productCat})</span>
+                    ) : null}
                   </td>
-                  <td>
+                  <td class="sale-print-num">
                     {line.qty} {line.unitLabel}
                   </td>
-                  <td>{formatMoney(line.unitPrice)}</td>
-                  <td>{formatMoney(line.lineNet)}</td>
+                  <td class="sale-print-num">
+                    {formatMoney(line.unitPrice)} XAF
+                  </td>
+                  <td class="sale-print-num">
+                    {formatMoney(line.lineNet)} XAF
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
 
-          <section class="sale-print-totals">
-            <div>
-              <span>{isBottleMode ? "Total (tax inclusive)" : "Net"}</span>
-              <span>{formatMoney(sale.netAmount)} XAF</span>
+          <section class="sale-print-bottom">
+            <div class="sale-print-payment-block">
+              <p>
+                <span class="sale-print-label">Payment Method:</span>{" "}
+                {paymentMethodLabel}
+              </p>
+              <p>
+                <span class="sale-print-label">Payment Date:</span>{" "}
+                {firstPaymentDate
+                  ? formatDisplayDate(firstPaymentDate)
+                  : formatDisplayDate(sale.dateIssuedIso)}
+              </p>
+              <p>
+                <span class="sale-print-label">Status:</span> {sale.status}
+              </p>
+              {sale.payments.length > 1 ? (
+                <ul class="sale-print-payment-list">
+                  {sale.payments.map((payment, index) => (
+                    <li key={index}>
+                      {payment.methodName}: {payment.amount || "0 XAF"}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
-            {!skipTax ? (
-              <>
+
+            <div class="sale-print-totals">
+              <div>
+                <span>
+                  {isBottleMode ? "Total (tax inclusive)" : "Subtotal"}
+                </span>
+                <span>{formatMoney(sale.netAmount)} XAF</span>
+              </div>
+              {showTaxes
+                ? sale.appliedTaxes.map((tax) => (
+                    <div key={`${tax.label}:${tax.ratePercent}`}>
+                      <span>
+                        {tax.label}
+                        {tax.ratePercent ? ` (${tax.ratePercent})` : ""}
+                      </span>
+                      <span>{tax.amount || `${formatMoney("0")} XAF`}</span>
+                    </div>
+                  ))
+                : null}
+              {!skipTax && !showTaxes && Number.parseFloat(sale.vatAmount) > 0 ? (
                 <div>
                   <span>VAT</span>
                   <span>{formatMoney(sale.vatAmount)} XAF</span>
                 </div>
-                <div>
-                  <span>Sales tax</span>
-                  <span>{formatMoney(String(salesTaxAmount))} XAF</span>
-                </div>
-              </>
-            ) : null}
-            <div class="sale-print-total">
-              <span>Total</span>
-              <span>{formatMoney(sale.grossAmount)} XAF</span>
+              ) : null}
+              <div class="sale-print-grand-total">
+                <span>Grand Total:</span>
+                <span>{formatMoney(sale.grossAmount)} XAF</span>
+              </div>
             </div>
           </section>
 
-          {sale.payments.length > 0 ? (
-            <section class="sale-print-section">
-              <h3>Payments</h3>
-              <ul>
-                {sale.payments.map((payment, index) => (
-                  <li key={index}>
-                    {payment.methodName}: {payment.amount}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
+        {/*   <section class="sale-print-notes">
+            <p>
+              <span class="sale-print-label">Notes:</span> Thank you for your
+              business.
+              {sale.saleDisposition && sale.saleDisposition !== "NORMAL"
+                ? ` Disposition: ${sale.saleDisposition.replaceAll("_", " ")}.`
+                : ""}
+            </p>
+          </section> */}
+
+          <section class="sale-print-signatures">
+            <ReportFooter
+              name={payload.signatoryName}
+              label={payload.signatoryTitle}
+            />
+          </section>
         </article>
       </div>
     </div>

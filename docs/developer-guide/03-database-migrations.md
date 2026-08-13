@@ -12,7 +12,7 @@
 | Path | Role |
 |------|------|
 | `src/electron/db/migrations/001_init.sql` | Baseline schema for new databases |
-| `src/electron/db/migrations/00N_*.sql` | Incremental migrations (latest: **036**) |
+| `src/electron/db/migrations/00N_*.sql` | Incremental migrations (latest: **051**) |
 | `scripts/generate-schema-sql.mjs` | Schema generation helper |
 | `db:seed` / seed migrations | Demo/admin seed data |
 
@@ -28,6 +28,20 @@ Recent notable migrations:
 |-----------|---------|
 | `035_daily_sales_report_permissions.sql` | Route access for daily sales report |
 | `036_customer_type_sales_tax_exempt.sql` | `CustomerTypeDefinition.exemptFromSalesTax` |
+| `036_monthly_stock_reconciliation_permissions.sql` | Monthly stock reconciliation report |
+| `039_monthly_payment_delivery_permissions.sql` | Monthly Payment/Delivery report |
+| `040_monthly_deliveries_by_destination_permissions.sql` | Deliveries by Destination report |
+| `041_report_signatory.sql` | `ReportSignatory` history table |
+| `042_user_must_change_password.sql` | `User.mustChangePassword` |
+| `043_payment_method_bank_transfer.sql` | `BANK_TRANSFER` payment method kind |
+| `044_delivery_order_tracking_permissions.sql` | DO tracking route |
+| `045_delivery_order_transfer.sql` | DO balance transfer support |
+| `046_monthly_palm_oil_sales_permissions.sql` | Monthly Palm Oil Sales report |
+| `047_revenue_taxes_report_permissions.sql` | Revenue & taxes report |
+| `048_industry_product_monthly_sales_permissions.sql` | Industry product monthly sales report |
+| `049_bottled_palm_oil_sales_return_permissions.sql` | Bottled palm oil sales return report |
+| `050_other_product_sales_deliveries_permissions.sql` | Other product sales and deliveries report |
+| `051_stock_bin_card_permissions.sql` | Bin card + bin card report routes |
 
 When adding a migration:
 

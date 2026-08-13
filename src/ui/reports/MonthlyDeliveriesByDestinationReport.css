@@ -3,23 +3,7 @@
 }
 
 .mdd-table {
-  width: 100%;
-  border-collapse: collapse;
   table-layout: fixed;
-}
-
-.mdd-table th,
-.mdd-table td {
-  border: 1.5px solid #111;
-  padding: 6px 8px;
-  vertical-align: middle;
-}
-
-.mdd-table thead th {
-  text-align: center;
-  font-weight: 700;
-  background: #f3f4f6;
-  font-size: 11px;
 }
 
 .mdd-weeks-col {
@@ -34,26 +18,9 @@
   text-align: center;
 }
 
-.mdd-pct-row td {
-  font-weight: 700;
-}
-
 .mdd-legend {
   margin: 8px 0 0;
   font-size: 11px;
   text-transform: none;
   color: var(--text-muted, #6b7280);
-}
-
-@media print {
-  .mdd-document {
-    border: none;
-    border-radius: 0;
-    padding: 0;
-  }
-
-  .mdd-table th,
-  .mdd-table td {
-    border-color: #000;
-  }
 }

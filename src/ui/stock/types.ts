@@ -1,4 +1,6 @@
 import type {
+  BinCardQuery,
+  BinCardReport,
   ReceiveTransferInput,
   SaveAdjustmentInput,
   SaveReceiptInput,
@@ -10,6 +12,7 @@ import type {
 
 export interface StockApi {
   getBootstrap(userId: string): Promise<StockBootstrap>;
+  getBinCard(userId: string, query: BinCardQuery): Promise<BinCardReport>;
   saveReceipt(input: SaveReceiptInput): Promise<StockMutationResult>;
   postReceipt(payload: { userId: string; receiptId: string }): Promise<StockGenericResult>;
   cancelReceipt(payload: { userId: string; receiptId: string }): Promise<StockGenericResult>;

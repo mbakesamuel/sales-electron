@@ -38,6 +38,8 @@ export declare function resolveSalesTaxRate(input: {
     taxpayerId: string | null | undefined;
     rates?: Partial<TaxRatesBag> | null;
 }): number;
+export declare function formatTaxLabelWithPercent(baseLabel: string, rateDecimal: string | number | null | undefined): string;
+export declare function formatTaxLabelFromAmounts(baseLabel: string, subtotalExTax: string | number, taxAmount: string | number): string;
 export declare function resolveCustomerTaxProfile(input: {
     residency: string | null | undefined;
     taxRegimeKind: string | null | undefined;

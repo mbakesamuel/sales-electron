@@ -7,6 +7,14 @@ export function roundMoney(value: number): string {
   return Math.round(value).toString();
 }
 
+/** Persist tax rates as decimals (e.g. 0.1925). Do not use roundMoney — that zeros rates < 0.5. */
+export function formatTaxRateSnapshot(rate: number): string {
+  if (!Number.isFinite(rate) || rate === 0) {
+    return "0";
+  }
+  return String(Number(rate.toFixed(6)));
+}
+
 export function formatXaf(value: string | number): string {
   const amount = typeof value === "number" ? value : parseAmount(value);
   if (amount === 0) {

@@ -46,7 +46,12 @@ function initials(name: string): string {
 
 function normalizeKind(value: unknown): PaymentMethodKind {
   const kind = String(value ?? "SIMPLE").toUpperCase();
-  if (kind === "CHEQUE" || kind === "TRAITE" || kind === "CREDIT") {
+  if (
+    kind === "CHEQUE" ||
+    kind === "TRAITE" ||
+    kind === "CREDIT" ||
+    kind === "BANK_TRANSFER"
+  ) {
     return kind;
   }
   return "SIMPLE";
@@ -56,6 +61,7 @@ function kindBadgeClass(kind: PaymentMethodKind): string {
   if (kind === "CHEQUE") return "customers-badge customers-badge-violet";
   if (kind === "TRAITE") return "customers-badge customers-badge-blue";
   if (kind === "CREDIT") return "customers-badge customers-badge-amber";
+  if (kind === "BANK_TRANSFER") return "customers-badge customers-badge-blue";
   return "customers-badge customers-badge-emerald";
 }
 
@@ -564,6 +570,7 @@ export function PaymentMethodsScreen({
     { id: "all", label: "All" },
     { id: "SIMPLE", label: "Simple" },
     { id: "CHEQUE", label: "Cheque" },
+    { id: "BANK_TRANSFER", label: "Bank transfer" },
     { id: "TRAITE", label: "Traite" },
     { id: "CREDIT", label: "Credit" },
   ];

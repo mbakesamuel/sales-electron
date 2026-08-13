@@ -2,10 +2,14 @@
   position: relative;
   box-sizing: border-box;
   margin-bottom: 18px;
+  /* Room above company name so the logo can align without clipping. */
+  padding-top: calc((var(--report-header-logo-height) - 24px * 1.3) / 2);
   padding-bottom: 14px;
   border-bottom: 2px solid #111827;
   font-family: "Arial Narrow", Arial, sans-serif;
   font-size: 12px;
+  --report-header-logo-width: 94px;
+  --report-header-logo-height: 84px;
 }
 
 .report-header-logo-wrap {
@@ -16,8 +20,8 @@
 }
 
 .report-header-logo {
-  width: 94px;
-  height: 84px;
+  width: var(--report-header-logo-width);
+  height: var(--report-header-logo-height);
   object-fit: contain;
   display: block;
 }
@@ -25,8 +29,8 @@
 .report-header-logo-placeholder {
   display: grid;
   place-items: center;
-  width: 94px;
-  height: 84px;
+  width: var(--report-header-logo-width);
+  height: var(--report-header-logo-height);
   border: 1px solid #d1d5db;
   border-radius: 8px;
   background: var(--bg-soft);
@@ -43,13 +47,22 @@
   color: #374151;
 }
 
+.report-header:has(.report-header-meta) {
+  min-height: 96px;
+}
+
+.report-header:has(.report-header-meta) .report-header-company,
+.report-header:has(.report-header-meta) .report-header-title {
+  padding-right: 108px;
+}
+
 /* Same horizontal centering as .report-header-title */
 .report-header-company,
 .report-header-title {
   display: block;
   width: 100%;
   margin: 0;
-  padding: 0;
+  padding: 0 var(--report-header-logo-width);
   text-align: center;
   box-sizing: border-box;
 }
@@ -87,20 +100,24 @@
 
 @media print {
   body.scr-print-mode .report-header,
-  body.scr-print-mode .report-header * {
+  body.do-print-mode .report-header,
+  body.scr-print-mode .report-header *,
+  body.do-print-mode .report-header * {
     background: #fff !important;
     background-color: #fff !important;
     color: #111 !important;
     box-shadow: none !important;
   }
 
-  body.scr-print-mode .report-header {
+  body.scr-print-mode .report-header,
+  body.do-print-mode .report-header {
     border: none !important;
     border-bottom: 2px solid #000 !important;
     border-radius: 0 !important;
   }
 
-  body.scr-print-mode .report-header-logo-placeholder {
+  body.scr-print-mode .report-header-logo-placeholder,
+  body.do-print-mode .report-header-logo-placeholder {
     border: 1px solid #ccc !important;
     background: #fff !important;
     color: #999 !important;
@@ -108,7 +125,10 @@
 
   body.scr-print-mode .report-header-department,
   body.scr-print-mode .report-header-commercial-service,
-  body.scr-print-mode .report-header-meta {
+  body.scr-print-mode .report-header-meta,
+  body.do-print-mode .report-header-department,
+  body.do-print-mode .report-header-commercial-service,
+  body.do-print-mode .report-header-meta {
     color: #444 !important;
   }
 }

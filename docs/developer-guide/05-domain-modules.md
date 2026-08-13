@@ -29,8 +29,7 @@ Legacy auto-allocators `allocateDeliveryOrderNo` / `allocateInvoiceNo` in `doNo.
 
 - `listAvailableDeliveryOrders({ salesPointId, customerId })` — validated DOs for that pair; **one row per product** with remaining kg; CF flagged via `sourceKind`.
 - Sold qty = sum of sale lines on sales with the same `deliveryOrderNo` + product.
-- UI one-click: lookup DO → `applyDoLinesFrom(lookup, productId)` loads only that product.
-- Manual Lookup + Load lines still loads all remaining products.
+- UI pick / lookup **links** the DO number and adopts the DO customer without replacing the invoice line list. Pick opens **Add line** prefilled with that product’s remaining qty and DO unit price; Lookup prefills when exactly one remaining product exists.
 
 Operator description: [Sales invoices](../user-guide/04-sales-invoices.md).
 
@@ -51,6 +50,36 @@ Statuses: `PENDING` | `VALIDATED` | `REJECTED` (as used in types).
 - `validateMany({ ids })` — bulk validate.
 - UI: `src/ui/delivery-orders/validation-queue/ValidationQueueClient.tsx` (tab gated on `validate_delivery_orders`).
 
+### DO tracking
+
+| Piece | Path |
+|-------|------|
+| Builder | `src/electron/deliveryOrders/track.ts` → `trackDeliveryOrderByNo` |
+| IPC | `deliveryOrders:trackByNo` |
+| UI | `src/ui/delivery-orders/DeliveryOrderTrackingScreen.tsx`, `DeliveryOrderTrackingPrintView.tsx` |
+| Route | `delivery-order-tracking` (migration `044`) |
+
+Shows header, commitment by product, lift history, and transfers out. Printable tracking report uses company report header. Any DO status — not limited to validated.
+
+### Transfer DO balance
+
+| Piece | Path |
+|-------|------|
+| Service | `src/electron/deliveryOrders/transfer.ts` → `transferDeliveryOrderBalance` |
+| IPC | `deliveryOrders:transferBalance` (requires `userId`; action `transfer_delivery_order_balance`) |
+| UI | `src/ui/delivery-orders/DeliveryOrderTransferScreen.tsx` |
+| Route | `delivery-order-transfer` (migration `045`) |
+
+Reduces source DO `orderQty`, creates validated destination DO `DT-{year}-{seq}` with `sourceKind = TRANSFER`. Commitment only — no stock movement.
+
+### Print
+
+| Piece | Path |
+|-------|------|
+| Print payload | `src/electron/deliveryOrders/print.ts` |
+| IPC | `deliveryOrders:getPrintById` |
+| UI | `src/ui/delivery-orders/DeliveryOrderPrintView.tsx` |
+
 ## Carry-forward commitments
 
 | Piece | Path |
@@ -70,6 +99,19 @@ One validated `CARRY_FORWARD` DO per customer + sales point; lines upserted per 
 | UI | stock screens under `src/ui/` (stock hub, CF stock) |
 
 `applyMovement` in `post.ts` enforces storage location occupancy: bottled products may co-mingle; non-bottled products are one SKU per location; bottled and bulk stock cannot share a location (non-zero on-hand).
+
+### Bin card
+
+| Piece | Path |
+|-------|------|
+| Builder | `src/electron/stock/binCard.ts` → `getBinCard(userId, query)` |
+| Types | `src/shared/stock.types.ts` (`BinCardQuery`, `BinCardReport`) |
+| IPC | `stock:getBinCard` in `src/electron/ipc/stock.ts` |
+| UI (filters + table) | `src/ui/stock/BinCardScreen.tsx` |
+| UI (print window) | `src/ui/stock/BinCardReportScreen.tsx` |
+| Report route | `stock-bin-card-report` in `REPORT_WINDOW_ROUTE_IDS` |
+
+The main screen posts filters to `windows:openReport` with a **`query`** payload (product, date range, optional sales point / location / condition). The report window bootstraps via `report-window:bootstrap` and renders with shared report chrome (`StockCommitmentReport.css` + `BinCardReport.css`). Report window size is **A4 portrait** (~820×1120). Permissions: migration `051_stock_bin_card_permissions.sql` (copied from stock-movements / stock-balance routes).
 
 ## Pricing and tax
 

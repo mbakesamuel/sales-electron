@@ -15,8 +15,10 @@ import { resolveUnitPriceExTax } from "../pricing/resolveUnitPrice.js";
 import { allocateCarryForwardDeliveryOrderNo } from "../deliveryOrders/doNo.js";
 import { loadTaxRatesAsOf } from "../tax/resolveRates.js";
 import {
+  formatTaxLabelWithPercent,
   normalizeTaxRateDecimal,
   resolveCustomerTaxProfile,
+  SALES_TAX_LABEL,
 } from "../../shared/taxRules.js";
 import { parseAmount } from "../sales/money.js";
 
@@ -234,7 +236,10 @@ function buildLineAmounts(
     lineSubtotalExTax: roundMoney2(lineSubtotal),
     vatRate,
     vatAmount: roundMoney2(vatAmount),
-    otherTaxLabel: otherRate > 0 ? profile.salesTaxLabel : null,
+    otherTaxLabel:
+      otherRate > 0
+        ? formatTaxLabelWithPercent(SALES_TAX_LABEL, otherRate)
+        : null,
     otherTaxAmount: roundMoney2(otherTaxAmount),
     amount: roundMoney2(amount),
   };

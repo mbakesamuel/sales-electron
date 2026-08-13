@@ -1,0 +1,45 @@
+.bcr-meta {
+  margin: 0 0 12px;
+}
+
+.bcr-meta p {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.bcr-section {
+  margin-top: 8px;
+}
+
+.bcr-table {
+  table-layout: fixed;
+}
+
+.bcr-date-col {
+  width: 5.5rem;
+}
+
+.bcr-ref-col {
+  width: 7rem;
+}
+
+.bcr-location-hint {
+  color: #6b7280;
+  text-transform: none;
+  font-weight: 400;
+}
+
+.bcr-footnote {
+  margin: 8px 0 0;
+  font-size: 11px;
+  text-transform: none;
+  color: var(--text-muted, #6b7280);
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+}

@@ -13,8 +13,9 @@ Keep the printed company name accurate; reports read these values when they gene
 **Report settings** controls display options shared by several stock and delivery reports, notably:
 
 - **Hide zero / empty rows** — When enabled (default), report sections omit rows with no quantity so printouts stay compact.
+- **Report signatory** — History of name + title + effective-from date used on printed report footers (latest entry on or before the report as-at date).
 
-Changing this affects the next time each report is loaded. See also [Reports](08-reports.md).
+Changing these affects the next time each report is loaded. See also [Reports](08-reports.md).
 
 ## Financial years and months
 
@@ -44,6 +45,8 @@ Sales invoices and stock postings always need a coherent sales point + storage l
 ## Payment methods
 
 Define the payment methods accepted on sales and delivery orders (cash, bank, cheque fields, etc.). At least one method is required before the sales screen allows normal paid invoices.
+
+Kinds include **cash**, **cheque**, **bank transfer**, and other configured types. Bank-transfer methods capture reference fields as defined on the payment-method form.
 
 ## Tax regimes and tax rates
 

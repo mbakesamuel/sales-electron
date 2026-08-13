@@ -1,5 +1,7 @@
 import { ipcMain } from "electron";
 import type {
+  BinCardQuery,
+  BinCardReport,
   ReceiveTransferInput,
   SaveAdjustmentInput,
   SaveReceiptInput,
@@ -28,6 +30,7 @@ import {
   saveReceipt,
   saveTransfer,
 } from "../stock/service.js";
+import { getBinCard } from "../stock/binCard.js";
 
 export function registerStockHandlers(): void {
   ipcMain.handle("stock:getBootstrap", (_event, userId: string): StockBootstrap => {
@@ -36,6 +39,16 @@ export function registerStockHandlers(): void {
     }
     return getStockBootstrap(userId);
   });
+
+  ipcMain.handle(
+    "stock:getBinCard",
+    (_event, userId: string, query: BinCardQuery): BinCardReport => {
+      if (typeof userId !== "string" || !userId.trim()) {
+        throw new Error("Login required.");
+      }
+      return getBinCard(userId, query);
+    },
+  );
 
   ipcMain.handle(
     "stock:saveReceipt",

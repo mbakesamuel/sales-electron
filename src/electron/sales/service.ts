@@ -22,11 +22,12 @@ import {
   resolveUnitPriceExTax,
 } from "../pricing/resolveUnitPrice.js";
 import { loadTaxRatesAsOf } from "../tax/resolveRates.js";
+import { getSellableBalanceAsOf } from "../stock/asOfBalance.js";
 import { assertSaleLinesStockAsOf, deductStockForValidatedSale } from "../stock/sales.js";
 import { isInsufficientStockError } from "../stock/errors.js";
 import { parseQty } from "../stock/decimal.js";
 import { newPaymentId, newSaleId, newSaleLineId } from "./invoice.js";
-import { formatXaf, parseAmount, roundMoney, trimQty } from "./money.js";
+import { formatTaxRateSnapshot, formatXaf, parseAmount, roundMoney, trimQty } from "./money.js";
 import { assertDateInOpenMonth, resolveListDateRange } from "../financialYears/service.js";
 
 const QTY_EPS = 0.000001;
@@ -89,13 +90,39 @@ function getInvoiceOnlyTaxRegimeId(db: ReturnType<typeof getDatabase>): string |
   );
 }
 
-/** Live SELLABLE on-hand locations for a product at a sales point (qty > 0). */
+/**
+ * SELLABLE locations for a product at a sales point (qty > 0).
+ * When asOfDateIso is set, balances are reconstructed from movements through that date.
+ */
 export function listStorageLocationsWithBalance(
   salesPointId: number,
   productId: number,
+  asOfDateIso?: string | null,
 ): SalesStorageLocationBalanceOption[] {
   if (!Number.isFinite(salesPointId) || !Number.isFinite(productId)) {
     return [];
+  }
+
+  const asOf = asOfDateIso?.trim().slice(0, 10) || null;
+  if (asOf) {
+    const db = getDatabase();
+    const locations = db
+      .prepare(
+        `SELECT sl.id, l.locationName AS name
+         FROM StorageLocation sl
+         INNER JOIN Location l ON l.id = sl.locationId
+         WHERE sl.salesPointId = ?
+         ORDER BY l.locationName ASC`,
+      )
+      .all(salesPointId) as Array<{ id: number; name: string }>;
+
+    return locations
+      .map((location) => ({
+        id: location.id,
+        name: location.name,
+        qty: getSellableBalanceAsOf(db, salesPointId, productId, location.id, asOf),
+      }))
+      .filter((row) => row.qty > QTY_EPS);
   }
 
   const rows = getDatabase()
@@ -845,7 +872,7 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
       input.userId,
       customerNameSnapshot,
       taxRegimeId,
-      roundMoney(vatRate),
+      formatTaxRateSnapshot(vatRate),
       roundMoney(invoiceNet),
       roundMoney(invoiceVat),
       roundMoney(invoiceGross),
@@ -908,7 +935,13 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
         `INSERT INTO SaleAppliedTax (
           id, saleId, codeSnapshot, labelSnapshot, rateSnapshot, amount, createdAt
         ) VALUES (?, ?, 'VAT', 'VAT', ?, ?, ?)`,
-      ).run(newSaleLineId(), saleId, roundMoney(vatRate), roundMoney(invoiceVat), timestamp);
+      ).run(
+        newSaleLineId(),
+        saleId,
+        formatTaxRateSnapshot(vatRate),
+        roundMoney(invoiceVat),
+        timestamp,
+      );
     }
 
     if (invoiceSalesTax > 0) {
@@ -920,7 +953,7 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
         newSaleLineId(),
         saleId,
         SALES_TAX_LABEL,
-        roundMoney(salesTaxRate),
+        formatTaxRateSnapshot(salesTaxRate),
         roundMoney(invoiceSalesTax),
         timestamp,
       );

@@ -1,6 +1,7 @@
-import type { ReceiveTransferInput, SaveAdjustmentInput, SaveReceiptInput, SaveTransferInput, StockBootstrap, StockGenericResult, StockMutationResult } from "../../shared/stock.types.ts";
+import type { BinCardQuery, BinCardReport, ReceiveTransferInput, SaveAdjustmentInput, SaveReceiptInput, SaveTransferInput, StockBootstrap, StockGenericResult, StockMutationResult } from "../../shared/stock.types.ts";
 export interface StockApi {
     getBootstrap(userId: string): Promise<StockBootstrap>;
+    getBinCard(userId: string, query: BinCardQuery): Promise<BinCardReport>;
     saveReceipt(input: SaveReceiptInput): Promise<StockMutationResult>;
     postReceipt(payload: {
         userId: string;

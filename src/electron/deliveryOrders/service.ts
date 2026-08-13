@@ -14,9 +14,11 @@ import type {
   ValidationQueuePage,
 } from "../../shared/deliveryOrders.types.js";
 import {
+  formatTaxLabelWithPercent,
   normalizeTaxRateDecimal,
   resolveCustomerTaxProfile,
   resolveVatApplies,
+  SALES_TAX_LABEL,
 } from "../../shared/taxRules.js";
 import { assertRouteWrite, canPerformAction } from "../auth/permissions/service.js";
 import { getDatabase } from "../db/index.js";
@@ -125,9 +127,16 @@ function buildTaxPreview(
   return {
     vatRate: profile.vatApplies ? String(normalizeTaxRateDecimal(rates.vatRate)) : "0",
     vatPercentLabel: (profile.vatRate * 100).toFixed(2),
+    vatLabel:
+      profile.vatRate > 0
+        ? formatTaxLabelWithPercent("VAT", profile.vatRate)
+        : null,
     otherRate: String(profile.salesTaxRate),
     otherPercentLabel: (profile.salesTaxRate * 100).toFixed(2),
-    otherLabel: profile.salesTaxRate > 0 ? profile.salesTaxLabel : null,
+    otherLabel:
+      profile.salesTaxRate > 0
+        ? formatTaxLabelWithPercent(SALES_TAX_LABEL, profile.salesTaxRate)
+        : null,
   };
 }
 
@@ -167,7 +176,7 @@ export function getDeliveryOrdersFormOptions(): DeliveryOrdersFormOptions {
   const paymentMethods = db
     .prepare(
       `SELECT id, code, name, kind FROM PaymentMethodDefinition
-       WHERE isActive = 1 AND kind IN ('SIMPLE', 'CHEQUE')
+       WHERE isActive = 1 AND kind IN ('SIMPLE', 'CHEQUE', 'BANK_TRANSFER')
        ORDER BY sortOrder ASC, name ASC`,
     )
     .all() as DeliveryOrdersFormOptions["paymentMethods"];

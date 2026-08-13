@@ -85,6 +85,66 @@ File: `monthlyDeliveriesByDestinationReport.ts`
 - Open-month weeks; validated non-bottled sales kg by destination (Industries / Wholesales / Retail / CDC Workers / Makoko Farms); TOTAL and TOTAL % rows.
 - UI: `MonthlyDeliveriesByDestinationScreen.tsx` — print / CSV / comments.
 
+## Monthly Palm Oil Sales
+
+File: `monthlyPalmOilSalesReport.ts`
+
+- IPC: `reports:getMonthlyPalmOilSales`.
+- Route: `monthly-palm-oil-sales-report` (Reports → Monthly).
+- Permissions seeded in migration `046_monthly_palm_oil_sales_permissions.sql`.
+- Full calendar FY; validated sales through as-at; LPO (main non-bottled) by destination (customer name + type; Makoko supported); BPO bottled aggregate; tons + tax-excl. value.
+- UI: `MonthlyPalmOilSalesScreen.tsx` — Jan–Jul and Aug–Dec+TOTAL tables; print / CSV / comments.
+
+## Revenue & taxes
+
+File: `revenueTaxesReport.ts`
+
+- IPC: `reports:getRevenueTaxes`.
+- Route: `revenue-taxes-report` (Reports → Monthly).
+- Permissions seeded in migration `047_revenue_taxes_report_permissions.sql`.
+- Validated invoices by `dateIssued` through as-at; open month or FY to date; optional sales point.
+- Totals: net (`Sale.netAmount`), VAT (`Sale.vatAmount`), sales tax (`SaleAppliedTax` / `SALES_TAX`), gross; breakdowns by day or month and by sales point.
+- UI: `RevenueTaxesReportScreen.tsx` — summary table + breakdown tables; print / CSV / comments.
+
+## Industry product monthly sales
+
+File: `industryProductMonthlySalesReport.ts`
+
+- IPC: `reports:getIndustryProductMonthlySales`.
+- Route: `industry-product-monthly-sales-report` (Reports → Monthly).
+- Permissions seeded in migration `048_industry_product_monthly_sales_permissions.sql`.
+- Full calendar FY through as-at; Industry customers only; one section per non-LPO (`!isMain`) non-bottled product; rows = sales points + TOTAL; tons + tax-excl. value.
+- UI: `IndustryProductMonthlySalesScreen.tsx` — stacked product sections; Jan–Jul and Aug–Dec+TODATE; A4 portrait print / CSV / comments.
+
+## Bottled palm oil sales return
+
+File: `bottledPalmOilSalesReturnReport.ts`
+
+- IPC: `reports:getBottledPalmOilSalesReturn`.
+- Route: `bottled-palm-oil-sales-return-report` (Reports → Monthly).
+- Permissions seeded in migration `049_bottled_palm_oil_sales_return_permissions.sql`.
+- Open month through as-at; B/F = prior sellable bottled + in-month `CARRY_FORWARD`; receptions by `supplierLabel`; Cash Sales (`NORMAL`) vs GM's Public Relations (`PUBLIC_RELATION`); RATION omitted; packs 20L / 3×5L / 1×15L.
+- UI: `BottledPalmOilSalesReturnScreen.tsx` — spreadsheet layout; A4 portrait print / CSV / comments.
+
+## Other product sales and deliveries
+
+File: `otherProductSalesDeliveriesReport.ts`
+
+- IPC: `reports:getOtherProductSalesDeliveries`.
+- Route: `other-product-sales-deliveries-report` (Reports → Monthly).
+- Permissions seeded in migration `050_other_product_sales_deliveries_permissions.sql`.
+- Open month through as-at; non-LPO (`!isMain`) non-bottled products only; grouped by sales point × product with activity; all qty/value under DELIVERIES (`qtyKg` + `lineNet`); PAYMENTS blank.
+- UI: `OtherProductSalesDeliveriesScreen.tsx` — SUBTOTAL per SP + GRAND TOTAL; print / CSV / comments.
+
+## Bin card report (stock)
+
+Not a sidebar report route — opened from **Bin card** with filter query.
+
+- Builder: `getBinCard` in `src/electron/stock/binCard.ts` (ledger lines, opening/closing balance, truncation at 5 000 rows).
+- Report route: `stock-bin-card-report`; bootstrap includes optional `query` on `ReportWindowBootstrap`.
+- UI: `BinCardReportScreen.tsx` — `ReportHeader`, `scr-document` / `scr-table`, opening/closing as `scr-row-total`.
+- Window: `openOrFocusReportWindow` uses portrait dimensions for this route id; print injects `@page { size: A4 portrait }` in `BinCardReport.css`.
+
 ## Other builders (quick index)
 
 | Builder | Report |
@@ -99,11 +159,25 @@ File: `monthlyDeliveriesByDestinationReport.ts`
 | `monthlyStockReconciliationReport.ts` | Monthly stock reconciliation (open month; LPO + BPO + kernel) |
 | `monthlyPaymentDeliveryReport.ts` | Monthly Payment/Delivery (weekly bottled vs other kg + value) |
 | `monthlyDeliveriesByDestinationReport.ts` | Deliveries by Destination (weekly non-bottled kg by customer type) |
+| `monthlyPalmOilSalesReport.ts` | Monthly Palm Oil Sales (FY LPO destinations + BPO tons/'000 FRS) |
+| `revenueTaxesReport.ts` | Revenue & taxes (validated net / VAT / sales tax / gross) |
+| `industryProductMonthlySalesReport.ts` | Industry product monthly sales (FY SP × month tons/'000 FRS) |
+| `bottledPalmOilSalesReturnReport.ts` | Bottled palm oil sales return (open-month B/F / reception / issues / balance) |
+| `otherProductSalesDeliveriesReport.ts` | Other product sales and deliveries (SP × product, deliveries only) |
 | `salesBudgetMonthlyCrosstab.ts` / `Weekly` | Budget crosstabs |
+| `binCard.ts` (stock) | Bin card printable ledger (parameterized report window) |
 
 ## UI / print
 
-- Class `scr-print-mode` on `body` during print.
-- `no-print` hides toolbars.
-- Printable reports open in a secondary Electron window (`REPORT_WINDOW_ROUTE_IDS`).
+Shared report chrome lives in **`StockCommitmentReport.css`** (`scr-page`, `scr-toolbar`, `scr-document`, `scr-table`, `scr-num`, `scr-row-total`, `scr-row-header`, `scr-bottled-block`, etc.). Newer monthly reports add a **thin overlay** CSS file (e.g. `MonthlyPalmOilSalesReport.css`, `SalesBudgetCrosstab.css`, `BinCardReport.css`) for column widths and section spacing only — not duplicate borders, gray theads, or custom print body classes.
+
+- Class **`scr-print-mode`** on `body` during print (preferred over injecting `@page` styles per screen, except landscape packs and bin-card portrait).
+- **`no-print`** hides toolbars and filters.
+- Printable reports open in a secondary Electron window (`REPORT_WINDOW_ROUTE_IDS`); `windows:openReport` accepts optional **`query`** for parameterized reports (bin card).
+- **`formatPhasedQtyKgDisplay`** (`salesBudgetPhase.ts`) — kg cells in budget phasing / crosstabs: thousand separators, 0 decimal places.
 - Sidebar groups reports under **Daily / Weekly / Monthly** in `schemaRoutes.ts`.
+
+### Sales budget UI
+
+- Phasing screen: `SalesBudgetScreen.tsx` + `SalesBudgetScreen.css` (14px base; annual qty saved rounded, displayed with `toLocaleString`).
+- Crosstabs: `SalesBudgetMonthlyCrosstabScreen.tsx`, `SalesBudgetWeeklyCrosstabScreen.tsx` + `SalesBudgetCrosstab.css` (shared 14px root on `.sbc-root`).

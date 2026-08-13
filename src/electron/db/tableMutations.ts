@@ -135,9 +135,11 @@ function applyUserPassword(values: Record<string, unknown>): Record<string, unkn
   delete nextValues.password;
   delete nextValues.passwordPlain;
   delete nextValues.passwordHash;
+  delete nextValues.mustChangePassword;
 
   if (typeof password === "string" && password.trim()) {
     nextValues.passwordHash = hashPassword(password.trim());
+    nextValues.mustChangePassword = 1;
   }
 
   return nextValues;
@@ -155,6 +157,7 @@ function appendUserPasswordHash(
 
   if (typeof values.passwordHash === "string" && values.passwordHash.trim()) {
     prepared.passwordHash = values.passwordHash;
+    prepared.mustChangePassword = 1;
     return;
   }
 

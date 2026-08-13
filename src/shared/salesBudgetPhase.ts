@@ -283,14 +283,7 @@ export function formatPhasedQtyKgDisplay(kg: number): string {
   if (!Number.isFinite(kg) || kg === 0) {
     return "—";
   }
-  const abs = Math.abs(kg);
-  if (abs >= 100) {
-    return Math.round(kg).toLocaleString("en-US");
-  }
-  return kg.toLocaleString("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  });
+  return Math.round(kg).toLocaleString("en-US");
 }
 
 export function salesBudgetCrosstabCellKey(

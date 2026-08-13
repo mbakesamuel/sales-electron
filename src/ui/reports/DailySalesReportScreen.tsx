@@ -1,8 +1,11 @@
 import { Fragment } from "preact";
 import { useEffect, useState } from "preact/hooks";
+import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
+import type { OpenPostingPeriod } from "../../shared/financialYears.types.ts";
 import type { DailySalesReport } from "../../shared/reports.types.ts";
+import { clampIsoDateToRange, utcIsoDateToday } from "../stock/stockUtils.ts";
 import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
 import { ReportFooter } from "./ReportFooter.tsx";
@@ -10,10 +13,6 @@ import { ReportHeader } from "./ReportHeader.tsx";
 import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import "./StockCommitmentReport.css";
 import "./SalesBudgetCrosstab.css";
-
-function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function formatQty(value: number | null | undefined): string {
   if (value == null) {
@@ -224,11 +223,34 @@ export function DailySalesReportScreen({
 }: {
   windowMode?: boolean;
 }) {
-  const [reportDateIso, setReportDateIso] = useState(todayIsoDate());
+  const [postingPeriod, setPostingPeriod] = useState<OpenPostingPeriod | null>(null);
+  const [reportDateIso, setReportDateIso] = useState(() => utcIsoDateToday());
   const [salesPointId, setSalesPointId] = useState<number | null>(null);
   const [report, setReport] = useState<DailySalesReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void getAuthenticatedFinancialYears()
+      .getOpenPostingPeriod()
+      .then((period) => {
+        if (!cancelled) {
+          setPostingPeriod(period);
+          setReportDateIso((current) => clampIsoDateToRange(current, period));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPostingPeriod(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -291,11 +313,25 @@ export function DailySalesReportScreen({
             <input
               type="date"
               value={reportDateIso}
-              disabled={loading}
+              min={postingPeriod?.startDate}
+              max={postingPeriod?.endDate}
+              disabled={loading || !postingPeriod}
               onInput={(event) =>
-                setReportDateIso((event.currentTarget as HTMLInputElement).value)
+                setReportDateIso(
+                  clampIsoDateToRange(
+                    (event.currentTarget as HTMLInputElement).value,
+                    postingPeriod,
+                  ),
+                )
               }
             />
+            {!postingPeriod ? (
+              <span>Open a financial month to pick a date.</span>
+            ) : (
+              <span>
+                Open month: {postingPeriod.monthName} {postingPeriod.financialYear}
+              </span>
+            )}
           </label>
           <label class="dsr-filter">
             <span>Sales point</span>

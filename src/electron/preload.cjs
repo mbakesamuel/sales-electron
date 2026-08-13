@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld("api", {
     login: (data) => ipcRenderer.invoke("auth:login", data),
     getSession: (token) => ipcRenderer.invoke("auth:getSession", token),
     logout: (token) => ipcRenderer.invoke("auth:logout", token),
+    changePassword: (data) => ipcRenderer.invoke("auth:changePassword", data),
   },
   permissions: {
     getSnapshot: (token) => ipcRenderer.invoke("permissions:getSnapshot", token),
@@ -45,6 +46,12 @@ contextBridge.exposeInMainWorld("api", {
     getFormOptions: () => ipcRenderer.invoke("deliveryOrders:getFormOptions"),
     loadByNo: (deliveryOrderNo) =>
       ipcRenderer.invoke("deliveryOrders:loadByNo", deliveryOrderNo),
+    loadPrintById: (orderId) =>
+      ipcRenderer.invoke("deliveryOrders:loadPrintById", orderId),
+    trackByNo: (deliveryOrderNo) =>
+      ipcRenderer.invoke("deliveryOrders:trackByNo", deliveryOrderNo),
+    transferBalance: (input) =>
+      ipcRenderer.invoke("deliveryOrders:transferBalance", input),
     listPending: () => ipcRenderer.invoke("deliveryOrders:listPending"),
     listOrders: (filters) => ipcRenderer.invoke("deliveryOrders:listOrders", filters),
     save: (input) => ipcRenderer.invoke("deliveryOrders:save", input),
@@ -102,6 +109,16 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("reports:getMonthlyPaymentDelivery", authToken),
     getMonthlyDeliveriesByDestination: (authToken) =>
       ipcRenderer.invoke("reports:getMonthlyDeliveriesByDestination", authToken),
+    getMonthlyPalmOilSales: (authToken) =>
+      ipcRenderer.invoke("reports:getMonthlyPalmOilSales", authToken),
+    getIndustryProductMonthlySales: (authToken) =>
+      ipcRenderer.invoke("reports:getIndustryProductMonthlySales", authToken),
+    getBottledPalmOilSalesReturn: (authToken) =>
+      ipcRenderer.invoke("reports:getBottledPalmOilSalesReturn", authToken),
+    getOtherProductSalesDeliveries: (authToken) =>
+      ipcRenderer.invoke("reports:getOtherProductSalesDeliveries", authToken),
+    getRevenueTaxes: (authToken, period, salesPointId) =>
+      ipcRenderer.invoke("reports:getRevenueTaxes", authToken, period, salesPointId),
     getSalesBudgetMonthlyCrosstab: (authToken, reportYear) =>
       ipcRenderer.invoke("reports:getSalesBudgetMonthlyCrosstab", authToken, reportYear),
     getSalesBudgetWeeklyCrosstab: (authToken, reportYear) =>
@@ -146,6 +163,8 @@ contextBridge.exposeInMainWorld("api", {
   },
   stock: {
     getBootstrap: (userId) => ipcRenderer.invoke("stock:getBootstrap", userId),
+    getBinCard: (userId, query) =>
+      ipcRenderer.invoke("stock:getBinCard", userId, query),
     saveReceipt: (input) => ipcRenderer.invoke("stock:saveReceipt", input),
     postReceipt: (payload) => ipcRenderer.invoke("stock:postReceipt", payload),
     cancelReceipt: (payload) => ipcRenderer.invoke("stock:cancelReceipt", payload),
@@ -180,8 +199,8 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("print:exportPdf", defaultFileName),
   },
   windows: {
-    openReport: (authToken, reportId) =>
-      ipcRenderer.invoke("windows:openReport", authToken, reportId),
+    openReport: (authToken, reportId, query) =>
+      ipcRenderer.invoke("windows:openReport", authToken, reportId, query),
     onReportClosed: (callback) => {
       const listener = (_event, payload) => {
         callback(payload);

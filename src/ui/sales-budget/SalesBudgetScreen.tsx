@@ -96,17 +96,46 @@ function fiscalMonthCalendarLabel(
   return `${monthName(calendarMonth + 1)} ${calendarYear}`;
 }
 
+function stripThousands(value: string): string {
+  return value.trim().replace(/,/g, "");
+}
+
+function formatAnnualFigure(value: number | string): string {
+  const n =
+    typeof value === "number"
+      ? value
+      : Number.parseFloat(stripThousands(String(value ?? "")));
+  if (!Number.isFinite(n)) {
+    return "";
+  }
+  return Math.round(n).toLocaleString("en-US");
+}
+
+function formatUnitPriceFigure(value: number | string): string {
+  const n =
+    typeof value === "number"
+      ? value
+      : Number.parseFloat(stripThousands(String(value ?? "")));
+  if (!Number.isFinite(n)) {
+    return "";
+  }
+  return n.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+}
+
 function parseQtyKg(value: string): number {
-  const s = value.trim().replace(",", ".");
+  const s = stripThousands(value);
   const n = Number.parseFloat(s);
   if (!Number.isFinite(n) || n < 0) {
     throw new Error("Annual quantity must be a non-negative number.");
   }
-  return n;
+  return Math.round(n);
 }
 
 function parsePrice(value: string): number {
-  const s = value.trim().replace(",", ".");
+  const s = stripThousands(value);
   const n = Number.parseFloat(s);
   if (!Number.isFinite(n) || n < 0) {
     throw new Error("Unit price must be a non-negative number.");
@@ -478,8 +507,8 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
 
     const budget = budgetByCatId.get(previewCatId);
     if (budget) {
-      setPreviewQtyKg(budget.annualQtyKg);
-      setPreviewPricePerKg(budget.budgetUnitPricePerKg);
+      setPreviewQtyKg(formatAnnualFigure(budget.annualQtyKg));
+      setPreviewPricePerKg(formatUnitPriceFigure(budget.budgetUnitPricePerKg));
     } else {
       setPreviewQtyKg("");
       setPreviewPricePerKg("");
@@ -610,10 +639,10 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
                   const rowPcts =
                     pctsByCatId.get(cat.productCatId) ?? defaultEqualSplitPercentages();
                   const annRev = budget
-                    ? (
-                        Number.parseFloat(budget.annualQtyKg) *
-                        Number.parseFloat(budget.budgetUnitPricePerKg)
-                      ).toFixed(2)
+                    ? formatAnnualFigure(
+                        Number.parseFloat(stripThousands(budget.annualQtyKg)) *
+                          Number.parseFloat(stripThousands(budget.budgetUnitPricePerKg)),
+                      )
                     : null;
                   const serverPctKey = `${cat.productCatId}|${rowPcts.join("|")}`;
                   const canEdit = !readOnly;
@@ -652,7 +681,7 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
                                     table: "ProductSalesBudget",
                                     primaryKey: { id: existing.id },
                                     values: {
-                                      annualQtyKg: annualQtyKg.toString(),
+                                      annualQtyKg: String(Math.round(annualQtyKg)),
                                       budgetUnitPricePerKg: budgetUnitPricePerKg.toString(),
                                     },
                                   });
@@ -662,7 +691,7 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
                                     values: {
                                       financialYear: fy!,
                                       productCatId: cat.productCatId,
-                                      annualQtyKg: annualQtyKg.toString(),
+                                      annualQtyKg: String(Math.round(annualQtyKg)),
                                       budgetUnitPricePerKg: budgetUnitPricePerKg.toString(),
                                     },
                                   });
@@ -679,7 +708,11 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
                               type="text"
                               inputMode="decimal"
                               required
-                              defaultValue={budget?.annualQtyKg ?? ""}
+                              defaultValue={
+                                budget?.annualQtyKg
+                                  ? formatAnnualFigure(budget.annualQtyKg)
+                                  : ""
+                              }
                               placeholder="Qty kg"
                               aria-label={`Annual qty kg for ${cat.label}`}
                               class="sbb-input"
@@ -691,7 +724,11 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
                               type="text"
                               inputMode="decimal"
                               required
-                              defaultValue={budget?.budgetUnitPricePerKg ?? ""}
+                              defaultValue={
+                                budget?.budgetUnitPricePerKg
+                                  ? formatUnitPriceFigure(budget.budgetUnitPricePerKg)
+                                  : ""
+                              }
                               placeholder="XAF/kg"
                               aria-label={`Budget unit price for ${cat.label}`}
                               class="sbb-input"

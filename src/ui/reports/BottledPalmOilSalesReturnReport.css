@@ -1,0 +1,41 @@
+.bposr-document {
+  overflow-x: auto;
+}
+
+.bposr-section {
+  overflow-x: auto;
+  margin-top: 12px;
+}
+
+.bposr-table {
+  min-width: 920px;
+  table-layout: fixed;
+}
+
+.bposr-label-col,
+.bposr-table tbody td.bposr-label-col {
+  width: 220px;
+  min-width: 180px;
+  max-width: 260px;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.bposr-footnote {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: #4b5563;
+  text-transform: none;
+}
+
+@media print {
+  body.scr-print-mode .bposr-table {
+    min-width: 0;
+  }
+
+  body.scr-print-mode .bposr-label-col,
+  body.scr-print-mode .bposr-table tbody td.bposr-label-col {
+    width: 120px;
+    min-width: 120px;
+  }
+}

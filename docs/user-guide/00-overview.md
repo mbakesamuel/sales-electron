@@ -16,10 +16,10 @@ Staff who create invoices, validate delivery orders, post stock, or print weekly
 | **Customers** | Customer accounts and customer types |
 | **Products** | Catalog, categories, scheduled unit prices |
 | **Sales budget** | Annual quantities, monthly/weekly phasing views |
-| **Stocks** | Balances, receipts, transfers, adjustments, opening stock |
-| **Delivery Order** | Delivery orders, validation queue, and opening (carry-forward) commitments |
+| **Stocks** | Balances, receipts, transfers, adjustments, opening stock, **bin card** ledger |
+| **Delivery Order** | Delivery orders, **DO tracking**, **transfer DO balance**, validation queue, and opening (carry-forward) commitments |
 | **Sales** | Sales invoices (POS), including loading lines from a delivery order |
-| **Reports** | Daily sales, stock, commitment, bottle oil, weekly deliveries, monthly delivery |
+| **Reports** | Daily sales, stock, commitment, bottle oil, weekly deliveries, monthly delivery/reconciliation, palm-oil sales, revenue & taxes, industry/PKO sections, bottled return, budget crosstabs |
 | **Users & access** | Users and role permissions (admin) |
 | **Overview** | Home dashboard: monthly revenue trend, sales by category, and DO vs sales by month |
 

@@ -11,7 +11,7 @@
 
 | Kind | Examples |
 |------|----------|
-| Custom domain | Sales (`SalesClient` / `SalesScreen`), delivery orders (create, list, validation queue), carry-forward, stock hub, reports, budgets, dashboard |
+| Custom domain | Sales (`SalesClient` / `SalesScreen`), delivery orders (create, list, validation queue, **tracking**, **transfer**), carry-forward, stock hub (**bin card**), reports, budgets, dashboard, **`ChangePasswordScreen`** (first-login gate) |
 | Schema/table CRUD | Many org master-data routes via shared table components + `api.db.*` |
 
 ## Overview dashboard
@@ -26,12 +26,13 @@ Under `src/ui/reports/`:
 - `*Screen.tsx` — toolbar (print, CSV, comments, week/year/date pickers) + document
 - `*Document` export — used by Weekly Print Pack where applicable
 - Shared: `ReportHeader`, `ReportFooter`, `ReportComments*`
+- Secondary windows: [`ReportWindowApp.tsx`](../../src/ui/pages/ReportWindowApp.tsx) bootstraps printable routes from `REPORT_WINDOW_ROUTE_IDS` (including parameterized bin card via `query`).
 
-CSS: `StockCommitmentReport.css` (shared report chrome), plus report-specific sheets (e.g. `SalesBudgetCrosstab.css`).
+CSS: `StockCommitmentReport.css` (shared report chrome), plus report-specific **thin overlays** (column widths, section spacing — e.g. `MonthlyPalmOilSalesReport.css`, `SalesBudgetCrosstab.css`, `BinCardReport.css`).
 
 ## Forms and dialogs
 
-`src/ui/components/FormDialog.tsx` — modal shell used by comments editor and other forms. Keep textareas constrained (`box-sizing`, max-height) so they do not overflow the panel.
+[`FormDialog.tsx`](../../src/ui/components/FormDialog.tsx) + [`FormDialog.css`](../../src/ui/components/FormDialog.css) — standard modal shell (`form-dialog-panel`, label/control rows, primary/secondary actions). Used by master-data modals (users, customer types, payment methods, tax, etc.) and by **[`CustomerFormModal`](../../src/ui/customers/CustomerFormModal.tsx)** (four-step add/edit customer wizard; tax step labels **Has TPN?** / **Tax Payer's No.**). Keep textareas constrained (`box-sizing`, max-height) so they do not overflow the panel.
 
 ## Permissions in UI
 

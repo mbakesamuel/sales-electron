@@ -16,12 +16,23 @@
 - `registerDashboardHandlers`
 - `registerDialogHandlers`
 - `registerPrintHandlers`
+- `registerWindowsHandlers` — secondary report windows (`windows:openReport`, `report-window:bootstrap`)
 
 Each module lives under `src/electron/ipc/`.
 
 ## Preload surface
 
-[`src/electron/preload.cjs`](../../src/electron/preload.cjs) exposes `window.api` namespaces: `db`, `auth`, `permissions`, `sales`, `deliveryOrders`, `carryForward`, `carryForwardStock`, `stock`, `reports`, `financialYears`, `dashboard`, dialogs/print helpers as defined in the file.
+[`src/electron/preload.cjs`](../../src/electron/preload.cjs) exposes `window.api` namespaces: `db`, `auth`, `permissions`, `sales`, `deliveryOrders`, `carryForward`, `carryForwardStock`, `stock`, `reports`, `financialYears`, `dashboard`, `windows`, dialogs/print helpers as defined in the file.
+
+Notable channels added recently:
+
+| Channel | Purpose |
+|---------|---------|
+| `deliveryOrders:trackByNo` | DO tracking payload by number |
+| `deliveryOrders:transferBalance` | Move remaining DO kg (action-gated) |
+| `stock:getBinCard` | Bin card ledger for filters / print window |
+| `windows:openReport` | Open/focus secondary report window; optional `query` for bin card |
+| `reports:getMonthlyPalmOilSales` / `getRevenueTaxes` / `getIndustryProductMonthlySales` / `getBottledPalmOilSalesReturn` / `getOtherProductSalesDeliveries` | New monthly report builders |
 
 Typed on the UI side via `src/ui/types/electron.d.ts`.
 

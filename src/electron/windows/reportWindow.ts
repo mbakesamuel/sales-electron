@@ -10,6 +10,8 @@ const DEV_SERVER_URL = "http://localhost:5173";
 export interface ReportWindowBootstrap {
   reportId: string;
   authToken: string;
+  /** Optional filter/query payload for parameterized reports (e.g. bin card). */
+  query?: unknown;
 }
 
 const openReportWindows = new Map<string, BrowserWindow>();
@@ -61,14 +63,20 @@ export function getPendingReportBootstrap(
 export async function openOrFocusReportWindow(
   reportId: string,
   authToken: string,
+  query?: unknown,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!REPORT_WINDOW_ROUTE_IDS.has(reportId)) {
     return { ok: false, error: `Report window is not enabled for "${reportId}".` };
   }
 
+  const payload: ReportWindowBootstrap = {
+    reportId,
+    authToken,
+    ...(query !== undefined ? { query } : {}),
+  };
+
   const existing = openReportWindows.get(reportId);
   if (existing && !existing.isDestroyed()) {
-    const payload = { reportId, authToken };
     sendBootstrap(existing, payload);
     if (existing.isMinimized()) {
       existing.restore();
@@ -77,9 +85,15 @@ export async function openOrFocusReportWindow(
     return { ok: true };
   }
 
+  // A4 portrait ≈ 210×297mm; use that shape for ledger-style reports.
+  const portraitReport =
+    reportId === "stock-bin-card-report"
+      ? { width: 820, height: 1120 }
+      : { width: 1000, height: 800 };
+
   const win = new BrowserWindow({
-    width: 1000,
-    height: 800,
+    width: portraitReport.width,
+    height: portraitReport.height,
     title: getRouteLabel(reportId),
     webPreferences: {
       preload: preloadPath(),
@@ -89,7 +103,7 @@ export async function openOrFocusReportWindow(
   });
 
   openReportWindows.set(reportId, win);
-  rememberBootstrap({ reportId, authToken });
+  rememberBootstrap(payload);
 
   win.on("closed", () => {
     if (openReportWindows.get(reportId) === win) {
@@ -110,8 +124,8 @@ export async function openOrFocusReportWindow(
   });
 
   win.webContents.on("did-finish-load", () => {
-    const payload = pendingBootstraps.get(reportId) ?? { reportId, authToken };
-    sendBootstrap(win, payload);
+    const pending = pendingBootstraps.get(reportId) ?? payload;
+    sendBootstrap(win, pending);
   });
 
   try {

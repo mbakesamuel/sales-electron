@@ -31,8 +31,11 @@ import { FinancialYearsScreen } from "../financial-years/FinancialYearsScreen.ts
 import { FinancialMonthsScreen } from "../financial-years/FinancialMonthsScreen.tsx";
 import { SalesScreen } from "../sales/SalesScreen.tsx";
 import { DeliveryOrdersScreen } from "../delivery-orders/DeliveryOrdersScreen.tsx";
+import { DeliveryOrderTrackingScreen } from "../delivery-orders/DeliveryOrderTrackingScreen.tsx";
+import { DeliveryOrderTransferScreen } from "../delivery-orders/DeliveryOrderTransferScreen.tsx";
 import { CarryForwardCommitmentsScreen } from "../commitments/CarryForwardCommitmentsScreen.tsx";
 import { CarryForwardStockScreen } from "../stock/CarryForwardStockScreen.tsx";
+import { BinCardScreen } from "../stock/BinCardScreen.tsx";
 import { StockScreen } from "../stock/StockScreen.tsx";
 import { SalesBudgetScreen } from "../sales-budget/SalesBudgetScreen.tsx";
 import { canAccessStockModule } from "../../shared/stockModule.ts";
@@ -75,6 +78,10 @@ function RouteContent({
   onPermissionsSaved,
   openCalendarMonth,
   onOpenReportWindow,
+  onOpenBinCard,
+  deliveryOrderLookupNo,
+  onOpenDeliveryOrder,
+  onOpenDeliveryOrderTracking,
 }: {
   route: SchemaRoute;
   user: AuthUser;
@@ -82,6 +89,10 @@ function RouteContent({
   onPermissionsSaved: (next: RolePermissionsSnapshot) => void;
   openCalendarMonth: number | null;
   onOpenReportWindow: (reportId: string) => void;
+  onOpenBinCard?: () => void;
+  deliveryOrderLookupNo?: string;
+  onOpenDeliveryOrder?: (deliveryOrderNo: string) => void;
+  onOpenDeliveryOrderTracking?: (deliveryOrderNo: string) => void;
 }) {
   const routeAccess = getRouteAccessFromSnapshot(permissions, route.id);
   const readOnly = routeAccess === "read";
@@ -117,7 +128,35 @@ function RouteContent({
 
   if (route.id === "delivery-orders") {
     return (
-      <DeliveryOrdersScreen user={user} permissions={permissions} readOnly={readOnly} />
+      <DeliveryOrdersScreen
+        key={deliveryOrderLookupNo || "delivery-orders"}
+        user={user}
+        permissions={permissions}
+        readOnly={readOnly}
+        initialLookupNo={deliveryOrderLookupNo}
+      />
+    );
+  }
+
+  if (route.id === "delivery-order-tracking") {
+    return (
+      <DeliveryOrderTrackingScreen
+        key={deliveryOrderLookupNo || "delivery-order-tracking"}
+        initialLookupNo={deliveryOrderLookupNo}
+        onOpenInDeliveryOrdering={onOpenDeliveryOrder}
+      />
+    );
+  }
+
+  if (route.id === "delivery-order-transfer") {
+    return (
+      <DeliveryOrderTransferScreen
+        user={user}
+        permissions={permissions}
+        readOnly={readOnly}
+        onOpenInDeliveryOrdering={onOpenDeliveryOrder}
+        onOpenTracking={onOpenDeliveryOrderTracking}
+      />
     );
   }
 
@@ -141,8 +180,18 @@ function RouteContent({
     );
   }
 
+  if (route.id === "stock-bin-card") {
+    return <BinCardScreen user={user} permissions={permissions} />;
+  }
+
   if (route.id === "stock") {
-    return <StockScreen user={user} permissions={permissions} />;
+    return (
+      <StockScreen
+        user={user}
+        permissions={permissions}
+        onOpenBinCard={onOpenBinCard}
+      />
+    );
   }
 
   if (opensInReportWindow(route.id)) {
@@ -261,6 +310,8 @@ export function HomeScreen({
   onLogout,
 }: HomeScreenProps) {
   const [activeRouteId, setActiveRouteId] = useState(DEFAULT_ROUTE_ID);
+  const [pendingDeliveryOrderLookup, setPendingDeliveryOrderLookup] = useState("");
+  const [pendingTrackingLookup, setPendingTrackingLookup] = useState("");
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     sales: true,
   });
@@ -348,6 +399,12 @@ export function HomeScreen({
 
   function selectRoute(routeId: string, sectionId?: string) {
     setActiveRouteId(routeId);
+    if (routeId !== "delivery-orders") {
+      setPendingDeliveryOrderLookup("");
+    }
+    if (routeId !== "delivery-order-tracking") {
+      setPendingTrackingLookup("");
+    }
     if (sectionId) {
       setOpenSections({ [sectionId]: true });
     }
@@ -374,6 +431,7 @@ export function HomeScreen({
 
   const customScreenRoutes = new Set([
     "stock",
+    "stock-bin-card",
     "stock-commitment-report",
     "stock-report",
     "commitment-report",
@@ -386,6 +444,11 @@ export function HomeScreen({
     "monthly-stock-reconciliation-report",
     "monthly-payment-delivery-report",
     "monthly-deliveries-by-destination-report",
+    "monthly-palm-oil-sales-report",
+    "revenue-taxes-report",
+    "industry-product-monthly-sales-report",
+    "bottled-palm-oil-sales-return-report",
+    "other-product-sales-deliveries-report",
     "sales-budget-monthly-crosstab",
     "sales-budget-weekly-crosstab",
     "sales-budget",
@@ -408,6 +471,10 @@ export function HomeScreen({
     "role-permissions",
     "carry-forward-commitments",
     "carry-forward-stock",
+    "stock-bin-card",
+    "delivery-orders",
+    "delivery-order-tracking",
+    "delivery-order-transfer",
   ]);
 
   return (
@@ -566,8 +633,26 @@ export function HomeScreen({
               permissions={permissions}
               onPermissionsSaved={onPermissionsSaved}
               openCalendarMonth={openPostingPeriod?.calendarMonth ?? null}
+              deliveryOrderLookupNo={
+                activeRouteId === "delivery-order-tracking"
+                  ? pendingTrackingLookup
+                  : pendingDeliveryOrderLookup
+              }
+              onOpenDeliveryOrder={(deliveryOrderNo) => {
+                setPendingDeliveryOrderLookup(deliveryOrderNo);
+                setActiveRouteId("delivery-orders");
+                setOpenSections({ delivery: true });
+              }}
+              onOpenDeliveryOrderTracking={(deliveryOrderNo) => {
+                setPendingTrackingLookup(deliveryOrderNo);
+                setActiveRouteId("delivery-order-tracking");
+                setOpenSections({ delivery: true });
+              }}
               onOpenReportWindow={(reportId) => {
                 void openReportWindow(reportId);
+              }}
+              onOpenBinCard={() => {
+                selectRoute("stock-bin-card", "inventory");
               }}
             />
           </section>

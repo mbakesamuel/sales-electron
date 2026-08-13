@@ -4,4 +4,6 @@ import "./SalesBudgetCrosstab.css";
 export declare function DailySalesReportDocument({ report }: {
     report: DailySalesReport;
 }): import("preact").JSX.Element;
-export declare function DailySalesReportScreen(): import("preact").JSX.Element;
+export declare function DailySalesReportScreen({ windowMode, }: {
+    windowMode?: boolean;
+}): import("preact").JSX.Element;

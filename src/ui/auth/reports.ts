@@ -32,6 +32,18 @@ export function getAuthenticatedReports() {
       api.getMonthlyPaymentDelivery(requireAuthToken()),
     getMonthlyDeliveriesByDestination: () =>
       api.getMonthlyDeliveriesByDestination(requireAuthToken()),
+    getMonthlyPalmOilSales: () =>
+      api.getMonthlyPalmOilSales(requireAuthToken()),
+    getIndustryProductMonthlySales: () =>
+      api.getIndustryProductMonthlySales(requireAuthToken()),
+    getBottledPalmOilSalesReturn: () =>
+      api.getBottledPalmOilSalesReturn(requireAuthToken()),
+    getOtherProductSalesDeliveries: () =>
+      api.getOtherProductSalesDeliveries(requireAuthToken()),
+    getRevenueTaxes: (
+      period?: import("../../shared/reports.types.ts").RevenueTaxesPeriod,
+      salesPointId?: number | null,
+    ) => api.getRevenueTaxes(requireAuthToken(), period, salesPointId ?? null),
     getSalesBudgetMonthlyCrosstab: (reportYear?: number) =>
       api.getSalesBudgetMonthlyCrosstab(requireAuthToken(), reportYear),
     getSalesBudgetWeeklyCrosstab: (reportYear?: number) =>

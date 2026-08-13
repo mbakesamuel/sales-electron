@@ -43,8 +43,27 @@ type PaymentDraft = {
 };
 
 function parseDec(value: string): number {
-  const parsed = Number.parseFloat(String(value ?? "").replace(",", "."));
+  const normalized = String(value ?? "")
+    .replace(/[\s,\u00a0]/g, "")
+    .replace(",", ".");
+  const parsed = Number.parseFloat(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/** Digits-only amount for payment inputs (XAF whole units). */
+function parseAmountInput(value: string): string {
+  const digits = String(value ?? "").replace(/\D/g, "");
+  if (!digits) {
+    return "";
+  }
+  return String(Number.parseInt(digits, 10));
+}
+
+function formatAmountInput(value: string): string {
+  if (!value.trim()) {
+    return "";
+  }
+  return formatAmount(parseDec(value));
 }
 
 function clampDateToPeriod(isoDate: string, period: OpenPostingPeriod | null): string {
@@ -154,12 +173,8 @@ function emptyLine(
   salesPointId: string,
   isBottleMode: boolean,
 ): SalesLineDraft {
-  const products = isBottleMode
-    ? options.bottledProducts
-    : options.looseProducts;
-
   return {
-    productId: String(products[0]?.productId ?? ""),
+    productId: "",
     qtyKg: "0",
     qtyUnits: "0",
     unitPricePerKg: "0",
@@ -171,6 +186,12 @@ function emptyLine(
     ),
   };
 }
+
+type DoLinePrefill = {
+  productId: number;
+  qtyKg: string;
+  unitPrice: string;
+};
 
 export function SalesClient({
   user,
@@ -223,9 +244,7 @@ export function SalesClient({
   const [availableDos, setAvailableDos] = useState<AvailableDeliveryOrderRow[]>(
     [],
   );
-  const [doLookup, setDoLookup] = useState<DeliveryOrderLookupResult | null>(
-    null,
-  );
+  const [doLinePrefill, setDoLinePrefill] = useState<DoLinePrefill | null>(null);
   const [doPickerOpen, setDoPickerOpen] = useState(false);
   const [lineModal, setLineModal] = useState<{
     mode: "add" | "edit";
@@ -370,18 +389,13 @@ export function SalesClient({
         setTransactionDate((current) => clampDateToPeriod(current, period));
 
         const hasCustomers = formOptions.customers.length > 0;
-        const firstCustomer = hasCustomers
-          ? String(formOptions.customers[0].id)
-          : "";
-        const firstSalesPoint = String(formOptions.salesPoints[0]?.id ?? "");
-        const payId = defaultPaymentMethodId(formOptions.paymentMethods);
 
         setUseRegisteredCustomer(hasCustomers);
-        setCustomerId(firstCustomer);
+        setCustomerId("");
         setInvoiceCustomerName("");
-        setSalesPointId(firstSalesPoint);
+        setSalesPointId("");
         setLines([]);
-        setPayments([{ paymentMethodId: payId, amount: "0" }]);
+        setPayments([{ paymentMethodId: "", amount: "0" }]);
       } catch (error) {
         setLoadError(
           error instanceof Error
@@ -461,7 +475,7 @@ export function SalesClient({
       setUseRegisteredCustomer(false);
       setCustomerId("");
       setDeliveryOrderNo("");
-      setDoLookup(null);
+      setDoLinePrefill(null);
     }
   }, [saleDisposition, options, isReadOnly]);
 
@@ -503,8 +517,6 @@ export function SalesClient({
     }
 
     const hasCustomers = options.customers.length > 0;
-    const firstCustomer = hasCustomers ? String(options.customers[0].id) : "";
-    const firstSalesPoint = String(options.salesPoints[0]?.id ?? "");
 
     setSaleId(null);
     setInvoiceNo("");
@@ -513,9 +525,9 @@ export function SalesClient({
     setLookupNo("");
     setPrintOpen(false);
     setUseRegisteredCustomer(hasCustomers);
-    setCustomerId(firstCustomer);
+    setCustomerId("");
     setInvoiceCustomerName("");
-    setSalesPointId(firstSalesPoint);
+    setSalesPointId("");
     setSaleProductMode("LOOSE");
     setSaleDisposition("NORMAL");
     setReferenceNumber("");
@@ -523,16 +535,30 @@ export function SalesClient({
     setVehicleNumber("");
     setTransactionDate(todayIsoDate());
     setLines([]);
-    setPayments([
-      {
-        paymentMethodId: defaultPaymentMethodId(options.paymentMethods),
-        amount: "0",
-      },
-    ]);
-    setDoLookup(null);
+    setPayments([{ paymentMethodId: "", amount: "0" }]);
+    setDoLinePrefill(null);
     setDoPickerOpen(false);
     setLineModal(null);
     setBanner(null);
+  }
+
+  function lineDraftFromDoPrefill(
+    prefill: DoLinePrefill | null,
+  ): SalesLineDraft {
+    const base = emptyLine(options!, salesPointId, isBottleMode);
+    if (!prefill || isBottleMode) {
+      return base;
+    }
+
+    return {
+      ...base,
+      productId: String(prefill.productId),
+      qtyKg: prefill.qtyKg,
+      qtyUnits: "0",
+      unitPricePerKg: prefill.unitPrice,
+      unitPricePerUnit: prefill.unitPrice,
+      storageLocationId: "",
+    };
   }
 
   function openAddLineModal() {
@@ -543,7 +569,7 @@ export function SalesClient({
     setLineModal({
       mode: "add",
       index: null,
-      line: emptyLine(options, salesPointId, isBottleMode),
+      line: lineDraftFromDoPrefill(doLinePrefill),
     });
   }
 
@@ -562,6 +588,7 @@ export function SalesClient({
 
     if (lineModal.mode === "add") {
       setLines((current) => [...current, line]);
+      setDoLinePrefill(null);
     } else if (lineModal.index != null) {
       setLines((current) =>
         current.map((item, index) => (index === lineModal.index ? line : item)),
@@ -609,6 +636,7 @@ export function SalesClient({
       setSaleDisposition(sale.saleDisposition ?? "NORMAL");
       setReferenceNumber(sale.referenceNumber ?? "");
       setDeliveryOrderNo(sale.deliveryOrderNo ?? "");
+      setDoLinePrefill(null);
       setVehicleNumber(sale.vehicleNumber);
       setTransactionDate(sale.dateIssuedIso.slice(0, 10));
       setLines(
@@ -640,7 +668,6 @@ export function SalesClient({
               },
             ],
       );
-      setDoLookup(null);
       setLineModal(null);
     } catch (error) {
       setBanner({
@@ -651,6 +678,45 @@ export function SalesClient({
     } finally {
       setBusy(null);
     }
+  }
+
+  function linkDeliveryOrder(
+    result: DeliveryOrderLookupResult,
+    productId?: number,
+  ) {
+    setUseRegisteredCustomer(true);
+    setCustomerId(String(result.customerId));
+    setInvoiceCustomerName("");
+    setDeliveryOrderNo(result.deliveryOrderNo);
+
+    const remaining = result.perProduct.filter(
+      (row) => parseDec(row.balanceQty) > 0,
+    );
+    const preferred =
+      productId != null
+        ? remaining.find((row) => row.productId === productId)
+        : remaining.length === 1
+          ? remaining[0]
+          : undefined;
+
+    if (preferred) {
+      setDoLinePrefill({
+        productId: preferred.productId,
+        qtyKg: preferred.balanceQty,
+        unitPrice: preferred.unitPrice,
+      });
+    } else {
+      setDoLinePrefill(null);
+    }
+
+    setBanner({
+      type: "ok",
+      text: preferred
+        ? `Linked ${result.deliveryOrderNo} · ${preferred.productName}. Review qty and location in Add line.`
+        : `Linked ${result.deliveryOrderNo} · ${result.customerName} · balance ${result.balanceKg} kg. Add products with Add line.`,
+    });
+
+    return preferred ?? null;
   }
 
   async function lookupDo() {
@@ -673,12 +739,11 @@ export function SalesClient({
       });
 
       if (!result) {
-        setDoLookup(null);
         setBanner({ type: "error", text: "Delivery order not found." });
         return;
       }
 
-      setDoLookup(result);
+      linkDeliveryOrder(result);
     } catch (error) {
       setBanner({
         type: "error",
@@ -692,69 +757,12 @@ export function SalesClient({
     }
   }
 
-  function applyDoLinesFrom(
-    lookup: DeliveryOrderLookupResult,
-    productId?: number,
-  ) {
-    if (!options) {
-      return;
-    }
-
-    setUseRegisteredCustomer(true);
-    setCustomerId(String(lookup.customerId));
-    setInvoiceCustomerName("");
-    setDeliveryOrderNo(lookup.deliveryOrderNo);
-
-    const nextLines = lookup.perProduct
-      .filter((row) => parseDec(row.balanceQty) > 0)
-      .filter((row) =>
-        productId == null ? true : row.productId === productId,
-      )
-      .map((row) => ({
-        productId: String(row.productId),
-        qtyKg: row.balanceQty,
-        qtyUnits: "0",
-        unitPricePerKg: row.unitPrice,
-        unitPricePerUnit: row.unitPrice,
-        storageLocationId: defaultStorageLocationId(
-          options,
-          salesPointId,
-          false,
-        ),
-      }));
-
-    if (nextLines.length === 0) {
-      setBanner({
-        type: "error",
-        text:
-          productId == null
-            ? "No remaining balance on this delivery order."
-            : "No remaining balance for that product on this delivery order.",
-      });
-      return;
-    }
-
-    setLines(nextLines);
-    setBanner({
-      type: "ok",
-      text: `Loaded ${nextLines.length} line(s) from ${lookup.deliveryOrderNo}.`,
-    });
-  }
-
-  function applyDoLines() {
-    if (!doLookup) {
-      return;
-    }
-    applyDoLinesFrom(doLookup);
-  }
-
   async function selectDeliveryOrder(doNo: string, productId: number) {
     const spId = Number.parseInt(salesPointId, 10);
     const custId = Number.parseInt(customerId, 10);
 
     setDoPickerOpen(false);
     setDeliveryOrderNo(doNo);
-    setDoLookup(null);
 
     if (!Number.isFinite(spId) || !Number.isFinite(custId)) {
       setBanner({
@@ -779,8 +787,18 @@ export function SalesClient({
         return;
       }
 
-      setDoLookup(result);
-      applyDoLinesFrom(result, productId);
+      const preferred = linkDeliveryOrder(result, productId);
+      if (preferred && options && !isBottleMode) {
+        setLineModal({
+          mode: "add",
+          index: null,
+          line: lineDraftFromDoPrefill({
+            productId: preferred.productId,
+            qtyKg: preferred.balanceQty,
+            unitPrice: preferred.unitPrice,
+          }),
+        });
+      }
     } catch (error) {
       setBanner({
         type: "error",
@@ -1228,9 +1246,9 @@ export function SalesClient({
                 onChange={(event) => {
                   const next = (event.currentTarget as HTMLSelectElement).value;
                   setSalesPointId(next);
-                  setDoLookup(null);
                 }}
               >
+                <option value="">Select sales point</option>
                 {options.salesPoints.map((point) => (
                   <option key={point.id} value={String(point.id)}>
                     {point.name}
@@ -1266,17 +1284,13 @@ export function SalesClient({
                         .checked;
                       setUseRegisteredCustomer(checked);
                       if (checked) {
-                        setCustomerId(
-                          options.customers[0]?.id != null
-                            ? String(options.customers[0].id)
-                            : "",
-                        );
+                        setCustomerId("");
                         setInvoiceCustomerName("");
                       } else {
                         setCustomerId("");
                         setInvoiceCustomerName("");
                         setDeliveryOrderNo("");
-                        setDoLookup(null);
+                        setDoLinePrefill(null);
                       }
                     }}
                   />
@@ -1317,6 +1331,7 @@ export function SalesClient({
                       )
                     }
                   >
+                    <option value="">Select customer</option>
                     {options.customers.map((item) => (
                       <option key={item.id} value={String(item.id)}>
                         {item.name}
@@ -1364,7 +1379,7 @@ export function SalesClient({
                       setDeliveryOrderNo(
                         (event.currentTarget as HTMLInputElement).value,
                       );
-                      setDoLookup(null);
+                      setDoLinePrefill(null);
                     }}
                   />
                   {!isReadOnly ? (
@@ -1422,55 +1437,6 @@ export function SalesClient({
             ) : null}
           </div>
         </div>
-
-        {doLookup && !isReadOnly ? (
-          <div class="sales-do-panel">
-            <div class="sales-do-panel-header">
-              <div>
-                <strong>{doLookup.deliveryOrderNo}</strong>
-                <span class="sales-muted">
-                  {" "}
-                  · {doLookup.customerName} · balance {doLookup.balanceKg} kg
-                </span>
-              </div>
-              <button
-                type="button"
-                class="sales-btn-primary"
-                onClick={applyDoLines}
-              >
-                Load lines from DO
-              </button>
-            </div>
-            {!doLookup.customerMatches ? (
-              <p class="sales-hint sales-do-warning">
-                Selected customer does not match this delivery order. Loading
-                lines will switch the customer.
-              </p>
-            ) : null}
-            <table class="sales-table">
-              <thead>
-                <tr>
-                  <th>Product</th>
-                  <th>Ordered</th>
-                  <th>Sold</th>
-                  <th>Balance</th>
-                  <th>Unit price</th>
-                </tr>
-              </thead>
-              <tbody>
-                {doLookup.perProduct.map((row) => (
-                  <tr key={row.productId}>
-                    <td>{row.productName}</td>
-                    <td>{row.orderQty}</td>
-                    <td>{row.soldQty}</td>
-                    <td>{row.balanceQty}</td>
-                    <td>{row.unitPrice}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
       </section>
 
       <section class="sales-panel sales-items-panel">
@@ -1629,8 +1595,8 @@ export function SalesClient({
           </table>
         </div>
 
-        <hr />
-        <section class="sales-panel sales-totals">
+       {/*  <hr /> */}
+       {/*  <section class="sales-panel sales-totals">
           <p>Invoice Summary</p>
           <div class="sales-totals-row">
             <span>{isBottleMode ? "Total (tax inclusive)" : "Net"}</span>
@@ -1665,7 +1631,7 @@ export function SalesClient({
               Ration and public relation sales have zero amounts.
             </p>
           )}
-        </section>
+        </section> */}
       </section>
 
       {showPayments ? (
@@ -1685,12 +1651,7 @@ export function SalesClient({
                 onClick={() =>
                   setPayments((current) => [
                     ...current,
-                    {
-                      paymentMethodId: defaultPaymentMethodId(
-                        options.paymentMethods,
-                      ),
-                      amount: "0",
-                    },
+                    { paymentMethodId: "", amount: "0" },
                   ])
                 }
               >
@@ -1705,6 +1666,8 @@ export function SalesClient({
                 (item) => item.id === payment.paymentMethodId,
               );
               const isCheque = method?.kind === "CHEQUE";
+              const isBankTransfer = method?.kind === "BANK_TRANSFER";
+              const bankEnabled = isCheque || isBankTransfer;
 
               return (
                 <div class="sales-payment-row" key={index}>
@@ -1735,6 +1698,7 @@ export function SalesClient({
                             )
                           }
                         >
+                          <option value="">Select payment method</option>
                           {options.paymentMethods.map((item) => (
                             <option key={item.id} value={item.id}>
                               {item.name}
@@ -1752,19 +1716,20 @@ export function SalesClient({
                         </div>
                       ) : (
                         <input
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={payment.amount}
+                          type="text"
+                          inputMode="numeric"
+                          value={formatAmountInput(payment.amount)}
                           onInput={(event) =>
                             setPayments((current) =>
                               current.map((item, i) =>
                                 i === index
                                   ? {
                                       ...item,
-                                      amount: (
-                                        event.currentTarget as HTMLInputElement
-                                      ).value,
+                                      amount: parseAmountInput(
+                                        (
+                                          event.currentTarget as HTMLInputElement
+                                        ).value,
+                                      ),
                                     }
                                   : item,
                               ),
@@ -1814,8 +1779,8 @@ export function SalesClient({
                         <input
                           type="text"
                           value={payment.bank ?? ""}
-                          disabled={!isCheque}
-                          placeholder={isCheque ? "Bank name" : "—"}
+                          disabled={!bankEnabled}
+                          placeholder={bankEnabled ? "Bank name" : "—"}
                           onInput={(event) =>
                             setPayments((current) =>
                               current.map((item, i) =>
@@ -1910,6 +1875,11 @@ export function SalesClient({
             const parsed = Number.parseInt(salesPointId, 10);
             return Number.isFinite(parsed) ? parsed : null;
           })()}
+          preferredStorageLocationId={
+            options
+              ? defaultStorageLocationId(options, salesPointId, isBottleMode)
+              : ""
+          }
           isBottleMode={isBottleMode}
           isSpecialDisposition={isSpecialDisposition}
           useRegisteredCustomer={useRegisteredCustomer}

@@ -13,7 +13,7 @@
   padding: 8px 14px;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
-  background: var(--bg-elevated);
+  background: #fff;
   color: var(--text-h);
   font: inherit;
   cursor: pointer;
@@ -134,6 +134,18 @@
   border-radius: 8px;
   font: inherit;
   box-sizing: border-box;
+  background: #fff;
+  color: var(--text-h);
+}
+
+.sales-field input:disabled,
+.sales-field select:disabled,
+.sales-filters input:disabled,
+.sales-filters select:disabled,
+.sales-table input:disabled,
+.sales-table select:disabled {
+  background: var(--bg-soft);
+  color: var(--text-muted);
 }
 
 /* Equalize native control heights so stacked filter labels line up. */
@@ -159,7 +171,7 @@
   border: 1px solid var(--border-strong);
   border-left: none;
   border-radius: 0 8px 8px 0;
-  background: var(--bg-soft);
+  background: #fff;
   font: inherit;
   cursor: pointer;
 }
@@ -326,7 +338,7 @@
   border-radius: 8px;
   font: inherit;
   box-sizing: border-box;
-  background: var(--bg-elevated);
+  background: #fff;
 }
 
 .sales-invoice-grid .sales-field input:not([type="checkbox"]):disabled,
@@ -486,7 +498,7 @@
   padding: 10px 16px;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
-  background: var(--bg-elevated);
+  background: #fff;
   color: var(--text-h);
 }
 
@@ -494,7 +506,7 @@
   padding: 10px 16px;
   border: 1px solid #fecaca;
   border-radius: 8px;
-  background: var(--bg-elevated);
+  background: #fff;
   color: #b42318;
 }
 
@@ -732,10 +744,18 @@
 .sales-payment-grid {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--sales-payment-cols, 4), minmax(0, 1fr));
   gap: 14px 16px;
   align-items: stretch;
   min-width: 0;
+}
+
+.sales-payment-grid--cols-3 {
+  --sales-payment-cols: 3;
+}
+
+.sales-payment-grid--cols-4 {
+  --sales-payment-cols: 4;
 }
 
 .sales-payment-grid .sales-field {
@@ -771,9 +791,12 @@
   border-radius: 8px;
   font: inherit;
   line-height: calc(var(--sales-control-height) - 2px);
+  background: #fff;
+  color: var(--text-h);
 }
 
-.sales-payment-grid .sales-field input:disabled {
+.sales-payment-grid .sales-field input:disabled,
+.sales-payment-grid .sales-field select:disabled {
   background: var(--bg-soft);
   color: var(--text-muted);
 }

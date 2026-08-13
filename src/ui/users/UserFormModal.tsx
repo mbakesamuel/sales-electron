@@ -257,7 +257,7 @@ export function UserFormModal({
 
         <div class="form-dialog-row">
           <label class="form-dialog-label" for="user-password">
-            Password
+            {mode === "create" ? "Temporary password" : "Password"}
           </label>
           <div class="form-dialog-control">
             <input
@@ -268,7 +268,9 @@ export function UserFormModal({
               disabled={isSubmitting}
               autocomplete="new-password"
               placeholder={
-                mode === "create" ? "Required" : "Leave blank to keep current"
+                mode === "create"
+                  ? "Required — user must change on first login"
+                  : "Leave blank to keep; new value forces change on next login"
               }
               onInput={(event) =>
                 updateField(

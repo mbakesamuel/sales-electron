@@ -4,6 +4,7 @@ interface DeliveryOrdersScreenProps {
     user: AuthUser;
     permissions: RolePermissionsSnapshot;
     readOnly?: boolean;
+    initialLookupNo?: string;
 }
-export declare function DeliveryOrdersScreen({ user, permissions, readOnly, }: DeliveryOrdersScreenProps): import("preact").JSX.Element;
+export declare function DeliveryOrdersScreen({ user, permissions, readOnly, initialLookupNo, }: DeliveryOrdersScreenProps): import("preact").JSX.Element;
 export {};
