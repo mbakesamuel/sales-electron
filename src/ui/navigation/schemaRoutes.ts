@@ -55,6 +55,12 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         description: "Commercial service sites and modules.",
       },
       {
+        id: "mills",
+        label: "Mills",
+        table: "Mill",
+        description: "Mill sites linked to sales points.",
+      },
+      {
         id: "sales-points",
         label: "Sales points",
         table: "SalesPoint",

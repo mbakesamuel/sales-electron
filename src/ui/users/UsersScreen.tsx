@@ -872,13 +872,6 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
             ))}
           </div>
           <div class="form-dialog-actions">
-            <button
-              type="button"
-              class="form-dialog-btn-ghost"
-              onClick={() => setViewRow(null)}
-            >
-              Close
-            </button>
             {canWrite ? (
               <button
                 type="button"
@@ -891,6 +884,13 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
                 Edit
               </button>
             ) : null}
+            <button
+              type="button"
+              class="form-dialog-btn-secondary"
+              onClick={() => setViewRow(null)}
+            >
+              Close
+            </button>
           </div>
         </FormDialog>
       ) : null}

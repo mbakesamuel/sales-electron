@@ -1,11 +1,12 @@
 -- Storage locations: sales point + physical location.
+-- Non-sale (quarantine) stock uses StockBalance/StockMovement condition = UNSELLABLE,
+-- not a location-level sellable flag.
 -- Requires: 00_prerequisites.sql, 02_location.sql
 
-INSERT INTO StorageLocation (salesPointId, locationId, isDefault, isSellable)
+INSERT INTO StorageLocation (salesPointId, locationId, isDefault)
 SELECT
   1,
   (SELECT id FROM Location WHERE locationName = 'Main Store' LIMIT 1),
-  1,
   1
 WHERE NOT EXISTS (
   SELECT 1
@@ -14,11 +15,10 @@ WHERE NOT EXISTS (
   WHERE sl.salesPointId = 1 AND l.locationName = 'Main Store'
 );
 
-INSERT INTO StorageLocation (salesPointId, locationId, isDefault, isSellable)
+INSERT INTO StorageLocation (salesPointId, locationId, isDefault)
 SELECT
   1,
   (SELECT id FROM Location WHERE locationName = 'Quarantine' LIMIT 1),
-  0,
   0
 WHERE NOT EXISTS (
   SELECT 1
@@ -27,11 +27,10 @@ WHERE NOT EXISTS (
   WHERE sl.salesPointId = 1 AND l.locationName = 'Quarantine'
 );
 
-INSERT INTO StorageLocation (salesPointId, locationId, isDefault, isSellable)
+INSERT INTO StorageLocation (salesPointId, locationId, isDefault)
 SELECT
   2,
   (SELECT id FROM Location WHERE locationName = 'Bottle Oil Store' LIMIT 1),
-  1,
   1
 WHERE NOT EXISTS (
   SELECT 1

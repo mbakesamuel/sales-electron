@@ -65,8 +65,8 @@ function ensureSecondLocation(db, salesPointId) {
     .get().id;
 
   const insert = db.prepare(
-    `INSERT INTO StorageLocation (salesPointId, locationId, isDefault, isSellable)
-     VALUES (?, ?, 0, 1)`,
+    `INSERT INTO StorageLocation (salesPointId, locationId, isDefault)
+     VALUES (?, ?, 0)`,
   );
   insert.run(salesPointId, locationId);
   const toLocationId = db

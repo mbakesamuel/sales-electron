@@ -52,6 +52,7 @@ const ROUTE_GROUPS = {
   ],
   organization: [
     "commercial-services",
+    "mills",
     "sales-points",
     "locations",
     "storage-locations",

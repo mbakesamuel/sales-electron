@@ -1,5 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { formatDisplayDate as formatDate } from "../../shared/formatDisplayDate.ts";
+import { useEffect, useMemo, useState } from "preact/hooks";
+import {
+  formatDisplayDate as formatDate,
+  formatDisplayDateTime,
+} from "../../shared/formatDisplayDate.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
 
@@ -9,23 +12,34 @@ import { StorageLocationFormModal } from "./StorageLocationFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "../customers/CustomersScreen.css";
 
+type OwnerKind = "mill" | "salesPoint";
 type SortKey =
   | "locationName"
-  | "salesPointLabel"
+  | "ownerLabel"
+  | "isActive"
   | "isDefault"
-  | "isSellable"
   | "createdAt";
 type SortDir = "asc" | "desc";
-type ActiveTab = "all" | "default" | "sellable";
+type ActiveTab =
+  | "all"
+  | "active"
+  | "inactive"
+  | "mill"
+  | "salesPoint"
+  | "default";
 
 interface StorageLocationRow {
   id: number;
   locationId: number;
   locationName: string;
-  salesPointId: number;
+  isActive: boolean;
+  ownerKind: OwnerKind;
+  millId: number | null;
+  millLabel: string;
+  salesPointId: number | null;
   salesPointLabel: string;
+  ownerLabel: string;
   isDefault: boolean;
-  isSellable: boolean;
   createdAt: string;
   updatedAt: string;
   raw: Record<string, unknown>;
@@ -35,32 +49,43 @@ type FormState = { mode: "create" } | { mode: "edit"; row: Record<string, unknow
 
 const PAGE_SIZE = 6;
 
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
+function statusBadgeClass(isActive: boolean): string {
+  return isActive
+    ? "customers-badge customers-badge-emerald"
+    : "customers-badge customers-badge-amber";
 }
 
 function matchesTab(row: StorageLocationRow, tab: ActiveTab): boolean {
   if (tab === "all") {
     return true;
   }
+  if (tab === "active") {
+    return row.isActive;
+  }
+  if (tab === "inactive") {
+    return !row.isActive;
+  }
+  if (tab === "mill") {
+    return row.ownerKind === "mill";
+  }
+  if (tab === "salesPoint") {
+    return row.ownerKind === "salesPoint";
+  }
   if (tab === "default") {
     return row.isDefault;
   }
-  return row.isSellable;
+  return true;
 }
 
 function exportCsv(rows: StorageLocationRow[]) {
   const headers = [
     "id",
     "location",
+    "isActive",
+    "ownerKind",
+    "mill",
     "salesPoint",
     "isDefault",
-    "isSellable",
     "createdAt",
     "updatedAt",
   ];
@@ -69,9 +94,11 @@ function exportCsv(rows: StorageLocationRow[]) {
     [
       row.id,
       row.locationName,
+      row.isActive ? "1" : "0",
+      row.ownerKind,
+      row.millLabel,
       row.salesPointLabel,
       row.isDefault ? "1" : "0",
-      row.isSellable ? "1" : "0",
       row.createdAt,
       row.updatedAt,
     ]
@@ -95,32 +122,6 @@ function IconWarehouse() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M22 8.35V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.35A2 2 0 0 1 3.26 6.5l8-3.2a2 2 0 0 1 1.48 0l8 3.2A2 2 0 0 1 22 8.35Z" />
       <path d="M6 18h12M6 14h12M6 10h12" />
-    </svg>
-  );
-}
-
-function IconMapPin() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-      <circle cx="12" cy="10" r="3" />
-    </svg>
-  );
-}
-
-function IconStar() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-    </svg>
-  );
-}
-
-function IconShoppingBag() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
-      <path d="M3 6h18M16 10a4 4 0 0 1-8 0" />
     </svg>
   );
 }
@@ -152,6 +153,16 @@ function IconDownload() {
   );
 }
 
+function IconPrinter() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M6 9V2h12v7" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <path d="M6 14h12v8H6z" />
+    </svg>
+  );
+}
+
 function IconSliders() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -164,34 +175,6 @@ function IconSliders() {
       <line x1="2" x2="6" y1="14" y2="14" />
       <line x1="10" x2="14" y1="8" y2="8" />
       <line x1="18" x2="22" y1="16" y2="16" />
-    </svg>
-  );
-}
-
-function IconMore() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="5" cy="12" r="1.5" />
-      <circle cx="12" cy="12" r="1.5" />
-      <circle cx="19" cy="12" r="1.5" />
-    </svg>
-  );
-}
-
-function IconCheck() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <circle cx="12" cy="12" r="10" />
-      <path d="m9 12 2 2 4-4" />
-    </svg>
-  );
-}
-
-function IconX() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <circle cx="12" cy="12" r="10" />
-      <path d="m15 9-6 6M9 9l6 6" />
     </svg>
   );
 }
@@ -265,15 +248,7 @@ function IconTrash() {
   );
 }
 
-function BoolBadge({ value }: { value: boolean }) {
-  return (
-    <span class={`customers-bool-icon${value ? "" : " is-false"}`}>
-      {value ? <IconCheck /> : <IconX />}
-    </span>
-  );
-}
-
-function ActionMenu({
+function RowActions({
   onView,
   onEdit,
   onDelete,
@@ -284,70 +259,24 @@ function ActionMenu({
   onDelete: () => void;
   canWrite?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    function onPointerDown(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-    window.addEventListener("mousedown", onPointerDown);
-    return () => window.removeEventListener("mousedown", onPointerDown);
-  }, [open]);
-
   return (
-    <div class="customers-actions" ref={rootRef}>
-      <button
-        type="button"
-        class="customers-actions-trigger"
-        aria-label="Actions"
-        onClick={() => setOpen((current) => !current)}
-      >
-        <IconMore />
+    <div class="customers-row-actions">
+      <button type="button" class="customers-row-action-btn" onClick={onView}>
+        <IconEye /> View
       </button>
-      {open ? (
-        <div class="customers-actions-menu">
+      {canWrite ? (
+        <>
+          <button type="button" class="customers-row-action-btn" onClick={onEdit}>
+            <IconPencil /> Edit
+          </button>
           <button
             type="button"
-            class="customers-actions-item"
-            onClick={() => {
-              setOpen(false);
-              onView();
-            }}
+            class="customers-row-action-btn customers-row-action-btn-danger"
+            onClick={onDelete}
           >
-            <IconEye /> View
+            <IconTrash /> Delete
           </button>
-          {canWrite ? (
-            <>
-              <button
-                type="button"
-                class="customers-actions-item"
-                onClick={() => {
-                  setOpen(false);
-                  onEdit();
-                }}
-              >
-                <IconPencil /> Edit
-              </button>
-              <div class="customers-actions-divider" />
-              <button
-                type="button"
-                class="customers-actions-item customers-actions-item-danger"
-                onClick={() => {
-                  setOpen(false);
-                  onDelete();
-                }}
-              >
-                <IconTrash /> Delete
-              </button>
-            </>
-          ) : null}
-        </div>
+        </>
       ) : null}
     </div>
   );
@@ -357,7 +286,9 @@ interface StorageLocationsScreenProps {
   readOnly?: boolean;
 }
 
-export function StorageLocationsScreen({ readOnly = false }: StorageLocationsScreenProps = {}) {
+export function StorageLocationsScreen({
+  readOnly = false,
+}: StorageLocationsScreenProps = {}) {
   const canWrite = !readOnly;
   const [rows, setRows] = useState<StorageLocationRow[]>([]);
   const [schema, setSchema] = useState<TableSchema | null>(null);
@@ -382,13 +313,19 @@ export function StorageLocationsScreen({ readOnly = false }: StorageLocationsScr
       setError(null);
       try {
         const api = getElectronApi();
-        const [locationResult, storageResult, salesPointResult, tableSchema] =
-          await Promise.all([
-            api.db.queryTable({ table: "Location", limit: 500 }),
-            api.db.queryTable({ table: "StorageLocation", limit: 500 }),
-            api.db.queryTable({ table: "SalesPoint", limit: 200 }),
-            api.db.getTableSchema("StorageLocation"),
-          ]);
+        const [
+          locationResult,
+          storageResult,
+          salesPointResult,
+          millResult,
+          tableSchema,
+        ] = await Promise.all([
+          api.db.queryTable({ table: "Location", limit: 500 }),
+          api.db.queryTable({ table: "StorageLocation", limit: 500 }),
+          api.db.queryTable({ table: "SalesPoint", limit: 200 }),
+          api.db.queryTable({ table: "Mill", limit: 200 }),
+          api.db.getTableSchema("StorageLocation"),
+        ]);
 
         if (cancelled) {
           return;
@@ -410,20 +347,45 @@ export function StorageLocationsScreen({ readOnly = false }: StorageLocationsScr
           );
         }
 
+        const millLabels = new Map<number, string>();
+        for (const mill of millResult.rows) {
+          millLabels.set(Number(mill.id), String(mill.name ?? `Mill ${mill.id}`));
+        }
+
         const mapped = storageResult.rows.map((row) => {
           const id = Number(row.id);
-          const salesPointId = Number(row.salesPointId);
           const locationId = Number(row.locationId);
+          const millId =
+            row.millId != null && row.millId !== "" ? Number(row.millId) : null;
+          const salesPointId =
+            row.salesPointId != null && row.salesPointId !== ""
+              ? Number(row.salesPointId)
+              : null;
+          const ownerKind: OwnerKind = millId != null ? "mill" : "salesPoint";
+          const millLabel =
+            millId != null ? (millLabels.get(millId) ?? `Mill #${millId}`) : "—";
+          const salesPointLabel =
+            salesPointId != null
+              ? (salesPointLabels.get(salesPointId) ?? `Sales point #${salesPointId}`)
+              : "—";
+          const ownerLabel =
+            ownerKind === "mill"
+              ? `Mill · ${millLabel}`
+              : `Sales point · ${salesPointLabel}`;
 
           return {
             id,
             locationId,
             locationName: locationLabels.get(locationId) ?? `Location #${locationId}`,
+            isActive:
+              row.isActive === 1 || row.isActive === true || row.isActive == null,
+            ownerKind,
+            millId,
+            millLabel,
             salesPointId,
-            salesPointLabel:
-              salesPointLabels.get(salesPointId) ?? `Sales point #${salesPointId}`,
+            salesPointLabel,
+            ownerLabel,
             isDefault: row.isDefault === 1 || row.isDefault === true,
-            isSellable: row.isSellable !== 0 && row.isSellable !== false,
             createdAt: formatDate(row.createdAt),
             updatedAt: formatDate(row.updatedAt),
             raw: row,
@@ -461,6 +423,8 @@ export function StorageLocationsScreen({ readOnly = false }: StorageLocationsScr
       const matchSearch =
         !query ||
         row.locationName.toLowerCase().includes(query) ||
+        row.ownerLabel.toLowerCase().includes(query) ||
+        row.millLabel.toLowerCase().includes(query) ||
         row.salesPointLabel.toLowerCase().includes(query);
       return matchSearch && matchesTab(row, activeTab);
     });
@@ -470,7 +434,7 @@ export function StorageLocationsScreen({ readOnly = false }: StorageLocationsScr
     const next = [...filtered];
     next.sort((left, right) => {
       let result = 0;
-      if (sortKey === "isDefault" || sortKey === "isSellable") {
+      if (sortKey === "isDefault" || sortKey === "isActive") {
         result = Number(left[sortKey]) - Number(right[sortKey]);
       } else {
         result = String(left[sortKey]).localeCompare(String(right[sortKey]), undefined, {
@@ -505,21 +469,21 @@ export function StorageLocationsScreen({ readOnly = false }: StorageLocationsScr
         className: "customers-stat-icon-blue",
       },
       {
-        label: "Sales Points",
-        value: new Set(rows.map((row) => row.salesPointId)).size,
-        icon: IconMapPin,
+        label: "Active",
+        value: rows.filter((row) => row.isActive).length,
+        icon: IconWarehouse,
         className: "customers-stat-icon-emerald",
       },
       {
-        label: "Default",
-        value: rows.filter((row) => row.isDefault).length,
-        icon: IconStar,
+        label: "Inactive",
+        value: rows.filter((row) => !row.isActive).length,
+        icon: IconWarehouse,
         className: "customers-stat-icon-violet",
       },
       {
-        label: "Sellable",
-        value: rows.filter((row) => row.isSellable).length,
-        icon: IconShoppingBag,
+        label: "Mill-owned",
+        value: rows.filter((row) => row.ownerKind === "mill").length,
+        icon: IconWarehouse,
         className: "customers-stat-icon-amber",
       },
     ],
@@ -573,7 +537,7 @@ export function StorageLocationsScreen({ readOnly = false }: StorageLocationsScr
       return;
     }
     const confirmed = window.confirm(
-      `Delete storage location "${row.locationName}" at ${row.salesPointLabel}? This cannot be undone.`,
+      `Delete storage location "${row.locationName}" at ${row.ownerLabel}? This cannot be undone.`,
     );
     if (!confirmed) {
       return;
@@ -652,6 +616,63 @@ export function StorageLocationsScreen({ readOnly = false }: StorageLocationsScr
     sorted.length === 0 ? 0 : Math.min((currentPage - 1) * PAGE_SIZE + 1, sorted.length);
   const pageEnd = Math.min(currentPage * PAGE_SIZE, sorted.length);
 
+  const printRows =
+    selectedIds.size > 0
+      ? sorted.filter((row) => selectedIds.has(row.id))
+      : sorted;
+
+  const printFilterLabel =
+    activeTab === "all"
+      ? "All storage locations"
+      : activeTab === "active"
+        ? "Active storage locations"
+        : activeTab === "inactive"
+          ? "Inactive storage locations"
+          : activeTab === "mill"
+            ? "Mill-owned storage locations"
+            : activeTab === "salesPoint"
+              ? "Sales-point-owned storage locations"
+              : activeTab === "default"
+                ? "Default storage locations"
+                : "Storage locations";
+
+  const printGeneratedAt = formatDisplayDateTime(
+    (() => {
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    })(),
+  );
+
+  function printStorageLocationList() {
+    if (printRows.length === 0) {
+      return;
+    }
+
+    const style = document.createElement("style");
+    style.id = "storage-locations-print-page-style";
+    style.textContent =
+      "@media print { @page { size: A4 portrait; margin: 10mm; } }";
+    document.head.appendChild(style);
+
+    document.body.classList.add(
+      "customers-print-mode",
+      "storage-locations-print-mode",
+    );
+    window.addEventListener(
+      "afterprint",
+      () => {
+        document.body.classList.remove(
+          "customers-print-mode",
+          "storage-locations-print-mode",
+        );
+        style.remove();
+      },
+      { once: true },
+    );
+    window.print();
+  }
+
   return (
     <div class="customers-screen">
       <header class="customers-screen-header">
@@ -660,11 +681,19 @@ export function StorageLocationsScreen({ readOnly = false }: StorageLocationsScr
             <IconWarehouse />
           </div>
           <div>
-            <h2 class="customers-screen-brand-title">StorageLocations</h2>
+            <h2 class="customers-screen-brand-title">Storage Locations</h2>
             <p class="customers-screen-brand-subtitle">Location Management</p>
           </div>
         </div>
         <div class="customers-screen-header-actions">
+          <button
+            type="button"
+            class="customers-btn customers-btn-secondary"
+            disabled={printRows.length === 0}
+            onClick={() => printStorageLocationList()}
+          >
+            <IconPrinter /> Print
+          </button>
           <button
             type="button"
             class="customers-btn customers-btn-secondary"
@@ -720,8 +749,11 @@ export function StorageLocationsScreen({ readOnly = false }: StorageLocationsScr
                 {(
                   [
                     ["all", "All"],
+                    ["active", "Active"],
+                    ["inactive", "Inactive"],
+                    ["mill", "Mill"],
+                    ["salesPoint", "Sales point"],
                     ["default", "Default"],
-                    ["sellable", "Sellable"],
                   ] as const
                 ).map(([tab, label]) => (
                   <button
@@ -801,31 +833,26 @@ export function StorageLocationsScreen({ readOnly = false }: StorageLocationsScr
                   />
                 </th>
                 <SortableTh label="Location" col="locationName" />
+                <SortableTh label="Status" col="isActive" />
                 <SortableTh
-                  label="Sales point"
-                  col="salesPointLabel"
-                  className="customers-col-hide-md"
+                  label="Owner"
+                  col="ownerLabel"
+                  className="customers-col-hide-md customers-owner-cell"
                 />
-                <th class="customers-col-hide-md" style="text-align: center;">
-                  Default
-                </th>
-                <th class="customers-col-hide-lg" style="text-align: center;">
-                  Sellable
-                </th>
                 <SortableTh label="Created" col="createdAt" className="customers-col-hide-lg" />
-                <th style="width: 40px;" />
+                <th style="width: 1%;">Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} class="customers-table-empty">
+                  <td colSpan={6} class="customers-table-empty">
                     Loading storage locations…
                   </td>
                 </tr>
               ) : paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={7} class="customers-table-empty">
+                  <td colSpan={6} class="customers-table-empty">
                     No storage locations match your search.
                   </td>
                 </tr>
@@ -841,31 +868,29 @@ export function StorageLocationsScreen({ readOnly = false }: StorageLocationsScr
                       />
                     </td>
                     <td>
-                      <div class="customers-name-cell">
-                        <div class="customers-avatar">{initials(row.locationName)}</div>
+                      <div class="customers-name-cell customers-name-cell-sm">
                         <div>
-                          <p class="customers-name-primary">{row.locationName}</p>
-                          <span class="customers-badge customers-badge-blue">#{row.id}</span>
+                          <p class="customers-name-primary" title={row.locationName}>
+                            {row.locationName}
+                          </p>
                         </div>
                       </div>
                     </td>
-                    <td class="customers-col-hide-md">
-                      <span class="customers-contact-mono">{row.salesPointLabel}</span>
+                    <td>
+                      <span class={statusBadgeClass(row.isActive)}>
+                        {row.isActive ? "Active" : "Inactive"}
+                      </span>
                     </td>
-                    <td class="customers-col-hide-md" style="text-align: center;">
-                      <BoolBadge value={row.isDefault} />
-                    </td>
-                    <td class="customers-col-hide-lg" style="text-align: center;">
-                      <BoolBadge value={row.isSellable} />
+                    <td class="customers-col-hide-md customers-owner-cell">
+                      <span class="customers-contact-mono">{row.ownerLabel}</span>
                     </td>
                     <td class="customers-col-hide-lg">
                       <div class="customers-dates">
                         <div>{row.createdAt}</div>
-                        <div class="customers-dates-updated">↑ {row.updatedAt}</div>
                       </div>
                     </td>
                     <td>
-                      <ActionMenu
+                      <RowActions
                         canWrite={canWrite}
                         onView={() => setViewRow(row)}
                         onEdit={() => {
@@ -930,9 +955,13 @@ export function StorageLocationsScreen({ readOnly = false }: StorageLocationsScr
             {[
               ["ID", String(viewRow.id)],
               ["Location", viewRow.locationName],
-              ["Sales point", viewRow.salesPointLabel],
+              ["Status", viewRow.isActive ? "Active" : "Inactive"],
+              [
+                "Owner kind",
+                viewRow.ownerKind === "mill" ? "Mill" : "Sales point",
+              ],
+              ["Owner", viewRow.ownerLabel],
               ["Default location", viewRow.isDefault ? "Yes" : "No"],
-              ["Sellable", viewRow.isSellable ? "Yes" : "No"],
               ["Created", viewRow.createdAt],
               ["Updated", viewRow.updatedAt],
             ].map(([label, value]) => (
@@ -965,6 +994,41 @@ export function StorageLocationsScreen({ readOnly = false }: StorageLocationsScr
           </div>
         </FormDialog>
       ) : null}
+
+      <div class="customers-print-document" aria-hidden="true">
+        <header class="customers-print-header">
+          <h1>Storage Location List</h1>
+          <p>
+            {printFilterLabel}
+            {selectedIds.size > 0 ? ` · ${selectedIds.size} selected` : ""}
+            {" · "}
+            {printRows.length} record{printRows.length === 1 ? "" : "s"}
+          </p>
+          <p class="customers-print-generated">Printed {printGeneratedAt}</p>
+        </header>
+        <table class="customers-print-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Status</th>
+              <th>Owner</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {printRows.map((row, index) => (
+              <tr key={row.id}>
+                <td>{index + 1}</td>
+                <td>{row.locationName}</td>
+                <td>{row.isActive ? "Active" : "Inactive"}</td>
+                <td>{row.ownerLabel}</td>
+                <td>{row.createdAt}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

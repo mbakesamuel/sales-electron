@@ -14,15 +14,17 @@ interface LocationFormModalProps {
 
 interface FormData {
   locationName: string;
+  isActive: boolean;
 }
 
 function initForm(mode: "create" | "edit", row?: Record<string, unknown>): FormData {
   if (mode !== "edit" || !row) {
-    return { locationName: "" };
+    return { locationName: "", isActive: true };
   }
 
   return {
     locationName: row.locationName != null ? String(row.locationName) : "",
+    isActive: row.isActive === 1 || row.isActive === true || row.isActive == null,
   };
 }
 
@@ -42,6 +44,10 @@ export function LocationFormModal({
     setError(null);
   }, [mode, rowKey]);
 
+  function updateField<K extends keyof FormData>(key: K, value: FormData[K]) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
   async function handleSubmit(event: Event) {
     event.preventDefault();
     setError(null);
@@ -56,6 +62,7 @@ export function LocationFormModal({
 
     const payload: Record<string, unknown> = {
       locationName,
+      isActive: form.isActive ? 1 : 0,
       updatedAt: new Date().toISOString().slice(0, 19).replace("T", " "),
     };
 
@@ -106,9 +113,39 @@ export function LocationFormModal({
               disabled={isSubmitting}
               placeholder="e.g. Main Store"
               onInput={(event) =>
-                setForm({ locationName: (event.currentTarget as HTMLInputElement).value })
+                updateField(
+                  "locationName",
+                  (event.currentTarget as HTMLInputElement).value,
+                )
               }
             />
+          </div>
+        </div>
+
+        <div class="form-dialog-row">
+          <label class="form-dialog-label" for="location-active">
+            Status
+          </label>
+          <div class="form-dialog-control">
+            <label class="form-dialog-checkbox-label">
+              <input
+                id="location-active"
+                type="checkbox"
+                checked={form.isActive}
+                disabled={isSubmitting}
+                onChange={(event) =>
+                  updateField(
+                    "isActive",
+                    (event.currentTarget as HTMLInputElement).checked,
+                  )
+                }
+              />
+              Active
+            </label>
+            <p class="form-dialog-hint">
+              Inactive locations stay in history but are hidden when linking storage
+              locations.
+            </p>
           </div>
         </div>
 

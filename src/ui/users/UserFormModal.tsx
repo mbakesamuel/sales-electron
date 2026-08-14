@@ -82,6 +82,10 @@ export function UserFormModal({
 
   useEffect(() => {
     let cancelled = false;
+    const selectedSalesPointId =
+      row?.salesPointId != null && row.salesPointId !== ""
+        ? String(row.salesPointId)
+        : null;
 
     async function loadLookups() {
       try {
@@ -108,10 +112,26 @@ export function UserFormModal({
         );
 
         setSalesPoints(
-          salesPointResult.rows.map((pointRow) => ({
-            id: String(pointRow.id ?? ""),
-            label: String(pointRow.name ?? `Sales point ${pointRow.id}`),
-          })),
+          salesPointResult.rows
+            .filter((pointRow) => {
+              const isActive =
+                pointRow.isActive === 1 ||
+                pointRow.isActive === true ||
+                pointRow.isActive == null;
+              const id = String(pointRow.id ?? "");
+              return isActive || (selectedSalesPointId != null && id === selectedSalesPointId);
+            })
+            .map((pointRow) => {
+              const isActive =
+                pointRow.isActive === 1 ||
+                pointRow.isActive === true ||
+                pointRow.isActive == null;
+              const name = String(pointRow.name ?? `Sales point ${pointRow.id}`);
+              return {
+                id: String(pointRow.id ?? ""),
+                label: isActive ? name : `${name} (inactive)`,
+              };
+            }),
         );
       } catch {
         if (!cancelled) {
@@ -126,7 +146,7 @@ export function UserFormModal({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [row?.salesPointId]);
 
   function updateField<K extends keyof FormData>(key: K, value: FormData[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -388,15 +408,24 @@ export function UserFormModal({
         {error ? <p class="form-dialog-error">{error}</p> : null}
 
         <div class="form-dialog-actions">
-          <button type="button" class="form-dialog-btn-ghost" onClick={onClose}>
-            Cancel
-          </button>
           <button
             type="submit"
             class="form-dialog-btn-primary"
             disabled={isSubmitting}
           >
-            {isSubmitting ? "Saving…" : "Save"}
+            {isSubmitting
+              ? "Saving…"
+              : mode === "create"
+                ? "Add user"
+                : "Save changes"}
+          </button>
+          <button
+            type="button"
+            class="form-dialog-btn-secondary"
+            disabled={isSubmitting}
+            onClick={onClose}
+          >
+            Cancel
           </button>
         </div>
       </form>

@@ -24,7 +24,6 @@ export interface StorageLocationOption {
   salesPointId: number;
   name: string;
   isDefault: boolean;
-  isSellable: boolean;
 }
 
 export interface ProductOption {

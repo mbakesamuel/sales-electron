@@ -1,5 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { formatDisplayDate as formatDate } from "../../shared/formatDisplayDate.ts";
+import { useEffect, useMemo, useState } from "preact/hooks";
+import {
+  formatDisplayDate as formatDate,
+  formatDisplayDateTime,
+} from "../../shared/formatDisplayDate.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
 import {
@@ -15,12 +18,13 @@ import { TaxRateFormModal } from "./TaxRateFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "../customers/CustomersScreen.css";
 
-type SortKey = "rateKind" | "ratePercent" | "effectiveFrom" | "createdAt";
+type SortKey = "rateKind" | "ratePercent" | "effectiveFrom" | "createdAt" | "isActive";
 type SortDir = "asc" | "desc";
-type ActiveTab = "all" | TaxRateKind;
+type ActiveTab = "all" | "active" | "inactive" | TaxRateKind;
 
 interface TaxRateRow {
   id: string;
+  isActive: boolean;
   rateKind: TaxRateKind;
   kindLabel: string;
   rateDecimal: number;
@@ -39,17 +43,30 @@ function formatPercent(value: number): string {
   return `${Number(value.toFixed(4))}%`;
 }
 
-function kindBadgeClass(kind: TaxRateKind): string {
-  if (kind === "VAT") return "customers-badge customers-badge-emerald";
-  if (kind === "SALES_ACTUAL") return "customers-badge customers-badge-violet";
-  if (kind === "SALES_SIMPLIFIED") return "customers-badge customers-badge-blue";
-  return "customers-badge customers-badge-amber";
+function statusBadgeClass(isActive: boolean): string {
+  return isActive
+    ? "customers-badge customers-badge-emerald"
+    : "customers-badge customers-badge-amber";
+}
+
+function matchesTab(row: TaxRateRow, tab: ActiveTab): boolean {
+  if (tab === "all") {
+    return true;
+  }
+  if (tab === "active") {
+    return row.isActive;
+  }
+  if (tab === "inactive") {
+    return !row.isActive;
+  }
+  return row.rateKind === tab;
 }
 
 function exportCsv(rows: TaxRateRow[]) {
   const headers = [
     "id",
     "rateKind",
+    "isActive",
     "rateDecimal",
     "ratePercent",
     "effectiveFrom",
@@ -60,6 +77,7 @@ function exportCsv(rows: TaxRateRow[]) {
     [
       row.id,
       row.rateKind,
+      row.isActive ? "1" : "0",
       row.rateDecimal,
       row.ratePercent,
       row.effectiveFrom,
@@ -86,16 +104,6 @@ function IconPercent() {
       <line x1="19" x2="5" y1="5" y2="19" />
       <circle cx="6.5" cy="6.5" r="2.5" />
       <circle cx="17.5" cy="17.5" r="2.5" />
-    </svg>
-  );
-}
-
-function IconCalendar() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M8 2v4M16 2v4" />
-      <rect width="18" height="18" x="3" y="4" rx="2" />
-      <path d="M3 10h18" />
     </svg>
   );
 }
@@ -127,12 +135,12 @@ function IconDownload() {
   );
 }
 
-function IconMore() {
+function IconPrinter() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="5" cy="12" r="1.5" />
-      <circle cx="12" cy="12" r="1.5" />
-      <circle cx="19" cy="12" r="1.5" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M6 9V2h12v7" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <path d="M6 14h12v8H6z" />
     </svg>
   );
 }
@@ -206,7 +214,7 @@ function IconTrash() {
   );
 }
 
-function ActionMenu({
+function RowActions({
   onView,
   onEdit,
   onDelete,
@@ -217,66 +225,24 @@ function ActionMenu({
   onDelete: () => void;
   canWrite?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onPointerDown(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    }
-    window.addEventListener("mousedown", onPointerDown);
-    return () => window.removeEventListener("mousedown", onPointerDown);
-  }, [open]);
-
   return (
-    <div class="customers-actions" ref={rootRef}>
-      <button
-        type="button"
-        class="customers-actions-trigger"
-        aria-label="Actions"
-        onClick={() => setOpen((current) => !current)}
-      >
-        <IconMore />
+    <div class="customers-row-actions">
+      <button type="button" class="customers-row-action-btn" onClick={onView}>
+        <IconEye /> View
       </button>
-      {open ? (
-        <div class="customers-actions-menu">
+      {canWrite ? (
+        <>
+          <button type="button" class="customers-row-action-btn" onClick={onEdit}>
+            <IconPencil /> Edit
+          </button>
           <button
             type="button"
-            class="customers-actions-item"
-            onClick={() => {
-              setOpen(false);
-              onView();
-            }}
+            class="customers-row-action-btn customers-row-action-btn-danger"
+            onClick={onDelete}
           >
-            <IconEye /> View
+            <IconTrash /> Delete
           </button>
-          {canWrite ? (
-            <>
-              <button
-                type="button"
-                class="customers-actions-item"
-                onClick={() => {
-                  setOpen(false);
-                  onEdit();
-                }}
-              >
-                <IconPencil /> Edit
-              </button>
-              <div class="customers-actions-divider" />
-              <button
-                type="button"
-                class="customers-actions-item customers-actions-item-danger"
-                onClick={() => {
-                  setOpen(false);
-                  onDelete();
-                }}
-              >
-                <IconTrash /> Delete
-              </button>
-            </>
-          ) : null}
-        </div>
+        </>
       ) : null}
     </div>
   );
@@ -294,7 +260,7 @@ export function TaxRatesScreen({ readOnly = false }: TaxRatesScreenProps = {}) {
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [tab, setTab] = useState<ActiveTab>("all");
+  const [activeTab, setActiveTab] = useState<ActiveTab>("all");
   const [sortKey, setSortKey] = useState<SortKey>("effectiveFrom");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
@@ -325,6 +291,7 @@ export function TaxRatesScreen({ readOnly = false }: TaxRatesScreenProps = {}) {
             const rateDecimal = normalizeTaxRateDecimal(row.rate as string | number | null);
             return {
               id: String(row.id ?? ""),
+              isActive: row.isActive === 1 || row.isActive === true || row.isActive == null,
               rateKind: kind,
               kindLabel: TAX_RATE_KIND_LABELS[kind],
               rateDecimal,
@@ -361,16 +328,15 @@ export function TaxRatesScreen({ readOnly = false }: TaxRatesScreenProps = {}) {
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     return rows.filter((row) => {
-      if (tab !== "all" && row.rateKind !== tab) return false;
-      if (!query) return true;
-      return (
+      const matchSearch =
+        !query ||
         row.kindLabel.toLowerCase().includes(query) ||
         row.rateKind.toLowerCase().includes(query) ||
         row.effectiveFrom.includes(query) ||
-        row.id.toLowerCase().includes(query)
-      );
+        row.id.toLowerCase().includes(query);
+      return matchSearch && matchesTab(row, activeTab);
     });
-  }, [rows, search, tab]);
+  }, [rows, search, activeTab]);
 
   const sorted = useMemo(() => {
     const next = [...filtered];
@@ -378,6 +344,8 @@ export function TaxRatesScreen({ readOnly = false }: TaxRatesScreenProps = {}) {
       let result = 0;
       if (sortKey === "ratePercent") {
         result = left.ratePercent - right.ratePercent;
+      } else if (sortKey === "isActive") {
+        result = Number(left.isActive) - Number(right.isActive);
       } else {
         result = String(left[sortKey]).localeCompare(String(right[sortKey]), undefined, {
           numeric: true,
@@ -414,10 +382,22 @@ export function TaxRatesScreen({ readOnly = false }: TaxRatesScreenProps = {}) {
     }
     return [
       {
-        label: "Schedule rows",
+        label: "Total rates",
         value: rows.length,
         icon: IconPercent,
         className: "customers-stat-icon-blue",
+      },
+      {
+        label: "Active",
+        value: rows.filter((row) => row.isActive).length,
+        icon: IconPercent,
+        className: "customers-stat-icon-emerald",
+      },
+      {
+        label: "Inactive",
+        value: rows.filter((row) => !row.isActive).length,
+        icon: IconPercent,
+        className: "customers-stat-icon-violet",
       },
       {
         label: "Current VAT",
@@ -425,13 +405,7 @@ export function TaxRatesScreen({ readOnly = false }: TaxRatesScreenProps = {}) {
           ? formatPercent(latestByKind.get("VAT")!.ratePercent)
           : "—",
         icon: IconPercent,
-        className: "customers-stat-icon-emerald",
-      },
-      {
-        label: "Kinds tracked",
-        value: new Set(rows.map((row) => row.rateKind)).size,
-        icon: IconCalendar,
-        className: "customers-stat-icon-violet",
+        className: "customers-stat-icon-amber",
       },
     ];
   }, [rows]);
@@ -525,8 +499,55 @@ export function TaxRatesScreen({ readOnly = false }: TaxRatesScreenProps = {}) {
 
   const tabs: Array<{ id: ActiveTab; label: string }> = [
     { id: "all", label: "All" },
+    { id: "active", label: "Active" },
+    { id: "inactive", label: "Inactive" },
     ...TAX_RATE_KINDS.map((kind) => ({ id: kind, label: TAX_RATE_KIND_LABELS[kind] })),
   ];
+
+  const printRows =
+    selectedIds.size > 0
+      ? sorted.filter((row) => selectedIds.has(row.id))
+      : sorted;
+
+  const printFilterLabel =
+    activeTab === "all"
+      ? "All tax rates"
+      : activeTab === "active"
+        ? "Active tax rates"
+        : activeTab === "inactive"
+          ? "Inactive tax rates"
+          : `${TAX_RATE_KIND_LABELS[activeTab]} rates`;
+
+  const printGeneratedAt = formatDisplayDateTime(
+    (() => {
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    })(),
+  );
+
+  function printTaxRateList() {
+    if (printRows.length === 0) {
+      return;
+    }
+
+    const style = document.createElement("style");
+    style.id = "tax-rates-print-page-style";
+    style.textContent =
+      "@media print { @page { size: A4 portrait; margin: 10mm; } }";
+    document.head.appendChild(style);
+
+    document.body.classList.add("customers-print-mode", "tax-rates-print-mode");
+    window.addEventListener(
+      "afterprint",
+      () => {
+        document.body.classList.remove("customers-print-mode", "tax-rates-print-mode");
+        style.remove();
+      },
+      { once: true },
+    );
+    window.print();
+  }
 
   return (
     <div class="customers-screen">
@@ -541,6 +562,14 @@ export function TaxRatesScreen({ readOnly = false }: TaxRatesScreenProps = {}) {
           </div>
         </div>
         <div class="customers-screen-header-actions">
+          <button
+            type="button"
+            class="customers-btn customers-btn-secondary"
+            disabled={printRows.length === 0}
+            onClick={() => printTaxRateList()}
+          >
+            <IconPrinter /> Print
+          </button>
           <button
             type="button"
             class="customers-btn customers-btn-secondary"
@@ -592,6 +621,21 @@ export function TaxRatesScreen({ readOnly = false }: TaxRatesScreenProps = {}) {
               </p>
             </div>
             <div class="customers-card-controls">
+              <div class="customers-tabs">
+                {tabs.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    class={`customers-tab${activeTab === item.id ? " is-active" : ""}`}
+                    onClick={() => {
+                      setActiveTab(item.id);
+                      setPage(1);
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
               <div class="customers-search-wrap">
                 <IconSearch />
                 <input
@@ -607,21 +651,28 @@ export function TaxRatesScreen({ readOnly = false }: TaxRatesScreenProps = {}) {
               </div>
             </div>
           </div>
-          <div class="customers-tabs">
-            {tabs.map((item) => (
+
+          {selectedIds.size > 0 ? (
+            <div class="customers-selection-bar">
+              <strong>{selectedIds.size} selected</strong>
               <button
-                key={item.id}
                 type="button"
-                class={`customers-tab${tab === item.id ? " is-active" : ""}`}
-                onClick={() => {
-                  setTab(item.id);
-                  setPage(1);
-                }}
+                class="customers-link-btn customers-link-btn-primary"
+                onClick={() =>
+                  exportCsv(rows.filter((row) => selectedIds.has(row.id)))
+                }
               >
-                {item.label}
+                Export selected
               </button>
-            ))}
-          </div>
+              <button
+                type="button"
+                class="customers-link-btn customers-link-btn-muted"
+                onClick={() => setSelectedIds(new Set())}
+              >
+                Clear
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <div class="customers-table-scroll">
@@ -637,22 +688,23 @@ export function TaxRatesScreen({ readOnly = false }: TaxRatesScreenProps = {}) {
                   />
                 </th>
                 <SortableTh label="Kind" col="rateKind" />
+                <SortableTh label="Status" col="isActive" />
                 <SortableTh label="Rate" col="ratePercent" />
                 <SortableTh label="Effective from" col="effectiveFrom" />
                 <SortableTh label="Created" col="createdAt" className="customers-col-hide-lg" />
-                <th style="width: 40px;" />
+                <th style="width: 1%;">Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} class="customers-table-empty">
+                  <td colSpan={7} class="customers-table-empty">
                     Loading tax rates…
                   </td>
                 </tr>
               ) : paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={6} class="customers-table-empty">
+                  <td colSpan={7} class="customers-table-empty">
                     No tax rates match your filters.
                   </td>
                 </tr>
@@ -669,12 +721,15 @@ export function TaxRatesScreen({ readOnly = false }: TaxRatesScreenProps = {}) {
                     </td>
                     <td>
                       <div class="customers-name-cell">
-                        <div class="customers-avatar">%</div>
                         <div>
                           <p class="customers-name-primary">{row.kindLabel}</p>
-                          <span class={kindBadgeClass(row.rateKind)}>{row.rateKind}</span>
                         </div>
                       </div>
+                    </td>
+                    <td>
+                      <span class={statusBadgeClass(row.isActive)}>
+                        {row.isActive ? "Active" : "Inactive"}
+                      </span>
                     </td>
                     <td>
                       <span class="customers-contact-mono">
@@ -685,11 +740,10 @@ export function TaxRatesScreen({ readOnly = false }: TaxRatesScreenProps = {}) {
                     <td class="customers-col-hide-lg">
                       <div class="customers-dates">
                         <div>{row.createdAt}</div>
-                        <div class="customers-dates-updated">↑ {row.updatedAt}</div>
                       </div>
                     </td>
                     <td>
-                      <ActionMenu
+                      <RowActions
                         canWrite={canWrite}
                         onView={() => setViewRow(row)}
                         onEdit={() => {
@@ -753,6 +807,7 @@ export function TaxRatesScreen({ readOnly = false }: TaxRatesScreenProps = {}) {
           <div class="customers-view-grid">
             {[
               ["ID", viewRow.id],
+              ["Status", viewRow.isActive ? "Active" : "Inactive"],
               ["Kind", viewRow.rateKind],
               ["Rate", formatPercent(viewRow.ratePercent)],
               ["Effective from", viewRow.effectiveFrom],
@@ -765,22 +820,66 @@ export function TaxRatesScreen({ readOnly = false }: TaxRatesScreenProps = {}) {
               </div>
             ))}
           </div>
-          {canWrite ? (
-            <div class="form-dialog-actions">
+          <div class="form-dialog-actions" style="padding-left: 0; margin-top: 12px;">
+            {canWrite ? (
               <button
                 type="button"
                 class="form-dialog-btn-primary"
                 onClick={() => {
-                  setFormState({ mode: "edit", row: viewRow.raw });
                   setViewRow(null);
+                  setFormState({ mode: "edit", row: viewRow.raw });
                 }}
               >
-                Edit
+                Edit rate
               </button>
-            </div>
-          ) : null}
+            ) : null}
+            <button
+              type="button"
+              class="form-dialog-btn-secondary"
+              onClick={() => setViewRow(null)}
+            >
+              Close
+            </button>
+          </div>
         </FormDialog>
       ) : null}
+
+      <div class="customers-print-document" aria-hidden="true">
+        <header class="customers-print-header">
+          <h1>Tax Rate List</h1>
+          <p>
+            {printFilterLabel}
+            {selectedIds.size > 0 ? ` · ${selectedIds.size} selected` : ""}
+            {" · "}
+            {printRows.length} record{printRows.length === 1 ? "" : "s"}
+          </p>
+          <p class="customers-print-generated">Printed {printGeneratedAt}</p>
+        </header>
+        <table class="customers-print-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Kind</th>
+              <th>Status</th>
+              <th>Rate</th>
+              <th>Effective from</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {printRows.map((row, index) => (
+              <tr key={row.id}>
+                <td>{index + 1}</td>
+                <td>{row.kindLabel}</td>
+                <td>{row.isActive ? "Active" : "Inactive"}</td>
+                <td>{formatPercent(row.ratePercent)}</td>
+                <td>{row.effectiveFrom}</td>
+                <td>{row.createdAt}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

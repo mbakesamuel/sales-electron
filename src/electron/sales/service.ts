@@ -91,7 +91,8 @@ function getInvoiceOnlyTaxRegimeId(db: ReturnType<typeof getDatabase>): string |
 }
 
 /**
- * SELLABLE locations for a product at a sales point (qty > 0).
+ * Active sales-point storage locations for a product (SELLABLE condition qty > 0).
+ * Mill-owned locations are never included (sales invoicing is SP-only).
  * When asOfDateIso is set, balances are reconstructed from movements through that date.
  */
 export function listStorageLocationsWithBalance(
@@ -111,7 +112,7 @@ export function listStorageLocationsWithBalance(
         `SELECT sl.id, l.locationName AS name
          FROM StorageLocation sl
          INNER JOIN Location l ON l.id = sl.locationId
-         WHERE sl.salesPointId = ?
+         WHERE sl.salesPointId = ? AND COALESCE(sl.isActive, 1) = 1
          ORDER BY l.locationName ASC`,
       )
       .all(salesPointId) as Array<{ id: number; name: string }>;
@@ -135,6 +136,7 @@ export function listStorageLocationsWithBalance(
          AND sb.productId = ?
          AND sb.condition = 'SELLABLE'
          AND sl.salesPointId = ?
+         AND COALESCE(sl.isActive, 1) = 1
        ORDER BY l.locationName ASC`,
     )
     .all(salesPointId, productId, salesPointId) as Array<{
@@ -227,6 +229,7 @@ export function getSalesFormOptions(): SalesFormOptions {
       `SELECT sl.id, sl.salesPointId, l.locationName AS name, sl.isDefault
        FROM StorageLocation sl
        INNER JOIN Location l ON l.id = sl.locationId
+       WHERE sl.salesPointId IS NOT NULL AND COALESCE(sl.isActive, 1) = 1
        ORDER BY sl.salesPointId ASC, l.locationName ASC
        LIMIT 1000`,
     )

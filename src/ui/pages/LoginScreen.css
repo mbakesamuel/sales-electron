@@ -4,6 +4,9 @@
   align-items: center;
   justify-content: center;
   padding: 32px 20px;
+  width: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
 }
 
 .login-card {

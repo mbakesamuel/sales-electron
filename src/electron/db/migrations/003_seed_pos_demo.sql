@@ -16,11 +16,10 @@ INSERT INTO Location (locationName)
 SELECT 'Main Store'
 WHERE NOT EXISTS (SELECT 1 FROM Location WHERE locationName = 'Main Store');
 
-INSERT INTO StorageLocation (salesPointId, locationId, isDefault, isSellable)
+INSERT INTO StorageLocation (salesPointId, locationId, isDefault)
 SELECT
   1,
   (SELECT id FROM Location WHERE locationName = 'Main Store' LIMIT 1),
-  1,
   1
 WHERE NOT EXISTS (
   SELECT 1 FROM StorageLocation sl

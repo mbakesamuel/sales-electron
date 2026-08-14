@@ -1,14 +1,11 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { getAuthenticatedDb } from "../auth/db.ts";
-import {
-  TAX_REGIME_KIND_LABELS,
-  type TaxRegimeKind,
-} from "../../shared/taxRules.ts";
+
 import { FormDialog } from "../components/FormDialog.tsx";
 import { buildRowKey } from "../utils/formRowKey.ts";
 import "../components/FormDialog.css";
 
-interface TaxRegimeFormModalProps {
+interface MillFormModalProps {
   mode: "create" | "edit";
   row?: Record<string, unknown>;
   onClose: () => void;
@@ -17,31 +14,29 @@ interface TaxRegimeFormModalProps {
 
 interface FormData {
   name: string;
-  kind: TaxRegimeKind;
   isActive: boolean;
 }
 
-const KIND_OPTIONS = Object.keys(TAX_REGIME_KIND_LABELS) as TaxRegimeKind[];
-
-function initForm(mode: "create" | "edit", row?: Record<string, unknown>): FormData {
+function initForm(
+  mode: "create" | "edit",
+  row?: Record<string, unknown>,
+): FormData {
   if (mode !== "edit" || !row) {
-    return { name: "", kind: "SIMPLIFIED", isActive: true };
+    return { name: "", isActive: true };
   }
 
-  const kind = String(row.kind ?? "SIMPLIFIED").toUpperCase();
   return {
     name: row.name != null ? String(row.name) : "",
-    kind: kind === "REAL" ? "REAL" : "SIMPLIFIED",
     isActive: row.isActive === 1 || row.isActive === true || row.isActive == null,
   };
 }
 
-export function TaxRegimeFormModal({
+export function MillFormModal({
   mode,
   row,
   onClose,
   onSaved,
-}: TaxRegimeFormModalProps) {
+}: MillFormModalProps) {
   const [form, setForm] = useState<FormData>(() => initForm(mode, row));
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -62,31 +57,30 @@ export function TaxRegimeFormModal({
 
     const name = form.name.trim();
     if (!name) {
-      setError("Name is required.");
+      setError("Mill name is required.");
       return;
     }
 
     setIsSubmitting(true);
-    const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+
     const payload: Record<string, unknown> = {
       name,
-      kind: form.kind,
       isActive: form.isActive ? 1 : 0,
-      updatedAt: now,
+      updatedAt: new Date().toISOString().slice(0, 19).replace("T", " "),
     };
 
     try {
       if (mode === "create") {
         await getAuthenticatedDb().insertRow({
-          table: "TaxRegime",
-          values: { ...payload, createdAt: now },
+          table: "Mill",
+          values: payload,
         });
       } else {
-        if (!row?.id) {
-          throw new Error("Tax regime id is missing.");
+        if (row?.id == null) {
+          throw new Error("Mill id is missing.");
         }
         await getAuthenticatedDb().updateRow({
-          table: "TaxRegime",
+          table: "Mill",
           primaryKey: { id: row.id },
           values: payload,
         });
@@ -98,34 +92,37 @@ export function TaxRegimeFormModal({
       setError(
         submitError instanceof Error
           ? submitError.message
-          : "Failed to save tax regime.",
+          : "Failed to save mill.",
       );
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  const title = mode === "create" ? "Add Tax Regime" : "Edit Tax Regime";
+  const title = mode === "create" ? "Add Mill" : "Edit Mill";
 
   return (
     <FormDialog
       ariaLabel={title}
       title={title}
-      subtitle="Actual vs Simplified — used for sales-tax rate selection"
+      subtitle="Define a mill site"
       onClose={onClose}
     >
-      <form class="form-dialog-form" onSubmit={(event) => void handleSubmit(event)}>
+      <form
+        class="form-dialog-form"
+        onSubmit={(event) => void handleSubmit(event)}
+      >
         <div class="form-dialog-row">
-          <label class="form-dialog-label" for="tax-regime-name">
-            Name
+          <label class="form-dialog-label" for="mill-name">
+            Mill Name
           </label>
           <div class="form-dialog-control">
             <input
-              id="tax-regime-name"
+              id="mill-name"
               class="form-dialog-input"
               value={form.name}
               disabled={isSubmitting}
-              placeholder="e.g. Actual"
+              placeholder="e.g Mondoni"
               onInput={(event) =>
                 updateField("name", (event.currentTarget as HTMLInputElement).value)
               }
@@ -134,39 +131,13 @@ export function TaxRegimeFormModal({
         </div>
 
         <div class="form-dialog-row">
-          <label class="form-dialog-label" for="tax-regime-kind">
-            Kind
-          </label>
-          <div class="form-dialog-control">
-            <select
-              id="tax-regime-kind"
-              class="form-dialog-input"
-              value={form.kind}
-              disabled={isSubmitting}
-              onChange={(event) =>
-                updateField(
-                  "kind",
-                  (event.currentTarget as HTMLSelectElement).value as TaxRegimeKind,
-                )
-              }
-            >
-              {KIND_OPTIONS.map((kind) => (
-                <option key={kind} value={kind}>
-                  {TAX_REGIME_KIND_LABELS[kind]}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div class="form-dialog-row">
-          <label class="form-dialog-label" for="tax-regime-active">
+          <label class="form-dialog-label" for="mill-active">
             Status
           </label>
           <div class="form-dialog-control">
             <label class="form-dialog-checkbox-label">
               <input
-                id="tax-regime-active"
+                id="mill-active"
                 type="checkbox"
                 checked={form.isActive}
                 disabled={isSubmitting}
@@ -180,8 +151,10 @@ export function TaxRegimeFormModal({
               Active
             </label>
             <p class="form-dialog-hint">
-              Inactive tax regimes stay in history but are hidden when assigning to
-              customers.
+              Inactive mills stay in history but are hidden when linking new sales
+              points. Stock at this mill’s storage locations is shown as unsellable
+              in stock views and reports; linked sales points keep selling from their
+              own locations.
             </p>
           </div>
         </div>
@@ -197,7 +170,7 @@ export function TaxRegimeFormModal({
             {isSubmitting
               ? "Saving…"
               : mode === "create"
-                ? "Add tax regime"
+                ? "Add mill"
                 : "Save changes"}
           </button>
           <button

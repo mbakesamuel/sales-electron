@@ -151,6 +151,10 @@ export function CustomerFormModal({
 
   useEffect(() => {
     let cancelled = false;
+    const selectedTaxRegimeId =
+      row?.taxRegimeId != null && row.taxRegimeId !== ""
+        ? String(row.taxRegimeId)
+        : null;
 
     async function loadLookups() {
       try {
@@ -175,10 +179,28 @@ export function CustomerFormModal({
         );
         setTaxRegimes(
           regimes.rows
-            .map((optionRow) => ({
-              id: String(optionRow.id ?? ""),
-              label: buildLabel(optionRow, ["name"]),
-            }))
+            .filter((optionRow) => {
+              const isActive =
+                optionRow.isActive === 1 ||
+                optionRow.isActive === true ||
+                optionRow.isActive == null;
+              const id = String(optionRow.id ?? "");
+              return (
+                isActive ||
+                (selectedTaxRegimeId != null && id === selectedTaxRegimeId)
+              );
+            })
+            .map((optionRow) => {
+              const isActive =
+                optionRow.isActive === 1 ||
+                optionRow.isActive === true ||
+                optionRow.isActive == null;
+              const label = buildLabel(optionRow, ["name"]);
+              return {
+                id: String(optionRow.id ?? ""),
+                label: isActive ? label : `${label} (inactive)`,
+              };
+            })
             .sort((left, right) => left.label.localeCompare(right.label)),
         );
         setCommercialServices(
@@ -199,7 +221,7 @@ export function CustomerFormModal({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [row?.taxRegimeId]);
 
   function setField<K extends FieldKey>(key: K, value: CustomerFormData[K]) {
     setForm((current) => ({ ...current, [key]: value }));

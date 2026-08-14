@@ -18,6 +18,24 @@ function installNativeDialogWorkaround(): void {
   };
 }
 
-installNativeDialogWorkaround();
+const root = document.getElementById("app");
+if (!root) {
+  throw new Error("Missing #app root");
+}
 
-render(<App />, document.getElementById("app")!);
+// Mark that the module bundle executed (static HTML shell watches for this).
+root.dataset.boot = "js-loaded";
+
+try {
+  installNativeDialogWorkaround();
+  // Clear the static boot shell first. Preact diffs against existing #app
+  // children; leaving the shell in place morphs it into Login/Home and
+  // leaves a distorted layout that still looks like "loading".
+  root.replaceChildren();
+  render(<App />, root);
+  root.dataset.boot = "mounted";
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error("Failed to mount app:", error);
+  root.innerHTML = `<div class="boot-shell" role="alert"><div class="boot-shell-inner"><h1 class="boot-shell-title">Startup error</h1><p class="boot-shell-status">${message}</p></div></div>`;
+}

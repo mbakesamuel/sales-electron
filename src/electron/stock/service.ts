@@ -146,9 +146,10 @@ export function getStockBootstrap(userId: string): StockBootstrap {
 
   const storageLocations = db
     .prepare(
-      `SELECT sl.id, sl.salesPointId, l.locationName AS name, sl.isDefault, sl.isSellable
+      `SELECT sl.id, sl.salesPointId, l.locationName AS name, sl.isDefault
        FROM StorageLocation sl
        JOIN Location l ON l.id = sl.locationId
+       WHERE sl.salesPointId IS NOT NULL
        ORDER BY sl.salesPointId ASC, l.locationName ASC`,
     )
     .all()
@@ -157,7 +158,6 @@ export function getStockBootstrap(userId: string): StockBootstrap {
       salesPointId: (row as { salesPointId: number }).salesPointId,
       name: (row as { name: string }).name,
       isDefault: (row as { isDefault: number }).isDefault === 1,
-      isSellable: (row as { isSellable: number }).isSellable === 1,
     }));
 
   const products = db

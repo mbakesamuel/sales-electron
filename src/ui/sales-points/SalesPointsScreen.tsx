@@ -1,5 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { formatDisplayDate as formatDate } from "../../shared/formatDisplayDate.ts";
+import { useEffect, useMemo, useState } from "preact/hooks";
+import {
+  formatDisplayDate as formatDate,
+  formatDisplayDateTime,
+} from "../../shared/formatDisplayDate.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
 
@@ -9,13 +12,20 @@ import { SalesPointFormModal } from "./SalesPointFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "../customers/CustomersScreen.css";
 
-type SortKey = "name" | "millLabel" | "locationCount" | "userCount" | "createdAt";
+type SortKey =
+  | "name"
+  | "millLabel"
+  | "locationCount"
+  | "userCount"
+  | "createdAt"
+  | "isActive";
 type SortDir = "asc" | "desc";
-type ActiveTab = "all" | "linked" | "standalone";
+type ActiveTab = "all" | "active" | "inactive" | "linked" | "standalone";
 
 interface SalesPointRow {
   id: number;
   name: string;
+  isActive: boolean;
   millId: number | null;
   millLabel: string;
   locationCount: number;
@@ -29,18 +39,21 @@ type FormState = { mode: "create" } | { mode: "edit"; row: Record<string, unknow
 
 const PAGE_SIZE = 6;
 
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
+function statusBadgeClass(isActive: boolean): string {
+  return isActive
+    ? "customers-badge customers-badge-emerald"
+    : "customers-badge customers-badge-amber";
 }
 
 function matchesTab(row: SalesPointRow, tab: ActiveTab): boolean {
   if (tab === "all") {
     return true;
+  }
+  if (tab === "active") {
+    return row.isActive;
+  }
+  if (tab === "inactive") {
+    return !row.isActive;
   }
   if (tab === "linked") {
     return row.millId != null;
@@ -52,6 +65,7 @@ function exportCsv(rows: SalesPointRow[]) {
   const headers = [
     "id",
     "name",
+    "isActive",
     "mill",
     "storageLocations",
     "users",
@@ -63,6 +77,7 @@ function exportCsv(rows: SalesPointRow[]) {
     [
       row.id,
       row.name,
+      row.isActive ? "1" : "0",
       row.millLabel,
       row.locationCount,
       row.userCount,
@@ -96,15 +111,6 @@ function IconStore() {
   );
 }
 
-function IconMapPin() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-      <circle cx="12" cy="10" r="3" />
-    </svg>
-  );
-}
-
 function IconUsers() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -112,15 +118,6 @@ function IconUsers() {
       <circle cx="9" cy="7" r="4" />
       <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  );
-}
-
-function IconFactory() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
-      <path d="M17 18h1M12 18h1M7 18h1" />
     </svg>
   );
 }
@@ -152,6 +149,16 @@ function IconDownload() {
   );
 }
 
+function IconPrinter() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M6 9V2h12v7" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <path d="M6 14h12v8H6z" />
+    </svg>
+  );
+}
+
 function IconSliders() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -164,16 +171,6 @@ function IconSliders() {
       <line x1="2" x2="6" y1="14" y2="14" />
       <line x1="10" x2="14" y1="8" y2="8" />
       <line x1="18" x2="22" y1="16" y2="16" />
-    </svg>
-  );
-}
-
-function IconMore() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="5" cy="12" r="1.5" />
-      <circle cx="12" cy="12" r="1.5" />
-      <circle cx="19" cy="12" r="1.5" />
     </svg>
   );
 }
@@ -247,7 +244,7 @@ function IconTrash() {
   );
 }
 
-function ActionMenu({
+function RowActions({
   onView,
   onEdit,
   onDelete,
@@ -258,70 +255,24 @@ function ActionMenu({
   onDelete: () => void;
   canWrite?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    function onPointerDown(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-    window.addEventListener("mousedown", onPointerDown);
-    return () => window.removeEventListener("mousedown", onPointerDown);
-  }, [open]);
-
   return (
-    <div class="customers-actions" ref={rootRef}>
-      <button
-        type="button"
-        class="customers-actions-trigger"
-        aria-label="Actions"
-        onClick={() => setOpen((current) => !current)}
-      >
-        <IconMore />
+    <div class="customers-row-actions">
+      <button type="button" class="customers-row-action-btn" onClick={onView}>
+        <IconEye /> View
       </button>
-      {open ? (
-        <div class="customers-actions-menu">
+      {canWrite ? (
+        <>
+          <button type="button" class="customers-row-action-btn" onClick={onEdit}>
+            <IconPencil /> Edit
+          </button>
           <button
             type="button"
-            class="customers-actions-item"
-            onClick={() => {
-              setOpen(false);
-              onView();
-            }}
+            class="customers-row-action-btn customers-row-action-btn-danger"
+            onClick={onDelete}
           >
-            <IconEye /> View
+            <IconTrash /> Delete
           </button>
-          {canWrite ? (
-            <>
-              <button
-                type="button"
-                class="customers-actions-item"
-                onClick={() => {
-                  setOpen(false);
-                  onEdit();
-                }}
-              >
-                <IconPencil /> Edit
-              </button>
-              <div class="customers-actions-divider" />
-              <button
-                type="button"
-                class="customers-actions-item customers-actions-item-danger"
-                onClick={() => {
-                  setOpen(false);
-                  onDelete();
-                }}
-              >
-                <IconTrash /> Delete
-              </button>
-            </>
-          ) : null}
-        </div>
+        </>
       ) : null}
     </div>
   );
@@ -397,6 +348,7 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
           return {
             id,
             name: String(row.name ?? ""),
+            isActive: row.isActive === 1 || row.isActive === true || row.isActive == null,
             millId,
             millLabel: millId != null ? (millLabels.get(millId) ?? `Mill #${millId}`) : "—",
             locationCount: locationCounts.get(id) ?? 0,
@@ -447,6 +399,8 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
       let result = 0;
       if (sortKey === "locationCount" || sortKey === "userCount") {
         result = left[sortKey] - right[sortKey];
+      } else if (sortKey === "isActive") {
+        result = Number(left.isActive) - Number(right.isActive);
       } else {
         result = String(left[sortKey]).localeCompare(String(right[sortKey]), undefined, {
           numeric: true,
@@ -480,15 +434,15 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
         className: "customers-stat-icon-blue",
       },
       {
-        label: "Storage Locations",
-        value: rows.reduce((sum, row) => sum + row.locationCount, 0),
-        icon: IconMapPin,
+        label: "Active",
+        value: rows.filter((row) => row.isActive).length,
+        icon: IconStore,
         className: "customers-stat-icon-emerald",
       },
       {
-        label: "Linked to Mill",
-        value: rows.filter((row) => row.millId != null).length,
-        icon: IconFactory,
+        label: "Inactive",
+        value: rows.filter((row) => !row.isActive).length,
+        icon: IconStore,
         className: "customers-stat-icon-violet",
       },
       {
@@ -625,6 +579,56 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
     sorted.length === 0 ? 0 : Math.min((currentPage - 1) * PAGE_SIZE + 1, sorted.length);
   const pageEnd = Math.min(currentPage * PAGE_SIZE, sorted.length);
 
+  const printRows =
+    selectedIds.size > 0
+      ? sorted.filter((row) => selectedIds.has(row.id))
+      : sorted;
+
+  const printFilterLabel =
+    activeTab === "all"
+      ? "All sales points"
+      : activeTab === "active"
+        ? "Active sales points"
+        : activeTab === "inactive"
+          ? "Inactive sales points"
+          : activeTab === "linked"
+            ? "Sales points linked to mill"
+            : "Standalone sales points";
+
+  const printGeneratedAt = formatDisplayDateTime(
+    (() => {
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    })(),
+  );
+
+  function printSalesPointList() {
+    if (printRows.length === 0) {
+      return;
+    }
+
+    const style = document.createElement("style");
+    style.id = "sales-points-print-page-style";
+    style.textContent =
+      "@media print { @page { size: A4 portrait; margin: 10mm; } }";
+    document.head.appendChild(style);
+
+    document.body.classList.add("customers-print-mode", "sales-points-print-mode");
+    window.addEventListener(
+      "afterprint",
+      () => {
+        document.body.classList.remove(
+          "customers-print-mode",
+          "sales-points-print-mode",
+        );
+        style.remove();
+      },
+      { once: true },
+    );
+    window.print();
+  }
+
   return (
     <div class="customers-screen">
       <header class="customers-screen-header">
@@ -633,11 +637,19 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
             <IconStore />
           </div>
           <div>
-            <h2 class="customers-screen-brand-title">SalesPoints</h2>
+            <h2 class="customers-screen-brand-title">Sales Points</h2>
             <p class="customers-screen-brand-subtitle">Outlet Management</p>
           </div>
         </div>
         <div class="customers-screen-header-actions">
+          <button
+            type="button"
+            class="customers-btn customers-btn-secondary"
+            disabled={printRows.length === 0}
+            onClick={() => printSalesPointList()}
+          >
+            <IconPrinter /> Print
+          </button>
           <button
             type="button"
             class="customers-btn customers-btn-secondary"
@@ -693,6 +705,8 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
                 {(
                   [
                     ["all", "All"],
+                    ["active", "Active"],
+                    ["inactive", "Inactive"],
                     ["linked", "Linked mill"],
                     ["standalone", "Standalone"],
                   ] as const
@@ -774,6 +788,7 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
                   />
                 </th>
                 <SortableTh label="Sales point" col="name" />
+                <SortableTh label="Status" col="isActive" />
                 <SortableTh label="Mill" col="millLabel" className="customers-col-hide-md" />
                 <SortableTh
                   label="Locations"
@@ -782,19 +797,19 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
                 />
                 <SortableTh label="Users" col="userCount" className="customers-col-hide-lg" />
                 <SortableTh label="Created" col="createdAt" className="customers-col-hide-lg" />
-                <th style="width: 40px;" />
+                <th style="width: 1%;">Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} class="customers-table-empty">
+                  <td colSpan={8} class="customers-table-empty">
                     Loading sales points…
                   </td>
                 </tr>
               ) : paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={7} class="customers-table-empty">
+                  <td colSpan={8} class="customers-table-empty">
                     No sales points match your search.
                   </td>
                 </tr>
@@ -811,12 +826,15 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
                     </td>
                     <td>
                       <div class="customers-name-cell">
-                        <div class="customers-avatar">{initials(row.name)}</div>
                         <div>
                           <p class="customers-name-primary">{row.name}</p>
-                          <span class="customers-badge customers-badge-blue">#{row.id}</span>
                         </div>
                       </div>
+                    </td>
+                    <td>
+                      <span class={statusBadgeClass(row.isActive)}>
+                        {row.isActive ? "Active" : "Inactive"}
+                      </span>
                     </td>
                     <td class="customers-col-hide-md">
                       <span class="customers-contact-mono">{row.millLabel}</span>
@@ -834,11 +852,10 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
                     <td class="customers-col-hide-lg">
                       <div class="customers-dates">
                         <div>{row.createdAt}</div>
-                        <div class="customers-dates-updated">↑ {row.updatedAt}</div>
                       </div>
                     </td>
                     <td>
-                      <ActionMenu
+                      <RowActions
                         canWrite={canWrite}
                         onView={() => setViewRow(row)}
                         onEdit={() => {
@@ -902,6 +919,7 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
           <div class="customers-view-grid">
             {[
               ["ID", String(viewRow.id)],
+              ["Status", viewRow.isActive ? "Active" : "Inactive"],
               ["Mill", viewRow.millLabel],
               ["Storage locations", String(viewRow.locationCount)],
               ["Assigned users", String(viewRow.userCount)],
@@ -937,6 +955,45 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
           </div>
         </FormDialog>
       ) : null}
+
+      <div class="customers-print-document" aria-hidden="true">
+        <header class="customers-print-header">
+          <h1>Sales Point List</h1>
+          <p>
+            {printFilterLabel}
+            {selectedIds.size > 0 ? ` · ${selectedIds.size} selected` : ""}
+            {" · "}
+            {printRows.length} record{printRows.length === 1 ? "" : "s"}
+          </p>
+          <p class="customers-print-generated">Printed {printGeneratedAt}</p>
+        </header>
+        <table class="customers-print-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Status</th>
+              <th>Mill</th>
+              <th>Locations</th>
+              <th>Users</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {printRows.map((row, index) => (
+              <tr key={row.id}>
+                <td>{index + 1}</td>
+                <td>{row.name}</td>
+                <td>{row.isActive ? "Active" : "Inactive"}</td>
+                <td>{row.millLabel}</td>
+                <td>{row.locationCount > 0 ? row.locationCount : "—"}</td>
+                <td>{row.userCount > 0 ? row.userCount : "—"}</td>
+                <td>{row.createdAt}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

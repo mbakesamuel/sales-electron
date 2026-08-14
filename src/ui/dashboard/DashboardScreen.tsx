@@ -76,6 +76,13 @@ export function DashboardScreen() {
     setLoading(true);
     setError(null);
 
+    const timeoutId = window.setTimeout(() => {
+      if (!cancelled) {
+        setError("Dashboard is taking too long to load.");
+        setLoading(false);
+      }
+    }, 15000);
+
     getAuthenticatedDashboard()
       .getSummary()
       .then((data) => {
@@ -89,6 +96,7 @@ export function DashboardScreen() {
         }
       })
       .finally(() => {
+        window.clearTimeout(timeoutId);
         if (!cancelled) {
           setLoading(false);
         }
@@ -96,6 +104,7 @@ export function DashboardScreen() {
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timeoutId);
     };
   }, [reloadKey]);
 

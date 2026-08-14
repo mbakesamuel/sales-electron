@@ -484,7 +484,8 @@ html[data-theme="dark"] .customers-link-btn-muted {
 }
 
 html[data-theme="dark"] .customers-actions-menu,
-html[data-theme="dark"] .customers-actions-item {
+html[data-theme="dark"] .customers-actions-item,
+html[data-theme="dark"] .customers-row-action-btn {
   background: var(--bg-elevated) !important;
   color: var(--text-h) !important;
   border-color: var(--border) !important;
@@ -509,7 +510,8 @@ html[data-theme="dark"] .customers-actions-trigger {
 
 html[data-theme="dark"] .company-settings-actions button:hover,
 html[data-theme="dark"] .customers-actions-trigger:hover,
-html[data-theme="dark"] .customers-actions-item:hover {
+html[data-theme="dark"] .customers-actions-item:hover,
+html[data-theme="dark"] .customers-row-action-btn:hover {
   background: var(--nav-hover) !important;
   color: var(--text-h) !important;
 }
@@ -599,7 +601,8 @@ html[data-theme="dark"] .customers-error,
 html[data-theme="dark"] .form-dialog-error,
 html[data-theme="dark"] .table-data-error,
 html[data-theme="dark"] .stock-btn-danger,
-html[data-theme="dark"] .customers-actions-item-danger {
+html[data-theme="dark"] .customers-actions-item-danger,
+html[data-theme="dark"] .customers-row-action-btn-danger {
   background: rgba(239, 83, 80, 0.12) !important;
   border-color: rgba(239, 83, 80, 0.35) !important;
   color: #ff8a80 !important;

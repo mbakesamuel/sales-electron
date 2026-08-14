@@ -16,7 +16,7 @@ export function resolveSellableStorageLocation(
     const preferred = db
       .prepare(
         `SELECT id FROM StorageLocation
-         WHERE id = ? AND salesPointId = ? AND isSellable = 1`,
+         WHERE id = ? AND salesPointId = ? AND COALESCE(isActive, 1) = 1`,
       )
       .get(preferredLocationId, salesPointId) as { id: number } | undefined;
 
@@ -31,7 +31,7 @@ export function resolveSellableStorageLocation(
         `SELECT sl.id
          FROM StorageLocation sl
          INNER JOIN Location l ON l.id = sl.locationId
-         WHERE sl.salesPointId = ? AND sl.isSellable = 1
+         WHERE sl.salesPointId = ? AND COALESCE(sl.isActive, 1) = 1
            AND LOWER(l.locationName) LIKE '%bottle%'
          ORDER BY sl.isDefault DESC, sl.id ASC
          LIMIT 1`,
@@ -46,14 +46,16 @@ export function resolveSellableStorageLocation(
   const fallback = db
     .prepare(
       `SELECT id FROM StorageLocation
-       WHERE salesPointId = ? AND isSellable = 1
+       WHERE salesPointId = ? AND COALESCE(isActive, 1) = 1
        ORDER BY isDefault DESC, id ASC
        LIMIT 1`,
     )
     .get(salesPointId) as { id: number } | undefined;
 
   if (!fallback) {
-    throw new Error("No sellable storage location is configured for this sales point.");
+    throw new Error(
+      "No active storage location is configured for this sales point.",
+    );
   }
 
   return fallback.id;

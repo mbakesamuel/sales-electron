@@ -1,4 +1,5 @@
 import type { BottledPackColumn } from "../../shared/reports.types.js";
+import { isStorageLocationEffectivelySellable } from "../../shared/storageLocationSellability.js";
 import { getDatabase } from "../db/index.js";
 
 export const PALM_OIL_KG_PER_LITRE = 0.85;
@@ -12,9 +13,13 @@ export interface SalesPointRow {
 
 export interface StorageLocationRow {
   id: number;
-  salesPointId: number;
+  salesPointId: number | null;
+  millId: number | null;
   name: string;
-  isSellable: boolean;
+  isActive: boolean;
+  millIsActive: boolean | null;
+  /** Derived: SP locations active → true; mill-owned → Mill.isActive. */
+  effectivelySellable: boolean;
 }
 
 export interface ProductRow {
@@ -51,18 +56,46 @@ export function loadSalesPoints(): SalesPointRow[] {
 export function loadStorageLocations(): StorageLocationRow[] {
   return getDatabase()
     .prepare(
-      `SELECT sl.id, sl.salesPointId, l.locationName AS name, sl.isSellable
+      `SELECT sl.id, sl.salesPointId, sl.millId, l.locationName AS name,
+              COALESCE(sl.isActive, 1) AS isActive,
+              m.isActive AS millIsActive
        FROM StorageLocation sl
        INNER JOIN Location l ON l.id = sl.locationId
-       ORDER BY sl.salesPointId ASC, l.locationName ASC`,
+       LEFT JOIN Mill m ON m.id = sl.millId
+       ORDER BY COALESCE(sl.salesPointId, sl.millId) ASC, l.locationName ASC`,
     )
     .all()
-    .map((row) => ({
-      id: (row as { id: number }).id,
-      salesPointId: (row as { salesPointId: number }).salesPointId,
-      name: (row as { name: string }).name,
-      isSellable: (row as { isSellable: number }).isSellable === 1,
-    }));
+    .map((row) => {
+      const salesPointId =
+        (row as { salesPointId: number | null }).salesPointId != null
+          ? Number((row as { salesPointId: number }).salesPointId)
+          : null;
+      const millId =
+        (row as { millId: number | null }).millId != null
+          ? Number((row as { millId: number }).millId)
+          : null;
+      const isActive = (row as { isActive: number }).isActive === 1;
+      const millIsActiveRaw = (row as { millIsActive: number | null }).millIsActive;
+      const millIsActive =
+        millId == null
+          ? null
+          : millIsActiveRaw === 1 || millIsActiveRaw == null
+            ? true
+            : false;
+      return {
+        id: (row as { id: number }).id,
+        salesPointId,
+        millId,
+        name: (row as { name: string }).name,
+        isActive,
+        millIsActive,
+        effectivelySellable: isStorageLocationEffectivelySellable({
+          millId,
+          millIsActive,
+          isActive,
+        }),
+      };
+    });
 }
 
 export function loadProducts(): ProductRow[] {

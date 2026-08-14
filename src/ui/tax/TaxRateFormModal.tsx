@@ -21,6 +21,7 @@ interface FormData {
   rateKind: TaxRateKind;
   ratePercent: string;
   effectiveFrom: string;
+  isActive: boolean;
 }
 
 function toPercentInput(stored: string | number | null | undefined): string {
@@ -38,6 +39,7 @@ function initForm(mode: "create" | "edit", row?: Record<string, unknown>): FormD
       rateKind: "VAT",
       ratePercent: "19.25",
       effectiveFrom: todayIsoDate(),
+      isActive: true,
     };
   }
 
@@ -46,6 +48,7 @@ function initForm(mode: "create" | "edit", row?: Record<string, unknown>): FormD
     rateKind: TAX_RATE_KINDS.includes(kind) ? kind : "VAT",
     ratePercent: toPercentInput(row.rate as string | number | null),
     effectiveFrom: String(row.effectiveFrom ?? todayIsoDate()).slice(0, 10),
+    isActive: row.isActive === 1 || row.isActive === true || row.isActive == null,
   };
 }
 
@@ -91,6 +94,7 @@ export function TaxRateFormModal({
       rateKind: form.rateKind,
       rate: String(percent / 100),
       effectiveFrom,
+      isActive: form.isActive ? 1 : 0,
       updatedAt: now,
     };
 
@@ -205,18 +209,54 @@ export function TaxRateFormModal({
           </div>
         </div>
 
+        <div class="form-dialog-row">
+          <label class="form-dialog-label" for="tax-rate-active">
+            Status
+          </label>
+          <div class="form-dialog-control">
+            <label class="form-dialog-checkbox-label">
+              <input
+                id="tax-rate-active"
+                type="checkbox"
+                checked={form.isActive}
+                disabled={isSubmitting}
+                onChange={(event) =>
+                  updateField(
+                    "isActive",
+                    (event.currentTarget as HTMLInputElement).checked,
+                  )
+                }
+              />
+              Active
+            </label>
+            <p class="form-dialog-hint">
+              Inactive tax rates stay in history but are hidden when resolving current
+              rates.
+            </p>
+          </div>
+        </div>
+
         {error ? <p class="form-dialog-error">{error}</p> : null}
 
         <div class="form-dialog-actions">
-          <button type="button" class="form-dialog-btn-ghost" onClick={onClose}>
-            Cancel
-          </button>
           <button
             type="submit"
             class="form-dialog-btn-primary"
             disabled={isSubmitting}
           >
-            {isSubmitting ? "Saving…" : "Save"}
+            {isSubmitting
+              ? "Saving…"
+              : mode === "create"
+                ? "Add tax rate"
+                : "Save changes"}
+          </button>
+          <button
+            type="button"
+            class="form-dialog-btn-secondary"
+            disabled={isSubmitting}
+            onClick={onClose}
+          >
+            Cancel
           </button>
         </div>
       </form>

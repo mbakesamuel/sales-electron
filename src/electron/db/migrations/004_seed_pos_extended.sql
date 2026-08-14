@@ -8,11 +8,10 @@ INSERT INTO Location (locationName)
 SELECT 'Bottle Oil Store'
 WHERE NOT EXISTS (SELECT 1 FROM Location WHERE locationName = 'Bottle Oil Store');
 
-INSERT INTO StorageLocation (salesPointId, locationId, isDefault, isSellable)
+INSERT INTO StorageLocation (salesPointId, locationId, isDefault)
 SELECT
   2,
   (SELECT id FROM Location WHERE locationName = 'Bottle Oil Store' LIMIT 1),
-  1,
   1
 WHERE NOT EXISTS (
   SELECT 1 FROM StorageLocation sl

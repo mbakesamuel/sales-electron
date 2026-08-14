@@ -71,6 +71,7 @@ function createWindow(): BrowserWindow {
     width: 1000,
     height: 800,
     title: "Sales Management Application",
+    backgroundColor: "#f4f7eb",
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,

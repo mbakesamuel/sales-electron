@@ -17,6 +17,7 @@
     "transpile:electron": "tsc -p tsconfig.electron.json && node --input-type=module -e \"import fs from 'fs'; fs.cpSync('src/electron/db/migrations','dist-electron/electron/db/migrations',{recursive:true}); fs.copyFileSync('src/electron/preload.cjs','dist-electron/electron/preload.cjs'); try { fs.unlinkSync('dist-electron/electron/preload.js'); } catch {} try { fs.unlinkSync('dist-electron/electron/preload.js.map'); } catch {}\"",
     "transpile:electron:watch": "tsc -p tsconfig.electron.json --watch",
     "db:reset": "node scripts/db-reset.mjs",
+    "db:clear-stock": "npm run transpile:electron && electron scripts/db-clear-stock.mjs --",
     "db:seed": "npm run transpile:electron && electron scripts/db-seed.mjs",
     "db:generate-schema": "node scripts/generate-schema-sql.mjs",
     "db:verify": "npm run transpile:electron && electron scripts/verify-schema-electron.mjs",

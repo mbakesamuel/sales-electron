@@ -8,19 +8,19 @@ import { getAuthenticatedDb } from "../auth/db.ts";
 
 import { FormDialog } from "../components/FormDialog.tsx";
 import "../components/FormDialog.css";
-import { LocationFormModal } from "./LocationFormModal.tsx";
+import { MillFormModal } from "./MillFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "../customers/CustomersScreen.css";
 
-type SortKey = "locationName" | "storageLocationCount" | "createdAt" | "isActive";
+type SortKey = "name" | "salesPointCount" | "createdAt" | "isActive";
 type SortDir = "asc" | "desc";
-type ActiveTab = "all" | "active" | "inactive";
+type ActiveTab = "all" | "active" | "inactive" | "withOutlets" | "unused";
 
-interface LocationRow {
+interface MillRow {
   id: number;
-  locationName: string;
+  name: string;
   isActive: boolean;
-  storageLocationCount: number;
+  salesPointCount: number;
   createdAt: string;
   updatedAt: string;
   raw: Record<string, unknown>;
@@ -36,31 +36,30 @@ function statusBadgeClass(isActive: boolean): string {
     : "customers-badge customers-badge-amber";
 }
 
-function matchesTab(row: LocationRow, tab: ActiveTab): boolean {
+function matchesTab(row: MillRow, tab: ActiveTab): boolean {
   if (tab === "all") {
     return true;
   }
   if (tab === "active") {
     return row.isActive;
   }
-  return !row.isActive;
+  if (tab === "inactive") {
+    return !row.isActive;
+  }
+  if (tab === "withOutlets") {
+    return row.salesPointCount > 0;
+  }
+  return row.salesPointCount === 0;
 }
 
-function exportCsv(rows: LocationRow[]) {
-  const headers = [
-    "id",
-    "locationName",
-    "isActive",
-    "storageLocations",
-    "createdAt",
-    "updatedAt",
-  ];
+function exportCsv(rows: MillRow[]) {
+  const headers = ["id", "name", "isActive", "salesPoints", "createdAt", "updatedAt"];
   const lines = rows.map((row) =>
     [
       row.id,
-      row.locationName,
+      row.name,
       row.isActive ? "1" : "0",
-      row.storageLocationCount,
+      row.salesPointCount,
       row.createdAt,
       row.updatedAt,
     ]
@@ -73,25 +72,28 @@ function exportCsv(rows: LocationRow[]) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `locations-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.download = `mills-${new Date().toISOString().slice(0, 10)}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }
 
-function IconMapPin() {
+function IconFactory() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-      <circle cx="12" cy="10" r="3" />
+      <path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+      <path d="M17 18h1M12 18h1M7 18h1" />
     </svg>
   );
 }
 
-function IconWarehouse() {
+function IconStore() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M22 8.35V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.35A2 2 0 0 1 3.26 6.5l8-3.2a2 2 0 0 1 1.48 0l8 3.2A2 2 0 0 1 22 8.35Z" />
-      <path d="M6 18h12M6 14h12M6 10h12" />
+      <path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" />
+      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+      <path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4" />
+      <path d="M2 7h20" />
+      <path d="M22 7v3a2 2 0 0 1-2 2a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7" />
     </svg>
   );
 }
@@ -252,25 +254,25 @@ function RowActions({
   );
 }
 
-interface LocationsScreenProps {
+interface MillsScreenProps {
   readOnly?: boolean;
 }
 
-export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {}) {
+export function MillsScreen({ readOnly = false }: MillsScreenProps = {}) {
   const canWrite = !readOnly;
-  const [rows, setRows] = useState<LocationRow[]>([]);
+  const [rows, setRows] = useState<MillRow[]>([]);
   const [schema, setSchema] = useState<TableSchema | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("locationName");
+  const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [activeTab, setActiveTab] = useState<ActiveTab>("all");
   const [formState, setFormState] = useState<FormState | null>(null);
-  const [viewRow, setViewRow] = useState<LocationRow | null>(null);
+  const [viewRow, setViewRow] = useState<MillRow | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -281,33 +283,36 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
       setError(null);
       try {
         const api = getElectronApi();
-        const [locationResult, storageResult, tableSchema] = await Promise.all([
-          api.db.queryTable({ table: "Location", limit: 500 }),
-          api.db.queryTable({ table: "StorageLocation", limit: 1000 }),
-          api.db.getTableSchema("Location"),
+        const [millResult, salesPointResult, tableSchema] = await Promise.all([
+          api.db.queryTable({ table: "Mill", limit: 200 }),
+          api.db.queryTable({ table: "SalesPoint", limit: 500 }),
+          api.db.getTableSchema("Mill"),
         ]);
 
         if (cancelled) {
           return;
         }
 
-        const storageCounts = new Map<number, number>();
-        for (const storage of storageResult.rows) {
-          const locationId = Number(storage.locationId);
-          storageCounts.set(locationId, (storageCounts.get(locationId) ?? 0) + 1);
+        const salesPointCounts = new Map<number, number>();
+        for (const salesPoint of salesPointResult.rows) {
+          if (salesPoint.millId == null || salesPoint.millId === "") {
+            continue;
+          }
+          const millId = Number(salesPoint.millId);
+          salesPointCounts.set(millId, (salesPointCounts.get(millId) ?? 0) + 1);
         }
 
-        const mapped = locationResult.rows.map((row) => {
+        const mapped = millResult.rows.map((row) => {
           const id = Number(row.id);
           return {
             id,
-            locationName: String(row.locationName ?? ""),
+            name: String(row.name ?? ""),
             isActive: row.isActive === 1 || row.isActive === true || row.isActive == null,
-            storageLocationCount: storageCounts.get(id) ?? 0,
+            salesPointCount: salesPointCounts.get(id) ?? 0,
             createdAt: formatDate(row.createdAt),
             updatedAt: formatDate(row.updatedAt),
             raw: row,
-          } satisfies LocationRow;
+          } satisfies MillRow;
         });
 
         setRows(mapped);
@@ -316,7 +321,7 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
       } catch (loadError) {
         if (!cancelled) {
           setRows([]);
-          setError(loadError instanceof Error ? loadError.message : "Failed to load locations.");
+          setError(loadError instanceof Error ? loadError.message : "Failed to load mills.");
         }
       } finally {
         if (!cancelled) {
@@ -334,7 +339,7 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     return rows.filter((row) => {
-      const matchSearch = !query || row.locationName.toLowerCase().includes(query);
+      const matchSearch = !query || row.name.toLowerCase().includes(query);
       return matchSearch && matchesTab(row, activeTab);
     });
   }, [rows, search, activeTab]);
@@ -343,8 +348,8 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
     const next = [...filtered];
     next.sort((left, right) => {
       let result = 0;
-      if (sortKey === "storageLocationCount") {
-        result = left.storageLocationCount - right.storageLocationCount;
+      if (sortKey === "salesPointCount") {
+        result = left.salesPointCount - right.salesPointCount;
       } else if (sortKey === "isActive") {
         result = Number(left.isActive) - Number(right.isActive);
       } else {
@@ -374,27 +379,27 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
   const stats = useMemo(
     () => [
       {
-        label: "Total Locations",
+        label: "Total Mills",
         value: rows.length,
-        icon: IconMapPin,
+        icon: IconFactory,
         className: "customers-stat-icon-blue",
       },
       {
         label: "Active",
         value: rows.filter((row) => row.isActive).length,
-        icon: IconMapPin,
+        icon: IconFactory,
         className: "customers-stat-icon-emerald",
       },
       {
         label: "Inactive",
         value: rows.filter((row) => !row.isActive).length,
-        icon: IconMapPin,
+        icon: IconFactory,
         className: "customers-stat-icon-violet",
       },
       {
-        label: "Storage Assignments",
-        value: rows.reduce((sum, row) => sum + row.storageLocationCount, 0),
-        icon: IconWarehouse,
+        label: "Linked Sales Points",
+        value: rows.reduce((sum, row) => sum + row.salesPointCount, 0),
+        icon: IconStore,
         className: "customers-stat-icon-amber",
       },
     ],
@@ -443,12 +448,12 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
     });
   }
 
-  async function deleteLocation(row: LocationRow) {
+  async function deleteMill(row: MillRow) {
     if (!schema) {
       return;
     }
     const confirmed = window.confirm(
-      `Delete location "${row.locationName}"? This cannot be undone.`,
+      `Delete mill "${row.name}"? This cannot be undone.`,
     );
     if (!confirmed) {
       return;
@@ -456,13 +461,13 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
     setActionError(null);
     try {
       await getAuthenticatedDb().deleteRow({
-        table: "Location",
+        table: "Mill",
         primaryKey: { id: row.id },
       });
       refreshRows();
     } catch (deleteError) {
       setActionError(
-        deleteError instanceof Error ? deleteError.message : "Failed to delete location.",
+        deleteError instanceof Error ? deleteError.message : "Failed to delete mill.",
       );
     }
   }
@@ -472,7 +477,7 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
       return;
     }
     const confirmed = window.confirm(
-      `Delete ${selectedIds.size} selected location(s)? This cannot be undone.`,
+      `Delete ${selectedIds.size} selected mill(s)? This cannot be undone.`,
     );
     if (!confirmed) {
       return;
@@ -481,7 +486,7 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
     try {
       for (const row of rows.filter((item) => selectedIds.has(item.id))) {
         await getAuthenticatedDb().deleteRow({
-          table: "Location",
+          table: "Mill",
           primaryKey: { id: row.id },
         });
       }
@@ -490,7 +495,7 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
       setActionError(
         deleteError instanceof Error
           ? deleteError.message
-          : "Failed to delete selected locations.",
+          : "Failed to delete selected mills.",
       );
     }
   }
@@ -532,10 +537,14 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
 
   const printFilterLabel =
     activeTab === "all"
-      ? "All locations"
+      ? "All mills"
       : activeTab === "active"
-        ? "Active locations"
-        : "Inactive locations";
+        ? "Active mills"
+        : activeTab === "inactive"
+          ? "Inactive mills"
+          : activeTab === "withOutlets"
+            ? "Mills with outlets"
+            : "Unused mills";
 
   const printGeneratedAt = formatDisplayDateTime(
     (() => {
@@ -545,22 +554,22 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
     })(),
   );
 
-  function printLocationList() {
+  function printMillList() {
     if (printRows.length === 0) {
       return;
     }
 
     const style = document.createElement("style");
-    style.id = "locations-print-page-style";
+    style.id = "mills-print-page-style";
     style.textContent =
       "@media print { @page { size: A4 portrait; margin: 10mm; } }";
     document.head.appendChild(style);
 
-    document.body.classList.add("customers-print-mode", "locations-print-mode");
+    document.body.classList.add("customers-print-mode", "mills-print-mode");
     window.addEventListener(
       "afterprint",
       () => {
-        document.body.classList.remove("customers-print-mode", "locations-print-mode");
+        document.body.classList.remove("customers-print-mode", "mills-print-mode");
         style.remove();
       },
       { once: true },
@@ -573,11 +582,11 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
       <header class="customers-screen-header">
         <div class="customers-screen-brand">
           <div class="customers-screen-brand-icon">
-            <IconMapPin />
+            <IconFactory />
           </div>
           <div>
-            <h2 class="customers-screen-brand-title">Locations</h2>
-            <p class="customers-screen-brand-subtitle">Location Catalog</p>
+            <h2 class="customers-screen-brand-title">Mills</h2>
+            <p class="customers-screen-brand-subtitle">Mill Management</p>
           </div>
         </div>
         <div class="customers-screen-header-actions">
@@ -585,7 +594,7 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
             type="button"
             class="customers-btn customers-btn-secondary"
             disabled={printRows.length === 0}
-            onClick={() => printLocationList()}
+            onClick={() => printMillList()}
           >
             <IconPrinter /> Print
           </button>
@@ -607,7 +616,7 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
                 setFormState({ mode: "create" });
               }}
             >
-              <IconPlus /> Add Location
+              <IconPlus /> Add Mill
             </button>
           ) : null}
         </div>
@@ -634,7 +643,7 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
         <div class="customers-card-toolbar">
           <div class="customers-card-toolbar-row">
             <div>
-              <h3 class="customers-card-title">All Locations</h3>
+              <h3 class="customers-card-title">All Mills</h3>
               <p class="customers-card-subtitle">
                 {isLoading ? "Loading…" : `${filtered.length} records`}
               </p>
@@ -646,6 +655,8 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
                     ["all", "All"],
                     ["active", "Active"],
                     ["inactive", "Inactive"],
+                    ["withOutlets", "With outlets"],
+                    ["unused", "Unused"],
                   ] as const
                 ).map(([tab, label]) => (
                   <button
@@ -667,7 +678,7 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
                   class="customers-search"
                   type="search"
                   value={search}
-                  placeholder="Search locations…"
+                  placeholder="Search mills…"
                   onInput={(event) => {
                     setSearch((event.currentTarget as HTMLInputElement).value);
                     setPage(1);
@@ -724,11 +735,11 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
                     onChange={toggleSelectAll}
                   />
                 </th>
-                <SortableTh label="Location" col="locationName" />
+                <SortableTh label="Name of Mill" col="name" />
                 <SortableTh label="Status" col="isActive" />
                 <SortableTh
-                  label="Storage assignments"
-                  col="storageLocationCount"
+                  label="Sales points"
+                  col="salesPointCount"
                   className="customers-col-hide-md"
                 />
                 <SortableTh label="Created" col="createdAt" className="customers-col-hide-lg" />
@@ -739,13 +750,13 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
               {isLoading ? (
                 <tr>
                   <td colSpan={6} class="customers-table-empty">
-                    Loading locations…
+                    Loading mills…
                   </td>
                 </tr>
               ) : paginated.length === 0 ? (
                 <tr>
                   <td colSpan={6} class="customers-table-empty">
-                    No locations match your search.
+                    No mills match your search.
                   </td>
                 </tr>
               ) : (
@@ -762,7 +773,7 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
                     <td>
                       <div class="customers-name-cell">
                         <div>
-                          <p class="customers-name-primary">{row.locationName}</p>
+                          <p class="customers-name-primary">{row.name}</p>
                         </div>
                       </div>
                     </td>
@@ -773,7 +784,7 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
                     </td>
                     <td class="customers-col-hide-md">
                       <span class="customers-contact-mono">
-                        {row.storageLocationCount > 0 ? row.storageLocationCount : "—"}
+                        {row.salesPointCount > 0 ? row.salesPointCount : "—"}
                       </span>
                     </td>
                     <td class="customers-col-hide-lg">
@@ -789,7 +800,7 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
                           setViewRow(null);
                           setFormState({ mode: "edit", row: row.raw });
                         }}
-                        onDelete={() => void deleteLocation(row)}
+                        onDelete={() => void deleteMill(row)}
                       />
                     </td>
                   </tr>
@@ -828,7 +839,7 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
       </div>
 
       {formState ? (
-        <LocationFormModal
+        <MillFormModal
           mode={formState.mode}
           row={formState.mode === "edit" ? formState.row : undefined}
           onClose={() => setFormState(null)}
@@ -838,16 +849,16 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
 
       {viewRow ? (
         <FormDialog
-          ariaLabel={`View ${viewRow.locationName}`}
-          title={viewRow.locationName}
-          subtitle="Location details"
+          ariaLabel={`View ${viewRow.name}`}
+          title={viewRow.name}
+          subtitle="Mill details"
           onClose={() => setViewRow(null)}
         >
           <div class="customers-view-grid">
             {[
               ["ID", String(viewRow.id)],
               ["Status", viewRow.isActive ? "Active" : "Inactive"],
-              ["Storage assignments", String(viewRow.storageLocationCount)],
+              ["Sales points", String(viewRow.salesPointCount)],
               ["Created", viewRow.createdAt],
               ["Updated", viewRow.updatedAt],
             ].map(([label, value]) => (
@@ -857,6 +868,13 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
               </div>
             ))}
           </div>
+          {!viewRow.isActive ? (
+            <p class="form-dialog-hint" style="margin-top: 8px;">
+              Inactive: stock at this mill’s storage locations is treated as
+              unsellable in stock views and reports. Sales points linked to this mill
+              still sell from their own storage locations.
+            </p>
+          ) : null}
           <div class="form-dialog-actions" style="padding-left: 0; margin-top: 12px;">
             {canWrite ? (
               <button
@@ -867,7 +885,7 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
                   setFormState({ mode: "edit", row: viewRow.raw });
                 }}
               >
-                Edit location
+                Edit mill
               </button>
             ) : null}
             <button
@@ -883,7 +901,7 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
 
       <div class="customers-print-document" aria-hidden="true">
         <header class="customers-print-header">
-          <h1>Location List</h1>
+          <h1>Mill List</h1>
           <p>
             {printFilterLabel}
             {selectedIds.size > 0 ? ` · ${selectedIds.size} selected` : ""}
@@ -898,7 +916,7 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
               <th>#</th>
               <th>Name</th>
               <th>Status</th>
-              <th>Storage assignments</th>
+              <th>Sales points</th>
               <th>Created</th>
             </tr>
           </thead>
@@ -906,11 +924,9 @@ export function LocationsScreen({ readOnly = false }: LocationsScreenProps = {})
             {printRows.map((row, index) => (
               <tr key={row.id}>
                 <td>{index + 1}</td>
-                <td>{row.locationName}</td>
+                <td>{row.name}</td>
                 <td>{row.isActive ? "Active" : "Inactive"}</td>
-                <td>
-                  {row.storageLocationCount > 0 ? row.storageLocationCount : "—"}
-                </td>
+                <td>{row.salesPointCount > 0 ? row.salesPointCount : "—"}</td>
                 <td>{row.createdAt}</td>
               </tr>
             ))}

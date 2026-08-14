@@ -1,5 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { formatDisplayDate as formatDate } from "../../shared/formatDisplayDate.ts";
+import { useEffect, useMemo, useState } from "preact/hooks";
+import {
+  formatDisplayDate as formatDate,
+  formatDisplayDateTime,
+} from "../../shared/formatDisplayDate.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
 import {
@@ -13,13 +16,14 @@ import { TaxRegimeFormModal } from "./TaxRegimeFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "../customers/CustomersScreen.css";
 
-type SortKey = "name" | "kind" | "customerCount" | "createdAt";
+type SortKey = "name" | "kind" | "customerCount" | "createdAt" | "isActive";
 type SortDir = "asc" | "desc";
-type ActiveTab = "all" | TaxRegimeKind;
+type ActiveTab = "all" | "active" | "inactive" | TaxRegimeKind;
 
 interface TaxRegimeRow {
   id: string;
   name: string;
+  isActive: boolean;
   kind: TaxRegimeKind;
   kindLabel: string;
   customerCount: number;
@@ -32,13 +36,10 @@ type FormState = { mode: "create" } | { mode: "edit"; row: Record<string, unknow
 
 const PAGE_SIZE = 6;
 
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
+function statusBadgeClass(isActive: boolean): string {
+  return isActive
+    ? "customers-badge customers-badge-emerald"
+    : "customers-badge customers-badge-amber";
 }
 
 function kindBadgeClass(kind: TaxRegimeKind): string {
@@ -47,10 +48,39 @@ function kindBadgeClass(kind: TaxRegimeKind): string {
     : "customers-badge customers-badge-blue";
 }
 
+function matchesTab(row: TaxRegimeRow, tab: ActiveTab): boolean {
+  if (tab === "all") {
+    return true;
+  }
+  if (tab === "active") {
+    return row.isActive;
+  }
+  if (tab === "inactive") {
+    return !row.isActive;
+  }
+  return row.kind === tab;
+}
+
 function exportCsv(rows: TaxRegimeRow[]) {
-  const headers = ["id", "name", "kind", "customerCount", "createdAt", "updatedAt"];
+  const headers = [
+    "id",
+    "name",
+    "isActive",
+    "kind",
+    "customerCount",
+    "createdAt",
+    "updatedAt",
+  ];
   const lines = rows.map((row) =>
-    [row.id, row.name, row.kind, row.customerCount, row.createdAt, row.updatedAt]
+    [
+      row.id,
+      row.name,
+      row.isActive ? "1" : "0",
+      row.kind,
+      row.customerCount,
+      row.createdAt,
+      row.updatedAt,
+    ]
       .map((value) => `"${String(value).replace(/"/g, '""')}"`)
       .join(","),
   );
@@ -115,12 +145,12 @@ function IconDownload() {
   );
 }
 
-function IconMore() {
+function IconPrinter() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="5" cy="12" r="1.5" />
-      <circle cx="12" cy="12" r="1.5" />
-      <circle cx="19" cy="12" r="1.5" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M6 9V2h12v7" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <path d="M6 14h12v8H6z" />
     </svg>
   );
 }
@@ -194,7 +224,7 @@ function IconTrash() {
   );
 }
 
-function ActionMenu({
+function RowActions({
   onView,
   onEdit,
   onDelete,
@@ -205,66 +235,24 @@ function ActionMenu({
   onDelete: () => void;
   canWrite?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onPointerDown(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    }
-    window.addEventListener("mousedown", onPointerDown);
-    return () => window.removeEventListener("mousedown", onPointerDown);
-  }, [open]);
-
   return (
-    <div class="customers-actions" ref={rootRef}>
-      <button
-        type="button"
-        class="customers-actions-trigger"
-        aria-label="Actions"
-        onClick={() => setOpen((current) => !current)}
-      >
-        <IconMore />
+    <div class="customers-row-actions">
+      <button type="button" class="customers-row-action-btn" onClick={onView}>
+        <IconEye /> View
       </button>
-      {open ? (
-        <div class="customers-actions-menu">
+      {canWrite ? (
+        <>
+          <button type="button" class="customers-row-action-btn" onClick={onEdit}>
+            <IconPencil /> Edit
+          </button>
           <button
             type="button"
-            class="customers-actions-item"
-            onClick={() => {
-              setOpen(false);
-              onView();
-            }}
+            class="customers-row-action-btn customers-row-action-btn-danger"
+            onClick={onDelete}
           >
-            <IconEye /> View
+            <IconTrash /> Delete
           </button>
-          {canWrite ? (
-            <>
-              <button
-                type="button"
-                class="customers-actions-item"
-                onClick={() => {
-                  setOpen(false);
-                  onEdit();
-                }}
-              >
-                <IconPencil /> Edit
-              </button>
-              <div class="customers-actions-divider" />
-              <button
-                type="button"
-                class="customers-actions-item customers-actions-item-danger"
-                onClick={() => {
-                  setOpen(false);
-                  onDelete();
-                }}
-              >
-                <IconTrash /> Delete
-              </button>
-            </>
-          ) : null}
-        </div>
+        </>
       ) : null}
     </div>
   );
@@ -282,7 +270,7 @@ export function TaxRegimesScreen({ readOnly = false }: TaxRegimesScreenProps = {
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [tab, setTab] = useState<ActiveTab>("all");
+  const [activeTab, setActiveTab] = useState<ActiveTab>("all");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [page, setPage] = useState(1);
@@ -320,6 +308,7 @@ export function TaxRegimesScreen({ readOnly = false }: TaxRegimesScreenProps = {
           return {
             id,
             name: String(row.name ?? ""),
+            isActive: row.isActive === 1 || row.isActive === true || row.isActive == null,
             kind,
             kindLabel: TAX_REGIME_KIND_LABELS[kind],
             customerCount: counts.get(id) ?? 0,
@@ -353,15 +342,14 @@ export function TaxRegimesScreen({ readOnly = false }: TaxRegimesScreenProps = {
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     return rows.filter((row) => {
-      if (tab !== "all" && row.kind !== tab) return false;
-      if (!query) return true;
-      return (
+      const matchSearch =
+        !query ||
         row.name.toLowerCase().includes(query) ||
         row.kindLabel.toLowerCase().includes(query) ||
-        row.id.toLowerCase().includes(query)
-      );
+        row.id.toLowerCase().includes(query);
+      return matchSearch && matchesTab(row, activeTab);
     });
-  }, [rows, search, tab]);
+  }, [rows, search, activeTab]);
 
   const sorted = useMemo(() => {
     const next = [...filtered];
@@ -369,6 +357,8 @@ export function TaxRegimesScreen({ readOnly = false }: TaxRegimesScreenProps = {
       let result = 0;
       if (sortKey === "customerCount") {
         result = left.customerCount - right.customerCount;
+      } else if (sortKey === "isActive") {
+        result = Number(left.isActive) - Number(right.isActive);
       } else {
         result = String(left[sortKey]).localeCompare(String(right[sortKey]), undefined, {
           numeric: true,
@@ -400,8 +390,14 @@ export function TaxRegimesScreen({ readOnly = false }: TaxRegimesScreenProps = {
         className: "customers-stat-icon-blue",
       },
       {
-        label: "Actual",
-        value: rows.filter((row) => row.kind === "REAL").length,
+        label: "Active",
+        value: rows.filter((row) => row.isActive).length,
+        icon: IconScale,
+        className: "customers-stat-icon-emerald",
+      },
+      {
+        label: "Inactive",
+        value: rows.filter((row) => !row.isActive).length,
         icon: IconScale,
         className: "customers-stat-icon-violet",
       },
@@ -409,7 +405,7 @@ export function TaxRegimesScreen({ readOnly = false }: TaxRegimesScreenProps = {
         label: "Customers linked",
         value: rows.reduce((sum, row) => sum + row.customerCount, 0),
         icon: IconUsers,
-        className: "customers-stat-icon-emerald",
+        className: "customers-stat-icon-amber",
       },
     ],
     [rows],
@@ -504,9 +500,61 @@ export function TaxRegimesScreen({ readOnly = false }: TaxRegimesScreenProps = {
 
   const tabs: Array<{ id: ActiveTab; label: string }> = [
     { id: "all", label: "All" },
+    { id: "active", label: "Active" },
+    { id: "inactive", label: "Inactive" },
     { id: "REAL", label: "Actual" },
     { id: "SIMPLIFIED", label: "Simplified" },
   ];
+
+  const printRows =
+    selectedIds.size > 0
+      ? sorted.filter((row) => selectedIds.has(row.id))
+      : sorted;
+
+  const printFilterLabel =
+    activeTab === "all"
+      ? "All tax regimes"
+      : activeTab === "active"
+        ? "Active tax regimes"
+        : activeTab === "inactive"
+          ? "Inactive tax regimes"
+          : activeTab === "REAL"
+            ? "Actual tax regimes"
+            : "Simplified tax regimes";
+
+  const printGeneratedAt = formatDisplayDateTime(
+    (() => {
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    })(),
+  );
+
+  function printTaxRegimeList() {
+    if (printRows.length === 0) {
+      return;
+    }
+
+    const style = document.createElement("style");
+    style.id = "tax-regimes-print-page-style";
+    style.textContent =
+      "@media print { @page { size: A4 portrait; margin: 10mm; } }";
+    document.head.appendChild(style);
+
+    document.body.classList.add("customers-print-mode", "tax-regimes-print-mode");
+    window.addEventListener(
+      "afterprint",
+      () => {
+        document.body.classList.remove(
+          "customers-print-mode",
+          "tax-regimes-print-mode",
+        );
+        style.remove();
+      },
+      { once: true },
+    );
+    window.print();
+  }
 
   return (
     <div class="customers-screen">
@@ -521,6 +569,14 @@ export function TaxRegimesScreen({ readOnly = false }: TaxRegimesScreenProps = {
           </div>
         </div>
         <div class="customers-screen-header-actions">
+          <button
+            type="button"
+            class="customers-btn customers-btn-secondary"
+            disabled={printRows.length === 0}
+            onClick={() => printTaxRegimeList()}
+          >
+            <IconPrinter /> Print
+          </button>
           <button
             type="button"
             class="customers-btn customers-btn-secondary"
@@ -572,6 +628,21 @@ export function TaxRegimesScreen({ readOnly = false }: TaxRegimesScreenProps = {
               </p>
             </div>
             <div class="customers-card-controls">
+              <div class="customers-tabs">
+                {tabs.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    class={`customers-tab${activeTab === item.id ? " is-active" : ""}`}
+                    onClick={() => {
+                      setActiveTab(item.id);
+                      setPage(1);
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
               <div class="customers-search-wrap">
                 <IconSearch />
                 <input
@@ -587,21 +658,28 @@ export function TaxRegimesScreen({ readOnly = false }: TaxRegimesScreenProps = {
               </div>
             </div>
           </div>
-          <div class="customers-tabs">
-            {tabs.map((item) => (
+
+          {selectedIds.size > 0 ? (
+            <div class="customers-selection-bar">
+              <strong>{selectedIds.size} selected</strong>
               <button
-                key={item.id}
                 type="button"
-                class={`customers-tab${tab === item.id ? " is-active" : ""}`}
-                onClick={() => {
-                  setTab(item.id);
-                  setPage(1);
-                }}
+                class="customers-link-btn customers-link-btn-primary"
+                onClick={() =>
+                  exportCsv(rows.filter((row) => selectedIds.has(row.id)))
+                }
               >
-                {item.label}
+                Export selected
               </button>
-            ))}
-          </div>
+              <button
+                type="button"
+                class="customers-link-btn customers-link-btn-muted"
+                onClick={() => setSelectedIds(new Set())}
+              >
+                Clear
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <div class="customers-table-scroll">
@@ -617,6 +695,7 @@ export function TaxRegimesScreen({ readOnly = false }: TaxRegimesScreenProps = {
                   />
                 </th>
                 <SortableTh label="Regime" col="name" />
+                <SortableTh label="Status" col="isActive" />
                 <SortableTh label="Kind" col="kind" />
                 <SortableTh
                   label="Customers"
@@ -624,19 +703,19 @@ export function TaxRegimesScreen({ readOnly = false }: TaxRegimesScreenProps = {
                   className="customers-col-hide-md"
                 />
                 <SortableTh label="Created" col="createdAt" className="customers-col-hide-lg" />
-                <th style="width: 40px;" />
+                <th style="width: 1%;">Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} class="customers-table-empty">
+                  <td colSpan={7} class="customers-table-empty">
                     Loading tax regimes…
                   </td>
                 </tr>
               ) : paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={6} class="customers-table-empty">
+                  <td colSpan={7} class="customers-table-empty">
                     No tax regimes match your filters.
                   </td>
                 </tr>
@@ -653,12 +732,15 @@ export function TaxRegimesScreen({ readOnly = false }: TaxRegimesScreenProps = {
                     </td>
                     <td>
                       <div class="customers-name-cell">
-                        <div class="customers-avatar">{initials(row.name)}</div>
                         <div>
                           <p class="customers-name-primary">{row.name}</p>
-                          <span class="customers-badge customers-badge-slate">{row.id}</span>
                         </div>
                       </div>
+                    </td>
+                    <td>
+                      <span class={statusBadgeClass(row.isActive)}>
+                        {row.isActive ? "Active" : "Inactive"}
+                      </span>
                     </td>
                     <td>
                       <span class={kindBadgeClass(row.kind)}>{row.kindLabel}</span>
@@ -671,11 +753,10 @@ export function TaxRegimesScreen({ readOnly = false }: TaxRegimesScreenProps = {
                     <td class="customers-col-hide-lg">
                       <div class="customers-dates">
                         <div>{row.createdAt}</div>
-                        <div class="customers-dates-updated">↑ {row.updatedAt}</div>
                       </div>
                     </td>
                     <td>
-                      <ActionMenu
+                      <RowActions
                         canWrite={canWrite}
                         onView={() => setViewRow(row)}
                         onEdit={() => {
@@ -739,6 +820,7 @@ export function TaxRegimesScreen({ readOnly = false }: TaxRegimesScreenProps = {
           <div class="customers-view-grid">
             {[
               ["ID", viewRow.id],
+              ["Status", viewRow.isActive ? "Active" : "Inactive"],
               ["Kind", viewRow.kindLabel],
               ["Customers", String(viewRow.customerCount)],
               ["Created", viewRow.createdAt],
@@ -750,22 +832,66 @@ export function TaxRegimesScreen({ readOnly = false }: TaxRegimesScreenProps = {
               </div>
             ))}
           </div>
-          {canWrite ? (
-            <div class="form-dialog-actions">
+          <div class="form-dialog-actions" style="padding-left: 0; margin-top: 12px;">
+            {canWrite ? (
               <button
                 type="button"
                 class="form-dialog-btn-primary"
                 onClick={() => {
-                  setFormState({ mode: "edit", row: viewRow.raw });
                   setViewRow(null);
+                  setFormState({ mode: "edit", row: viewRow.raw });
                 }}
               >
-                Edit
+                Edit regime
               </button>
-            </div>
-          ) : null}
+            ) : null}
+            <button
+              type="button"
+              class="form-dialog-btn-secondary"
+              onClick={() => setViewRow(null)}
+            >
+              Close
+            </button>
+          </div>
         </FormDialog>
       ) : null}
+
+      <div class="customers-print-document" aria-hidden="true">
+        <header class="customers-print-header">
+          <h1>Tax Regime List</h1>
+          <p>
+            {printFilterLabel}
+            {selectedIds.size > 0 ? ` · ${selectedIds.size} selected` : ""}
+            {" · "}
+            {printRows.length} record{printRows.length === 1 ? "" : "s"}
+          </p>
+          <p class="customers-print-generated">Printed {printGeneratedAt}</p>
+        </header>
+        <table class="customers-print-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Status</th>
+              <th>Kind</th>
+              <th>Customers</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {printRows.map((row, index) => (
+              <tr key={row.id}>
+                <td>{index + 1}</td>
+                <td>{row.name}</td>
+                <td>{row.isActive ? "Active" : "Inactive"}</td>
+                <td>{row.kindLabel}</td>
+                <td>{row.customerCount > 0 ? row.customerCount : "—"}</td>
+                <td>{row.createdAt}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

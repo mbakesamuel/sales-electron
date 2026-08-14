@@ -1102,7 +1102,6 @@ export function TransfersTab(props: TransfersTabProps) {
                             {toLocationOptions.map((loc) => (
                               <option key={loc.id} value={loc.id}>
                                 {loc.name}
-                                {loc.isSellable ? "" : " (unsellable)"}
                               </option>
                             ))}
                           </select>

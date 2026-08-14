@@ -5,9 +5,89 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sales Management Application</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #f4f7eb;
+        color: #4a5c3a;
+        font-family: "Segoe UI", system-ui, sans-serif;
+      }
+      #app {
+        height: 100%;
+        min-height: 100%;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+      }
+      .boot-shell {
+        flex: 1;
+        display: grid;
+        place-items: center;
+        padding: 32px 20px;
+        box-sizing: border-box;
+        text-align: center;
+      }
+      .boot-shell-inner {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+      }
+      .boot-shell-title {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 650;
+        color: #1c2b14;
+        letter-spacing: -0.02em;
+      }
+      .boot-shell-status {
+        margin: 0;
+        font-size: 0.9rem;
+        color: #6b7d58;
+        max-width: 28rem;
+        line-height: 1.4;
+      }
+      .boot-shell-spinner {
+        width: 28px;
+        height: 28px;
+        border: 2.5px solid rgba(47, 125, 50, 0.2);
+        border-top-color: #2f7d32;
+        border-radius: 50%;
+        animation: boot-spin 0.75s linear infinite;
+      }
+      @keyframes boot-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <div class="boot-shell" role="status" aria-live="polite">
+        <div class="boot-shell-inner">
+          <div class="boot-shell-spinner" aria-hidden="true"></div>
+          <h1 class="boot-shell-title">Sales Management</h1>
+          <p class="boot-shell-status" id="boot-status">Starting application…</p>
+        </div>
+      </div>
+    </div>
+    <script>
+      // If the Vite/module bundle never mounts, surface a clear error instead of spinning forever.
+      window.setTimeout(function () {
+        var root = document.getElementById("app");
+        var status = document.getElementById("boot-status");
+        if (!root || root.dataset.boot === "mounted" || root.dataset.boot === "js-loaded") {
+          return;
+        }
+        if (status) {
+          status.textContent =
+            "UI failed to load. Keep npm run dev running and restart the app. Check the DevTools console for errors.";
+        }
+      }, 12000);
+    </script>
     <script type="module" src="/src/ui/main.tsx"></script>
   </body>
 </html>

@@ -98,9 +98,11 @@ CREATE TABLE IF NOT EXISTS VehicleConsignmentNoteSequence (
 CREATE TABLE IF NOT EXISTS Mill (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
+  isActive INTEGER NOT NULL DEFAULT 1 CHECK (isActive IN (0, 1)),
   createdAt TEXT NOT NULL DEFAULT (datetime('now')),
   updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE INDEX IF NOT EXISTS Mill_isActive_idx ON Mill (isActive);
 
 CREATE TABLE IF NOT EXISTS ProductCat (
   productCatId INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -133,9 +135,11 @@ CREATE TABLE IF NOT EXISTS TaxRegime (
   updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
   kind TEXT NOT NULL DEFAULT 'SIMPLIFIED' CHECK (kind IN ('SIMPLIFIED', 'REAL')),
   commercialServiceId TEXT REFERENCES CommercialService(id),
+  isActive INTEGER NOT NULL DEFAULT 1 CHECK (isActive IN (0, 1)),
   UNIQUE (commercialServiceId, name)
 );
 CREATE INDEX IF NOT EXISTS TaxRegime_service_idx ON TaxRegime (commercialServiceId);
+CREATE INDEX IF NOT EXISTS TaxRegime_isActive_idx ON TaxRegime (isActive);
 
 CREATE TABLE IF NOT EXISTS TaxRateSchedule (
   id TEXT PRIMARY KEY NOT NULL,
@@ -146,10 +150,12 @@ CREATE TABLE IF NOT EXISTS TaxRateSchedule (
   effectiveFrom TEXT NOT NULL,
   createdAt TEXT NOT NULL DEFAULT (datetime('now')),
   updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+  isActive INTEGER NOT NULL DEFAULT 1 CHECK (isActive IN (0, 1)),
   UNIQUE (rateKind, effectiveFrom)
 );
 CREATE INDEX IF NOT EXISTS TaxRateSchedule_kind_from_idx
   ON TaxRateSchedule (rateKind, effectiveFrom);
+CREATE INDEX IF NOT EXISTS TaxRateSchedule_isActive_idx ON TaxRateSchedule (isActive);
 
 CREATE TABLE IF NOT EXISTS PaymentMethodDefinition (
   id TEXT PRIMARY KEY NOT NULL,
@@ -168,10 +174,12 @@ CREATE TABLE IF NOT EXISTS SalesPoint (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
   millId INTEGER REFERENCES Mill(id),
+  isActive INTEGER NOT NULL DEFAULT 1 CHECK (isActive IN (0, 1)),
   createdAt TEXT NOT NULL DEFAULT (datetime('now')),
   updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS SalesPoint_mill_idx ON SalesPoint (millId);
+CREATE INDEX IF NOT EXISTS SalesPoint_isActive_idx ON SalesPoint (isActive);
 
 -- ---------------------------------------------------------------------------
 -- Users & auth (User FK targets created above except self-references)
@@ -354,22 +362,36 @@ CREATE INDEX IF NOT EXISTS Sale_commercialService_idx ON Sale (commercialService
 CREATE TABLE IF NOT EXISTS Location (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   locationName TEXT NOT NULL UNIQUE,
+  isActive INTEGER NOT NULL DEFAULT 1 CHECK (isActive IN (0, 1)),
   createdAt TEXT NOT NULL DEFAULT (datetime('now')),
   updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE INDEX IF NOT EXISTS Location_isActive_idx ON Location (isActive);
 
 CREATE TABLE IF NOT EXISTS StorageLocation (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  salesPointId INTEGER NOT NULL REFERENCES SalesPoint(id) ON DELETE CASCADE,
+  salesPointId INTEGER REFERENCES SalesPoint(id) ON DELETE CASCADE,
+  millId INTEGER REFERENCES Mill(id) ON DELETE CASCADE,
   locationId INTEGER NOT NULL REFERENCES Location(id) ON DELETE RESTRICT,
   createdAt TEXT NOT NULL DEFAULT (datetime('now')),
   updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
   isDefault INTEGER NOT NULL DEFAULT 0 CHECK (isDefault IN (0, 1)),
-  isSellable INTEGER NOT NULL DEFAULT 1 CHECK (isSellable IN (0, 1)),
-  UNIQUE (salesPointId, locationId)
+  isActive INTEGER NOT NULL DEFAULT 1 CHECK (isActive IN (0, 1)),
+  CHECK (
+    (millId IS NOT NULL AND salesPointId IS NULL)
+    OR (millId IS NULL AND salesPointId IS NOT NULL)
+  )
 );
 CREATE INDEX IF NOT EXISTS StorageLocation_salesPoint_idx ON StorageLocation (salesPointId);
+CREATE INDEX IF NOT EXISTS StorageLocation_mill_idx ON StorageLocation (millId);
 CREATE INDEX IF NOT EXISTS StorageLocation_location_idx ON StorageLocation (locationId);
+CREATE UNIQUE INDEX IF NOT EXISTS StorageLocation_salesPoint_location_unique
+  ON StorageLocation (salesPointId, locationId)
+  WHERE salesPointId IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS StorageLocation_mill_location_unique
+  ON StorageLocation (millId, locationId)
+  WHERE millId IS NOT NULL;
+CREATE INDEX IF NOT EXISTS StorageLocation_isActive_idx ON StorageLocation (isActive);
 
 CREATE TABLE IF NOT EXISTS SaleLine (
   id TEXT PRIMARY KEY NOT NULL,

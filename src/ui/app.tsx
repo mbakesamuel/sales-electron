@@ -5,6 +5,8 @@ import {
   type AuthUser,
 } from "./auth/session.ts";
 import { getElectronApi } from "./auth/client.ts";
+import { AppErrorBoundary } from "./components/AppErrorBoundary.tsx";
+import { AppLoadingShell } from "./components/AppLoadingShell.tsx";
 import { ChangePasswordScreen } from "./pages/ChangePasswordScreen.tsx";
 import { HomeScreen } from "./pages/HomeScreen.tsx";
 import { LoginScreen } from "./pages/LoginScreen.tsx";
@@ -13,54 +15,85 @@ import { parseReportWindowHash } from "../shared/reportWindow.ts";
 import { applyUiTheme, loadAndApplyCompanyTheme } from "./theme/applyUiTheme.ts";
 import "./app.css";
 
+function readStoredToken(): string | null {
+  try {
+    return sessionStorage.getItem(AUTH_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
 function MainApp() {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [permissions, setPermissions] = useState<RolePermissionsSnapshot | null>(null);
-  const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [permissions, setPermissions] = useState<RolePermissionsSnapshot | null>(
+    null,
+  );
+  // Only show a restore shell when a token already exists at first paint.
+  const [isRestoringSession, setIsRestoringSession] = useState(
+    () => Boolean(readStoredToken()),
+  );
 
   useEffect(() => {
     applyUiTheme("agro");
+    void loadAndApplyCompanyTheme().catch(() => {
+      applyUiTheme("agro");
+    });
 
-    async function bootstrap() {
-      try {
-        await loadAndApplyCompanyTheme();
-      } catch {
-        applyUiTheme("agro");
-      }
+    const token = readStoredToken();
+    if (!token) {
+      setIsRestoringSession(false);
+      return;
+    }
 
-      const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
-      if (!token) {
-        setIsBootstrapping(false);
-        return;
-      }
+    let cancelled = false;
 
-      try {
-        const session = await getElectronApi().auth.getSession(token);
+    void getElectronApi()
+      .auth.getSession(token)
+      .then((session) => {
+        if (cancelled) {
+          return;
+        }
         if (session) {
           setUser(session.user);
           setPermissions(session.permissions);
         } else {
           sessionStorage.removeItem(AUTH_TOKEN_KEY);
         }
-      } catch {
+      })
+      .catch(() => {
         sessionStorage.removeItem(AUTH_TOKEN_KEY);
-      } finally {
-        setIsBootstrapping(false);
-      }
-    }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsRestoringSession(false);
+        }
+      });
 
-    void bootstrap();
+    const timeoutId = window.setTimeout(() => {
+      if (!cancelled) {
+        setIsRestoringSession(false);
+      }
+    }, 4000);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
   }, []);
 
-  async function handleLoginSuccess(
+  function handleLoginSuccess(
     nextUser: AuthUser,
     token: string,
     nextPermissions: RolePermissionsSnapshot,
   ) {
     sessionStorage.setItem(AUTH_TOKEN_KEY, token);
+    // Never re-enter the restore shell after a successful interactive login.
+    setIsRestoringSession(false);
     setUser(nextUser);
     setPermissions(nextPermissions);
-    void loadAndApplyCompanyTheme();
+    void loadAndApplyCompanyTheme().catch(() => {
+      applyUiTheme("agro");
+    });
   }
 
   function handlePasswordChanged(
@@ -72,8 +105,9 @@ function MainApp() {
   }
 
   async function handleLogout() {
-    const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+    const token = readStoredToken();
     sessionStorage.removeItem(AUTH_TOKEN_KEY);
+    setIsRestoringSession(false);
     setUser(null);
     setPermissions(null);
 
@@ -86,8 +120,10 @@ function MainApp() {
     }
   }
 
-  if (isBootstrapping) {
-    return <main class="app-loading">Loading...</main>;
+  // Restore shell only before we know whether a stored token is valid.
+  // After login, user/permissions are set and we skip this even if restore was pending.
+  if (isRestoringSession && !user) {
+    return <AppLoadingShell status="Restoring session…" />;
   }
 
   if (!user || !permissions) {
@@ -105,12 +141,14 @@ function MainApp() {
   }
 
   return (
-    <HomeScreen
-      user={user}
-      permissions={permissions}
-      onPermissionsSaved={setPermissions}
-      onLogout={() => void handleLogout()}
-    />
+    <AppErrorBoundary>
+      <HomeScreen
+        user={user}
+        permissions={permissions}
+        onPermissionsSaved={setPermissions}
+        onLogout={() => void handleLogout()}
+      />
+    </AppErrorBoundary>
   );
 }
 

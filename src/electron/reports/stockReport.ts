@@ -200,7 +200,8 @@ function remarksAtLocation(
     ),
   ].map((name) => name.toUpperCase());
 
-  // Invoice sellability: stock condition AND storage location "Sellable" flag.
+  // Invoice / display sellability: stock condition AND derived location sellability
+  // (mill-owned locations under an inactive mill → Unsellable overlay).
   const hasSellable =
     locationIsSellable &&
     atLocation.some((row) => row.condition === "SELLABLE");
@@ -258,7 +259,7 @@ function buildLocationSection(
           category.productCatId,
           salesPoint.id,
           location.id,
-          location.isSellable,
+          location.effectivelySellable,
         ),
         kind: "data",
       });
@@ -330,7 +331,12 @@ function buildBottledSection(
   });
 
   const sellableLocationIds = new Set(
-    storageLocations.filter((location) => location.isSellable).map((location) => location.id),
+    storageLocations
+      .filter(
+        (location) =>
+          location.salesPointId != null && location.effectivelySellable,
+      )
+      .map((location) => location.id),
   );
   const sellableBalances = balances.filter(
     (row) =>

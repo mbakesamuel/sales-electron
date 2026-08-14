@@ -236,6 +236,7 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
     sectionId: "organization",
     table: "CommercialService",
   },
+  { id: "mills", label: "Mills", sectionId: "organization", table: "Mill" },
   { id: "sales-points", label: "Sales points", sectionId: "organization", table: "SalesPoint" },
   { id: "locations", label: "Locations", sectionId: "organization", table: "Location" },
   {

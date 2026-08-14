@@ -1,5 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { formatDisplayDate as formatDate } from "../../shared/formatDisplayDate.ts";
+import { useEffect, useMemo, useState } from "preact/hooks";
+import {
+  formatDisplayDate as formatDate,
+  formatDisplayDateTime,
+} from "../../shared/formatDisplayDate.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
 import type { PaymentMethodKind } from "../../shared/sales.types.ts";
@@ -14,7 +17,7 @@ import "../customers/CustomersScreen.css";
 
 type SortKey = "name" | "code" | "kind" | "sortOrder" | "usageCount" | "createdAt";
 type SortDir = "asc" | "desc";
-type ActiveTab = "all" | PaymentMethodKind;
+type ActiveTab = "all" | "active" | "inactive" | PaymentMethodKind;
 
 interface PaymentMethodRow {
   id: string;
@@ -34,15 +37,6 @@ interface PaymentMethodRow {
 type FormState = { mode: "create" } | { mode: "edit"; row: Record<string, unknown> };
 
 const PAGE_SIZE = 6;
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
 
 function normalizeKind(value: unknown): PaymentMethodKind {
   const kind = String(value ?? "SIMPLE").toUpperCase();
@@ -69,6 +63,19 @@ function statusBadgeClass(isActive: boolean): string {
   return isActive
     ? "customers-badge customers-badge-emerald"
     : "customers-badge customers-badge-amber";
+}
+
+function matchesTab(row: PaymentMethodRow, tab: ActiveTab): boolean {
+  if (tab === "all") {
+    return true;
+  }
+  if (tab === "active") {
+    return row.isActive;
+  }
+  if (tab === "inactive") {
+    return !row.isActive;
+  }
+  return row.kind === tab;
 }
 
 function exportCsv(rows: PaymentMethodRow[]) {
@@ -158,12 +165,28 @@ function IconDownload() {
   );
 }
 
-function IconMore() {
+function IconPrinter() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="5" cy="12" r="1.5" />
-      <circle cx="12" cy="12" r="1.5" />
-      <circle cx="19" cy="12" r="1.5" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M6 9V2h12v7" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <path d="M6 14h12v8H6z" />
+    </svg>
+  );
+}
+
+function IconSliders() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="4" x2="4" y1="21" y2="14" />
+      <line x1="4" x2="4" y1="10" y2="3" />
+      <line x1="12" x2="12" y1="21" y2="12" />
+      <line x1="12" x2="12" y1="8" y2="3" />
+      <line x1="20" x2="20" y1="21" y2="16" />
+      <line x1="20" x2="20" y1="12" y2="3" />
+      <line x1="2" x2="6" y1="14" y2="14" />
+      <line x1="10" x2="14" y1="8" y2="8" />
+      <line x1="18" x2="22" y1="16" y2="16" />
     </svg>
   );
 }
@@ -237,7 +260,7 @@ function IconTrash() {
   );
 }
 
-function ActionMenu({
+function RowActions({
   onView,
   onEdit,
   onDelete,
@@ -250,67 +273,25 @@ function ActionMenu({
   disableDelete?: boolean;
   canWrite?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onPointerDown(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    }
-    window.addEventListener("mousedown", onPointerDown);
-    return () => window.removeEventListener("mousedown", onPointerDown);
-  }, [open]);
-
   return (
-    <div class="customers-actions" ref={rootRef}>
-      <button
-        type="button"
-        class="customers-actions-trigger"
-        aria-label="Actions"
-        onClick={() => setOpen((current) => !current)}
-      >
-        <IconMore />
+    <div class="customers-row-actions">
+      <button type="button" class="customers-row-action-btn" onClick={onView}>
+        <IconEye /> View
       </button>
-      {open ? (
-        <div class="customers-actions-menu">
+      {canWrite ? (
+        <>
+          <button type="button" class="customers-row-action-btn" onClick={onEdit}>
+            <IconPencil /> Edit
+          </button>
           <button
             type="button"
-            class="customers-actions-item"
-            onClick={() => {
-              setOpen(false);
-              onView();
-            }}
+            class="customers-row-action-btn customers-row-action-btn-danger"
+            disabled={disableDelete}
+            onClick={onDelete}
           >
-            <IconEye /> View
+            <IconTrash /> Delete
           </button>
-          {canWrite ? (
-            <>
-              <button
-                type="button"
-                class="customers-actions-item"
-                onClick={() => {
-                  setOpen(false);
-                  onEdit();
-                }}
-              >
-                <IconPencil /> Edit
-              </button>
-              <div class="customers-actions-divider" />
-              <button
-                type="button"
-                class="customers-actions-item customers-actions-item-danger"
-                disabled={disableDelete}
-                onClick={() => {
-                  setOpen(false);
-                  onDelete();
-                }}
-              >
-                <IconTrash /> Delete
-              </button>
-            </>
-          ) : null}
-        </div>
+        </>
       ) : null}
     </div>
   );
@@ -330,7 +311,7 @@ export function PaymentMethodsScreen({
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [tab, setTab] = useState<ActiveTab>("all");
+  const [activeTab, setActiveTab] = useState<ActiveTab>("all");
   const [sortKey, setSortKey] = useState<SortKey>("sortOrder");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [page, setPage] = useState(1);
@@ -379,7 +360,7 @@ export function PaymentMethodsScreen({
             kind,
             kindLabel: PAYMENT_METHOD_KIND_LABELS[kind],
             sortOrder: Number(row.sortOrder ?? 0),
-            isActive: row.isActive === 1 || row.isActive === true,
+            isActive: row.isActive === 1 || row.isActive === true || row.isActive == null,
             isSystem: row.isSystem === 1 || row.isSystem === true,
             usageCount: usage.get(id) ?? 0,
             createdAt: formatDate(row.createdAt),
@@ -414,15 +395,14 @@ export function PaymentMethodsScreen({
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     return rows.filter((row) => {
-      if (tab !== "all" && row.kind !== tab) return false;
-      if (!query) return true;
-      return (
+      const matchSearch =
+        !query ||
         row.name.toLowerCase().includes(query) ||
         row.code.toLowerCase().includes(query) ||
-        row.kindLabel.toLowerCase().includes(query)
-      );
+        row.kindLabel.toLowerCase().includes(query);
+      return matchSearch && matchesTab(row, activeTab);
     });
-  }, [rows, search, tab]);
+  }, [rows, search, activeTab]);
 
   const sorted = useMemo(() => {
     const next = [...filtered];
@@ -457,16 +437,25 @@ export function PaymentMethodsScreen({
       {
         label: "Total methods",
         value: rows.length,
+        icon: IconCreditCard,
         className: "customers-stat-icon-blue",
       },
       {
         label: "Active",
         value: rows.filter((row) => row.isActive).length,
+        icon: IconCheck,
         className: "customers-stat-icon-emerald",
+      },
+      {
+        label: "Inactive",
+        value: rows.filter((row) => !row.isActive).length,
+        icon: IconCreditCard,
+        className: "customers-stat-icon-amber",
       },
       {
         label: "Used in payments",
         value: rows.reduce((sum, row) => sum + row.usageCount, 0),
+        icon: IconCreditCard,
         className: "customers-stat-icon-violet",
       },
     ],
@@ -538,6 +527,37 @@ export function PaymentMethodsScreen({
     }
   }
 
+  async function deleteSelected() {
+    if (!schema || selectedIds.size === 0) return;
+    const targets = rows.filter(
+      (row) => selectedIds.has(row.id) && !row.isSystem,
+    );
+    if (targets.length === 0) {
+      setActionError("System payment methods cannot be deleted.");
+      return;
+    }
+    const confirmed = window.confirm(
+      `Delete ${targets.length} selected payment method(s)? Methods already used on payments cannot be removed.`,
+    );
+    if (!confirmed) return;
+    setActionError(null);
+    try {
+      for (const row of targets) {
+        await getAuthenticatedDb().deleteRow({
+          table: "PaymentMethodDefinition",
+          primaryKey: { id: row.id },
+        });
+      }
+      refreshRows();
+    } catch (deleteError) {
+      setActionError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Failed to delete selected payment methods.",
+      );
+    }
+  }
+
   function SortIcon({ col }: { col: SortKey }) {
     if (sortKey !== col) return <IconChevronUp />;
     return sortDir === "asc" ? <IconChevronUp active /> : <IconChevronDown active />;
@@ -566,8 +586,58 @@ export function PaymentMethodsScreen({
     sorted.length === 0 ? 0 : Math.min((currentPage - 1) * PAGE_SIZE + 1, sorted.length);
   const pageEnd = Math.min(currentPage * PAGE_SIZE, sorted.length);
 
+  const printRows =
+    selectedIds.size > 0
+      ? sorted.filter((row) => selectedIds.has(row.id))
+      : sorted;
+
+  const printFilterLabel =
+    activeTab === "all"
+      ? "All payment methods"
+      : activeTab === "active"
+        ? "Active payment methods"
+        : activeTab === "inactive"
+          ? "Inactive payment methods"
+          : `${PAYMENT_METHOD_KIND_LABELS[activeTab]} methods`;
+
+  const printGeneratedAt = formatDisplayDateTime(
+    (() => {
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    })(),
+  );
+
+  function printPaymentMethodList() {
+    if (printRows.length === 0) {
+      return;
+    }
+
+    const style = document.createElement("style");
+    style.id = "payment-methods-print-page-style";
+    style.textContent =
+      "@media print { @page { size: A4 portrait; margin: 10mm; } }";
+    document.head.appendChild(style);
+
+    document.body.classList.add("customers-print-mode", "payment-methods-print-mode");
+    window.addEventListener(
+      "afterprint",
+      () => {
+        document.body.classList.remove(
+          "customers-print-mode",
+          "payment-methods-print-mode",
+        );
+        style.remove();
+      },
+      { once: true },
+    );
+    window.print();
+  }
+
   const tabs: Array<{ id: ActiveTab; label: string }> = [
     { id: "all", label: "All" },
+    { id: "active", label: "Active" },
+    { id: "inactive", label: "Inactive" },
     { id: "SIMPLE", label: "Simple" },
     { id: "CHEQUE", label: "Cheque" },
     { id: "BANK_TRANSFER", label: "Bank transfer" },
@@ -590,6 +660,14 @@ export function PaymentMethodsScreen({
           </div>
         </div>
         <div class="customers-screen-header-actions">
+          <button
+            type="button"
+            class="customers-btn customers-btn-secondary"
+            disabled={printRows.length === 0}
+            onClick={() => printPaymentMethodList()}
+          >
+            <IconPrinter /> Print
+          </button>
           <button
             type="button"
             class="customers-btn customers-btn-secondary"
@@ -621,7 +699,7 @@ export function PaymentMethodsScreen({
         {stats.map((stat) => (
           <div key={stat.label} class="customers-stat-card">
             <div class={`customers-stat-icon ${stat.className}`}>
-              {stat.label === "Active" ? <IconCheck /> : <IconCreditCard />}
+              <stat.icon />
             </div>
             <div>
               <p class="customers-stat-value">{stat.value}</p>
@@ -641,6 +719,21 @@ export function PaymentMethodsScreen({
               </p>
             </div>
             <div class="customers-card-controls">
+              <div class="customers-tabs">
+                {tabs.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    class={`customers-tab${activeTab === item.id ? " is-active" : ""}`}
+                    onClick={() => {
+                      setActiveTab(item.id);
+                      setPage(1);
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
               <div class="customers-search-wrap">
                 <IconSearch />
                 <input
@@ -654,23 +747,42 @@ export function PaymentMethodsScreen({
                   }}
                 />
               </div>
+              <button type="button" class="customers-btn customers-btn-secondary">
+                <IconSliders /> Filters
+              </button>
             </div>
           </div>
-          <div class="customers-tabs">
-            {tabs.map((item) => (
+
+          {selectedIds.size > 0 ? (
+            <div class="customers-selection-bar">
+              <strong>{selectedIds.size} selected</strong>
+              {canWrite ? (
+                <button
+                  type="button"
+                  class="customers-link-btn customers-link-btn-danger"
+                  onClick={() => void deleteSelected()}
+                >
+                  Delete selected
+                </button>
+              ) : null}
               <button
-                key={item.id}
                 type="button"
-                class={`customers-tab${tab === item.id ? " is-active" : ""}`}
-                onClick={() => {
-                  setTab(item.id);
-                  setPage(1);
-                }}
+                class="customers-link-btn customers-link-btn-primary"
+                onClick={() =>
+                  exportCsv(rows.filter((row) => selectedIds.has(row.id)))
+                }
               >
-                {item.label}
+                Export selected
               </button>
-            ))}
-          </div>
+              <button
+                type="button"
+                class="customers-link-btn customers-link-btn-muted"
+                onClick={() => setSelectedIds(new Set())}
+              >
+                Clear
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <div class="customers-table-scroll">
@@ -686,24 +798,23 @@ export function PaymentMethodsScreen({
                   />
                 </th>
                 <SortableTh label="Method" col="name" />
-                <SortableTh label="Code" col="code" className="customers-col-hide-md" />
                 <SortableTh label="Kind" col="kind" />
                 <SortableTh label="Order" col="sortOrder" className="customers-col-hide-md" />
                 <SortableTh label="Used" col="usageCount" className="customers-col-hide-lg" />
                 <th class="customers-col-hide-lg">Status</th>
-                <th style="width: 40px;" />
+                <th style="width: 1%;">Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} class="customers-table-empty">
+                  <td colSpan={7} class="customers-table-empty">
                     Loading payment methods…
                   </td>
                 </tr>
               ) : paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={8} class="customers-table-empty">
+                  <td colSpan={7} class="customers-table-empty">
                     No payment methods match your filters.
                   </td>
                 </tr>
@@ -720,17 +831,10 @@ export function PaymentMethodsScreen({
                     </td>
                     <td>
                       <div class="customers-name-cell">
-                        <div class="customers-avatar">{initials(row.name)}</div>
                         <div>
                           <p class="customers-name-primary">{row.name}</p>
-                          <span class="customers-badge customers-badge-slate">
-                            {row.isSystem ? "System" : row.id.slice(0, 8)}
-                          </span>
                         </div>
                       </div>
-                    </td>
-                    <td class="customers-col-hide-md">
-                      <span class="customers-contact-mono">{row.code}</span>
                     </td>
                     <td>
                       <span class={kindBadgeClass(row.kind)}>{row.kindLabel}</span>
@@ -747,7 +851,7 @@ export function PaymentMethodsScreen({
                       </span>
                     </td>
                     <td>
-                      <ActionMenu
+                      <RowActions
                         canWrite={canWrite}
                         disableDelete={row.isSystem}
                         onView={() => setViewRow(row)}
@@ -821,20 +925,13 @@ export function PaymentMethodsScreen({
               ["Created", viewRow.createdAt],
               ["Updated", viewRow.updatedAt],
             ].map(([label, value]) => (
-              <div key={label} class="customers-view-field">
+              <div key={label} class="customers-view-row">
                 <span class="customers-view-label">{label}</span>
                 <span class="customers-view-value">{value}</span>
               </div>
             ))}
           </div>
-          <div class="form-dialog-actions">
-            <button
-              type="button"
-              class="form-dialog-btn-secondary"
-              onClick={() => setViewRow(null)}
-            >
-              Close
-            </button>
+          <div class="form-dialog-actions" style="padding-left: 0; margin-top: 12px;">
             {canWrite ? (
               <button
                 type="button"
@@ -844,12 +941,56 @@ export function PaymentMethodsScreen({
                   setViewRow(null);
                 }}
               >
-                Edit
+                Edit method
               </button>
             ) : null}
+            <button
+              type="button"
+              class="form-dialog-btn-secondary"
+              onClick={() => setViewRow(null)}
+            >
+              Close
+            </button>
           </div>
         </FormDialog>
       ) : null}
+
+      <div class="customers-print-document" aria-hidden="true">
+        <header class="customers-print-header">
+          <h1>Payment Method List</h1>
+          <p>
+            {printFilterLabel}
+            {selectedIds.size > 0 ? ` · ${selectedIds.size} selected` : ""}
+            {" · "}
+            {printRows.length} record{printRows.length === 1 ? "" : "s"}
+          </p>
+          <p class="customers-print-generated">Printed {printGeneratedAt}</p>
+        </header>
+        <table class="customers-print-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Kind</th>
+              <th>Status</th>
+              <th>Order</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {printRows.map((row, index) => (
+              <tr key={row.id}>
+                <td>{index + 1}</td>
+                <td>{row.name}</td>
+                <td>{row.kindLabel}</td>
+                <td>{row.isActive ? "Active" : "Inactive"}</td>
+                <td>{row.sortOrder}</td>
+                <td>{row.createdAt}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

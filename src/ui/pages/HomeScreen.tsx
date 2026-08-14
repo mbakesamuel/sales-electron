@@ -19,6 +19,7 @@ import { ProductsScreen } from "../products/ProductsScreen.tsx";
 import { CategoriesScreen } from "../products/CategoriesScreen.tsx";
 import { ProductUnitPricesScreen } from "../products/ProductUnitPricesScreen.tsx";
 import { LocationsScreen } from "../locations/LocationsScreen.tsx";
+import { MillsScreen } from "../mills/MillsScreen.tsx";
 import { SalesPointsScreen } from "../sales-points/SalesPointsScreen.tsx";
 import { CommercialServicesScreen } from "../commercial-services/CommercialServicesScreen.tsx";
 import { CompanySettingsScreen } from "../company-settings/CompanySettingsScreen.tsx";
@@ -249,6 +250,10 @@ function RouteContent({
     return <ProductUnitPricesScreen readOnly={readOnly} />;
   }
 
+  if (route.id === "mills") {
+    return <MillsScreen readOnly={readOnly} />;
+  }
+
   if (route.id === "sales-points") {
     return <SalesPointsScreen readOnly={readOnly} />;
   }
@@ -458,6 +463,7 @@ export function HomeScreen({
     "product-categories",
     "unit-prices",
     "sales-points",
+    "mills",
     "commercial-services",
     "company-settings",
     "report-settings",

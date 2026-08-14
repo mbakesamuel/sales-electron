@@ -1,6 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { AUTH_TOKEN_KEY } from "../auth/session.ts";
 import { getElectronApi } from "../auth/client.ts";
+import { AppLoadingShell } from "../components/AppLoadingShell.tsx";
 import { parseReportWindowHash } from "../../shared/reportWindow.ts";
 import { StockCommitmentReportScreen } from "../reports/StockCommitmentReport.tsx";
 import { StockReportScreen } from "../reports/StockReportScreen.tsx";
@@ -173,11 +174,11 @@ export function ReportWindowApp() {
   }, []);
 
   if (state.status === "waiting") {
-    return <main class="app-loading">Opening report…</main>;
+    return <AppLoadingShell status="Opening report…" />;
   }
 
   if (state.status === "error") {
-    return <main class="app-loading scr-status-error">{state.message}</main>;
+    return <AppLoadingShell status={state.message} error />;
   }
 
   return (

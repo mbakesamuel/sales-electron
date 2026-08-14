@@ -217,6 +217,66 @@ function locationSchemaIsCurrent(database: Database.Database): boolean {
   return storageColumns.has("locationId") && !storageColumns.has("name");
 }
 
+function storageLocationHasMillOwner(database: Database.Database): boolean {
+  return getTableColumns(database, "StorageLocation").has("millId");
+}
+
+function applyStorageLocationMillOwnerMigration(database: Database.Database): void {
+  if (storageLocationHasMillOwner(database)) {
+    return;
+  }
+
+  database.pragma("foreign_keys = OFF");
+  database.exec(`
+    DROP TABLE IF EXISTS StorageLocation__new;
+    CREATE TABLE StorageLocation__new (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      salesPointId INTEGER REFERENCES SalesPoint(id) ON DELETE CASCADE,
+      millId INTEGER REFERENCES Mill(id) ON DELETE CASCADE,
+      locationId INTEGER NOT NULL REFERENCES Location(id) ON DELETE RESTRICT,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+      updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+      isDefault INTEGER NOT NULL DEFAULT 0 CHECK (isDefault IN (0, 1)),
+      isSellable INTEGER NOT NULL DEFAULT 1 CHECK (isSellable IN (0, 1)),
+      isActive INTEGER NOT NULL DEFAULT 1 CHECK (isActive IN (0, 1)),
+      CHECK (
+        (millId IS NOT NULL AND salesPointId IS NULL)
+        OR (millId IS NULL AND salesPointId IS NOT NULL)
+      )
+    );
+
+    INSERT INTO StorageLocation__new (
+      id, salesPointId, millId, locationId, createdAt, updatedAt, isDefault, isSellable, isActive
+    )
+    SELECT
+      id,
+      salesPointId,
+      NULL,
+      locationId,
+      COALESCE(createdAt, datetime('now')),
+      COALESCE(updatedAt, datetime('now')),
+      isDefault,
+      isSellable,
+      1
+    FROM StorageLocation;
+
+    DROP TABLE StorageLocation;
+    ALTER TABLE StorageLocation__new RENAME TO StorageLocation;
+
+    CREATE INDEX IF NOT EXISTS StorageLocation_salesPoint_idx ON StorageLocation (salesPointId);
+    CREATE INDEX IF NOT EXISTS StorageLocation_mill_idx ON StorageLocation (millId);
+    CREATE INDEX IF NOT EXISTS StorageLocation_location_idx ON StorageLocation (locationId);
+    CREATE UNIQUE INDEX IF NOT EXISTS StorageLocation_salesPoint_location_unique
+      ON StorageLocation (salesPointId, locationId)
+      WHERE salesPointId IS NOT NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS StorageLocation_mill_location_unique
+      ON StorageLocation (millId, locationId)
+      WHERE millId IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS StorageLocation_isActive_idx ON StorageLocation (isActive);
+  `);
+  database.pragma("foreign_keys = ON");
+}
+
 const LEGACY_ROLE_MAP: Record<string, string> = {
   ADMIN: "ADMIN",
   DIRECTOR: "MANAGER",
@@ -692,6 +752,125 @@ function userHasMustChangePassword(database: Database.Database): boolean {
   return getTableColumns(database, "User").has("mustChangePassword");
 }
 
+function millHasIsActive(database: Database.Database): boolean {
+  return getTableColumns(database, "Mill").has("isActive");
+}
+
+function salesPointHasIsActive(database: Database.Database): boolean {
+  return getTableColumns(database, "SalesPoint").has("isActive");
+}
+
+function locationHasIsActive(database: Database.Database): boolean {
+  return getTableColumns(database, "Location").has("isActive");
+}
+
+function storageLocationHasIsActive(database: Database.Database): boolean {
+  return getTableColumns(database, "StorageLocation").has("isActive");
+}
+
+function storageLocationHasIsSellable(database: Database.Database): boolean {
+  return getTableColumns(database, "StorageLocation").has("isSellable");
+}
+
+function applyDropStorageLocationIsSellableMigration(database: Database.Database): void {
+  if (!storageLocationHasIsSellable(database)) {
+    return;
+  }
+
+  const hasMillOwner = storageLocationHasMillOwner(database);
+  const hasIsActive = storageLocationHasIsActive(database);
+
+  database.pragma("foreign_keys = OFF");
+  if (hasMillOwner) {
+    database.exec(`
+      DROP TABLE IF EXISTS StorageLocation__new;
+      CREATE TABLE StorageLocation__new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        salesPointId INTEGER REFERENCES SalesPoint(id) ON DELETE CASCADE,
+        millId INTEGER REFERENCES Mill(id) ON DELETE CASCADE,
+        locationId INTEGER NOT NULL REFERENCES Location(id) ON DELETE RESTRICT,
+        createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+        updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+        isDefault INTEGER NOT NULL DEFAULT 0 CHECK (isDefault IN (0, 1)),
+        isActive INTEGER NOT NULL DEFAULT 1 CHECK (isActive IN (0, 1)),
+        CHECK (
+          (millId IS NOT NULL AND salesPointId IS NULL)
+          OR (millId IS NULL AND salesPointId IS NOT NULL)
+        )
+      );
+
+      INSERT INTO StorageLocation__new (
+        id, salesPointId, millId, locationId, createdAt, updatedAt, isDefault, isActive
+      )
+      SELECT
+        id,
+        salesPointId,
+        millId,
+        locationId,
+        COALESCE(createdAt, datetime('now')),
+        COALESCE(updatedAt, datetime('now')),
+        isDefault,
+        ${hasIsActive ? "COALESCE(isActive, 1)" : "1"}
+      FROM StorageLocation;
+
+      DROP TABLE StorageLocation;
+      ALTER TABLE StorageLocation__new RENAME TO StorageLocation;
+
+      CREATE INDEX IF NOT EXISTS StorageLocation_salesPoint_idx ON StorageLocation (salesPointId);
+      CREATE INDEX IF NOT EXISTS StorageLocation_mill_idx ON StorageLocation (millId);
+      CREATE INDEX IF NOT EXISTS StorageLocation_location_idx ON StorageLocation (locationId);
+      CREATE UNIQUE INDEX IF NOT EXISTS StorageLocation_salesPoint_location_unique
+        ON StorageLocation (salesPointId, locationId)
+        WHERE salesPointId IS NOT NULL;
+      CREATE UNIQUE INDEX IF NOT EXISTS StorageLocation_mill_location_unique
+        ON StorageLocation (millId, locationId)
+        WHERE millId IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS StorageLocation_isActive_idx ON StorageLocation (isActive);
+    `);
+  } else {
+    database.exec(`
+      DROP TABLE IF EXISTS StorageLocation__new;
+      CREATE TABLE StorageLocation__new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        salesPointId INTEGER NOT NULL REFERENCES SalesPoint(id) ON DELETE CASCADE,
+        locationId INTEGER NOT NULL REFERENCES Location(id) ON DELETE RESTRICT,
+        createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+        updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+        isDefault INTEGER NOT NULL DEFAULT 0 CHECK (isDefault IN (0, 1)),
+        ${hasIsActive ? "isActive INTEGER NOT NULL DEFAULT 1 CHECK (isActive IN (0, 1))," : ""}
+        UNIQUE (salesPointId, locationId)
+      );
+
+      INSERT INTO StorageLocation__new (
+        id, salesPointId, locationId, createdAt, updatedAt, isDefault${hasIsActive ? ", isActive" : ""}
+      )
+      SELECT
+        id,
+        salesPointId,
+        locationId,
+        COALESCE(createdAt, datetime('now')),
+        COALESCE(updatedAt, datetime('now')),
+        isDefault${hasIsActive ? ", COALESCE(isActive, 1)" : ""}
+      FROM StorageLocation;
+
+      DROP TABLE StorageLocation;
+      ALTER TABLE StorageLocation__new RENAME TO StorageLocation;
+      CREATE INDEX IF NOT EXISTS StorageLocation_salesPoint_idx ON StorageLocation (salesPointId);
+      CREATE INDEX IF NOT EXISTS StorageLocation_location_idx ON StorageLocation (locationId);
+      ${hasIsActive ? "CREATE INDEX IF NOT EXISTS StorageLocation_isActive_idx ON StorageLocation (isActive);" : ""}
+    `);
+  }
+  database.pragma("foreign_keys = ON");
+}
+
+function taxRegimeHasIsActive(database: Database.Database): boolean {
+  return getTableColumns(database, "TaxRegime").has("isActive");
+}
+
+function taxRateScheduleHasIsActive(database: Database.Database): boolean {
+  return getTableColumns(database, "TaxRateSchedule").has("isActive");
+}
+
 function migrateLegacyStockCommitmentComments(database: Database.Database): void {
   if (!companySettingsHasReportCommentsJson(database)) {
     return;
@@ -990,6 +1169,70 @@ function runMigrations(database: Database.Database): void {
       fileName === "042_user_must_change_password.sql" &&
       userHasMustChangePassword(database)
     ) {
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (fileName === "052_mill_is_active.sql" && millHasIsActive(database)) {
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (fileName === "053_sales_point_is_active.sql" && salesPointHasIsActive(database)) {
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (
+      fileName === "054_storage_location_mill_owner.sql" &&
+      storageLocationHasMillOwner(database)
+    ) {
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (fileName === "054_storage_location_mill_owner.sql") {
+      applyStorageLocationMillOwnerMigration(database);
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (fileName === "055_location_is_active.sql" && locationHasIsActive(database)) {
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (
+      fileName === "056_storage_location_is_active.sql" &&
+      storageLocationHasIsActive(database)
+    ) {
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (fileName === "057_tax_regime_is_active.sql" && taxRegimeHasIsActive(database)) {
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (
+      fileName === "058_tax_rate_schedule_is_active.sql" &&
+      taxRateScheduleHasIsActive(database)
+    ) {
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (
+      fileName === "059_drop_storage_location_is_sellable.sql" &&
+      !storageLocationHasIsSellable(database)
+    ) {
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (fileName === "059_drop_storage_location_is_sellable.sql") {
+      applyDropStorageLocationIsSellableMigration(database);
       database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
       continue;
     }

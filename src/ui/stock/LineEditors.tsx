@@ -102,7 +102,6 @@ export function ReceiptLineEditor({
                 {locationOptions.map((loc) => (
                   <option key={loc.id} value={loc.id}>
                     {loc.name}
-                    {loc.isSellable ? "" : " (unsellable)"}
                     {loc.isDefault ? " (default)" : ""}
                   </option>
                 ))}
@@ -499,7 +498,6 @@ export function TransferLineEditor({
                   {fromLocationOptions.map((loc) => (
                     <option key={loc.id} value={loc.id}>
                       {loc.name}
-                      {loc.isSellable ? "" : " (unsellable)"}
                     </option>
                   ))}
                 </select>
@@ -519,7 +517,6 @@ export function TransferLineEditor({
                     {toLocationOptions.map((loc) => (
                       <option key={loc.id} value={loc.id}>
                         {loc.name}
-                        {loc.isSellable ? "" : " (unsellable)"}
                       </option>
                     ))}
                   </select>
