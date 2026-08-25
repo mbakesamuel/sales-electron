@@ -11,6 +11,10 @@ import { getDatabase } from "../db/index.js";
 import { getOpenPostingPeriod, assertDateInOpenMonth } from "../financialYears/service.js";
 import { formatQty, parseQty } from "./decimal.js";
 import { applyMovement } from "./post.js";
+import {
+  productOmitsStorageLocationById,
+} from "./productStorage.js";
+import { productOmitsStorageLocation } from "../../shared/productStorageRules.js";
 import { allocateAdjustmentNo } from "./sequences.js";
 
 const ROUTE_ID = "carry-forward-stock";
@@ -50,28 +54,63 @@ function assertWrite(userId: string): { ok: true } | { ok: false; error: string 
 function getSellableQty(
   salesPointId: number,
   productId: number,
-  storageLocationId: number,
+  storageLocationId: number | null,
 ): number {
-  const row = getDatabase()
-    .prepare(
-      `SELECT qty FROM StockBalance
-       WHERE salesPointId = ? AND productId = ? AND storageLocationId = ?
-         AND condition = 'SELLABLE'`,
-    )
-    .get(salesPointId, productId, storageLocationId) as { qty: string } | undefined;
+  const row = (
+    storageLocationId == null
+      ? getDatabase().prepare(
+          `SELECT qty FROM StockBalance
+           WHERE salesPointId = ? AND productId = ? AND storageLocationId IS NULL
+             AND condition = 'SELLABLE'`,
+        )
+      : getDatabase().prepare(
+          `SELECT qty FROM StockBalance
+           WHERE salesPointId = ? AND productId = ? AND storageLocationId = ?
+             AND condition = 'SELLABLE'`,
+        )
+  ).get(
+    ...(storageLocationId == null
+      ? [salesPointId, productId]
+      : [salesPointId, productId, storageLocationId]),
+  ) as { qty: string } | undefined;
   return row ? parseQty(row.qty) : 0;
 }
+
+const NULL_LOC_MATCH = `(
+  (l2.storageLocationId IS NULL AND l.storageLocationId IS NULL)
+  OR l2.storageLocationId = l.storageLocationId
+)`;
 
 export function getCarryForwardStockFormOptions(): CarryForwardStockFormOptions {
   const db = getDatabase();
   return {
     products: db
       .prepare(
-        `SELECT productId, productName, COALESCE(uom, 'Kg') AS uom
-         FROM Product
-         ORDER BY productName ASC`,
+        `SELECT p.productId, p.productName, COALESCE(p.uom, 'Kg') AS uom,
+                COALESCE(pc.isBottled, 0) AS isBottled,
+                COALESCE(pc.productCode, '') AS productCode
+         FROM Product p
+         LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
+         ORDER BY p.productName ASC`,
       )
-      .all() as Array<{ productId: number; productName: string; uom: string }>,
+      .all()
+      .map((row) => {
+        const r = row as {
+          productId: number;
+          productName: string;
+          uom: string;
+          isBottled: number;
+          productCode: string;
+        };
+        return {
+          productId: r.productId,
+          productName: r.productName,
+          uom: r.uom,
+          isBottled: r.isBottled === 1,
+          productCatCode: r.productCode,
+          omitsStorageLocation: productOmitsStorageLocation(r.productCode),
+        };
+      }),
     salesPoints: db
       .prepare(`SELECT id, name FROM SalesPoint ORDER BY name ASC`)
       .all() as Array<{ id: number; name: string }>,
@@ -106,7 +145,8 @@ export function listCarryForwardStock(): CarryForwardStockRow[] {
     .prepare(
       `SELECT DISTINCT
          a.salesPointId, sp.name AS salesPointName,
-         l.storageLocationId, loc.locationName AS storageLocationName,
+         l.storageLocationId,
+         COALESCE(loc.locationName, '—') AS storageLocationName,
          l.productId, p.productName, COALESCE(p.uom, 'Kg') AS uom,
          (
            SELECT a2.adjustmentNo
@@ -115,7 +155,7 @@ export function listCarryForwardStock(): CarryForwardStockRow[] {
            WHERE a2.sourceKind = 'CARRY_FORWARD'
              AND a2.status = 'POSTED'
              AND a2.salesPointId = a.salesPointId
-             AND l2.storageLocationId = l.storageLocationId
+             AND ${NULL_LOC_MATCH}
              AND l2.productId = l.productId
            ORDER BY a2.occurredAt DESC, a2.postedAt DESC
            LIMIT 1
@@ -127,7 +167,7 @@ export function listCarryForwardStock(): CarryForwardStockRow[] {
            WHERE a2.sourceKind = 'CARRY_FORWARD'
              AND a2.status = 'POSTED'
              AND a2.salesPointId = a.salesPointId
-             AND l2.storageLocationId = l.storageLocationId
+             AND ${NULL_LOC_MATCH}
              AND l2.productId = l.productId
            ORDER BY a2.occurredAt DESC, a2.postedAt DESC
            LIMIT 1
@@ -135,16 +175,16 @@ export function listCarryForwardStock(): CarryForwardStockRow[] {
        FROM StockAdjustment a
        INNER JOIN StockAdjustmentLine l ON l.adjustmentId = a.id
        INNER JOIN SalesPoint sp ON sp.id = a.salesPointId
-       INNER JOIN StorageLocation sl ON sl.id = l.storageLocationId
-       INNER JOIN Location loc ON loc.id = sl.locationId
+       LEFT JOIN StorageLocation sl ON sl.id = l.storageLocationId
+       LEFT JOIN Location loc ON loc.id = sl.locationId
        INNER JOIN Product p ON p.productId = l.productId
        WHERE a.sourceKind = 'CARRY_FORWARD' AND a.status = 'POSTED'
-       ORDER BY sp.name ASC, p.productName ASC, loc.locationName ASC`,
+       ORDER BY sp.name ASC, p.productName ASC, COALESCE(loc.locationName, '') ASC`,
     )
     .all() as Array<{
     salesPointId: number;
     salesPointName: string;
-    storageLocationId: number;
+    storageLocationId: number | null;
     storageLocationName: string;
     productId: number;
     productName: string;
@@ -161,7 +201,11 @@ export function listCarryForwardStock(): CarryForwardStockRow[] {
     productId: row.productId,
     productName: row.productName,
     uom: row.uom,
-    currentQty: getSellableQty(row.salesPointId, row.productId, row.storageLocationId),
+    currentQty: getSellableQty(
+      row.salesPointId,
+      row.productId,
+      row.storageLocationId,
+    ),
     lastAdjustmentNo: row.lastAdjustmentNo,
     lastOccurredAt: row.lastOccurredAt,
   }));
@@ -180,7 +224,7 @@ export function listCarryForwardStockOnHand(
        FROM StockBalance
        WHERE salesPointId = ? AND productId = ? AND condition = 'SELLABLE'`,
     )
-    .all(salesPointId, productId) as Array<{ storageLocationId: number; qty: string }>;
+    .all(salesPointId, productId) as Array<{ storageLocationId: number | null; qty: string }>;
 
   return rows.map((row) => ({
     storageLocationId: row.storageLocationId,
@@ -213,48 +257,85 @@ export function upsertCarryForwardStockBatch(
   }
 
   const salesPointId = Number(input.salesPointId);
-  const productId = Number(input.productId);
-  if (!Number.isFinite(salesPointId) || !Number.isFinite(productId)) {
-    return { ok: false, error: "Sales point and product are required." };
+  if (!Number.isFinite(salesPointId)) {
+    return { ok: false, error: "Collection point is required." };
   }
 
-  const product = getDatabase()
-    .prepare(`SELECT productId FROM Product WHERE productId = ?`)
-    .get(productId) as { productId: number } | undefined;
-  if (!product) {
-    return { ok: false, error: "Product not found." };
-  }
-
-  const locationCheck = getDatabase().prepare(
+  const db = getDatabase();
+  const locationCheck = db.prepare(
     `SELECT id FROM StorageLocation WHERE id = ? AND salesPointId = ?`,
   );
+  const productCheck = db.prepare(`SELECT productId FROM Product WHERE productId = ?`);
 
-  const deltas: Array<{ storageLocationId: number; deltaQty: number }> = [];
+  const seen = new Set<string>();
+  const deltas: Array<{
+    productId: number;
+    storageLocationId: number | null;
+    deltaQty: number;
+  }> = [];
+
   for (const line of input.lines) {
-    const storageLocationId = Number(line.storageLocationId);
+    const productId = Number(line.productId);
     const onHandQty = Number(line.onHandQty);
-    if (
-      !Number.isFinite(storageLocationId) ||
-      !Number.isFinite(onHandQty) ||
-      onHandQty < 0
-    ) {
+    if (!Number.isFinite(productId) || !Number.isFinite(onHandQty) || onHandQty < 0) {
       continue;
     }
-    const location = locationCheck.get(storageLocationId, salesPointId) as
-      | { id: number }
-      | undefined;
-    if (!location) {
+
+    const product = productCheck.get(productId) as { productId: number } | undefined;
+    if (!product) {
+      return { ok: false, error: "Product not found." };
+    }
+
+    const omitsStorage = productOmitsStorageLocationById(db, productId);
+    let storageLocationId: number | null;
+
+    if (omitsStorage) {
+      const rawLoc = line.storageLocationId;
+      if (rawLoc != null && Number.isFinite(Number(rawLoc))) {
+        return {
+          ok: false,
+          error: "Palm Kernel / Cake products do not use storage locations.",
+        };
+      }
+      storageLocationId = null;
+    } else {
+      storageLocationId = Number(line.storageLocationId);
+      if (!Number.isFinite(storageLocationId)) {
+        continue;
+      }
+
+      const location = locationCheck.get(storageLocationId, salesPointId) as
+        | { id: number }
+        | undefined;
+      if (!location) {
+        return {
+          ok: false,
+          error: "Storage location does not belong to the collection point.",
+        };
+      }
+    }
+
+    const pairKey =
+      storageLocationId == null
+        ? `null:${productId}`
+        : `${storageLocationId}:${productId}`;
+    if (seen.has(pairKey)) {
       return {
         ok: false,
-        error: "Storage location does not belong to the sales point.",
+        error:
+          storageLocationId == null
+            ? "Duplicate product in the same batch."
+            : "Duplicate location and product in the same batch.",
       };
     }
+    seen.add(pairKey);
+
     const current = getSellableQty(salesPointId, productId, storageLocationId);
     const delta = onHandQty - current;
     if (Math.abs(delta) <= QTY_EPS) {
       continue;
     }
-    deltas.push({ storageLocationId, deltaQty: delta });
+    deltas.push({ productId, storageLocationId, deltaQty: delta });
   }
 
   if (deltas.length === 0) {
@@ -264,7 +345,6 @@ export function upsertCarryForwardStockBatch(
   const occurredAt = noonUtcIsoDate(occurredDate);
   const reason = (input.notes ?? "").trim() || "Carry-forward stock";
 
-  const db = getDatabase();
   try {
     const result = db.transaction(() => {
       const id = randomUUID();
@@ -284,7 +364,7 @@ export function upsertCarryForwardStockBatch(
         insertLine.run(
           randomUUID(),
           id,
-          productId,
+          line.productId,
           formatQty(line.deltaQty),
           line.storageLocationId,
         );
@@ -293,7 +373,7 @@ export function upsertCarryForwardStockBatch(
       for (const line of deltas) {
         applyMovement(db, {
           salesPointId,
-          productId,
+          productId: line.productId,
           storageLocationId: line.storageLocationId,
           qty: formatQty(line.deltaQty),
           kind: "ADJUSTMENT",

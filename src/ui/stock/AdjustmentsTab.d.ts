@@ -1,4 +1,4 @@
-import type { AdjustmentListRow, ProductOption, SalesPointOption, StockBalanceRow, StorageLocationOption } from "../../shared/stock.types.ts";
+import type { AdjustmentListRow, ProductOption, SalesPointOption, StockBalanceRow, StockProductFilter, StorageLocationOption } from "../../shared/stock.types.ts";
 interface AdjustmentsTabProps {
     rows: AdjustmentListRow[];
     salesPoints: SalesPointOption[];
@@ -11,6 +11,7 @@ interface AdjustmentsTabProps {
     canCancel: boolean;
     canDraft: boolean;
     userId: string;
+    productFilter: StockProductFilter;
     onOk: (text: string) => void;
     onErr: (text: string) => void;
 }

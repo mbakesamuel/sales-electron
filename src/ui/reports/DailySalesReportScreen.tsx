@@ -40,7 +40,7 @@ function buildCsv(report: DailySalesReport): string {
   const lines: string[] = [
     `Company:,${report.settings.companyName}`,
     `Report date:,${formatDisplayDate(report.reportDateIso)}`,
-    `Sales point:,${report.salesPointLabel}`,
+    `Collection point:,${report.salesPointLabel}`,
     "",
     "SN,CUSTOMER,DO. NO.,DATE ISSUED,VEHICLE. NO,QUANTITY,DO. BALANCE",
   ];
@@ -334,7 +334,7 @@ export function DailySalesReportScreen({
             )}
           </label>
           <label class="dsr-filter">
-            <span>Sales point</span>
+            <span>Collection point</span>
             <select
               value={salesPointId == null ? "" : String(salesPointId)}
               disabled={loading}
@@ -343,7 +343,7 @@ export function DailySalesReportScreen({
                 setSalesPointId(value ? Number.parseInt(value, 10) : null);
               }}
             >
-              <option value="">All sales points</option>
+              <option value="">All collection points</option>
               {report.salesPointOptions.map((point) => (
                 <option key={point.id} value={String(point.id)}>
                   {point.name}

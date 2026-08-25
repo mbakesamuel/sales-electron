@@ -227,7 +227,7 @@ export function ReportSettingsScreen({ readOnly = false }: ReportSettingsScreenP
               Hide rows with zero or empty quantities
             </strong>
             <span style="display: block; margin-top: 6px; color: #64748b; font-size: 13px; line-height: 1.45;">
-              When enabled, reports omit rows (and empty sales-point blocks) whose
+              When enabled, reports omit rows (and empty collection-point blocks) whose
               quantities are zero or blank. Applies to Stock, Stock &amp; commitment,
               Commitment, Weekly deliveries, and Bottle oil stock &amp; sales.
               Turn off to show those rows for reconciliation.

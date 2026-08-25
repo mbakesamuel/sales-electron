@@ -24,7 +24,7 @@ interface FormData {
 }
 
 const SITE_KIND_OPTIONS = [
-  { value: "SALES_POINT", label: "Sales point" },
+  { value: "SALES_POINT", label: "Collection point" },
   { value: "FACTORY", label: "Factory" },
 ] as const;
 

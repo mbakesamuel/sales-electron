@@ -77,7 +77,7 @@
   font-weight: 700;
   text-transform: lowercase;
   color: black;
-  background: var(--border);
+  background: #e5e7eb;
 }
 
 .mdr-budget-table th,
@@ -95,7 +95,7 @@
 }
 
 .mdr-budget-table thead th {
-  background: var(--border);
+  background: #e5e7eb;
   font-weight: 700;
   text-transform: none;
 }

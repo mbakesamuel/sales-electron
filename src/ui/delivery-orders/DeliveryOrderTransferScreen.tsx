@@ -165,7 +165,7 @@ export function DeliveryOrderTransferScreen({
 
     const destId = Number.parseInt(toSalesPointId, 10);
     if (!Number.isFinite(destId)) {
-      setError("Select a destination sales point.");
+      setError("Select a destination collection point.");
       return;
     }
 
@@ -240,7 +240,7 @@ export function DeliveryOrderTransferScreen({
           <div>
             <h2>Transfer DO balance</h2>
             <p class="sales-muted">
-              Move remaining commitment from one sales point to another. Creates
+              Move remaining commitment from one collection point to another. Creates
               a new validated DO (<code>DT-…</code>) at the destination.
             </p>
           </div>
@@ -380,7 +380,7 @@ export function DeliveryOrderTransferScreen({
             </div>
 
             <label class="sales-field">
-              <span>Destination sales point</span>
+              <span>Destination collection point</span>
               <select
                 value={toSalesPointId}
                 disabled={!canTransfer || busy}
@@ -390,7 +390,7 @@ export function DeliveryOrderTransferScreen({
                   )
                 }
               >
-                <option value="">Select sales point</option>
+                <option value="">Select collection point</option>
                 {destinationPoints.map((point) => (
                   <option key={point.id} value={String(point.id)}>
                     {point.name}

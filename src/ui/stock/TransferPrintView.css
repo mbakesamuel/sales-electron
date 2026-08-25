@@ -1,0 +1,31 @@
+.st-print-backdrop {
+  z-index: 130;
+}
+
+.st-print-document {
+  text-transform: none;
+}
+
+@media print {
+  body.st-print-mode .st-print-backdrop {
+    position: static;
+    inset: auto;
+    display: block;
+    padding: 0;
+    background: transparent;
+  }
+
+  body.st-print-mode .do-print-modal {
+    width: auto;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  body.st-print-mode .no-print {
+    display: none !important;
+  }
+}

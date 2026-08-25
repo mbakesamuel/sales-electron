@@ -1,12 +1,14 @@
 import { useMemo, useState } from "preact/hooks";
 import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts";
 import {
-  getVisibleStockTabs,
-  isStockTabReadOnly,
+  getVisibleStockTabsForVariant,
+  isStockTabReadOnlyForVariant,
+  type StockModuleVariant,
   type StockTabId,
 } from "../../shared/stockModule.ts";
 import type { AuthUser } from "../auth/session.ts";
 import type { StockBootstrap } from "../../shared/stock.types.ts";
+import { BinCardScreen } from "./BinCardScreen.tsx";
 import { OnHandTab } from "./OnHandTab.tsx";
 import { MovementsTab } from "./MovementsTab.tsx";
 import { ReceiptsTab } from "./ReceiptsTab.tsx";
@@ -14,10 +16,26 @@ import { TransfersTab } from "./TransfersTab.tsx";
 import { AdjustmentsTab } from "./AdjustmentsTab.tsx";
 import "./StockScreen.css";
 
-type TabId = "on-hand" | "movements" | "receipts" | "transfers" | "adjustments";
+type TabId =
+  | "bin-card"
+  | "on-hand"
+  | "movements"
+  | "receipts"
+  | "transfers"
+  | "adjustments";
 type Banner = { type: "ok" | "error"; text: string } | null;
 
-const TAB_DEFINITIONS: { id: TabId; stockTabId: StockTabId; label: string }[] = [
+type VisibleTab = {
+  id: TabId;
+  stockTabId?: StockTabId;
+  label: string;
+};
+
+const TAB_DEFINITIONS: {
+  id: Exclude<TabId, "bin-card">;
+  stockTabId: StockTabId;
+  label: string;
+}[] = [
   { id: "on-hand", stockTabId: "balance", label: "On hand" },
   { id: "movements", stockTabId: "movements", label: "Movements" },
   { id: "receipts", stockTabId: "receipts", label: "Receipts" },
@@ -29,35 +47,66 @@ interface StockClientProps {
   bootstrap: StockBootstrap;
   user: AuthUser;
   permissions: RolePermissionsSnapshot;
+  variant: StockModuleVariant;
   onRefresh: () => void | Promise<void>;
-  onOpenBinCard?: () => void;
 }
 
 export function StockClient({
   bootstrap,
   user,
   permissions,
+  variant,
   onRefresh,
-  onOpenBinCard,
 }: StockClientProps) {
-  const visibleTabs = useMemo(
-    () =>
-      TAB_DEFINITIONS.filter((tab) =>
-        getVisibleStockTabs(permissions).includes(tab.stockTabId),
-      ),
-    [permissions],
-  );
+  const productFilter = variant;
+  const visibleTabs = useMemo((): VisibleTab[] => {
+    const allowedStockTabs = getVisibleStockTabsForVariant(permissions, variant);
 
-  const [tab, setTab] = useState<TabId>(() => visibleTabs[0]?.id ?? "on-hand");
+    if (variant === "bottled") {
+      const binCardTab: VisibleTab = { id: "bin-card", label: "Bin card" };
+      const documentTabs = TAB_DEFINITIONS.filter((tab) => {
+        if (
+          tab.id === "receipts" ||
+          tab.id === "on-hand" ||
+          tab.id === "movements"
+        ) {
+          return false;
+        }
+        return allowedStockTabs.includes(tab.stockTabId);
+      }).map((tab) => ({
+        id: tab.id,
+        stockTabId: tab.stockTabId,
+        label: tab.label,
+      }));
+      return [binCardTab, ...documentTabs];
+    }
+
+    return TAB_DEFINITIONS.filter((tab) =>
+      allowedStockTabs.includes(tab.stockTabId),
+    ).map((tab) => ({
+      id: tab.id,
+      stockTabId: tab.stockTabId,
+      label: tab.label,
+    }));
+  }, [permissions, variant]);
+
+  const defaultTab = variant === "bottled" ? "bin-card" : "on-hand";
+  const [tab, setTab] = useState<TabId>(
+    () => visibleTabs[0]?.id ?? defaultTab,
+  );
   const [banner, setBanner] = useState<Banner>(null);
 
   const activeTab = visibleTabs.some((item) => item.id === tab)
     ? tab
-    : (visibleTabs[0]?.id ?? "on-hand");
+    : (visibleTabs[0]?.id ?? defaultTab);
 
   const activeStockTabId =
-    TAB_DEFINITIONS.find((item) => item.id === activeTab)?.stockTabId ?? "balance";
-  const tabReadOnly = isStockTabReadOnly(permissions, activeStockTabId);
+    visibleTabs.find((item) => item.id === activeTab)?.stockTabId ?? "balance";
+  const tabReadOnly = isStockTabReadOnlyForVariant(
+    permissions,
+    variant,
+    activeStockTabId,
+  );
 
   function announceOk(text: string) {
     setBanner({ type: "ok", text });
@@ -70,30 +119,34 @@ export function StockClient({
 
   if (visibleTabs.length === 0) {
     return (
-      <p class="home-access-denied">You do not have permission to view stock data.</p>
+      <p class="home-access-denied">
+        You do not have permission to view stock data.
+      </p>
     );
   }
+
+  const title =
+    variant === "bottled"
+      ? "Stock Management - Bottled Products"
+      : "Stock Management - Loose Products/Others";
+  const subtitle =
+    variant === "bottled"
+      ? "Bin card ledger, transfers, and adjustments for bottled products."
+      : "On-hand quantities, receipts, transfers and adjustments as reported by Production.";
 
   return (
     <div class="stock-screen">
       <header class="stock-header">
-        <h1>Stock management</h1>
-        <p class="stock-header-subtitle">
-          Per sales-point on-hand quantities, receipts, transfers, sales deductions, and
-          adjustments. Every operation is recorded with the actor and timestamp on the movement
-          ledger.
-        </p>
-        {onOpenBinCard ? (
-          <p class="stock-header-subtitle">
-            <button type="button" class="scr-btn scr-btn-secondary" onClick={onOpenBinCard}>
-              Open bin card
-            </button>
-          </p>
-        ) : null}
+        <div class="stock-header-text">
+          <h1>{title}</h1>
+          <p class="stock-header-subtitle">{subtitle}</p>
+        </div>
       </header>
 
       {banner ? (
-        <div class={`stock-banner stock-banner-${banner.type}`}>{banner.text}</div>
+        <div class={`stock-banner stock-banner-${banner.type}`}>
+          {banner.text}
+        </div>
       ) : null}
 
       <nav class="stock-tabs">
@@ -113,6 +166,15 @@ export function StockClient({
       </nav>
 
       <div class="stock-tab-panel">
+        {activeTab === "bin-card" ? (
+          <BinCardScreen
+            user={user}
+            permissions={permissions}
+            embedded
+            bootstrap={bootstrap}
+          />
+        ) : null}
+
         {activeTab === "on-hand" ? (
           <OnHandTab
             salesPoints={bootstrap.salesPoints}
@@ -134,11 +196,14 @@ export function StockClient({
             rows={bootstrap.receipts}
             salesPoints={bootstrap.salesPoints}
             storageLocations={bootstrap.storageLocations}
-            products={bootstrap.products}
+            products={bootstrap.receiptProducts}
+            onHand={bootstrap.onHand}
             scopedSalesPointId={bootstrap.scopedSalesPointId}
             canPost={!tabReadOnly && bootstrap.canManageReceipts}
             canCancel={!tabReadOnly && bootstrap.canCancelDocuments}
             canDraft={!tabReadOnly && bootstrap.canDraftReceipts}
+            canDirectPost={!tabReadOnly && bootstrap.canDirectPostReceipts}
+            autoGenerateReceiptNo={bootstrap.autoGenerateReceiptNo}
             userId={user.id}
             onOk={announceOk}
             onErr={announceErr}
@@ -157,7 +222,14 @@ export function StockClient({
             canReceive={!tabReadOnly && bootstrap.canReceiveTransfers}
             canCancel={!tabReadOnly && bootstrap.canCancelDocuments}
             canDraft={!tabReadOnly && bootstrap.canDraftTransfers}
+            canDirectPost={!tabReadOnly && bootstrap.canDirectPostTransfers}
+            autoGenerateTransferNo={bootstrap.autoGenerateTransferNo}
+            transferReceiveUsesDocumentDate={
+              bootstrap.transferReceiveUsesDocumentDate
+            }
             userId={user.id}
+            userRole={user.role}
+            productFilter={productFilter}
             onOk={announceOk}
             onErr={announceErr}
           />
@@ -176,6 +248,7 @@ export function StockClient({
             canCancel={!tabReadOnly && bootstrap.canCancelDocuments}
             canDraft={!tabReadOnly && bootstrap.canDraftAdjustments}
             userId={user.id}
+            productFilter={productFilter}
             onOk={announceOk}
             onErr={announceErr}
           />

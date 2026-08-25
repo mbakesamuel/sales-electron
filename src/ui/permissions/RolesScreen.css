@@ -1,0 +1,216 @@
+.roles-screen {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  gap: 0;
+}
+
+.roles-screen .access-admin-body {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.roles-screen .customers-screen-header {
+  padding: 10px 14px;
+  border-radius: 8px;
+  gap: 10px;
+  margin: 0;
+}
+
+.roles-screen .customers-screen-brand-subtitle {
+  margin-top: 0;
+  line-height: 1.35;
+}
+
+.roles-screen .customers-error,
+.roles-screen .customers-success,
+.roles-screen .customers-muted {
+  margin: 0;
+}
+
+.roles-screen .customers-screen-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.roles-search-wrap {
+  display: block;
+  min-width: 10rem;
+  flex: 1 1 10rem;
+  max-width: 16rem;
+}
+
+.roles-search {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.roles-card,
+.roles-create-card {
+  padding: 10px 12px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.roles-create-title {
+  margin: 0 0 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.roles-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  gap: 8px;
+}
+
+.roles-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--customers-border, var(--border));
+  border-radius: 6px;
+  background: var(--bg-soft);
+}
+
+.roles-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  min-width: 0;
+  font-size: 0.8125rem;
+}
+
+.roles-meta strong {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roles-id {
+  font-size: 0.72rem;
+  color: var(--text-muted, #64748b);
+  font-family: ui-monospace, monospace;
+}
+
+.roles-users {
+  font-size: 0.72rem;
+  color: var(--text-muted, #64748b);
+}
+
+.roles-screen .customers-badge {
+  font-size: 0.65rem;
+  padding: 0.1rem 0.35rem;
+}
+
+.roles-actions,
+.roles-edit,
+.roles-create-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.roles-edit {
+  width: 100%;
+}
+
+.roles-edit .roles-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.roles-input,
+.roles-select {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  background: var(--bg-elevated);
+  color: var(--text-h);
+  box-sizing: border-box;
+}
+
+.roles-select {
+  padding-right: 24px;
+}
+
+.roles-create-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 12px;
+  align-items: end;
+}
+
+.roles-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.roles-form-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted, #64748b);
+  line-height: 1.2;
+}
+
+.roles-create-actions {
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--customers-border, var(--border));
+}
+
+@media (max-width: 900px) {
+  .roles-create-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+.roles-screen .customers-btn-small {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.roles-item:has(.roles-edit) {
+  grid-column: 1 / -1;
+}

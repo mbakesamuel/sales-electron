@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import type { OpenPostingPeriod } from "../../shared/financialYears.types.ts";
@@ -7,16 +7,25 @@ import type {
   ReceiptDetail,
   ReceiptListRow,
   SalesPointOption,
+  StockBalanceRow,
+  StockProductFilter,
   StorageLocationOption,
 } from "../../shared/stock.types.ts";
-import { ConfirmDialog, DocDialog, ReviewKeyValue, ReviewLineTable, StatusBadge } from "./StockDialogs.tsx";
+import {
+  ConfirmDialog,
+  DocDialog,
+  ReviewKeyValue,
+  ReviewLineTable,
+  StatusBadge,
+} from "./StockDialogs.tsx";
+import { ReceiptPrintView } from "./ReceiptPrintView.tsx";
 import { ReceiptLineEditor, type ReceiptLineDraft } from "./LineEditors.tsx";
 import {
   clampIsoDateToRange,
-  defaultLocationId,
+  defaultReceiptLocationId,
   formatDate,
   formatDateTime,
-  locationsForSalesPoint,
+  locationsForReceiptAtSalesPoint,
   trimQty,
   utcIsoDateToday,
 } from "./stockUtils.ts";
@@ -26,19 +35,33 @@ interface ReceiptsTabProps {
   salesPoints: SalesPointOption[];
   storageLocations: StorageLocationOption[];
   products: ProductOption[];
+  onHand: StockBalanceRow[];
   scopedSalesPointId: number | null;
   canPost: boolean;
   canCancel: boolean;
   canDraft: boolean;
+  canDirectPost: boolean;
+  autoGenerateReceiptNo: boolean;
   userId: string;
   onOk: (text: string) => void;
   onErr: (text: string) => void;
 }
 
 export function ReceiptsTab(props: ReceiptsTabProps) {
-  const { rows, salesPoints, storageLocations, products, scopedSalesPointId, userId } = props;
+  const {
+    rows,
+    salesPoints,
+    storageLocations,
+    products,
+    onHand,
+    scopedSalesPointId,
+    userId,
+    autoGenerateReceiptNo,
+  } = props;
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [bottledProducts, setBottledProducts] = useState(false);
+  const [receiptNo, setReceiptNo] = useState("");
   const [salesPointId, setSalesPointId] = useState<string>(
     scopedSalesPointId != null ? String(scopedSalesPointId) : "",
   );
@@ -49,16 +72,43 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
     {
       productId: "",
       qty: "",
-      storageLocationId: defaultLocationId(storageLocations, scopedSalesPointId ?? ""),
+      storageLocationId: defaultReceiptLocationId(
+        storageLocations,
+        scopedSalesPointId ?? "",
+        false,
+      ),
     },
   ]);
-  const [pendingCancel, setPendingCancel] = useState<ReceiptListRow | null>(null);
+  const [pendingCancel, setPendingCancel] = useState<ReceiptListRow | null>(
+    null,
+  );
   const [busy, setBusy] = useState(false);
   const [lookupNo, setLookupNo] = useState("");
   const [lookupBusy, setLookupBusy] = useState(false);
   const [reviewDetail, setReviewDetail] = useState<ReceiptDetail | null>(null);
   const [reviewBusy, setReviewBusy] = useState(false);
-  const [postingPeriod, setPostingPeriod] = useState<OpenPostingPeriod | null>(null);
+  const [printOpen, setPrintOpen] = useState(false);
+  const [postingPeriod, setPostingPeriod] = useState<OpenPostingPeriod | null>(
+    null,
+  );
+
+  const receiptSalesPoints = useMemo(() => {
+    const millAttached = salesPoints.filter((sp) => sp.attachedToMill);
+    if (!salesPointId) {
+      return millAttached;
+    }
+    const currentId = Number.parseInt(salesPointId, 10);
+    if (
+      Number.isFinite(currentId) &&
+      !millAttached.some((sp) => sp.id === currentId)
+    ) {
+      const legacy = salesPoints.find((sp) => sp.id === currentId);
+      if (legacy) {
+        return [legacy, ...millAttached];
+      }
+    }
+    return millAttached;
+  }, [salesPoints, salesPointId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,25 +136,77 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
 
   function resetForm() {
     setEditingId(null);
+    setBottledProducts(false);
+    setReceiptNo("");
     const sp = scopedSalesPointId != null ? String(scopedSalesPointId) : "";
     setSalesPointId(sp);
     setSupplierLabel("");
     setReceivedAt(defaultReceivedAt());
     setNotes("");
     setLines([
-      { productId: "", qty: "", storageLocationId: defaultLocationId(storageLocations, sp) },
+      {
+        productId: "",
+        qty: "",
+        storageLocationId: defaultReceiptLocationId(storageLocations, sp, false),
+      },
     ]);
+  }
+
+  function receiptProductFilter(): StockProductFilter {
+    return bottledProducts ? "bottled" : "bulk";
+  }
+
+  function productFilterForDetail(detail: ReceiptDetail): StockProductFilter {
+    const first = detail.lines[0];
+    if (!first) {
+      return "bulk";
+    }
+    const product = products.find((p) => p.productId === first.productId);
+    return product?.isBottled ? "bottled" : "bulk";
+  }
+
+  const modalProducts = products.filter((p) => p.isBottled === bottledProducts);
+
+  function onBottledProductsChange(next: boolean) {
+    setBottledProducts(next);
+    const defLoc = defaultReceiptLocationId(
+      storageLocations,
+      salesPointId,
+      next,
+    );
+    setLines((prev) =>
+      prev.map((line) => {
+        const cleared =
+          !line.productId
+            ? line
+            : (() => {
+                const product = products.find(
+                  (p) => String(p.productId) === line.productId,
+                );
+                if (product && product.isBottled === next) {
+                  return line;
+                }
+                return { ...line, productId: "" };
+              })();
+        return { ...cleared, storageLocationId: defLoc };
+      }),
+    );
   }
 
   function onSalesPointChange(nextId: string) {
     setSalesPointId(nextId);
-    const defLoc = defaultLocationId(storageLocations, nextId);
+    const defLoc = defaultReceiptLocationId(
+      storageLocations,
+      nextId,
+      bottledProducts,
+    );
     setLines((prev) =>
       prev.map((l) => ({
         ...l,
-        storageLocationId: locationsForSalesPoint(storageLocations, nextId).some(
-          (loc) => String(loc.id) === l.storageLocationId,
-        )
+        storageLocationId: locationsForReceiptAtSalesPoint(
+          storageLocations,
+          nextId,
+        ).some((loc) => String(loc.id) === l.storageLocationId)
           ? l.storageLocationId
           : defLoc,
       })),
@@ -116,14 +218,25 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
     setOpen(true);
   }
 
-  async function onSave(event: Event) {
+  async function onSave(event: Event, postImmediately = false) {
     event.preventDefault();
     if (busy) return;
+    if (postImmediately && (editingId || !props.canDirectPost)) {
+      return;
+    }
+    if (!postImmediately && !editingId && !props.canDraft) {
+      return;
+    }
     setBusy(true);
     try {
       const res = await getElectronApi().stock.saveReceipt({
         userId,
+        productFilter: receiptProductFilter(),
         id: editingId,
+        postImmediately: postImmediately && !editingId,
+        ...(autoGenerateReceiptNo || editingId
+          ? {}
+          : { receiptNo: receiptNo.trim() }),
         salesPointId: Number.parseInt(salesPointId, 10),
         supplierLabel,
         receivedAt,
@@ -140,9 +253,13 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
         props.onErr(res.error);
         return;
       }
-      props.onOk(
-        editingId ? `Receipt ${res.documentNo} updated.` : `Receipt ${res.documentNo} drafted.`,
-      );
+      if (editingId) {
+        props.onOk(`Receipt ${res.documentNo} updated.`);
+      } else if (postImmediately) {
+        props.onOk(`Receipt ${res.documentNo} posted; balances updated.`);
+      } else {
+        props.onOk(`Receipt ${res.documentNo} drafted.`);
+      }
       setOpen(false);
       resetForm();
     } finally {
@@ -153,7 +270,19 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
   async function onPost(id: string) {
     setBusy(true);
     try {
-      const res = await getElectronApi().stock.postReceipt({ userId, receiptId: id });
+      const detailRes = await getElectronApi().stock.loadReceiptForReview({
+        userId,
+        receiptId: id,
+      });
+      if (detailRes.ok === false) {
+        props.onErr(detailRes.error);
+        return;
+      }
+      const res = await getElectronApi().stock.postReceipt({
+        userId,
+        productFilter: productFilterForDetail(detailRes.detail),
+        receiptId: id,
+      });
       if (res.ok === false) {
         props.onErr(res.error);
         return;
@@ -171,7 +300,19 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
     setPendingCancel(null);
     setBusy(true);
     try {
-      const res = await getElectronApi().stock.cancelReceipt({ userId, receiptId: id });
+      const detailRes = await getElectronApi().stock.loadReceiptForReview({
+        userId,
+        receiptId: id,
+      });
+      if (detailRes.ok === false) {
+        props.onErr(detailRes.error);
+        return;
+      }
+      const res = await getElectronApi().stock.cancelReceipt({
+        userId,
+        productFilter: productFilterForDetail(detailRes.detail),
+        receiptId: id,
+      });
       if (res.ok === false) {
         props.onErr(res.error);
         return;
@@ -186,7 +327,10 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
   async function openReviewById(id: string) {
     setReviewBusy(true);
     try {
-      const res = await getElectronApi().stock.loadReceiptForReview({ userId, receiptId: id });
+      const res = await getElectronApi().stock.loadReceiptForReview({
+        userId,
+        receiptId: id,
+      });
       if (res.ok === false) {
         props.onErr(res.error);
         return;
@@ -201,8 +345,12 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
     setEditingId(detail.id);
     setSalesPointId(String(detail.salesPointId));
     setSupplierLabel(detail.supplierLabel);
+    setReceiptNo(detail.receiptNo);
+    setBottledProducts(productFilterForDetail(detail) === "bottled");
     const rawDate =
-      detail.receivedAtIso.length > 10 ? detail.receivedAtIso.slice(0, 10) : detail.receivedAtIso;
+      detail.receivedAtIso.length > 10
+        ? detail.receivedAtIso.slice(0, 10)
+        : detail.receivedAtIso;
     setReceivedAt(clampIsoDateToRange(rawDate, postingPeriod));
     setNotes(detail.notes ?? "");
     setLines(
@@ -216,7 +364,11 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
             {
               productId: "",
               qty: "",
-              storageLocationId: defaultLocationId(storageLocations, detail.salesPointId),
+              storageLocationId: defaultReceiptLocationId(
+                storageLocations,
+                detail.salesPointId,
+                productFilterForDetail(detail) === "bottled",
+              ),
             },
           ],
     );
@@ -226,7 +378,10 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
   async function openEditById(id: string) {
     setReviewBusy(true);
     try {
-      const res = await getElectronApi().stock.loadReceiptForReview({ userId, receiptId: id });
+      const res = await getElectronApi().stock.loadReceiptForReview({
+        userId,
+        receiptId: id,
+      });
       if (res.ok === false) {
         props.onErr(res.error);
         return;
@@ -249,7 +404,10 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
     if (!n) return;
     setLookupBusy(true);
     try {
-      const res = await getElectronApi().stock.findReceiptByNumber({ userId, receiptNo: n });
+      const res = await getElectronApi().stock.findReceiptByNumber({
+        userId,
+        receiptNo: n,
+      });
       if (res.ok === false) {
         props.onErr(res.error);
         return;
@@ -266,22 +424,34 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
       <div class="stock-section-header">
         <div>
           <h2>Stock receipts</h2>
-          {props.canPost ? (
+          {/* {props.canPost ? (
             <p class="stock-hint">
-              Pull a draft voucher by its number to cross-check the lines before posting.
+              Pull a draft voucher by its number to cross-check the lines before
+              posting.
             </p>
           ) : (
             <p class="stock-hint">
               Draft a receipt, then submit it to your supervisor for posting.
             </p>
-          )}
+          )} */}
+
+          <p class="stock-hint">
+            Use this screen to record incoming stock into
+            Collection Point (By Product and Storage Location). To Sales, Oil Mills are considered collection points.
+          </p>
         </div>
         <div class="stock-header-actions">
           {props.canPost ? (
-            <form onSubmit={onLookup} class="stock-lookup-row" aria-label="Pull voucher by number">
+            <form
+              onSubmit={onLookup}
+              class="stock-lookup-row"
+              aria-label="Pull voucher by number"
+            >
               <input
                 value={lookupNo}
-                onInput={(event) => setLookupNo((event.currentTarget as HTMLInputElement).value)}
+                onInput={(event) =>
+                  setLookupNo((event.currentTarget as HTMLInputElement).value)
+                }
                 placeholder="SR-2026-000001"
                 class="stock-lookup-input"
                 aria-label="Receipt number"
@@ -295,8 +465,12 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
               </button>
             </form>
           ) : null}
-          {props.canDraft ? (
-            <button type="button" class="stock-btn-primary" onClick={openCreate}>
+          {props.canDraft || props.canDirectPost ? (
+            <button
+              type="button"
+              class="stock-btn-primary"
+              onClick={openCreate}
+            >
               New receipt
             </button>
           ) : null}
@@ -307,26 +481,25 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
         <table class="stock-table">
           <thead>
             <tr>
-              <th>Receipt #</th>
+              <th>Consignment Note #</th>
               <th>Date</th>
-              <th>Sales point</th>
+              <th>Collection point</th>
               <th>Supplier</th>
               <th class="stock-num">Total qty</th>
               <th>Status</th>
-              <th>Created by</th>
-              <th>Posted by</th>
               <th class="stock-actions-col">Actions</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={9} class="stock-empty-cell">
+                <td colSpan={7} class="stock-empty-cell">
                   No receipts recorded yet.
                   {props.canDraft ? (
                     <>
                       {" "}
-                      Use <span class="stock-strong">New receipt</span> to create one.
+                      Use <span class="stock-strong">New receipt</span> to
+                      create one.
                     </>
                   ) : null}
                 </td>
@@ -342,63 +515,39 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
                   <td>
                     <StatusBadge status={r.status} />
                   </td>
-                  <td class="stock-muted">
-                    <div>{r.createdByName}</div>
-                    <div class="stock-subtext">{formatDateTime(r.createdAtIso)}</div>
-                  </td>
-                  <td class="stock-muted">
-                    {r.postedByName ? (
-                      <>
-                        <div>{r.postedByName}</div>
-                        <div class="stock-subtext">{formatDateTime(r.postedAtIso)}</div>
-                      </>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
                   <td class="stock-actions-col">
                     <div class="stock-actions-cell">
-                    <button
-                      type="button"
-                      disabled={reviewBusy}
-                      onClick={() => void openReviewById(r.id)}
-                      class="stock-btn-secondary stock-btn-small"
-                      title="View lines"
-                    >
-                      Review
-                    </button>
-                    {r.status === "DRAFT" && props.canDraft ? (
                       <button
                         type="button"
-                        disabled={busy || reviewBusy}
-                        onClick={() => void openEditById(r.id)}
+                        disabled={reviewBusy}
+                        onClick={() => void openReviewById(r.id)}
                         class="stock-btn-secondary stock-btn-small"
-                        title="Correct draft"
+                        title="View lines"
                       >
-                        Edit
+                        Review
                       </button>
-                    ) : null}
-                    {r.status === "DRAFT" && props.canPost ? (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void onPost(r.id)}
-                        class="stock-btn-primary stock-btn-small"
-                      >
-                        Post
-                      </button>
-                    ) : null}
-                    {(r.status === "DRAFT" && props.canDraft) ||
-                    (r.status === "POSTED" && props.canCancel) ? (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => setPendingCancel(r)}
-                        class="stock-btn-danger stock-btn-small"
-                      >
-                        {r.status === "DRAFT" ? "Delete" : "Cancel"}
-                      </button>
-                    ) : null}
+                      {r.status === "DRAFT" && props.canDraft ? (
+                        <button
+                          type="button"
+                          disabled={busy || reviewBusy}
+                          onClick={() => void openEditById(r.id)}
+                          class="stock-btn-secondary stock-btn-small"
+                          title="Correct draft"
+                        >
+                          Edit
+                        </button>
+                      ) : null}
+                      {(r.status === "DRAFT" && props.canDraft) ||
+                      (r.status === "POSTED" && props.canCancel) ? (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => setPendingCancel(r)}
+                          class="stock-btn-danger stock-btn-small"
+                        >
+                          {r.status === "DRAFT" ? "Delete" : "Cancel"}
+                        </button>
+                      ) : null}
                     </div>
                   </td>
                 </tr>
@@ -409,36 +558,65 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
       </div>
 
       {reviewDetail ? (
-        <DocDialog title={`Review receipt ${reviewDetail.receiptNo}`} wide onClose={() => setReviewDetail(null)}>
+        <DocDialog
+          title={`Review receipt ${reviewDetail.receiptNo}`}
+          wide
+          onClose={() => setReviewDetail(null)}
+        >
           <div class="stock-review">
             <div class="stock-review-top">
               <StatusBadge status={reviewDetail.status} />
             </div>
 
             <div class="stock-review-grid">
-              <ReviewKeyValue label="Sales point">{reviewDetail.salesPointName}</ReviewKeyValue>
-              <ReviewKeyValue label="Received on">{formatDate(reviewDetail.receivedAtIso)}</ReviewKeyValue>
-              <ReviewKeyValue label="Supplier">{reviewDetail.supplierLabel}</ReviewKeyValue>
+              <ReviewKeyValue label="Collection point">
+                {reviewDetail.salesPointName}
+              </ReviewKeyValue>
+              <ReviewKeyValue label="Receipt Date">
+                {formatDate(reviewDetail.receivedAtIso)}
+              </ReviewKeyValue>
+              <ReviewKeyValue label="Mill">
+                {reviewDetail.supplierLabel}
+              </ReviewKeyValue>
               <ReviewKeyValue label="Drafted by">
                 {reviewDetail.createdByName}
-                <span class="stock-subtext"> {formatDateTime(reviewDetail.createdAtIso)}</span>
+                <span class="stock-subtext">
+                  {" "}
+                  {formatDateTime(reviewDetail.createdAtIso)}
+                </span>
               </ReviewKeyValue>
               {reviewDetail.postedByName ? (
                 <ReviewKeyValue label="Posted by">
                   {reviewDetail.postedByName}
-                  <span class="stock-subtext"> {formatDateTime(reviewDetail.postedAtIso)}</span>
+                  <span class="stock-subtext">
+                    {" "}
+                    {formatDateTime(reviewDetail.postedAtIso)}
+                  </span>
                 </ReviewKeyValue>
               ) : null}
               {reviewDetail.notes ? (
-                <ReviewKeyValue label="Notes">{reviewDetail.notes}</ReviewKeyValue>
+                <ReviewKeyValue label="Notes">
+                  {reviewDetail.notes}
+                </ReviewKeyValue>
               ) : null}
             </div>
 
             <ReviewLineTable lines={reviewDetail.lines} />
 
             <div class="stock-modal-actions">
-              <button type="button" class="stock-btn-secondary" onClick={() => setReviewDetail(null)}>
+              <button
+                type="button"
+                class="stock-btn-secondary"
+                onClick={() => setReviewDetail(null)}
+              >
                 Close
+              </button>
+              <button
+                type="button"
+                class="stock-btn-secondary"
+                onClick={() => setPrintOpen(true)}
+              >
+                Print receipt
               </button>
               {(reviewDetail.status === "DRAFT" && props.canDraft) ||
               (reviewDetail.status === "POSTED" && props.canCancel) ? (
@@ -448,7 +626,9 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
                   onClick={() => setPendingCancel(reviewDetail)}
                   class="stock-btn-danger"
                 >
-                  {reviewDetail.status === "DRAFT" ? "Delete draft" : "Cancel receipt"}
+                  {reviewDetail.status === "DRAFT"
+                    ? "Delete draft"
+                    : "Cancel receipt"}
                 </button>
               ) : null}
               {reviewDetail.status === "DRAFT" && props.canDraft ? (
@@ -477,20 +657,82 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
         </DocDialog>
       ) : null}
 
+      {printOpen && reviewDetail ? (
+        <ReceiptPrintView
+          receiptId={reviewDetail.id}
+          userId={userId}
+          onClose={() => setPrintOpen(false)}
+        />
+      ) : null}
+
       {open ? (
-        <DocDialog title={editingId ? "Edit receipt" : "New receipt"} wide onClose={() => setOpen(false)}>
-          <form onSubmit={onSave} class="stock-form">
+        <DocDialog
+          title={editingId ? "Edit receipt" : "New receipt"}
+          wide
+          onClose={() => setOpen(false)}
+        >
+          <form
+            onSubmit={(event) => void onSave(event, false)}
+            class="stock-form"
+          >
+            {!autoGenerateReceiptNo && !editingId ? (
+              <label class="stock-form-row">
+                <span class="stock-form-label">Consignment Note #</span>
+                <input
+                  class="stock-form-control stock-mono"
+                  value={receiptNo}
+                  onInput={(event) =>
+                    setReceiptNo(
+                      (event.currentTarget as HTMLInputElement).value,
+                    )
+                  }
+                  placeholder="SR-2026-000001"
+                  required
+                />
+              </label>
+            ) : null}
+            {!autoGenerateReceiptNo && editingId ? (
+              <label class="stock-form-row">
+                <span class="stock-form-label">Receipt number</span>
+                <input
+                  class="stock-form-control stock-mono"
+                  value={receiptNo}
+                  readOnly
+                  disabled
+                />
+              </label>
+            ) : null}
+
+            <label class="stock-form-row">
+              <span class="stock-form-label">Supplier Mill</span>
+              <input
+                class="stock-form-control"
+                value={supplierLabel}
+                onInput={(event) =>
+                  setSupplierLabel(
+                    (event.currentTarget as HTMLInputElement).value,
+                  )
+                }
+                placeholder="E.g IU Mondoni"
+                required
+              />
+            </label>
+
             {scopedSalesPointId == null ? (
               <label class="stock-form-row">
-                <span class="stock-form-label">Sales point</span>
+                <span class="stock-form-label">Collection point</span>
                 <select
                   class="stock-form-control"
                   value={salesPointId}
-                  onChange={(event) => onSalesPointChange((event.currentTarget as HTMLSelectElement).value)}
+                  onChange={(event) =>
+                    onSalesPointChange(
+                      (event.currentTarget as HTMLSelectElement).value,
+                    )
+                  }
                   required
                 >
-                  <option value="">Select…</option>
-                  {salesPoints.map((sp) => (
+                  <option value="">Select collection point</option>
+                  {receiptSalesPoints.map((sp) => (
                     <option key={sp.id} value={sp.id}>
                       {sp.name}
                     </option>
@@ -498,8 +740,9 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
                 </select>
               </label>
             ) : null}
+
             <label class="stock-form-row">
-              <span class="stock-form-label">Received on</span>
+              <span class="stock-form-label">Receipt Date</span>
               <span class="stock-form-control-wrap">
                 <input
                   type="date"
@@ -518,48 +761,113 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
                   }
                   required
                 />
-                {!postingPeriod ? (
-                  <span class="stock-form-hint">Open a financial month to set the receipt date.</span>
+                {/*  {!postingPeriod ? (
+                  <span class="stock-form-hint">
+                    Open a financial month to set the receipt date.
+                  </span>
                 ) : (
                   <span class="stock-form-hint">
-                    Open month: {postingPeriod.monthName} {postingPeriod.financialYear}
+                    Open month: {postingPeriod.monthName}{" "}
+                    {postingPeriod.financialYear}
                   </span>
-                )}
+                )} */}
+              </span>
+            </label>
+
+            <label class="stock-form-row stock-form-row-checkbox">
+              <span class="stock-form-label">Product type</span>
+              <span class="stock-form-control-wrap">
+                <label class="stock-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={bottledProducts}
+                    onChange={(event) =>
+                      onBottledProductsChange(
+                        (event.currentTarget as HTMLInputElement).checked,
+                      )
+                    }
+                  />
+                  Bottled products
+                </label>
+                <span class="stock-form-hint">
+                  {bottledProducts
+                    ? "Line products are limited to bottled items."
+                    : "Line products are limited to other (non-bottled) items."}
+                </span>
               </span>
             </label>
             <label class="stock-form-row">
-              <span class="stock-form-label">Supplier label</span>
-              <input
-                class="stock-form-control"
-                value={supplierLabel}
-                onInput={(event) => setSupplierLabel((event.currentTarget as HTMLInputElement).value)}
-                placeholder="Name of the supplier - Mill or sales point name"
-                required
-              />
-            </label>
-            <label class="stock-form-row">
-              <span class="stock-form-label">Notes</span>
+              <span class="stock-form-label">Description</span>
               <input
                 class="stock-form-control"
                 value={notes}
-                onInput={(event) => setNotes((event.currentTarget as HTMLInputElement).value)}
+                onInput={(event) =>
+                  setNotes((event.currentTarget as HTMLInputElement).value)
+                }
                 placeholder="Notes about the receipt"
               />
             </label>
 
             <ReceiptLineEditor
-              products={products}
+              products={modalProducts}
               lines={lines}
               onChange={setLines}
-              locationOptions={locationsForSalesPoint(storageLocations, salesPointId)}
-              defaultLocationId={defaultLocationId(storageLocations, salesPointId)}
+              locationOptions={locationsForReceiptAtSalesPoint(
+                storageLocations,
+                salesPointId,
+              )}
+              defaultLocationId={defaultReceiptLocationId(
+                storageLocations,
+                salesPointId,
+                bottledProducts,
+              )}
+              onHand={onHand}
+              salesPointId={salesPointId}
             />
 
             <div class="stock-modal-actions">
-              <button type="submit" disabled={busy} class="stock-btn-primary">
-                {editingId ? "Save changes" : "Create draft"}
-              </button>
-              <button type="button" onClick={() => setOpen(false)} disabled={busy} class="stock-btn-secondary">
+              {editingId ? (
+                <button type="submit" disabled={busy} class="stock-btn-primary">
+                  Save changes
+                </button>
+              ) : (
+                <>
+                  {props.canDirectPost ? (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      class="stock-btn-primary"
+                      onClick={(event) => void onSave(event, true)}
+                    >
+                      Post receipt
+                    </button>
+                  ) : null}
+                  {props.canDraft ? (
+                    <button
+                      type={props.canDirectPost ? "button" : "submit"}
+                      disabled={busy}
+                      class={
+                        props.canDirectPost
+                          ? "stock-btn-secondary"
+                          : "stock-btn-primary"
+                      }
+                      onClick={
+                        props.canDirectPost
+                          ? (event) => void onSave(event, false)
+                          : undefined
+                      }
+                    >
+                      {props.canDirectPost ? "Save as draft" : "Create draft"}
+                    </button>
+                  ) : null}
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                disabled={busy}
+                class="stock-btn-secondary"
+              >
                 Cancel
               </button>
             </div>
@@ -569,13 +877,19 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
 
       {pendingCancel ? (
         <ConfirmDialog
-          title={pendingCancel.status === "DRAFT" ? "Delete this receipt?" : "Cancel posted receipt?"}
+          title={
+            pendingCancel.status === "DRAFT"
+              ? "Delete this receipt?"
+              : "Cancel posted receipt?"
+          }
           description={
             pendingCancel.status === "DRAFT"
               ? `Draft receipt ${pendingCancel.receiptNo} will be removed.`
               : `Receipt ${pendingCancel.receiptNo} is already posted. Cancelling will write compensating movements that reverse every line. This cannot be undone.`
           }
-          confirmLabel={pendingCancel.status === "DRAFT" ? "Delete" : "Cancel receipt"}
+          confirmLabel={
+            pendingCancel.status === "DRAFT" ? "Delete" : "Cancel receipt"
+          }
           busy={busy}
           onCancel={() => setPendingCancel(null)}
           onConfirm={onCancel}

@@ -10,7 +10,7 @@ import {
 app.whenReady().then(() => {
   initDatabase();
 
-  const options = getSalesFormOptions();
+  const options = getSalesFormOptions("seed-admin-001");
   console.log("customers", options.customers.length);
   console.log("looseProducts", options.looseProducts.length);
   console.log("bottledProducts", options.bottledProducts.length);

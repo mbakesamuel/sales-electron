@@ -12,33 +12,23 @@ import { StorageLocationFormModal } from "./StorageLocationFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "../customers/CustomersScreen.css";
 
-type OwnerKind = "mill" | "salesPoint";
 type SortKey =
   | "locationName"
-  | "ownerLabel"
+  | "salesPointLabel"
   | "isActive"
   | "isDefault"
   | "createdAt";
 type SortDir = "asc" | "desc";
-type ActiveTab =
-  | "all"
-  | "active"
-  | "inactive"
-  | "mill"
-  | "salesPoint"
-  | "default";
+type ActiveTab = "all" | "active" | "inactive" | "default";
 
 interface StorageLocationRow {
   id: number;
   locationId: number;
   locationName: string;
   isActive: boolean;
-  ownerKind: OwnerKind;
-  millId: number | null;
-  millLabel: string;
-  salesPointId: number | null;
+  isSalesTank: boolean;
+  salesPointId: number;
   salesPointLabel: string;
-  ownerLabel: string;
   isDefault: boolean;
   createdAt: string;
   updatedAt: string;
@@ -65,12 +55,6 @@ function matchesTab(row: StorageLocationRow, tab: ActiveTab): boolean {
   if (tab === "inactive") {
     return !row.isActive;
   }
-  if (tab === "mill") {
-    return row.ownerKind === "mill";
-  }
-  if (tab === "salesPoint") {
-    return row.ownerKind === "salesPoint";
-  }
   if (tab === "default") {
     return row.isDefault;
   }
@@ -82,8 +66,7 @@ function exportCsv(rows: StorageLocationRow[]) {
     "id",
     "location",
     "isActive",
-    "ownerKind",
-    "mill",
+    "isSalesTank",
     "salesPoint",
     "isDefault",
     "createdAt",
@@ -95,8 +78,7 @@ function exportCsv(rows: StorageLocationRow[]) {
       row.id,
       row.locationName,
       row.isActive ? "1" : "0",
-      row.ownerKind,
-      row.millLabel,
+      row.isSalesTank ? "1" : "0",
       row.salesPointLabel,
       row.isDefault ? "1" : "0",
       row.createdAt,
@@ -313,19 +295,13 @@ export function StorageLocationsScreen({
       setError(null);
       try {
         const api = getElectronApi();
-        const [
-          locationResult,
-          storageResult,
-          salesPointResult,
-          millResult,
-          tableSchema,
-        ] = await Promise.all([
-          api.db.queryTable({ table: "Location", limit: 500 }),
-          api.db.queryTable({ table: "StorageLocation", limit: 500 }),
-          api.db.queryTable({ table: "SalesPoint", limit: 200 }),
-          api.db.queryTable({ table: "Mill", limit: 200 }),
-          api.db.getTableSchema("StorageLocation"),
-        ]);
+        const [locationResult, storageResult, salesPointResult, tableSchema] =
+          await Promise.all([
+            api.db.queryTable({ table: "Location", limit: 500 }),
+            api.db.queryTable({ table: "StorageLocation", limit: 500 }),
+            api.db.queryTable({ table: "SalesPoint", limit: 200 }),
+            api.db.getTableSchema("StorageLocation"),
+          ]);
 
         if (cancelled) {
           return;
@@ -343,35 +319,16 @@ export function StorageLocationsScreen({
         for (const salesPoint of salesPointResult.rows) {
           salesPointLabels.set(
             Number(salesPoint.id),
-            String(salesPoint.name ?? `Sales point ${salesPoint.id}`),
+            String(salesPoint.name ?? `Collection point ${salesPoint.id}`),
           );
-        }
-
-        const millLabels = new Map<number, string>();
-        for (const mill of millResult.rows) {
-          millLabels.set(Number(mill.id), String(mill.name ?? `Mill ${mill.id}`));
         }
 
         const mapped = storageResult.rows.map((row) => {
           const id = Number(row.id);
           const locationId = Number(row.locationId);
-          const millId =
-            row.millId != null && row.millId !== "" ? Number(row.millId) : null;
-          const salesPointId =
-            row.salesPointId != null && row.salesPointId !== ""
-              ? Number(row.salesPointId)
-              : null;
-          const ownerKind: OwnerKind = millId != null ? "mill" : "salesPoint";
-          const millLabel =
-            millId != null ? (millLabels.get(millId) ?? `Mill #${millId}`) : "—";
+          const salesPointId = Number(row.salesPointId);
           const salesPointLabel =
-            salesPointId != null
-              ? (salesPointLabels.get(salesPointId) ?? `Sales point #${salesPointId}`)
-              : "—";
-          const ownerLabel =
-            ownerKind === "mill"
-              ? `Mill · ${millLabel}`
-              : `Sales point · ${salesPointLabel}`;
+            salesPointLabels.get(salesPointId) ?? `Collection point #${salesPointId}`;
 
           return {
             id,
@@ -379,12 +336,9 @@ export function StorageLocationsScreen({
             locationName: locationLabels.get(locationId) ?? `Location #${locationId}`,
             isActive:
               row.isActive === 1 || row.isActive === true || row.isActive == null,
-            ownerKind,
-            millId,
-            millLabel,
+            isSalesTank: row.isSalesTank === 1 || row.isSalesTank === true,
             salesPointId,
             salesPointLabel,
-            ownerLabel,
             isDefault: row.isDefault === 1 || row.isDefault === true,
             createdAt: formatDate(row.createdAt),
             updatedAt: formatDate(row.updatedAt),
@@ -423,8 +377,6 @@ export function StorageLocationsScreen({
       const matchSearch =
         !query ||
         row.locationName.toLowerCase().includes(query) ||
-        row.ownerLabel.toLowerCase().includes(query) ||
-        row.millLabel.toLowerCase().includes(query) ||
         row.salesPointLabel.toLowerCase().includes(query);
       return matchSearch && matchesTab(row, activeTab);
     });
@@ -481,8 +433,8 @@ export function StorageLocationsScreen({
         className: "customers-stat-icon-violet",
       },
       {
-        label: "Mill-owned",
-        value: rows.filter((row) => row.ownerKind === "mill").length,
+        label: "Default",
+        value: rows.filter((row) => row.isDefault).length,
         icon: IconWarehouse,
         className: "customers-stat-icon-amber",
       },
@@ -537,7 +489,7 @@ export function StorageLocationsScreen({
       return;
     }
     const confirmed = window.confirm(
-      `Delete storage location "${row.locationName}" at ${row.ownerLabel}? This cannot be undone.`,
+      `Delete storage location "${row.locationName}" at ${row.salesPointLabel}? This cannot be undone.`,
     );
     if (!confirmed) {
       return;
@@ -628,13 +580,7 @@ export function StorageLocationsScreen({
         ? "Active storage locations"
         : activeTab === "inactive"
           ? "Inactive storage locations"
-          : activeTab === "mill"
-            ? "Mill-owned storage locations"
-            : activeTab === "salesPoint"
-              ? "Sales-point-owned storage locations"
-              : activeTab === "default"
-                ? "Default storage locations"
-                : "Storage locations";
+          : "Default storage locations";
 
   const printGeneratedAt = formatDisplayDateTime(
     (() => {
@@ -751,8 +697,6 @@ export function StorageLocationsScreen({
                     ["all", "All"],
                     ["active", "Active"],
                     ["inactive", "Inactive"],
-                    ["mill", "Mill"],
-                    ["salesPoint", "Sales point"],
                     ["default", "Default"],
                   ] as const
                 ).map(([tab, label]) => (
@@ -835,8 +779,8 @@ export function StorageLocationsScreen({
                 <SortableTh label="Location" col="locationName" />
                 <SortableTh label="Status" col="isActive" />
                 <SortableTh
-                  label="Owner"
-                  col="ownerLabel"
+                  label="Collection point"
+                  col="salesPointLabel"
                   className="customers-col-hide-md customers-owner-cell"
                 />
                 <SortableTh label="Created" col="createdAt" className="customers-col-hide-lg" />
@@ -873,6 +817,9 @@ export function StorageLocationsScreen({
                           <p class="customers-name-primary" title={row.locationName}>
                             {row.locationName}
                           </p>
+                          {row.isSalesTank ? (
+                            <p class="customers-name-secondary">Sales tank</p>
+                          ) : null}
                         </div>
                       </div>
                     </td>
@@ -882,7 +829,7 @@ export function StorageLocationsScreen({
                       </span>
                     </td>
                     <td class="customers-col-hide-md customers-owner-cell">
-                      <span class="customers-contact-mono">{row.ownerLabel}</span>
+                      <span class="customers-contact-mono">{row.salesPointLabel}</span>
                     </td>
                     <td class="customers-col-hide-lg">
                       <div class="customers-dates">
@@ -956,11 +903,8 @@ export function StorageLocationsScreen({
               ["ID", String(viewRow.id)],
               ["Location", viewRow.locationName],
               ["Status", viewRow.isActive ? "Active" : "Inactive"],
-              [
-                "Owner kind",
-                viewRow.ownerKind === "mill" ? "Mill" : "Sales point",
-              ],
-              ["Owner", viewRow.ownerLabel],
+              ["Sales tank", viewRow.isSalesTank ? "Yes" : "No"],
+              ["Collection point", viewRow.salesPointLabel],
               ["Default location", viewRow.isDefault ? "Yes" : "No"],
               ["Created", viewRow.createdAt],
               ["Updated", viewRow.updatedAt],
@@ -1012,7 +956,7 @@ export function StorageLocationsScreen({
               <th>#</th>
               <th>Name</th>
               <th>Status</th>
-              <th>Owner</th>
+              <th>Collection point</th>
               <th>Created</th>
             </tr>
           </thead>
@@ -1022,7 +966,7 @@ export function StorageLocationsScreen({
                 <td>{index + 1}</td>
                 <td>{row.locationName}</td>
                 <td>{row.isActive ? "Active" : "Inactive"}</td>
-                <td>{row.ownerLabel}</td>
+                <td>{row.salesPointLabel}</td>
                 <td>{row.createdAt}</td>
               </tr>
             ))}

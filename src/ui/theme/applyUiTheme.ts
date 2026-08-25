@@ -4,6 +4,16 @@ export type UiThemePreset = "agro" | "dark";
 
 export const UI_THEME_PRESETS: UiThemePreset[] = ["agro", "dark"];
 
+export const UI_THEME_LABELS: Record<UiThemePreset, string> = {
+  agro: "Agro",
+  dark: "Dark",
+};
+
+export const UI_THEME_COLORS: Record<UiThemePreset, string> = {
+  agro: "#c5a017",
+  dark: "#1a2418",
+};
+
 export function normalizeUiThemePreset(value: unknown): UiThemePreset {
   return value === "dark" ? "dark" : "agro";
 }

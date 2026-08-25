@@ -268,7 +268,7 @@ export function previewStockOnHand(
   productId: number,
 ): StockOnHandPreviewResult {
   if (!Number.isFinite(salesPointId) || salesPointId <= 0) {
-    return { ok: false, error: "Sales point is required." };
+    return { ok: false, error: "Collection point is required." };
   }
 
   if (!Number.isFinite(productId) || productId <= 0) {

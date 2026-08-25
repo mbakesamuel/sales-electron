@@ -11,8 +11,8 @@ import type {
 } from "../../shared/stock.types.ts";
 import type { OpenPostingPeriod } from "../../shared/financialYears.types.ts";
 import type { AuthUser } from "../auth/session.ts";
-import { getAuthToken } from "../auth/db.ts";
 import { getElectronApi } from "../auth/client.ts";
+import { useReportOverlay } from "../reports/ReportOverlayContext.tsx";
 import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import {
   clampIsoDateToRange,
@@ -23,9 +23,16 @@ import {
 import "./StockScreen.css";
 import "./BinCardScreen.css";
 
+/** Bin card is limited to bottled products only. */
+const BIN_CARD_PRODUCT_FILTER = "bottled" as const;
+
 interface BinCardScreenProps {
   user: AuthUser;
   permissions: RolePermissionsSnapshot;
+  /** When true, omit standalone page header (for use inside Stock tab panel). */
+  embedded?: boolean;
+  /** Parent-provided bootstrap skips a duplicate getBootstrap fetch. */
+  bootstrap?: StockBootstrap;
 }
 
 function formatQty(value: number): string {
@@ -58,27 +65,40 @@ function buildQuery(input: {
     condition: input.condition,
     fromIso: input.fromIso,
     toIso: input.toIso,
+    productFilter: BIN_CARD_PRODUCT_FILTER,
   };
 }
 
-export function BinCardScreen({ user }: BinCardScreenProps) {
-  const [bootstrap, setBootstrap] = useState<StockBootstrap | null>(null);
+
+export function BinCardScreen({
+  user,
+  permissions: _permissions,
+  embedded,
+  bootstrap: bootstrapProp,
+}: BinCardScreenProps) {
+  const { openReportOverlay } = useReportOverlay();
+  const [bootstrap, setBootstrap] = useState<StockBootstrap | null>(
+    bootstrapProp ?? null,
+  );
   const [postingPeriod, setPostingPeriod] = useState<OpenPostingPeriod | null>(
     null,
   );
-  const [productSearch, setProductSearch] = useState("");
   const [productId, setProductId] = useState("");
   const [salesPointId, setSalesPointId] = useState("");
   const [storageLocationId, setStorageLocationId] = useState("");
-  const [condition, setCondition] =
-    useState<BinCardConditionFilter>("SELLABLE");
+  const condition: BinCardConditionFilter = "SELLABLE";
   const [fromIso, setFromIso] = useState("");
   const [toIso, setToIso] = useState("");
   const [report, setReport] = useState<BinCardReport | null>(null);
-  const [loadingBootstrap, setLoadingBootstrap] = useState(true);
+  const [loadingBootstrap, setLoadingBootstrap] = useState(!bootstrapProp);
   const [loadingReport, setLoadingReport] = useState(false);
-  const [openingReport, setOpeningReport] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (bootstrapProp) {
+      setBootstrap(bootstrapProp);
+    }
+  }, [bootstrapProp]);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,8 +107,14 @@ export function BinCardScreen({ user }: BinCardScreenProps) {
       setLoadingBootstrap(true);
       setError(null);
       try {
+        const bootstrapPromise = bootstrapProp
+          ? Promise.resolve(bootstrapProp)
+          : getElectronApi().stock.getBootstrap(
+              user.id,
+              BIN_CARD_PRODUCT_FILTER,
+            );
         const [data, period] = await Promise.all([
-          getElectronApi().stock.getBootstrap(user.id),
+          bootstrapPromise,
           getAuthenticatedFinancialYears().getOpenPostingPeriod(),
         ]);
         if (cancelled) return;
@@ -126,20 +152,12 @@ export function BinCardScreen({ user }: BinCardScreenProps) {
     return () => {
       cancelled = true;
     };
-  }, [user.id]);
+  }, [user.id, bootstrapProp]);
 
   const products: ProductOption[] = bootstrap?.products ?? [];
   const salesPoints: SalesPointOption[] = bootstrap?.salesPoints ?? [];
   const storageLocations: StorageLocationOption[] =
     bootstrap?.storageLocations ?? [];
-
-  const filteredProducts = useMemo(() => {
-    const q = productSearch.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter((product) =>
-      product.productName.toLowerCase().includes(q),
-    );
-  }, [products, productSearch]);
 
   const locationOptions = useMemo(() => {
     if (!salesPointId) {
@@ -196,7 +214,7 @@ export function BinCardScreen({ user }: BinCardScreenProps) {
     }
   }
 
-  async function openReportWindow() {
+  function openReportOverlayFromFilters() {
     if (!postingPeriod) {
       setError("Open a financial month before using the bin card.");
       return;
@@ -216,36 +234,12 @@ export function BinCardScreen({ user }: BinCardScreenProps) {
       return;
     }
     if (!report) {
-      setError("Apply filters first, then open the report window.");
+      setError("Apply filters first, then open the report.");
       return;
     }
 
-    const token = getAuthToken();
-    if (!token) {
-      setError("Login required.");
-      return;
-    }
-
-    setOpeningReport(true);
     setError(null);
-    try {
-      const result = await getElectronApi().windows.openReport(
-        token,
-        "stock-bin-card-report",
-        query,
-      );
-      if (!result.ok) {
-        setError(result.error);
-      }
-    } catch (openError) {
-      setError(
-        openError instanceof Error
-          ? openError.message
-          : "Failed to open report window.",
-      );
-    } finally {
-      setOpeningReport(false);
-    }
+    openReportOverlay("stock-bin-card-report", query);
   }
 
   if (loadingBootstrap) {
@@ -253,29 +247,23 @@ export function BinCardScreen({ user }: BinCardScreenProps) {
   }
 
   return (
-    <div class="stock-screen bincard-page">
-      <header class="stock-header">
-        <h1>Bin card</h1>
-        <p class="stock-header-subtitle">
-          Track stock movements for a product with opening balance, receipts,
-          issues, and running balance. Open the printable report in a separate
-          window.
-        </p>
-      </header>
+    <div
+      class={
+        embedded ? "bincard-page bincard-embedded" : "stock-screen bincard-page"
+      }
+    >
+      {!embedded ? (
+        <header class="stock-header">
+          <h1>Bin Card</h1>
+          <p class="stock-header-subtitle">
+            Bottled products only — opening balance, receipts, issues, and running
+            balance. Open the printable report in an overlay.
+          </p>
+        </header>
+      ) : null}
 
       <section class="stock-section">
         <div class="bincard-filters">
-          <label>
-            Product search
-            <input
-              type="search"
-              value={productSearch}
-              onInput={(event) =>
-                setProductSearch((event.target as HTMLInputElement).value)
-              }
-              placeholder="Filter products…"
-            />
-          </label>
           <label>
             Product
             <select
@@ -284,8 +272,8 @@ export function BinCardScreen({ user }: BinCardScreenProps) {
                 setProductId((event.target as HTMLSelectElement).value)
               }
             >
-              <option value="">Select product…</option>
-              {filteredProducts.map((product) => (
+              <option value="">Select bottled product…</option>
+              {products.map((product) => (
                 <option key={product.productId} value={product.productId}>
                   {product.productName} ({product.uom})
                 </option>
@@ -293,7 +281,7 @@ export function BinCardScreen({ user }: BinCardScreenProps) {
             </select>
           </label>
           <label>
-            Sales point
+            Collection point
             <select
               value={salesPointId}
               disabled={bootstrap?.scopedSalesPointId != null}
@@ -303,7 +291,7 @@ export function BinCardScreen({ user }: BinCardScreenProps) {
               }}
             >
               {bootstrap?.scopedSalesPointId == null ? (
-                <option value="">All sales points</option>
+                <option value="">All collection points</option>
               ) : null}
               {salesPoints.map((point) => (
                 <option key={point.id} value={point.id}>
@@ -326,22 +314,6 @@ export function BinCardScreen({ user }: BinCardScreenProps) {
                   {location.name}
                 </option>
               ))}
-            </select>
-          </label>
-          <label>
-            Condition
-            <select
-              value={condition}
-              onChange={(event) =>
-                setCondition(
-                  (event.target as HTMLSelectElement)
-                    .value as BinCardConditionFilter,
-                )
-              }
-            >
-              <option value="SELLABLE">Sellable</option>
-              <option value="UNSELLABLE">Unsellable</option>
-              <option value="ALL">All</option>
             </select>
           </label>
           <label>
@@ -389,10 +361,10 @@ export function BinCardScreen({ user }: BinCardScreenProps) {
             <button
               type="button"
               class="scr-btn scr-btn-secondary"
-              disabled={!report || openingReport}
-              onClick={() => void openReportWindow()}
-            >
-              {openingReport ? "Opening…" : "Open report"}
+              disabled={!report}
+              onClick={() => openReportOverlayFromFilters()}
+              >
+              Open report
             </button>
           </div>
         </div>

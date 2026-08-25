@@ -18,6 +18,10 @@ export interface SalesProductOption {
     productId: number;
     productName: string;
     productCat: string;
+    /** ProductCat.productCode — used for storage-location exceptions (PKCP/PKP). */
+    productCatCode: string;
+    /** ProductCat.isMain — Loose Palm Oil category. */
+    isMain: boolean;
 }
 export interface SalesPaymentMethodOption {
     id: string;
@@ -34,6 +38,7 @@ export interface StorageLocationOption {
     salesPointId: number;
     name: string;
     isDefault: boolean;
+    isSalesTank: boolean;
 }
 /** Storage locations with live SELLABLE on-hand for a product at a sales point. */
 export interface SalesStorageLocationBalanceOption {
@@ -53,6 +58,19 @@ export interface SalesFormOptions {
     botaSalesPointId: number | null;
     bottleOilStoreLocationId: number | null;
     invoiceOnlyTaxRegimeId: string | null;
+    canDirectValidate: boolean;
+    canDirectValidateLoose: boolean;
+    canDirectValidateBottled: boolean;
+    /** Company setting: Bottle Oil invoices use directory customers when true. */
+    bottleOilUseRegisteredCustomers: boolean;
+    /** Company setting: Bottle Oil invoices may use Ration disposition when true. */
+    bottleOilAllowRation: boolean;
+    /** Company setting: loose Sales Invoicing may use Public relation when true. */
+    looseSalesAllowPublicRelation: boolean;
+    /** Company setting: loose normal invoices may use invoice-name-only customers when true. */
+    looseSalesAllowUnregisteredCustomer: boolean;
+    /** Company setting: Loose Palm Oil must use a sales tank when true (default). */
+    loosePalmOilRequireSalesTank: boolean;
 }
 export interface SaleLineInput {
     productId: number;
@@ -85,6 +103,8 @@ export interface CreateSaleInput {
     saleDisposition?: SaleDisposition;
     lines: SaleLineInput[];
     payments: SalePaymentInput[];
+    /** Create and validate in one step; requires direct_validate_sales. New invoices only. */
+    validateImmediately?: boolean;
 }
 export type SaveSaleResult = {
     ok: true;
@@ -165,6 +185,34 @@ export interface PendingSaleRow {
     totalLabel: string;
     salesPointName: string | null;
 }
+export interface SalesValidationQueueRow {
+    id: string;
+    invoiceNo: string;
+    soldAtIso: string;
+    dateIssuedIso: string;
+    customerName: string;
+    salesPointName: string | null;
+    createdByName: string;
+    saleProductMode: SaleProductMode | null;
+    totalLabel: string;
+    lineCount: number;
+}
+export interface SalesValidationQueuePage {
+    totalPending: number;
+    rows: SalesValidationQueueRow[];
+}
+export type SalesValidateManyResult = {
+    ok: true;
+    validated: number;
+    errors: Array<{
+        id: string;
+        invoiceNo?: string;
+        error: string;
+    }>;
+} | {
+    ok: false;
+    error: string;
+};
 export interface AvailableDeliveryOrderRow {
     deliveryOrderNo: string;
     customerName: string;
@@ -247,6 +295,7 @@ export type SalesListPeriod = "month" | "year" | "all";
 export interface SalesListFilters {
     q?: string;
     period?: SalesListPeriod;
+    productMode?: SaleProductMode;
 }
 export interface SalesListRow {
     id: string;
@@ -270,10 +319,15 @@ export interface SalesListResult {
     periodLabel: string;
 }
 export interface SalesApi {
-    getFormOptions(): Promise<SalesFormOptions>;
+    getFormOptions(userId: string): Promise<SalesFormOptions>;
     getTaxRatesAsOf(asOfDate: string): Promise<import("./taxRules.ts").TaxRatesBag>;
     listSales(filters?: SalesListFilters): Promise<SalesListResult>;
     listPendingSales(): Promise<PendingSaleRow[]>;
+    listValidationQueue(userId: string): Promise<SalesValidationQueuePage>;
+    validateMany(payload: {
+        userId: string;
+        saleIds: string[];
+    }): Promise<SalesValidateManyResult>;
     loadSaleByInvoiceNo(invoiceNo: string): Promise<LoadedSaleView | null>;
     createSale(input: CreateSaleInput): Promise<SaveSaleResult>;
     validateSale(payload: {

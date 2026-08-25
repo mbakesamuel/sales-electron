@@ -22,7 +22,7 @@ function assert(condition, message) {
 
 app.whenReady().then(() => {
   initDatabase();
-  const options = getSalesFormOptions();
+  const options = getSalesFormOptions("seed-admin-001");
   const period = getOpenPostingPeriod();
 
   assert(validateBookletSerial("12345").ok, "digits-only serial should pass");

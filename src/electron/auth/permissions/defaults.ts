@@ -7,7 +7,7 @@ type RouteMatrix = Record<string, RouteAccess>;
 type ActionMatrix = Record<PermissionActionKey, boolean>;
 
 const ROUTE_GROUPS = {
-  operations: ["sales", "delivery-orders", "delivery-order-tracking", "delivery-order-transfer", "carry-forward-commitments", "vehicle-consignment-notes"],
+  operations: ["sales", "bottle-oil-sales", "sales-validation", "delivery-orders", "delivery-order-tracking", "delivery-order-transfer", "carry-forward-commitments", "vehicle-consignment-notes"],
   customerOps: ["customers"],
   productConfig: [
     "products",
@@ -19,6 +19,9 @@ const ROUTE_GROUPS = {
     "sales-budget-weekly-crosstab",
   ],
   inventoryWrite: [
+    "stock",
+    "bottled-stock",
+    "stock-validation",
     "stock-receipts",
     "stock-receipt-lines",
     "stock-transfers",
@@ -28,6 +31,7 @@ const ROUTE_GROUPS = {
     "carry-forward-stock",
   ],
   inventoryRead: [
+    "stock",
     "stock-balance",
     "stock-movements",
     "carry-forward-stock",
@@ -52,7 +56,6 @@ const ROUTE_GROUPS = {
   ],
   organization: [
     "commercial-services",
-    "mills",
     "sales-points",
     "locations",
     "storage-locations",
@@ -96,7 +99,7 @@ function buildDefaultRouteMatrix(): Record<string, RouteMatrix> {
       ...ROUTE_GROUPS.inventoryRead,
       ...ROUTE_GROUPS.inventoryWrite,
     ]),
-    STATISTICS_SUPERVISOR: buildRouteAccess(
+    STATISTICS_CLERK: buildRouteAccess(
       [
         ...ROUTE_GROUPS.operations,
         "sales-budgets",
@@ -112,28 +115,14 @@ function buildDefaultRouteMatrix(): Record<string, RouteMatrix> {
       ],
       "read",
     ),
-    SALES_CLERK: buildRouteAccess([
-      ...ROUTE_GROUPS.operations,
-      ...ROUTE_GROUPS.customerOps,
-      "stock-balance",
-      "stock-bin-card",
+    STORE_KEEPER: buildRouteAccess([
+      "bottled-stock",
+      "bottle-oil-sales",
       "stock-commitment-report",
       "stock-report",
       "commitment-report",
       "bottle-oil-stock-sales-report",
       "bottled-weekly-issues-report",
-      "sales-delivery-report",
-      "daily-sales-report",
-      "monthly-delivery-report-h1",
-      "monthly-delivery-report-h2",
-      "monthly-stock-reconciliation-report",
-      "monthly-payment-delivery-report",
-      "monthly-deliveries-by-destination-report",
-      "monthly-palm-oil-sales-report",
-      "revenue-taxes-report",
-      "industry-product-monthly-sales-report",
-      "bottled-palm-oil-sales-return-report",
-      "other-product-sales-deliveries-report",
     ]),
   };
 }
@@ -146,6 +135,9 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
     post_stock_transfers: true,
     draft_stock_adjustments: true,
     post_stock_adjustments: true,
+    direct_post_stock_receipts: true,
+    direct_post_stock_transfers: true,
+    validate_stock_documents: true,
   } as const;
 
   const stockDocumentNone = {
@@ -155,10 +147,14 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
     post_stock_transfers: false,
     draft_stock_adjustments: false,
     post_stock_adjustments: false,
+    direct_post_stock_receipts: false,
+    direct_post_stock_transfers: false,
+    validate_stock_documents: false,
   } as const;
 
   const validator: ActionMatrix = {
     validate_sales: true,
+    direct_validate_sales: false,
     validate_delivery_orders: true,
     cancel_validated_delivery_order: false,
     transfer_delivery_order_balance: true,
@@ -169,6 +165,8 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
   const manager: ActionMatrix = {
     ...validator,
     cancel_validated_delivery_order: true,
+    direct_post_stock_receipts: true,
+    direct_post_stock_transfers: true,
   };
 
   const admin: ActionMatrix = {
@@ -176,8 +174,15 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
     manage_permissions: true,
   };
 
+  const seniorSupervisor: ActionMatrix = {
+    ...validator,
+    direct_post_stock_receipts: false,
+    direct_post_stock_transfers: false,
+  };
+
   const none: ActionMatrix = {
     validate_sales: false,
+    direct_validate_sales: false,
     validate_delivery_orders: false,
     cancel_validated_delivery_order: false,
     transfer_delivery_order_balance: false,
@@ -188,15 +193,16 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
   return {
     ADMIN: admin,
     MANAGER: manager,
-    SENIOR_SALES_SUPERVISOR: validator,
-    STATISTICS_SUPERVISOR: none,
-    SALES_CLERK: none,
+    SENIOR_SALES_SUPERVISOR: seniorSupervisor,
+    STATISTICS_CLERK: none,
+    STORE_KEEPER: none,
   };
 }
 
 export function getDefaultRouteMatrix(): Record<string, RouteMatrix> {
   const matrix = buildDefaultRouteMatrix();
   for (const role of USER_ROLES) {
+    matrix[role]["roles"] = role === "ADMIN" ? "write" : "none";
     matrix[role]["role-permissions"] =
       role === "ADMIN" ? "write" : "none";
   }

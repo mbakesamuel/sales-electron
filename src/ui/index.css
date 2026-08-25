@@ -257,11 +257,67 @@ html[data-theme="dark"] .cfm-panel,
 html[data-theme="dark"] .cfm-body,
 html[data-theme="dark"] .cfm-footer,
 html[data-theme="dark"] .cfm-header,
-html[data-theme="dark"] .stock-modal-panel,
-html[data-theme="dark"] .sale-print-modal {
+html[data-theme="dark"] .stock-modal-panel {
   background: var(--bg-elevated) !important;
   color: var(--text-h) !important;
   border-color: var(--border) !important;
+}
+
+/* Sale invoice / cash receipt print stays light (print-friendly). */
+html[data-theme="dark"] .sale-print-modal {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border-color: #d1d5db !important;
+}
+
+html[data-theme="dark"] .sale-print-document,
+html[data-theme="dark"] .sale-print-document .report-header,
+html[data-theme="dark"] .sale-print-document .report-footer {
+  background: #ffffff !important;
+  color: #111827 !important;
+}
+
+html[data-theme="dark"] .sale-print-document .report-header-title,
+html[data-theme="dark"] .sale-print-document .report-header-company-name,
+html[data-theme="dark"] .sale-print-document h1,
+html[data-theme="dark"] .sale-print-document h2,
+html[data-theme="dark"] .sale-print-document h3,
+html[data-theme="dark"] .sale-print-document strong {
+  color: #111827 !important;
+}
+
+html[data-theme="dark"] .sale-print-document .report-header-meta,
+html[data-theme="dark"] .sale-print-document .report-header-department,
+html[data-theme="dark"] .sale-print-document .report-header-commercial-service {
+  color: #374151 !important;
+}
+
+html[data-theme="dark"] .sale-print-document .report-header-logo-placeholder {
+  background: #f3f4f6 !important;
+  border-color: #d1d5db !important;
+  color: #9ca3af !important;
+}
+
+html[data-theme="dark"] .sale-print-receipt-prose,
+html[data-theme="dark"] .sale-print-receipt-meta,
+html[data-theme="dark"] .sale-print-meta-grid,
+html[data-theme="dark"] .sale-print-info-grid,
+html[data-theme="dark"] .sale-print-summary,
+html[data-theme="dark"] .sale-print-table th,
+html[data-theme="dark"] .sale-print-table td {
+  color: #111827 !important;
+}
+
+html[data-theme="dark"] .sale-print-table thead th,
+html[data-theme="dark"] .sale-print-info-heading,
+html[data-theme="dark"] .sale-print-grand-total {
+  background: #f3f4f6 !important;
+  color: #111827 !important;
+}
+
+html[data-theme="dark"] .sale-print-muted,
+html[data-theme="dark"] .sale-print-cat {
+  color: #6b7280 !important;
 }
 
 html[data-theme="dark"] .form-dialog-close,
@@ -558,8 +614,7 @@ html[data-theme="dark"] .permissions-card,
 html[data-theme="dark"] .table-data-toolbar,
 html[data-theme="dark"] .table-data-card,
 html[data-theme="dark"] .scr-card,
-html[data-theme="dark"] .report-card,
-html[data-theme="dark"] .report-header {
+html[data-theme="dark"] .report-card {
   background: var(--bg-elevated) !important;
   border-color: var(--border) !important;
   color: var(--text) !important;

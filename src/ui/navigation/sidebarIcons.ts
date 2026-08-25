@@ -8,11 +8,12 @@ import {
   CircleDollarSign,
   ClipboardList,
   CreditCard,
-  Factory,
   FileBarChart,
+  FileCheck2,
   FileSpreadsheet,
   FileText,
   KeyRound,
+  UserCog,
   Layers,
   LayoutDashboard,
   List,
@@ -51,6 +52,7 @@ export const SECTION_ICONS: Record<string, LucideIcon> = {
 
 export const ROUTE_ICONS: Record<string, LucideIcon> = {
   sales: FileText,
+  "bottle-oil-sales": Receipt,
   customers: Users,
   "customer-types": Tags,
   products: Package,
@@ -67,6 +69,9 @@ export const ROUTE_ICONS: Record<string, LucideIcon> = {
   "carry-forward-commitments": ClipboardList,
   "vehicle-consignment-notes": FileSpreadsheet,
   stock: Warehouse,
+  "bottled-stock": Warehouse,
+  "stock-validation": FileCheck2,
+  "sales-validation": FileCheck2,
   "stock-balance": Boxes,
   "carry-forward-stock": PackagePlus,
   "stock-bin-card": FileSpreadsheet,
@@ -95,7 +100,6 @@ export const ROUTE_ICONS: Record<string, LucideIcon> = {
   "stock-adjustments": SlidersHorizontal,
   "stock-adjustment-lines": List,
   "commercial-services": Building2,
-  mills: Factory,
   "sales-points": Store,
   locations: MapPin,
   "storage-locations": Warehouse,
@@ -107,6 +111,7 @@ export const ROUTE_ICONS: Record<string, LucideIcon> = {
   "financial-year-periods": CalendarDays,
   "financial-months": CalendarRange,
   users: User,
+  roles: UserCog,
   "role-permissions": KeyRound,
 };
 

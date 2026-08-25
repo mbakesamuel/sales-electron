@@ -1,14 +1,21 @@
-import type { BinCardQuery, BinCardReport, ReceiveTransferInput, SaveAdjustmentInput, SaveReceiptInput, SaveTransferInput, StockBootstrap, StockGenericResult, StockMutationResult } from "../../shared/stock.types.ts";
+import type { BinCardQuery, BinCardReport, ReceiveTransferInput, SaveAdjustmentInput, SaveReceiptInput, SaveTransferInput, StockBalanceRow, StockBootstrap, StockGenericResult, StockMutationResult, StockProductFilter, StockValidateManyResult, StockValidationItem, StockValidationQueuePage } from "../../shared/stock.types.ts";
+type DocFilterPayload = {
+    userId: string;
+    productFilter?: StockProductFilter | null;
+};
 export interface StockApi {
-    getBootstrap(userId: string): Promise<StockBootstrap>;
+    getBootstrap(userId: string, productFilter?: StockProductFilter | null): Promise<StockBootstrap>;
+    listOnHandAsOf(userId: string, payload: {
+        asOfDate: string;
+        salesPointId?: number | null;
+        productFilter?: StockProductFilter | null;
+    }): Promise<StockBalanceRow[]>;
     getBinCard(userId: string, query: BinCardQuery): Promise<BinCardReport>;
     saveReceipt(input: SaveReceiptInput): Promise<StockMutationResult>;
-    postReceipt(payload: {
-        userId: string;
+    postReceipt(payload: DocFilterPayload & {
         receiptId: string;
     }): Promise<StockGenericResult>;
-    cancelReceipt(payload: {
-        userId: string;
+    cancelReceipt(payload: DocFilterPayload & {
         receiptId: string;
     }): Promise<StockGenericResult>;
     findReceiptByNumber(payload: {
@@ -31,18 +38,23 @@ export interface StockApi {
         ok: false;
         error: string;
     }>;
-    saveTransfer(input: SaveTransferInput): Promise<StockMutationResult>;
-    dispatchTransfer(payload: {
+    loadReceiptPrintById(payload: {
+        userId: string;
+        receiptId: string;
+    }): Promise<import("../../shared/stock.types.ts").ReceiptPrintPayload | null>;
+    loadTransferPrintById(payload: {
         userId: string;
         transferId: string;
+    }): Promise<import("../../shared/stock.types.ts").TransferPrintPayload | null>;
+    saveTransfer(input: SaveTransferInput): Promise<StockMutationResult>;
+    dispatchTransfer(payload: DocFilterPayload & {
+        transferId: string;
     }): Promise<StockGenericResult>;
-    postInternalTransfer(payload: {
-        userId: string;
+    postInternalTransfer(payload: DocFilterPayload & {
         transferId: string;
     }): Promise<StockGenericResult>;
     receiveTransfer(input: ReceiveTransferInput): Promise<StockGenericResult>;
-    cancelTransfer(payload: {
-        userId: string;
+    cancelTransfer(payload: DocFilterPayload & {
         transferId: string;
     }): Promise<StockGenericResult>;
     findTransferByNumber(payload: {
@@ -66,12 +78,10 @@ export interface StockApi {
         error: string;
     }>;
     saveAdjustment(input: SaveAdjustmentInput): Promise<StockMutationResult>;
-    postAdjustment(payload: {
-        userId: string;
+    postAdjustment(payload: DocFilterPayload & {
         adjustmentId: string;
     }): Promise<StockGenericResult>;
-    cancelAdjustment(payload: {
-        userId: string;
+    cancelAdjustment(payload: DocFilterPayload & {
         adjustmentId: string;
     }): Promise<StockGenericResult>;
     findAdjustmentByNumber(payload: {
@@ -94,4 +104,10 @@ export interface StockApi {
         ok: false;
         error: string;
     }>;
+    listValidationQueue(userId: string): Promise<StockValidationQueuePage>;
+    validateMany(payload: {
+        userId: string;
+        items: StockValidationItem[];
+    }): Promise<StockValidateManyResult>;
 }
+export {};

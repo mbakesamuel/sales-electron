@@ -22,7 +22,7 @@ export function MovementsTab({ rows, salesPoints, scopedSalesPointId }: Movement
 
   const displayRows = useMemo(() => {
     // Group reclassification pairs into a single display row:
-    // same adjustment source + product + location + sales point + occurredAt + qty,
+    // same adjustment source + product + location + collection point + occurredAt + qty,
     // one SELLABLE and one UNSELLABLE side, notes starting with "Reclassify".
     const byKey = new Map<string, StockMovementRow[]>();
     const singles: StockMovementRow[] = [];
@@ -106,7 +106,7 @@ export function MovementsTab({ rows, salesPoints, scopedSalesPointId }: Movement
       <div class="stock-filters">
         {scopedSalesPointId == null ? (
           <label class="stock-field">
-            <span>Sales point</span>
+            <span>Collection point</span>
             <select
               value={salesPointId}
               onChange={(event) =>
@@ -141,7 +141,7 @@ export function MovementsTab({ rows, salesPoints, scopedSalesPointId }: Movement
           <input
             value={search}
             onInput={(event) => setSearch((event.currentTarget as HTMLInputElement).value)}
-            placeholder="Product, sales point, doc#, user"
+            placeholder="Product, collection point, doc#, user"
           />
         </label>
       </div>
@@ -150,15 +150,15 @@ export function MovementsTab({ rows, salesPoints, scopedSalesPointId }: Movement
         <table class="stock-table">
           <thead>
             <tr>
-              <th>Doc #</th>
-              <th>When</th>
-              <th>Sales point</th>
-              <th>Location</th>
-              <th>Condition</th>
+            {/*   <th>Doc #</th> */}
+              <th>Date</th>
+              <th>Collection point</th>
+              <th>Storage</th>
+             {/*  <th>Condition</th> */}
               <th>Product</th>
-              <th>Kind</th>
-              <th class="stock-num">+ Qty</th>
-              <th class="stock-num">− Qty</th>
+              <th>Movement Type</th>
+              <th class="stock-num">+(In) Qty</th>
+              <th class="stock-num">− (Out) Qty</th>
               <th>Notes</th>
             </tr>
           </thead>
@@ -174,22 +174,22 @@ export function MovementsTab({ rows, salesPoints, scopedSalesPointId }: Movement
                 const { plus, minus } = movementQtyColumns(r, trimQty);
                 return (
                   <tr key={r.id}>
-                    <td class="stock-muted">
+                  {/*   <td class="stock-muted">
                       {r.isCarryForward ? "CF · " : ""}
                       {r.documentNo ?? "—"}
-                    </td>
+                    </td> */}
                     <td class="stock-nowrap" title={r.createdAtIso}>
                       {formatDate(r.occurredAtIso)}
                     </td>
                     <td>{r.salesPointName}</td>
                     <td>{r.storageLocationName}</td>
-                    <td class="stock-muted">
+                   {/*  <td class="stock-muted">
                       {r.kind === "ADJUSTMENT" && (r.notes ?? "").startsWith("Reclassify ")
                         ? "Sellable→Unsellable"
                         : r.condition === "SELLABLE"
                           ? "Sellable"
                           : "Unsellable"}
-                    </td>
+                    </td> */}
                     <td>{r.productName}</td>
                     <td class="stock-nowrap">
                       {STOCK_MOVEMENT_KIND_LABELS[r.kind]}

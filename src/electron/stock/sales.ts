@@ -1,22 +1,75 @@
 import type Database from "better-sqlite3";
+import { formatDisplayDate } from "../../shared/formatDisplayDate.js";
 import { getSellableBalanceAsOf } from "./asOfBalance.js";
 import { formatQty, parseQty } from "./decimal.js";
 import { InsufficientStockError } from "./errors.js";
 import { applyMovement } from "./post.js";
+import {
+  productRequiresSalesTankForLooseSale,
+  productOmitsStorageLocationById,
+} from "./productStorage.js";
 
 export { getSellableBalanceAsOf } from "./asOfBalance.js";
+export { productOmitsStorageLocationById } from "./productStorage.js";
 
 export function resolveSellableStorageLocation(
   db: Database.Database,
   salesPointId: number,
   preferredLocationId: number | null,
   isBottleMode: boolean,
+  requireSalesTank = false,
 ): number {
+  // Bottle oil is sold from Bottle Oil Store (a normal store location), not a sales tank.
+  if (isBottleMode) {
+    if (preferredLocationId != null) {
+      const preferred = db
+        .prepare(
+          `SELECT id FROM StorageLocation
+           WHERE id = ? AND salesPointId = ?
+             AND COALESCE(isActive, 1) = 1`,
+        )
+        .get(preferredLocationId, salesPointId) as { id: number } | undefined;
+
+      if (preferred) {
+        return preferred.id;
+      }
+    }
+
+    const bottleLocation = db
+      .prepare(
+        `SELECT sl.id
+         FROM StorageLocation sl
+         INNER JOIN Location l ON l.id = sl.locationId
+         WHERE sl.salesPointId = ?
+           AND COALESCE(sl.isActive, 1) = 1
+           AND LOWER(l.locationName) LIKE '%bottle%'
+         ORDER BY
+           CASE WHEN COALESCE(sl.isSalesTank, 0) = 0 THEN 0 ELSE 1 END,
+           sl.isDefault DESC,
+           sl.id ASC
+         LIMIT 1`,
+      )
+      .get(salesPointId) as { id: number } | undefined;
+
+    if (bottleLocation) {
+      return bottleLocation.id;
+    }
+
+    throw new Error(
+      "No Bottle Oil Store is configured for this collection point.",
+    );
+  }
+
+  const salesTankSql = requireSalesTank
+    ? " AND COALESCE(isSalesTank, 0) = 1"
+    : "";
+
   if (preferredLocationId != null) {
     const preferred = db
       .prepare(
         `SELECT id FROM StorageLocation
-         WHERE id = ? AND salesPointId = ? AND COALESCE(isActive, 1) = 1`,
+         WHERE id = ? AND salesPointId = ?
+           AND COALESCE(isActive, 1) = 1${salesTankSql}`,
       )
       .get(preferredLocationId, salesPointId) as { id: number } | undefined;
 
@@ -25,28 +78,11 @@ export function resolveSellableStorageLocation(
     }
   }
 
-  if (isBottleMode) {
-    const bottleLocation = db
-      .prepare(
-        `SELECT sl.id
-         FROM StorageLocation sl
-         INNER JOIN Location l ON l.id = sl.locationId
-         WHERE sl.salesPointId = ? AND COALESCE(sl.isActive, 1) = 1
-           AND LOWER(l.locationName) LIKE '%bottle%'
-         ORDER BY sl.isDefault DESC, sl.id ASC
-         LIMIT 1`,
-      )
-      .get(salesPointId) as { id: number } | undefined;
-
-    if (bottleLocation) {
-      return bottleLocation.id;
-    }
-  }
-
   const fallback = db
     .prepare(
       `SELECT id FROM StorageLocation
-       WHERE salesPointId = ? AND COALESCE(isActive, 1) = 1
+       WHERE salesPointId = ?
+         AND COALESCE(isActive, 1) = 1${salesTankSql}
        ORDER BY isDefault DESC, id ASC
        LIMIT 1`,
     )
@@ -54,11 +90,32 @@ export function resolveSellableStorageLocation(
 
   if (!fallback) {
     throw new Error(
-      "No active storage location is configured for this sales point.",
+      requireSalesTank
+        ? "No active sales tank is configured for this collection point."
+        : "No active storage location is configured for this collection point.",
     );
   }
 
   return fallback.id;
+}
+
+/** Resolve location for a loose/bottle sale line, applying LPO sales-tank setting. */
+export function resolveSaleLineStorageLocation(
+  db: Database.Database,
+  salesPointId: number,
+  productId: number,
+  preferredLocationId: number | null,
+  isBottleMode: boolean,
+): number {
+  const requireSalesTank =
+    !isBottleMode && productRequiresSalesTankForLooseSale(db, productId);
+  return resolveSellableStorageLocation(
+    db,
+    salesPointId,
+    preferredLocationId,
+    isBottleMode,
+    requireSalesTank,
+  );
 }
 
 export interface SaleStockLineInput {
@@ -92,14 +149,18 @@ export function assertSaleLinesStockAsOf(
       continue;
     }
 
-    const storageLocationId = resolveSellableStorageLocation(
-      db,
-      args.salesPointId,
-      line.storageLocationId ?? null,
-      args.isBottleMode,
-    );
+    const omitsStorage = productOmitsStorageLocationById(db, line.productId);
+    const storageLocationId = omitsStorage
+      ? null
+      : resolveSaleLineStorageLocation(
+          db,
+          args.salesPointId,
+          line.productId,
+          line.storageLocationId ?? null,
+          args.isBottleMode,
+        );
 
-    const key = `${line.productId}:${storageLocationId}`;
+    const key = `${line.productId}:${storageLocationId ?? "null"}`;
     const alreadyReserved = reserved.get(key) ?? 0;
     const available = getSellableBalanceAsOf(
       db,
@@ -115,20 +176,34 @@ export function assertSaleLinesStockAsOf(
       const product = db
         .prepare(`SELECT productName FROM Product WHERE productId = ?`)
         .get(line.productId) as { productName: string } | undefined;
-      const location = db
-        .prepare(
-          `SELECT l.locationName AS name
-           FROM StorageLocation sl
-           INNER JOIN Location l ON l.id = sl.locationId
-           WHERE sl.id = ?`,
-        )
-        .get(storageLocationId) as { name: string } | undefined;
 
       const productLabel = product?.productName ?? `product ${line.productId}`;
-      const locationLabel = location?.name ?? `location ${storageLocationId}`;
+      let locationLabel: string;
+      if (storageLocationId == null) {
+        locationLabel = "this collection point";
+      } else {
+        const location = db
+          .prepare(
+            `SELECT l.locationName AS name
+             FROM StorageLocation sl
+             INNER JOIN Location l ON l.id = sl.locationId
+             WHERE sl.id = ?`,
+          )
+          .get(storageLocationId) as { name: string } | undefined;
+        locationLabel = location?.name ?? `location ${storageLocationId}`;
+      }
+
+      const asOfLabel = formatDisplayDate(asOf);
+      const availableQty = Math.max(0, remaining);
+      if (availableQty <= 0.000001) {
+        throw new InsufficientStockError(
+          `No stock for ${productLabel} at ${locationLabel} on ${asOfLabel}. ` +
+            `Receive stock first, or choose another location.`,
+        );
+      }
       throw new InsufficientStockError(
-        `Insufficient stock as of ${asOf} for ${productLabel} at ${locationLabel} ` +
-          `(available ${Math.max(0, remaining).toLocaleString()}, needed ${qty.toLocaleString()}).`,
+        `Not enough stock for ${productLabel} at ${locationLabel} on ${asOfLabel}. ` +
+          `Only ${formatQty(availableQty)} available, but ${formatQty(qty)} is required.`,
       );
     }
 
@@ -203,12 +278,16 @@ export function deductStockForValidatedSale(
       continue;
     }
 
-    const storageLocationId = resolveSellableStorageLocation(
-      db,
-      sale.salesPointId,
-      line.storageLocationId,
-      isBottleMode,
-    );
+    const omitsStorage = productOmitsStorageLocationById(db, line.productId);
+    const storageLocationId = omitsStorage
+      ? null
+      : resolveSaleLineStorageLocation(
+          db,
+          sale.salesPointId,
+          line.productId,
+          line.storageLocationId,
+          isBottleMode,
+        );
 
     applyMovement(db, {
       salesPointId: sale.salesPointId,

@@ -222,14 +222,31 @@
 
 .cf-batch--stock .cf-batch-scope {
   gap: 8px;
+  align-items: start;
+}
+
+.cf-batch--stock .cf-field > span:first-child {
+  min-height: 1.2em;
+  line-height: 1.2;
+}
+
+.cf-batch--stock .cf-field select,
+.cf-batch--stock .cf-field input[type="date"],
+.cf-batch--stock .cf-field input[type="text"] {
+  height: 32px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  border-radius: 6px;
 }
 
 .cf-batch--stock .cf-batch-grid-wrap {
-  max-height: min(28vh, 220px);
+  max-height: min(45vh, 360px);
 }
 
 .cf-batch--stock .cf-batch-toolbar {
   gap: 8px;
+  justify-content: space-between;
+  width: 100%;
 }
 
 .cf-batch-grid {
@@ -245,6 +262,49 @@
 .cf-batch-grid td,
 .cf-batch-grid th {
   padding: 4px 8px;
+  vertical-align: middle;
+}
+
+.cf-col-narrow {
+  width: 2.5rem;
+}
+
+.cf-line-select {
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  box-sizing: border-box;
+  background: var(--bg-elevated);
+  color: var(--text-h);
+}
+
+.cf-line-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: #b42318;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cf-line-remove:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.cf-line-remove:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .cf-qty-input {

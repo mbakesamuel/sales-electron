@@ -91,7 +91,7 @@ export function DeliveryOrdersList({ onOpenOrder, onOpenScreen }: DeliveryOrders
         <div>
           <h3>Delivery orders</h3>
           <p class="sales-muted">
-            Filter by DO number, sales point, or view documents in the open posting month or year.
+            Filter by DO number, collection point, or view documents in the open posting month or year.
           </p>
         </div>
         {onOpenScreen ? (
@@ -133,7 +133,7 @@ export function DeliveryOrdersList({ onOpenOrder, onOpenScreen }: DeliveryOrders
         </label>
 
         <label class="sales-field">
-          <span>Sales point</span>
+          <span>Collection point</span>
           <select
             value={filters.salesPointId == null ? "" : String(filters.salesPointId)}
             onChange={(event) => {
@@ -144,7 +144,7 @@ export function DeliveryOrdersList({ onOpenOrder, onOpenScreen }: DeliveryOrders
               }));
             }}
           >
-            <option value="">All sales points</option>
+            <option value="">All collection points</option>
             {salesPoints.map((point) => (
               <option key={point.id} value={String(point.id)}>
                 {point.name}
@@ -173,7 +173,7 @@ export function DeliveryOrdersList({ onOpenOrder, onOpenScreen }: DeliveryOrders
               <tr>
                 <th>DO no.</th>
                 <th>Date</th>
-                <th>Sales point</th>
+                <th>Collection point</th>
                 <th>Customer</th>
                 <th>Product</th>
                 <th>Status</th>

@@ -3,29 +3,8 @@ import { AUTH_TOKEN_KEY } from "../auth/session.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { AppLoadingShell } from "../components/AppLoadingShell.tsx";
 import { parseReportWindowHash } from "../../shared/reportWindow.ts";
-import { StockCommitmentReportScreen } from "../reports/StockCommitmentReport.tsx";
-import { StockReportScreen } from "../reports/StockReportScreen.tsx";
-import { CommitmentReportScreen } from "../reports/CommitmentReportScreen.tsx";
-import { BottleOilStockSalesReportScreen } from "../reports/BottleOilStockSalesReportScreen.tsx";
-import { BottledWeeklyIssuesReportScreen } from "../reports/BottledWeeklyIssuesReportScreen.tsx";
-import { WeeklyDeliveriesReportScreen } from "../reports/WeeklyDeliveriesReportScreen.tsx";
-import { DailySalesReportScreen } from "../reports/DailySalesReportScreen.tsx";
-import {
-  MonthlyDeliveryReportH1Screen,
-  MonthlyDeliveryReportH2Screen,
-} from "../reports/MonthlyDeliveryReportScreen.tsx";
-import { MonthlyStockReconciliationScreen } from "../reports/MonthlyStockReconciliationScreen.tsx";
-import { MonthlyPaymentDeliveryScreen } from "../reports/MonthlyPaymentDeliveryScreen.tsx";
-import { MonthlyDeliveriesByDestinationScreen } from "../reports/MonthlyDeliveriesByDestinationScreen.tsx";
-import { MonthlyPalmOilSalesScreen } from "../reports/MonthlyPalmOilSalesScreen.tsx";
-import { IndustryProductMonthlySalesScreen } from "../reports/IndustryProductMonthlySalesScreen.tsx";
-import { BottledPalmOilSalesReturnScreen } from "../reports/BottledPalmOilSalesReturnScreen.tsx";
-import { OtherProductSalesDeliveriesScreen } from "../reports/OtherProductSalesDeliveriesScreen.tsx";
-import { RevenueTaxesReportScreen } from "../reports/RevenueTaxesReportScreen.tsx";
-import { SalesBudgetMonthlyCrosstabScreen } from "../reports/SalesBudgetMonthlyCrosstabScreen.tsx";
-import { SalesBudgetWeeklyCrosstabScreen } from "../reports/SalesBudgetWeeklyCrosstabScreen.tsx";
-import { BinCardReportScreen } from "../stock/BinCardReportScreen.tsx";
-import { loadAndApplyCompanyTheme, applyUiTheme } from "../theme/applyUiTheme.ts";
+import { ReportBody } from "../reports/reportBody.tsx";
+import { applyUiTheme } from "../theme/applyUiTheme.ts";
 import "../app.css";
 
 type BootstrapState =
@@ -33,73 +12,11 @@ type BootstrapState =
   | { status: "ready"; reportId: string; query?: unknown }
   | { status: "error"; message: string };
 
-function ReportBody({
-  reportId,
-  query,
-}: {
-  reportId: string;
-  query?: unknown;
-}) {
-  switch (reportId) {
-    case "stock-commitment-report":
-      return <StockCommitmentReportScreen windowMode />;
-    case "stock-report":
-      return <StockReportScreen windowMode />;
-    case "commitment-report":
-      return <CommitmentReportScreen windowMode />;
-    case "bottle-oil-stock-sales-report":
-      return <BottleOilStockSalesReportScreen windowMode />;
-    case "bottled-weekly-issues-report":
-      return <BottledWeeklyIssuesReportScreen windowMode />;
-    case "sales-delivery-report":
-      return <WeeklyDeliveriesReportScreen windowMode />;
-    case "daily-sales-report":
-      return <DailySalesReportScreen windowMode />;
-    case "monthly-delivery-report-h1":
-      return <MonthlyDeliveryReportH1Screen windowMode />;
-    case "monthly-delivery-report-h2":
-      return <MonthlyDeliveryReportH2Screen windowMode />;
-    case "monthly-stock-reconciliation-report":
-      return <MonthlyStockReconciliationScreen windowMode />;
-    case "monthly-payment-delivery-report":
-      return <MonthlyPaymentDeliveryScreen windowMode />;
-    case "monthly-deliveries-by-destination-report":
-      return <MonthlyDeliveriesByDestinationScreen windowMode />;
-    case "monthly-palm-oil-sales-report":
-      return <MonthlyPalmOilSalesScreen windowMode />;
-    case "industry-product-monthly-sales-report":
-      return <IndustryProductMonthlySalesScreen windowMode />;
-    case "bottled-palm-oil-sales-return-report":
-      return <BottledPalmOilSalesReturnScreen windowMode />;
-    case "other-product-sales-deliveries-report":
-      return <OtherProductSalesDeliveriesScreen windowMode />;
-    case "stock-bin-card-report":
-      return (
-        <BinCardReportScreen windowMode initialQuery={query ?? null} />
-      );
-    case "revenue-taxes-report":
-      return <RevenueTaxesReportScreen windowMode />;
-    case "sales-budget-monthly-crosstab":
-      return <SalesBudgetMonthlyCrosstabScreen windowMode />;
-    case "sales-budget-weekly-crosstab":
-      return <SalesBudgetWeeklyCrosstabScreen windowMode />;
-    default:
-      return (
-        <p class="scr-status scr-status-error">
-          Unknown report window: {reportId}
-        </p>
-      );
-  }
-}
-
 export function ReportWindowApp() {
   const [state, setState] = useState<BootstrapState>({ status: "waiting" });
 
   useEffect(() => {
     applyUiTheme("agro");
-    void loadAndApplyCompanyTheme().catch(() => {
-      applyUiTheme("agro");
-    });
 
     const hashReportId = parseReportWindowHash();
     if (!hashReportId) {
@@ -183,7 +100,11 @@ export function ReportWindowApp() {
 
   return (
     <main class="report-window-root">
-      <ReportBody reportId={state.reportId} query={state.query} />
+      <ReportBody
+        reportId={state.reportId}
+        query={state.query}
+        windowMode
+      />
     </main>
   );
 }

@@ -23,8 +23,10 @@ interface ReceiptLineEditorProps {
     onChange: (next: ReceiptLineDraft[]) => void;
     locationOptions: StorageLocationOption[];
     defaultLocationId: string;
+    onHand: StockBalanceRow[];
+    salesPointId: string;
 }
-export declare function ReceiptLineEditor({ products, lines, onChange, locationOptions, defaultLocationId: defLoc, }: ReceiptLineEditorProps): import("preact").JSX.Element;
+export declare function ReceiptLineEditor({ products, lines, onChange, locationOptions, defaultLocationId: defLoc, onHand, salesPointId, }: ReceiptLineEditorProps): import("preact").JSX.Element;
 interface TransferLineEditorProps {
     products: ProductOption[];
     lines: TransferLineDraft[];
@@ -32,12 +34,16 @@ interface TransferLineEditorProps {
     mode: "inter" | "intra";
     fromSalesPointId: string;
     onHand: StockBalanceRow[];
+    /** YYYY-MM-DD — shown in available-qty hint when set. */
+    asOfDate?: string;
     fromLocationOptions: StorageLocationOption[];
     toLocationOptions: StorageLocationOption[];
     defaultFromLocationId: string;
     defaultToLocationId: string;
+    /** Inter-point direct post: require destination location on create. */
+    requireDestinationLocation?: boolean;
 }
-export declare function TransferLineEditor({ products, lines, onChange, mode, fromSalesPointId, onHand, fromLocationOptions, toLocationOptions, defaultFromLocationId: defFrom, defaultToLocationId: defTo, }: TransferLineEditorProps): import("preact").JSX.Element;
+export declare function TransferLineEditor({ products, lines, onChange, mode, fromSalesPointId, onHand, asOfDate, fromLocationOptions, toLocationOptions, defaultFromLocationId: defFrom, defaultToLocationId: defTo, requireDestinationLocation, }: TransferLineEditorProps): import("preact").JSX.Element;
 interface AdjustmentLineEditorProps {
     products: ProductOption[];
     lines: AdjustmentLineDraft[];

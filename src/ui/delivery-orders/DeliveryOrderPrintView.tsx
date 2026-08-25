@@ -161,13 +161,6 @@ export function DeliveryOrderPrintView({
             department={payload.department}
             serviceName={payload.serviceName}
             title="DELIVERY ORDER "
-            meta={
-              <QrCode
-                value={buildDeliveryOrderQrText(order, payload.companyName)}
-                size={96}
-                alt="Delivery order verification QR code"
-              />
-            }
           />
 
           <section class="do-print-meta-grid">
@@ -199,7 +192,7 @@ export function DeliveryOrderPrintView({
                 </p>
               ) : null}
               <p>
-                <span class="do-print-label">Sales Point:</span>{" "}
+                <span class="do-print-label">Collection Point:</span>{" "}
                 {order.salesPointName}
               </p>
             </div>
@@ -329,11 +322,20 @@ export function DeliveryOrderPrintView({
             </section>
           ) : null}
 
-          <section class="do-print-signatures">
-            <ReportFooter
-              name={payload.signatoryName}
-              label={payload.signatoryTitle}
-            />
+          <section class="do-print-footer">
+            <div class="do-print-qr">
+              <QrCode
+                value={buildDeliveryOrderQrText(order, payload.companyName)}
+                size={96}
+                alt="Delivery order verification QR code"
+              />
+            </div>
+            <div class="do-print-signatures">
+              <ReportFooter
+                name={payload.signatoryName}
+                label={payload.signatoryTitle}
+              />
+            </div>
           </section>
         </article>
       </div>

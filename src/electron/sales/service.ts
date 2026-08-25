@@ -6,16 +6,22 @@ import type {
   SalesListFilters,
   SalesListResult,
   SalesStorageLocationBalanceOption,
+  SalesValidateManyResult,
+  SalesValidationQueuePage,
   SaveSaleResult,
   SaleMutationResult,
   UnitPricePreviewResult,
 } from "../../shared/sales.types.js";
+import {
+  BOTTLE_OIL_SALES_ROUTE_ID,
+  SALES_ROUTE_ID,
+} from "../../shared/salesModule.js";
 import { validateBookletSerial } from "../../shared/bookletSerial.js";
 import {
   resolveCustomerTaxProfile,
   SALES_TAX_LABEL,
 } from "../../shared/taxRules.js";
-import { assertRouteWrite, canPerformAction } from "../auth/permissions/service.js";
+import { assertRouteWrite, assertAction, canPerformAction, canWriteRoute } from "../auth/permissions/service.js";
 import { getDatabase } from "../db/index.js";
 import {
   getCustomerTypeIdForCustomer,
@@ -23,7 +29,12 @@ import {
 } from "../pricing/resolveUnitPrice.js";
 import { loadTaxRatesAsOf } from "../tax/resolveRates.js";
 import { getSellableBalanceAsOf } from "../stock/asOfBalance.js";
-import { assertSaleLinesStockAsOf, deductStockForValidatedSale } from "../stock/sales.js";
+import { assertSaleLinesStockAsOf, deductStockForValidatedSale, productOmitsStorageLocationById, resolveSaleLineStorageLocation } from "../stock/sales.js";
+import {
+  loadLoosePalmOilRequireSalesTank,
+  productIsLoosePalmOilById,
+  productRequiresSalesTankForLooseSale,
+} from "../stock/productStorage.js";
 import { isInsufficientStockError } from "../stock/errors.js";
 import { parseQty } from "../stock/decimal.js";
 import { newPaymentId, newSaleId, newSaleLineId } from "./invoice.js";
@@ -32,12 +43,152 @@ import { assertDateInOpenMonth, resolveListDateRange } from "../financialYears/s
 
 const QTY_EPS = 0.000001;
 
+function loadBottleOilUseRegisteredCustomers(
+  db: ReturnType<typeof getDatabase>,
+): boolean {
+  try {
+    const columns = db
+      .prepare(`PRAGMA table_info(CompanySettings)`)
+      .all() as Array<{ name: string }>;
+    if (!columns.some((col) => col.name === "bottleOilUseRegisteredCustomers")) {
+      return false;
+    }
+
+    const row = db
+      .prepare(
+        `SELECT bottleOilUseRegisteredCustomers
+         FROM CompanySettings
+         WHERE id = 'default'`,
+      )
+      .get() as { bottleOilUseRegisteredCustomers: number | null } | undefined;
+
+    return Number(row?.bottleOilUseRegisteredCustomers ?? 0) !== 0;
+  } catch {
+    return false;
+  }
+}
+
+function loadBottleOilAllowRation(
+  db: ReturnType<typeof getDatabase>,
+): boolean {
+  try {
+    const columns = db
+      .prepare(`PRAGMA table_info(CompanySettings)`)
+      .all() as Array<{ name: string }>;
+    if (!columns.some((col) => col.name === "bottleOilAllowRation")) {
+      return false;
+    }
+
+    const row = db
+      .prepare(
+        `SELECT bottleOilAllowRation
+         FROM CompanySettings
+         WHERE id = 'default'`,
+      )
+      .get() as { bottleOilAllowRation: number | null } | undefined;
+
+    return Number(row?.bottleOilAllowRation ?? 0) !== 0;
+  } catch {
+    return false;
+  }
+}
+
+function loadLooseSalesAllowPublicRelation(
+  db: ReturnType<typeof getDatabase>,
+): boolean {
+  try {
+    const columns = db
+      .prepare(`PRAGMA table_info(CompanySettings)`)
+      .all() as Array<{ name: string }>;
+    if (!columns.some((col) => col.name === "looseSalesAllowPublicRelation")) {
+      return false;
+    }
+
+    const row = db
+      .prepare(
+        `SELECT looseSalesAllowPublicRelation
+         FROM CompanySettings
+         WHERE id = 'default'`,
+      )
+      .get() as { looseSalesAllowPublicRelation: number | null } | undefined;
+
+    return Number(row?.looseSalesAllowPublicRelation ?? 0) !== 0;
+  } catch {
+    return false;
+  }
+}
+
+function loadLooseSalesAllowUnregisteredCustomer(
+  db: ReturnType<typeof getDatabase>,
+): boolean {
+  try {
+    const columns = db
+      .prepare(`PRAGMA table_info(CompanySettings)`)
+      .all() as Array<{ name: string }>;
+    if (!columns.some((col) => col.name === "looseSalesAllowUnregisteredCustomer")) {
+      return false;
+    }
+
+    const row = db
+      .prepare(
+        `SELECT looseSalesAllowUnregisteredCustomer
+         FROM CompanySettings
+         WHERE id = 'default'`,
+      )
+      .get() as { looseSalesAllowUnregisteredCustomer: number | null } | undefined;
+
+    return Number(row?.looseSalesAllowUnregisteredCustomer ?? 0) !== 0;
+  } catch {
+    return false;
+  }
+}
+
 function nowIso(): string {
   return new Date().toISOString().slice(0, 19).replace("T", " ");
 }
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function assertSaleRouteWrite(
+  role: string,
+  saleProductMode: string | null | undefined,
+): void {
+  const routeId =
+    saleProductMode === "BOTTLE" ? BOTTLE_OIL_SALES_ROUTE_ID : SALES_ROUTE_ID;
+  assertRouteWrite(role, routeId);
+}
+
+function validateSaleLineProducts(
+  db: ReturnType<typeof getDatabase>,
+  lines: Array<{ productId: number }>,
+  isBottleMode: boolean,
+): string | null {
+  const check = db.prepare(
+    `SELECT p.productName, COALESCE(pc.isBottled, 0) AS isBottled
+     FROM Product p
+     INNER JOIN ProductCat pc ON pc.productCatId = p.productCatId
+     WHERE p.productId = ?`,
+  );
+
+  for (const line of lines) {
+    const row = check.get(line.productId) as
+      | { productName: string; isBottled: number }
+      | undefined;
+    if (!row) {
+      return `Product ${line.productId} was not found.`;
+    }
+    const isBottled = row.isBottled === 1;
+    if (isBottleMode && !isBottled) {
+      return `${row.productName} is not a bottled product. Use Sales Invoicing for loose products.`;
+    }
+    if (!isBottleMode && isBottled) {
+      return `${row.productName} is bottled. Use Bottle Oil sales for bottled products.`;
+    }
+  }
+
+  return null;
 }
 
 function getVatRateDecimal(): string {
@@ -53,6 +204,22 @@ function parseCustomerId(value: unknown): number | null {
     typeof value === "number" ? value : Number.parseInt(String(value).trim(), 10);
 
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function validateSalePaymentMethods(
+  payments: CreateSaleInput["payments"],
+): string | null {
+  for (const payment of payments) {
+    if (parseAmount(payment.amount) <= 0) {
+      continue;
+    }
+
+    if (!String(payment.paymentMethodId ?? "").trim()) {
+      return "Select a payment method.";
+    }
+  }
+
+  return null;
 }
 
 function formatProductSummary(
@@ -92,8 +259,8 @@ function getInvoiceOnlyTaxRegimeId(db: ReturnType<typeof getDatabase>): string |
 
 /**
  * Active sales-point storage locations for a product (SELLABLE condition qty > 0).
- * Mill-owned locations are never included (sales invoicing is SP-only).
  * When asOfDateIso is set, balances are reconstructed from movements through that date.
+ * PKCP/PKP → []. LPO + require-sales-tank setting → sales tanks only. Else any location.
  */
 export function listStorageLocationsWithBalance(
   salesPointId: number,
@@ -104,15 +271,25 @@ export function listStorageLocationsWithBalance(
     return [];
   }
 
+  const db = getDatabase();
+  if (productOmitsStorageLocationById(db, productId)) {
+    return [];
+  }
+
+  const requireSalesTank = productRequiresSalesTankForLooseSale(db, productId);
+  const salesTankSql = requireSalesTank
+    ? " AND COALESCE(sl.isSalesTank, 0) = 1"
+    : "";
+
   const asOf = asOfDateIso?.trim().slice(0, 10) || null;
   if (asOf) {
-    const db = getDatabase();
     const locations = db
       .prepare(
         `SELECT sl.id, l.locationName AS name
          FROM StorageLocation sl
          INNER JOIN Location l ON l.id = sl.locationId
-         WHERE sl.salesPointId = ? AND COALESCE(sl.isActive, 1) = 1
+         WHERE sl.salesPointId = ?
+           AND COALESCE(sl.isActive, 1) = 1${salesTankSql}
          ORDER BY l.locationName ASC`,
       )
       .all(salesPointId) as Array<{ id: number; name: string }>;
@@ -126,7 +303,7 @@ export function listStorageLocationsWithBalance(
       .filter((row) => row.qty > QTY_EPS);
   }
 
-  const rows = getDatabase()
+  const rows = db
     .prepare(
       `SELECT sl.id, l.locationName AS name, sb.qty
        FROM StockBalance sb
@@ -136,7 +313,7 @@ export function listStorageLocationsWithBalance(
          AND sb.productId = ?
          AND sb.condition = 'SELLABLE'
          AND sl.salesPointId = ?
-         AND COALESCE(sl.isActive, 1) = 1
+         AND COALESCE(sl.isActive, 1) = 1${salesTankSql}
        ORDER BY l.locationName ASC`,
     )
     .all(salesPointId, productId, salesPointId) as Array<{
@@ -154,8 +331,21 @@ export function listStorageLocationsWithBalance(
     .filter((row) => row.qty > QTY_EPS);
 }
 
-export function getSalesFormOptions(): SalesFormOptions {
+export function getSalesFormOptions(userId: string): SalesFormOptions {
   const db = getDatabase();
+  const user = db
+    .prepare(`SELECT role FROM User WHERE id = ?`)
+    .get(userId) as { role: string } | undefined;
+  const role = user?.role ?? "";
+  const canDirectValidateLoose =
+    Boolean(user) &&
+    canWriteRoute(role, SALES_ROUTE_ID) &&
+    canPerformAction(role, "direct_validate_sales");
+  const canDirectValidateBottled =
+    Boolean(user) &&
+    canWriteRoute(role, BOTTLE_OIL_SALES_ROUTE_ID) &&
+    canPerformAction(role, "direct_validate_sales");
+  const canDirectValidate = canDirectValidateLoose || canDirectValidateBottled;
 
   const customers = db
     .prepare(
@@ -182,7 +372,8 @@ export function getSalesFormOptions(): SalesFormOptions {
 
   const products = db
     .prepare(
-      `SELECT p.productId, p.productName, pc.productCat, pc.isBottled
+      `SELECT p.productId, p.productName, pc.productCat, pc.productCode, pc.isBottled,
+              COALESCE(pc.isMain, 0) AS isMain
        FROM Product p
        INNER JOIN ProductCat pc ON pc.productCatId = p.productCatId
        ORDER BY p.productName ASC
@@ -192,23 +383,29 @@ export function getSalesFormOptions(): SalesFormOptions {
     productId: number;
     productName: string;
     productCat: string;
+    productCode: string;
     isBottled: number;
+    isMain: number;
   }>;
 
   const looseProducts = products
     .filter((product) => product.isBottled !== 1)
-    .map(({ productId, productName, productCat }) => ({
+    .map(({ productId, productName, productCat, productCode, isMain }) => ({
       productId,
       productName,
       productCat,
+      productCatCode: productCode,
+      isMain: isMain === 1,
     }));
 
   const bottledProducts = products
     .filter((product) => product.isBottled === 1)
-    .map(({ productId, productName, productCat }) => ({
+    .map(({ productId, productName, productCat, productCode, isMain }) => ({
       productId,
       productName,
       productCat,
+      productCatCode: productCode,
+      isMain: isMain === 1,
     }));
 
   const paymentMethods = db
@@ -226,7 +423,8 @@ export function getSalesFormOptions(): SalesFormOptions {
 
   const storageLocations = db
     .prepare(
-      `SELECT sl.id, sl.salesPointId, l.locationName AS name, sl.isDefault
+      `SELECT sl.id, sl.salesPointId, l.locationName AS name, sl.isDefault,
+              COALESCE(sl.isSalesTank, 0) AS isSalesTank
        FROM StorageLocation sl
        INNER JOIN Location l ON l.id = sl.locationId
        WHERE sl.salesPointId IS NOT NULL AND COALESCE(sl.isActive, 1) = 1
@@ -238,6 +436,7 @@ export function getSalesFormOptions(): SalesFormOptions {
     salesPointId: number;
     name: string;
     isDefault: number;
+    isSalesTank: number;
   }>;
 
   const company = db
@@ -273,10 +472,12 @@ export function getSalesFormOptions(): SalesFormOptions {
     salesPointId: location.salesPointId,
     name: location.name,
     isDefault: location.isDefault === 1,
+    isSalesTank: location.isSalesTank === 1,
   }));
 
   const botaSalesPoint =
     salesPoints.find((point) => point.name.toUpperCase().includes("BOTA")) ?? null;
+  // Bottle oil sells from Bottle Oil Store — not a bulk sales tank.
   const bottleOilStoreLocation =
     mappedLocations.find(
       (location) =>
@@ -297,6 +498,14 @@ export function getSalesFormOptions(): SalesFormOptions {
     botaSalesPointId: botaSalesPoint?.id ?? null,
     bottleOilStoreLocationId: bottleOilStoreLocation?.id ?? null,
     invoiceOnlyTaxRegimeId: getInvoiceOnlyTaxRegimeId(db),
+    canDirectValidate,
+    canDirectValidateLoose,
+    canDirectValidateBottled,
+    bottleOilUseRegisteredCustomers: loadBottleOilUseRegisteredCustomers(db),
+    bottleOilAllowRation: loadBottleOilAllowRation(db),
+    looseSalesAllowPublicRelation: loadLooseSalesAllowPublicRelation(db),
+    looseSalesAllowUnregisteredCustomer: loadLooseSalesAllowUnregisteredCustomer(db),
+    loosePalmOilRequireSalesTank: loadLoosePalmOilRequireSalesTank(db),
   };
 }
 
@@ -365,6 +574,114 @@ export function listPendingSales(): PendingSaleRow[] {
     totalLabel: formatXaf(row.grossAmount),
     salesPointName: row.salesPointName,
   }));
+}
+
+export function listSalesValidationQueue(userId: string): SalesValidationQueuePage {
+  const db = getDatabase();
+  const user = db
+    .prepare(`SELECT role, salesPointId, isActive FROM User WHERE id = ?`)
+    .get(userId) as
+    | { role: string; salesPointId: number | null; isActive: number }
+    | undefined;
+
+  if (!user?.isActive) {
+    throw new Error("Login required.");
+  }
+  if (!canPerformAction(user.role, "validate_sales")) {
+    throw new Error("You do not have permission to validate sales.");
+  }
+
+  const scoped = user.salesPointId;
+  const scopeSql =
+    scoped == null ? "" : " AND s.salesPointId = @scopedSalesPointId";
+  const params = { scopedSalesPointId: scoped ?? -1 };
+
+  const totalPending = (
+    db
+      .prepare(
+        `SELECT COUNT(*) AS count FROM Sale s WHERE s.status = 'PENDING'${scopeSql}`,
+      )
+      .get(params) as { count: number }
+  ).count;
+
+  const rows = db
+    .prepare(
+      `SELECT s.id, s.invoiceNo, s.soldAt, s.dateIssued, s.grossAmount,
+              s.customerNameSnapshot, s.saleProductMode,
+              sp.name AS salesPointName,
+              COALESCE(u.name, '—') AS createdByName,
+              (SELECT COUNT(*) FROM SaleLine sl WHERE sl.saleId = s.id) AS lineCount
+       FROM Sale s
+       LEFT JOIN SalesPoint sp ON sp.id = s.salesPointId
+       LEFT JOIN User u ON u.id = s.createdByUserId
+       WHERE s.status = 'PENDING'${scopeSql}
+       ORDER BY s.soldAt ASC, s.invoiceNo ASC
+       LIMIT 200`,
+    )
+    .all(params) as Array<{
+    id: string;
+    invoiceNo: string;
+    soldAt: string;
+    dateIssued: string | null;
+    grossAmount: string;
+    customerNameSnapshot: string;
+    saleProductMode: string | null;
+    salesPointName: string | null;
+    createdByName: string;
+    lineCount: number;
+  }>;
+
+  return {
+    totalPending,
+    rows: rows.map((row) => ({
+      id: row.id,
+      invoiceNo: row.invoiceNo,
+      soldAtIso: String(row.soldAt).slice(0, 10),
+      dateIssuedIso: String(row.dateIssued ?? row.soldAt).slice(0, 10),
+      customerName: row.customerNameSnapshot,
+      salesPointName: row.salesPointName,
+      createdByName: row.createdByName,
+      saleProductMode:
+        row.saleProductMode === "BOTTLE" || row.saleProductMode === "LOOSE"
+          ? row.saleProductMode
+          : null,
+      totalLabel: formatXaf(row.grossAmount),
+      lineCount: Number(row.lineCount) || 0,
+    })),
+  };
+}
+
+export function validateManySales(
+  saleIds: string[],
+  userId: string,
+): SalesValidateManyResult {
+  const uniqueIds = [
+    ...new Set(saleIds.filter((id) => typeof id === "string" && id.trim())),
+  ];
+  if (uniqueIds.length === 0) {
+    return { ok: false, error: "Select at least one sales invoice." };
+  }
+
+  let validated = 0;
+  const errors: Array<{ id: string; invoiceNo?: string; error: string }> = [];
+
+  for (const id of uniqueIds) {
+    const result = validateSale(id, userId);
+    if (result.ok) {
+      validated += 1;
+    } else {
+      const invoiceNo = getDatabase()
+        .prepare(`SELECT invoiceNo FROM Sale WHERE id = ?`)
+        .get(id) as { invoiceNo: string } | undefined;
+      errors.push({
+        id,
+        invoiceNo: invoiceNo?.invoiceNo,
+        error: result.error,
+      });
+    }
+  }
+
+  return { ok: true, validated, errors };
 }
 
 export function loadSaleByInvoiceNo(invoiceNo: string): LoadedSaleView | null {
@@ -482,6 +799,12 @@ export function listSales(filters: SalesListFilters = {}): SalesListResult {
     params.push(`%${q}%`);
   }
 
+  const productMode = filters.productMode;
+  if (productMode === "LOOSE" || productMode === "BOTTLE") {
+    whereParts.push(`COALESCE(s.saleProductMode, 'LOOSE') = ?`);
+    params.push(productMode);
+  }
+
   const { fromIso, toIso, periodLabel } = resolveListDateRange(
     period === "year" || period === "all" ? period : "month",
   );
@@ -510,20 +833,26 @@ export function listSales(filters: SalesListFilters = {}): SalesListResult {
   let totalQty = 0;
   const listRows: SalesListResult["rows"] = [];
 
+  const isBottledList = productMode === "BOTTLE";
+
   for (const row of rows) {
     const lineRows = db
       .prepare(
-        `SELECT sl.qtyKg, p.productName
+        `SELECT sl.qtyKg, sl.qtyUnits, p.productName
          FROM SaleLine sl
          INNER JOIN Product p ON p.productId = sl.productId
          WHERE sl.saleId = ?`,
       )
-      .all(row.id) as Array<{ qtyKg: string; productName: string }>;
+      .all(row.id) as Array<{ qtyKg: string; qtyUnits: string | null; productName: string }>;
 
     const gross = parseAmount(String(row.grossAmount));
     let rowQty = 0;
     for (const line of lineRows) {
-      rowQty += parseAmount(line.qtyKg);
+      if (isBottledList) {
+        rowQty += parseAmount(line.qtyUnits ?? line.qtyKg);
+      } else {
+        rowQty += parseAmount(line.qtyKg);
+      }
     }
     totalAmount += gross;
     totalQty += rowQty;
@@ -537,7 +866,9 @@ export function listSales(filters: SalesListFilters = {}): SalesListResult {
       customerName: String(row.customerNameSnapshot),
       productSummary: formatProductSummary(lineRows),
       status: row.status as SalesListResult["rows"][number]["status"],
-      totalQtyLabel: `${trimQty(rowQty)} kg`,
+      totalQtyLabel: isBottledList
+        ? `${trimQty(rowQty)} units`
+        : `${trimQty(rowQty)} kg`,
       totalAmountXaf: formatXaf(gross),
     });
   }
@@ -546,7 +877,9 @@ export function listSales(filters: SalesListFilters = {}): SalesListResult {
     rows: listRows,
     totals: {
       count: listRows.length,
-      totalQtyLabel: `${trimQty(totalQty)} kg`,
+      totalQtyLabel: isBottledList
+        ? `${trimQty(totalQty)} units`
+        : `${trimQty(totalQty)} kg`,
       totalAmountXaf: formatXaf(totalAmount),
     },
     periodLabel,
@@ -568,8 +901,10 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
     return { ok: false, error: "User not found." };
   }
 
+  const saleProductMode = input.saleProductMode ?? "LOOSE";
+
   try {
-    assertRouteWrite(role.role, "sales");
+    assertSaleRouteWrite(role.role, saleProductMode);
   } catch (error) {
     return {
       ok: false,
@@ -577,14 +912,88 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
     };
   }
 
-  const saleProductMode = input.saleProductMode ?? "LOOSE";
-  const saleDisposition = input.saleDisposition ?? "NORMAL";
+  const validateImmediately = Boolean(input.validateImmediately);
+  if (validateImmediately) {
+    try {
+      assertAction(role.role, "direct_validate_sales");
+    } catch (error) {
+      return {
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "You do not have permission to validate sales directly.",
+      };
+    }
+  }
+
   const isBottleMode = saleProductMode === "BOTTLE";
+  const saleDisposition = input.saleDisposition ?? "NORMAL";
   const isSpecialDisposition =
     saleDisposition === "RATION" || saleDisposition === "PUBLIC_RELATION";
   const registeredCustomerId = parseCustomerId(input.customerId);
-  const useRegisteredCustomer =
-    !isSpecialDisposition && registeredCustomerId != null;
+  const bottleOilUseRegisteredCustomers = isBottleMode
+    ? loadBottleOilUseRegisteredCustomers(db)
+    : true;
+  const bottleOilAllowRation = isBottleMode
+    ? loadBottleOilAllowRation(db)
+    : true;
+  const looseAllowUnregistered = isBottleMode
+    ? false
+    : loadLooseSalesAllowUnregisteredCustomer(db);
+
+  if (isBottleMode && saleDisposition === "RATION" && !bottleOilAllowRation) {
+    return {
+      ok: false,
+      error:
+        "Ration disposition is not enabled for Bottle Oil sales. Change App settings or use a normal disposition.",
+    };
+  }
+
+  if (
+    !isBottleMode &&
+    saleDisposition === "PUBLIC_RELATION" &&
+    !loadLooseSalesAllowPublicRelation(db)
+  ) {
+    return {
+      ok: false,
+      error:
+        "Public relation disposition is not enabled for Sales Invoicing. Change App settings or use a normal disposition.",
+    };
+  }
+
+  const useRegisteredCustomer = isSpecialDisposition
+    ? false
+    : isBottleMode
+      ? bottleOilUseRegisteredCustomers
+      : !looseAllowUnregistered;
+
+  if (
+    isBottleMode &&
+    !isSpecialDisposition &&
+    !bottleOilUseRegisteredCustomers &&
+    registeredCustomerId != null
+  ) {
+    return {
+      ok: false,
+      error:
+        "Bottle Oil sales is configured for invoice-only customers. Enter the customer name on the invoice.",
+    };
+  }
+
+  if (
+    !isBottleMode &&
+    !isSpecialDisposition &&
+    !looseAllowUnregistered &&
+    registeredCustomerId == null &&
+    input.customerNameOverride?.trim()
+  ) {
+    return {
+      ok: false,
+      error:
+        "Sales Invoicing requires a customer from the directory. Change App settings or select a registered customer.",
+    };
+  }
 
   if (!useRegisteredCustomer && !input.customerNameOverride?.trim()) {
     return { ok: false, error: "Enter the customer name on the invoice." };
@@ -612,6 +1021,23 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
 
   if (activeLines.length === 0) {
     return { ok: false, error: "Add at least one line item." };
+  }
+
+  const productError = validateSaleLineProducts(db, activeLines, isBottleMode);
+  if (productError) {
+    return { ok: false, error: productError };
+  }
+
+  if (!isBottleMode && isSpecialDisposition) {
+    for (const line of activeLines) {
+      if (!productIsLoosePalmOilById(db, line.productId)) {
+        return {
+          ok: false,
+          error:
+            "Ration and Public relation dispositions are only allowed for Loose Palm Oil products.",
+        };
+      }
+    }
   }
 
   let customerId: number | null = null;
@@ -785,6 +1211,13 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
     };
   }
 
+  if (!isSpecialDisposition) {
+    const paymentMethodError = validateSalePaymentMethods(input.payments);
+    if (paymentMethodError) {
+      return { ok: false, error: paymentMethodError };
+    }
+  }
+
   const serialResult = validateBookletSerial(input.invoiceNo);
   if (!serialResult.ok) {
     return { ok: false, error: serialResult.error };
@@ -896,6 +1329,19 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
     );
 
     for (const line of computedLines) {
+      const omitsStorage = productOmitsStorageLocationById(db, line.productId);
+      const storageLocationId = omitsStorage
+        ? null
+        : input.salesPointId != null && Number.isFinite(input.salesPointId)
+          ? resolveSaleLineStorageLocation(
+              db,
+              input.salesPointId,
+              line.productId,
+              line.storageLocationId ?? null,
+              isBottleMode,
+            )
+          : (line.storageLocationId ?? null);
+
       insertLine.run(
         newSaleLineId(),
         saleId,
@@ -907,7 +1353,7 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
         line.lineGross,
         line.qtyUnits ?? null,
         line.unitPricePerUnit ?? null,
-        line.storageLocationId ?? null,
+        storageLocationId,
       );
     }
 
@@ -961,6 +1407,17 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
         timestamp,
       );
     }
+
+    if (validateImmediately) {
+      finalizeValidatedSale(db, {
+        saleId,
+        userId: input.userId,
+        validatedAt: timestamp,
+        salesPointId: input.salesPointId ?? null,
+        dateIssued: soldAt,
+        isBottleMode,
+      });
+    }
   });
 
   try {
@@ -975,6 +1432,57 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
       error: error instanceof Error ? error.message : "Could not create sale.",
     };
   }
+}
+
+type FinalizeValidatedSaleInput = {
+  saleId: string;
+  userId: string;
+  validatedAt: string;
+  salesPointId: number | null;
+  dateIssued: string;
+  isBottleMode: boolean;
+};
+
+function finalizeValidatedSale(
+  db: ReturnType<typeof getDatabase>,
+  input: FinalizeValidatedSaleInput,
+): void {
+  if (input.salesPointId != null) {
+    const lines = db
+      .prepare(
+        `SELECT productId, qtyKg, qtyUnits, storageLocationId
+         FROM SaleLine
+         WHERE saleId = ?
+         ORDER BY id ASC`,
+      )
+      .all(input.saleId) as Array<{
+      productId: number;
+      qtyKg: string;
+      qtyUnits: string | null;
+      storageLocationId: number | null;
+    }>;
+
+    assertSaleLinesStockAsOf(db, {
+      salesPointId: input.salesPointId,
+      dateIssued: input.dateIssued,
+      isBottleMode: input.isBottleMode,
+      lines,
+      excludeSaleId: input.saleId,
+    });
+  }
+
+  db.prepare(
+    `UPDATE Sale
+     SET status = 'VALIDATED', validatedAt = ?, validatedByUserId = ?, updatedAt = ?
+     WHERE id = ?`,
+  ).run(input.validatedAt, input.userId, input.validatedAt, input.saleId);
+
+  deductStockForValidatedSale(
+    db,
+    input.saleId,
+    input.userId,
+    input.validatedAt,
+  );
 }
 
 export function validateSale(saleId: string, userId: string): SaleMutationResult {
@@ -1010,43 +1518,29 @@ export function validateSale(saleId: string, userId: string): SaleMutationResult
     return { ok: true };
   }
 
+  try {
+    assertSaleRouteWrite(user.role, existing.saleProductMode);
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Permission denied.",
+    };
+  }
+
   const validatedAt = nowIso();
   const dateIssued = String(existing.dateIssued ?? validatedAt).slice(0, 10);
   const isBottleMode = existing.saleProductMode === "BOTTLE";
 
   try {
     const tx = db.transaction(() => {
-      if (existing.salesPointId != null) {
-        const lines = db
-          .prepare(
-            `SELECT productId, qtyKg, qtyUnits, storageLocationId
-             FROM SaleLine
-             WHERE saleId = ?
-             ORDER BY id ASC`,
-          )
-          .all(saleId) as Array<{
-          productId: number;
-          qtyKg: string;
-          qtyUnits: string | null;
-          storageLocationId: number | null;
-        }>;
-
-        assertSaleLinesStockAsOf(db, {
-          salesPointId: existing.salesPointId,
-          dateIssued,
-          isBottleMode,
-          lines,
-          excludeSaleId: saleId,
-        });
-      }
-
-      db.prepare(
-        `UPDATE Sale
-         SET status = 'VALIDATED', validatedAt = ?, validatedByUserId = ?, updatedAt = ?
-         WHERE id = ?`,
-      ).run(validatedAt, userId, validatedAt, saleId);
-
-      deductStockForValidatedSale(db, saleId, userId, validatedAt);
+      finalizeValidatedSale(db, {
+        saleId,
+        userId,
+        validatedAt,
+        salesPointId: existing.salesPointId,
+        dateIssued,
+        isBottleMode,
+      });
     });
 
     tx();
@@ -1083,11 +1577,24 @@ export function deleteSale(saleId: string, userId: string): SaleMutationResult {
   }
 
   const existing = db
-    .prepare(`SELECT id, status FROM Sale WHERE id = ?`)
-    .get(saleId) as { id: string; status: string } | undefined;
+    .prepare(
+      `SELECT id, status, saleProductMode FROM Sale WHERE id = ?`,
+    )
+    .get(saleId) as
+    | { id: string; status: string; saleProductMode: string | null }
+    | undefined;
 
   if (!existing) {
     return { ok: false, error: "Sale not found." };
+  }
+
+  try {
+    assertSaleRouteWrite(role.role, existing.saleProductMode);
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Permission denied.",
+    };
   }
 
   if (existing.status === "VALIDATED") {

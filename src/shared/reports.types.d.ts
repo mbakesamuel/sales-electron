@@ -518,6 +518,17 @@ export interface MonthlyStockReconciliationReport {
     otherRows: MonthlyStockReconciliationMatrixRow[];
     comments: string | null;
 }
+export type ExportExcelResult = {
+    ok: true;
+    filePath: string;
+} | {
+    ok: false;
+    cancelled: true;
+} | {
+    ok: false;
+    cancelled: false;
+    error: string;
+};
 export interface MonthlyPaymentDeliveryWeekRow {
     weekIndex: number;
     weekFromIso: string;

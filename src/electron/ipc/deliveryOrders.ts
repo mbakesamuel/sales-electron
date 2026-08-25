@@ -175,7 +175,7 @@ export function registerDeliveryOrdersHandlers(): void {
     "deliveryOrders:previewStockOnHand",
     (_event, payload: { salesPointId: number; productId: number }): StockOnHandPreviewResult => {
       if (typeof payload?.salesPointId !== "number" || typeof payload?.productId !== "number") {
-        return { ok: false, error: "Sales point and product are required." };
+        return { ok: false, error: "Collection point and product are required." };
       }
 
       return previewStockOnHand(payload.salesPointId, payload.productId);

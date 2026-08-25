@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { formatDisplayDate as formatDate } from "../../shared/formatDisplayDate.ts";
+import type { RoleDefinition } from "../../shared/permissions.types.ts";
 import { getElectronApi } from "../auth/client.ts";
-import { getAuthenticatedDb } from "../auth/db.ts";
-import {
-  formatRoleLabel,
-  USER_ROLES,
-  type UserRole,
-} from "../../shared/roles.ts";
+import { getAuthenticatedDb, getAuthToken } from "../auth/db.ts";
+import { formatRoleLabel } from "../../shared/roles.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
 import "../components/FormDialog.css";
 import { UserFormModal } from "./UserFormModal.tsx";
@@ -17,17 +14,16 @@ type SortKey =
   | "name"
   | "username"
   | "roleLabel"
-  | "commercialServiceLabel"
   | "salesPointLabel"
   | "createdAt";
 type SortDir = "asc" | "desc";
-type ActiveTab = "all" | "active" | "inactive" | UserRole;
+type ActiveTab = "all" | "active" | "inactive" | string;
 
 interface UserRow {
   id: string;
   name: string;
   username: string;
-  role: UserRole;
+  role: string;
   roleLabel: string;
   isActive: boolean;
   commercialServiceId: string;
@@ -52,19 +48,19 @@ function initials(name: string): string {
     .join("");
 }
 
-function normalizeRole(value: unknown): UserRole {
-  const role = String(value ?? "");
-  return USER_ROLES.includes(role as UserRole) ? (role as UserRole) : "SALES_CLERK";
+function normalizeRole(value: unknown): string {
+  const role = String(value ?? "").trim();
+  return role || "STORE_KEEPER";
 }
 
-function roleBadgeClass(role: UserRole): string {
+function roleBadgeClass(role: string): string {
   if (role === "ADMIN") {
     return "customers-badge customers-badge-violet";
   }
   if (role === "MANAGER") {
     return "customers-badge customers-badge-blue";
   }
-  if (role === "SENIOR_SALES_SUPERVISOR" || role === "STATISTICS_SUPERVISOR") {
+  if (role === "SENIOR_SALES_SUPERVISOR" || role === "STATISTICS_CLERK") {
     return "customers-badge customers-badge-sky";
   }
   return "customers-badge customers-badge-slate";
@@ -329,6 +325,7 @@ interface UsersScreenProps {
 export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
   const canWrite = !readOnly;
   const [rows, setRows] = useState<UserRow[]>([]);
+  const [roleCatalog, setRoleCatalog] = useState<RoleDefinition[]>([]);
   const [schema, setSchema] = useState<TableSchema | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -343,6 +340,11 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
   const [viewRow, setViewRow] = useState<UserRow | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  const roleLabels = useMemo(
+    () => Object.fromEntries(roleCatalog.map((role) => [role.id, role.label])),
+    [roleCatalog],
+  );
+
   useEffect(() => {
     let cancelled = false;
 
@@ -351,17 +353,26 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
       setError(null);
       try {
         const api = getElectronApi();
-        const [userResult, serviceResult, salesPointResult, tableSchema] =
+        const token = getAuthToken();
+        const [userResult, serviceResult, salesPointResult, tableSchema, rolesResult] =
           await Promise.all([
             api.db.queryTable({ table: "User", limit: 2000 }),
             api.db.queryTable({ table: "CommercialService", limit: 200 }),
             api.db.queryTable({ table: "SalesPoint", limit: 200 }),
             api.db.getTableSchema("User"),
+            token
+              ? api.permissions.listRoles(token)
+              : Promise.resolve([] as RoleDefinition[]),
           ]);
 
         if (cancelled) {
           return;
         }
+
+        const roles =
+          Array.isArray(rolesResult) ? rolesResult : ([] as RoleDefinition[]);
+        const labels = Object.fromEntries(roles.map((role) => [role.id, role.label]));
+        setRoleCatalog(roles);
 
         const serviceMap = new Map<string, string>();
         for (const service of serviceResult.rows) {
@@ -396,7 +407,7 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
             name: String(row.name ?? ""),
             username: String(row.username ?? ""),
             role,
-            roleLabel: formatRoleLabel(role),
+            roleLabel: formatRoleLabel(role, labels),
             isActive: row.isActive === 1 || row.isActive === true,
             commercialServiceId,
             commercialServiceLabel: commercialServiceId
@@ -609,7 +620,10 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
     { id: "all", label: "All" },
     { id: "active", label: "Active" },
     { id: "inactive", label: "Inactive" },
-    ...USER_ROLES.map((role) => ({ id: role, label: formatRoleLabel(role) })),
+    ...roleCatalog.map((role) => ({
+      id: role.id,
+      label: roleLabels[role.id] ?? formatRoleLabel(role.id),
+    })),
   ];
 
   return (
@@ -724,12 +738,7 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
                 <SortableTh label="Username" col="username" />
                 <SortableTh label="Role" col="roleLabel" />
                 <SortableTh
-                  label="Service"
-                  col="commercialServiceLabel"
-                  className="customers-col-hide-md"
-                />
-                <SortableTh
-                  label="Sales point"
+                  label="Collection point"
                   col="salesPointLabel"
                   className="customers-col-hide-lg"
                 />
@@ -740,13 +749,13 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} class="customers-table-empty">
+                  <td colSpan={7} class="customers-table-empty">
                     Loading users…
                   </td>
                 </tr>
               ) : paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={8} class="customers-table-empty">
+                  <td colSpan={7} class="customers-table-empty">
                     No users match your filters.
                   </td>
                 </tr>
@@ -784,7 +793,6 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
                     <td>
                       <span class={roleBadgeClass(row.role)}>{row.roleLabel}</span>
                     </td>
-                    <td class="customers-col-hide-md">{row.commercialServiceLabel}</td>
                     <td class="customers-col-hide-lg">{row.salesPointLabel}</td>
                     <td class="customers-col-hide-lg">
                       <div class="customers-dates">
@@ -861,7 +869,7 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
               ["Role", viewRow.roleLabel],
               ["Status", viewRow.isActive ? "Active" : "Inactive"],
               ["Commercial service", viewRow.commercialServiceLabel],
-              ["Sales point", viewRow.salesPointLabel],
+              ["Collection point", viewRow.salesPointLabel],
               ["Created", viewRow.createdAt],
               ["Updated", viewRow.updatedAt],
             ].map(([label, value]) => (

@@ -10,12 +10,13 @@
 }
 
 .sales-tab {
-  padding: 8px 14px;
+  padding: 4px 10px;
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: 6px;
   background: #fff;
   color: var(--text-h);
   font: inherit;
+  font-size: 13px;
   cursor: pointer;
 }
 
@@ -59,6 +60,110 @@
 .sales-invoice-no {
   font-size: 18px;
   font-weight: 700;
+}
+
+.sales-invoice-header-end {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sales-invoice-header-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px 12px;
+  min-width: 0;
+}
+
+.sales-invoice-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.sales-invoice-no-field {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+}
+
+.sales-invoice-no-field > span:first-child {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.sales-invoice-no-field input {
+  width: 120px;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  box-sizing: border-box;
+}
+
+.sales-invoice-header-actions .sales-btn-secondary {
+  padding: 0 12px;
+  height: 30px;
+  box-sizing: border-box;
+  line-height: 1.25;
+}
+
+.sales-invoice-serial-hint {
+  margin: 0;
+  text-align: right;
+}
+
+.sales-form-locked,
+.sales-panel-locked {
+  opacity: 0.55;
+}
+
+.sales-form-locked .sales-field input,
+.sales-form-locked .sales-field select,
+.sales-panel-locked input,
+.sales-panel-locked select,
+.sales-panel-locked button {
+  cursor: not-allowed;
+}
+
+.sales-client-compact .sales-invoice-no-field {
+  gap: 6px;
+}
+
+.sales-client-compact .sales-invoice-no-field input,
+.sales-client-compact .sales-invoice-header-actions .sales-btn-secondary {
+  height: 28px;
+}
+
+.sales-client-compact .sales-invoice-no-field input {
+  padding: 0 8px;
+}
+
+.sales-client-compact .sales-invoice-header-actions .sales-btn-secondary {
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.sales-items-panel .sales-section-header .sales-btn-secondary,
+.sales-payments-panel .sales-section-header .sales-btn-secondary {
+  padding: 0 10px;
+  height: 28px;
+  box-sizing: border-box;
+  line-height: 1.25;
+  font-size: 13px;
+}
+
+.sales-client-compact .sales-invoice-serial-hint {
+  font-size: 11px;
+  line-height: 1.3;
 }
 
 .sales-muted,
@@ -542,6 +647,24 @@
   gap: 8px;
 }
 
+.sales-invoice-grid .sales-field-do .sales-do-row {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 900px) {
+  .sales-invoice-grid .sales-field-do .sales-do-row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: stretch;
+    height: var(--sales-control-height);
+  }
+
+  .sales-invoice-grid .sales-field-do .sales-do-row input,
+  .sales-invoice-grid .sales-field-do .sales-do-btn {
+    height: 100%;
+    min-height: 0;
+  }
+}
+
 .sales-do-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -902,4 +1025,252 @@
   .sales-line-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* Sales entry screen — tighter vertical density */
+.sales-client-compact {
+  gap: 10px;
+}
+
+.sales-client-compact .sales-panel {
+  padding: 10px 12px;
+}
+
+.sales-client-compact .sales-panel-header,
+.sales-client-compact .sales-invoice-header,
+.sales-client-compact .sales-section-header {
+  margin-bottom: 6px;
+}
+
+.sales-client-compact .sales-panel-header h3,
+.sales-client-compact .sales-invoice-header h2,
+.sales-client-compact .sales-section-header h3 {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+.sales-client-compact .sales-invoice-no {
+  font-size: 16px;
+}
+
+.sales-client-compact .sales-invoice-form,
+.sales-client-compact .sales-payments-form {
+  --sales-control-height: 32px;
+}
+
+.sales-client-compact .sales-invoice-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.sales-client-compact .sales-invoice-grid .sales-field,
+.sales-client-compact .sales-payment-grid .sales-field {
+  gap: 4px;
+  height: auto;
+}
+
+.sales-client-compact .sales-invoice-grid .sales-hint,
+.sales-client-compact .sales-hint,
+.sales-client-compact .sales-checkbox-hint {
+  margin-top: 2px;
+  margin-bottom: 0;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.sales-client-compact .sales-invoice-options {
+  gap: 10px 16px;
+  padding: 8px 10px;
+}
+
+.sales-client-compact .sales-checkbox-group {
+  gap: 8px 12px;
+}
+
+.sales-client-compact .sales-table th,
+.sales-client-compact .sales-table td {
+  padding: 6px;
+}
+
+.sales-client-compact .sales-items-empty {
+  padding: 14px 12px !important;
+}
+
+.sales-client-compact .sales-items-empty span {
+  margin-bottom: 10px;
+}
+
+.sales-client-compact .sales-payments-form {
+  gap: 8px;
+}
+
+.sales-client-compact .sales-payment-row {
+  padding-bottom: 8px;
+}
+
+.sales-client-compact .sales-payment-grid {
+  gap: 8px 12px;
+}
+
+.sales-client-compact .sales-btn-primary {
+  padding: 6px 14px;
+}
+
+.sales-client-compact .sales-btn-secondary,
+.sales-client-compact .sales-btn-danger {
+  padding: 6px 14px;
+}
+
+.sales-client-compact .sales-banner {
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.sales-client-compact .sales-lookup-row {
+  gap: 8px;
+}
+
+.sales-client-compact .sales-field {
+  gap: 4px;
+}
+
+.sales-client-compact .sales-do-panel {
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
+.sales-client-compact .sales-do-panel-header {
+  margin-bottom: 6px;
+}
+
+.sales-client-compact .sales-invoice-header-controls .sales-btn-secondary {
+  padding: 0 10px;
+  height: 28px;
+  box-sizing: border-box;
+  line-height: 1.25;
+  font-size: 13px;
+}
+
+.sales-client-compact .sales-lines-list {
+  gap: 8px;
+}
+
+.sales-client-compact .sales-line-card {
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+.sales-client-compact .sales-line-grid {
+  gap: 8px 12px;
+}
+
+.sales-client-compact .sales-totals-row {
+  margin-top: 8px;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.sales-client-compact .do-pending-list {
+  margin: 0 0 8px;
+}
+
+@media (max-width: 900px) {
+  .sales-client-compact .sales-invoice-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .sales-client-compact .sales-invoice-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Sales validation review modal */
+.sales-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  pointer-events: none;
+}
+
+.sales-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.5);
+  cursor: default;
+  pointer-events: auto;
+}
+
+.sales-modal-panel {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+  width: 100%;
+  max-width: 32rem;
+  max-height: min(40rem, calc(100vh - 4rem));
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  color: var(--text-h);
+  box-shadow: 0 20px 40px rgba(16, 24, 40, 0.18);
+}
+
+.sales-modal-panel-wide {
+  max-width: 56rem;
+}
+
+.sales-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 16px 0;
+  flex-shrink: 0;
+}
+
+.sales-modal-title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.sales-modal-close {
+  flex-shrink: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 1;
+  background: var(--bg-elevated);
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.sales-modal-close:hover {
+  background: var(--bg-soft);
+}
+
+.sales-modal-body {
+  padding: 12px 16px 16px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.sales-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
 }

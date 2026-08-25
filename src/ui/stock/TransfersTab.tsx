@@ -6,6 +6,7 @@ import type {
   ProductOption,
   SalesPointOption,
   StockBalanceRow,
+  StockProductFilter,
   StorageLocationOption,
   TransferDetail,
   TransferListRow,
@@ -13,7 +14,6 @@ import type {
 import {
   ConfirmDialog,
   DocDialog,
-  ReviewKeyValue,
   ReviewLineTable,
   StatusBadge,
 } from "./StockDialogs.tsx";
@@ -29,6 +29,8 @@ import {
 } from "./stockUtils.ts";
 import { STOCK_DOC_STATUS_LABELS } from "./stockDisplay.ts";
 import { TRANSFER_MODE_LABELS } from "../../shared/stockTransferMode.ts";
+import { isStoreKeeperRole } from "../../shared/roles.ts";
+import { TransferPrintView } from "./TransferPrintView.tsx";
 
 type FormTransferMode = "inter" | "intra";
 
@@ -46,6 +48,22 @@ function isIntraRow(row: TransferListRow): boolean {
   return row.transferMode === "INTRA_SALES_POINT";
 }
 
+function ReviewReadonlyField(props: { label: string; value: string }) {
+  return (
+    <label class="stock-form-row">
+      <span class="stock-form-label">{props.label}</span>
+      <span class="stock-form-control-wrap">
+        <input
+          class="stock-form-control"
+          value={props.value}
+          readOnly
+          disabled
+        />
+      </span>
+    </label>
+  );
+}
+
 interface TransfersTabProps {
   rows: TransferListRow[];
   salesPoints: SalesPointOption[];
@@ -57,7 +75,12 @@ interface TransfersTabProps {
   canReceive: boolean;
   canCancel: boolean;
   canDraft: boolean;
+  canDirectPost: boolean;
+  autoGenerateTransferNo: boolean;
+  transferReceiveUsesDocumentDate: boolean;
   userId: string;
+  userRole: string;
+  productFilter: StockProductFilter;
   onOk: (text: string) => void;
   onErr: (text: string) => void;
 }
@@ -68,19 +91,30 @@ export function TransfersTab(props: TransfersTabProps) {
     salesPoints,
     storageLocations,
     products,
-    onHand,
     scopedSalesPointId,
     userId,
+    userRole,
+    productFilter,
+    autoGenerateTransferNo,
+    transferReceiveUsesDocumentDate,
   } = props;
+  const storeKeeperTransferMode = isStoreKeeperRole(userRole);
   const [open, setOpen] = useState(false);
   const [formMode, setFormMode] = useState<FormTransferMode>("inter");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [transferNo, setTransferNo] = useState("");
   const [fromSalesPointId, setFromSalesPointId] = useState<string>(
     scopedSalesPointId != null ? String(scopedSalesPointId) : "",
   );
   const [toSalesPointId, setToSalesPointId] = useState<string>("");
   const [dispatchedAt, setDispatchedAt] = useState(utcIsoDateToday());
   const [notes, setNotes] = useState("");
+  const [consignedBy, setConsignedBy] = useState("");
+  const [consDesign, setConsDesign] = useState("");
+  const [consDate, setConsDate] = useState("");
+  const [receiveBy, setReceiveBy] = useState("");
+  const [receiveByDesign, setReceiveByDesign] = useState("");
+  const [receiveDate, setReceiveDate] = useState("");
   const [lines, setLines] = useState<TransferLineDraft[]>(() => [
     {
       productId: "",
@@ -91,6 +125,7 @@ export function TransfersTab(props: TransfersTabProps) {
       ),
     },
   ]);
+  const [asOfOnHand, setAsOfOnHand] = useState<StockBalanceRow[]>([]);
   const [pendingCancel, setPendingCancel] = useState<TransferListRow | null>(
     null,
   );
@@ -99,6 +134,7 @@ export function TransfersTab(props: TransfersTabProps) {
   const [lookupBusy, setLookupBusy] = useState(false);
   const [reviewDetail, setReviewDetail] = useState<TransferDetail | null>(null);
   const [reviewBusy, setReviewBusy] = useState(false);
+  const [printOpen, setPrintOpen] = useState(false);
   const [receiveDetail, setReceiveDetail] = useState<TransferDetail | null>(
     null,
   );
@@ -129,6 +165,44 @@ export function TransfersTab(props: TransfersTabProps) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!open) {
+      setAsOfOnHand([]);
+      return;
+    }
+    const asOfDate = dispatchedAt.trim().slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(asOfDate) || !userId) {
+      setAsOfOnHand([]);
+      return;
+    }
+    let cancelled = false;
+    const salesPointId = fromSalesPointId
+      ? Number.parseInt(fromSalesPointId, 10)
+      : null;
+    void getElectronApi()
+      .stock.listOnHandAsOf(userId, {
+        asOfDate,
+        salesPointId:
+          salesPointId != null && Number.isFinite(salesPointId)
+            ? salesPointId
+            : null,
+        productFilter,
+      })
+      .then((rows) => {
+        if (!cancelled) {
+          setAsOfOnHand(rows);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAsOfOnHand([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, dispatchedAt, fromSalesPointId, userId, productFilter]);
+
   function defaultDispatchedAt(): string {
     return clampIsoDateToRange(utcIsoDateToday(), postingPeriod);
   }
@@ -136,11 +210,18 @@ export function TransfersTab(props: TransfersTabProps) {
   function resetForm() {
     setEditingId(null);
     setFormMode("inter");
+    setTransferNo("");
     const from = scopedSalesPointId != null ? String(scopedSalesPointId) : "";
     setFromSalesPointId(from);
     setToSalesPointId("");
     setDispatchedAt(defaultDispatchedAt());
     setNotes("");
+    setConsignedBy("");
+    setConsDesign("");
+    setConsDate("");
+    setReceiveBy("");
+    setReceiveByDesign("");
+    setReceiveDate("");
     setLines([
       {
         productId: "",
@@ -151,6 +232,9 @@ export function TransfersTab(props: TransfersTabProps) {
   }
 
   function onFormModeChange(nextMode: FormTransferMode) {
+    if (storeKeeperTransferMode) {
+      return;
+    }
     setFormMode(nextMode);
     if (nextMode === "intra") {
       if (fromSalesPointId) {
@@ -204,6 +288,12 @@ export function TransfersTab(props: TransfersTabProps) {
 
   function openReceiveDialog(detail: TransferDetail) {
     setReceiveDetail(detail);
+    setReceiveBy(detail.receiveBy ?? "");
+    setReceiveByDesign(detail.receiveByDesign ?? "");
+    setReceiveDate(
+      detail.receiveDate ??
+        clampIsoDateToRange(utcIsoDateToday(), postingPeriod),
+    );
     setReceiveLines(
       detail.lines.map((l) => ({
         lineId: l.id,
@@ -220,9 +310,24 @@ export function TransfersTab(props: TransfersTabProps) {
     setOpen(true);
   }
 
-  async function onSave(event: Event) {
+  async function onSave(event: Event, postImmediately = false) {
     event.preventDefault();
     if (busy) return;
+    if (postImmediately && (editingId || !props.canDirectPost)) {
+      return;
+    }
+    if (!postImmediately && !editingId && !props.canDraft) {
+      return;
+    }
+    if (
+      postImmediately &&
+      formMode === "inter" &&
+      transferReceiveUsesDocumentDate &&
+      !/^\d{4}-\d{2}-\d{2}$/.test(receiveDate.trim())
+    ) {
+      props.onErr("Receive date is required.");
+      return;
+    }
     setBusy(true);
     try {
       const fromSp = Number.parseInt(fromSalesPointId, 10);
@@ -230,16 +335,34 @@ export function TransfersTab(props: TransfersTabProps) {
         formMode === "intra" ? fromSp : Number.parseInt(toSalesPointId, 10);
       const res = await getElectronApi().stock.saveTransfer({
         userId,
+        productFilter,
         id: editingId,
+        postImmediately: postImmediately && !editingId,
+        ...(autoGenerateTransferNo || editingId
+          ? {}
+          : { transferNo: transferNo.trim() }),
         fromSalesPointId: fromSp,
         toSalesPointId: toSp,
         dispatchedAt,
         notes: notes || null,
+        consignedBy: consignedBy || null,
+        consDesign: consDesign || null,
+        consDate: consDate || null,
+        ...(formMode === "inter"
+          ? {
+              receiveBy: receiveBy || null,
+              receiveByDesign: receiveByDesign || null,
+              receiveDate: receiveDate || null,
+            }
+          : {}),
         lines: lines
           .filter((l) => {
             if (!l.productId || !l.qty || !l.fromStorageLocationId)
               return false;
             if (formMode === "intra") return Boolean(l.toStorageLocationId);
+            if (postImmediately && !editingId) {
+              return Boolean(l.toStorageLocationId);
+            }
             return true;
           })
           .map((l) => ({
@@ -254,17 +377,34 @@ export function TransfersTab(props: TransfersTabProps) {
                   ),
                 }
               : {}),
+            ...(formMode === "inter" &&
+            postImmediately &&
+            !editingId &&
+            l.toStorageLocationId
+              ? {
+                  toStorageLocationId: Number.parseInt(
+                    l.toStorageLocationId,
+                    10,
+                  ),
+                }
+              : {}),
           })),
       });
       if (res.ok === false) {
         props.onErr(res.error);
         return;
       }
-      props.onOk(
-        editingId
-          ? `Transfer ${res.documentNo} updated.`
-          : `Transfer ${res.documentNo} drafted.`,
-      );
+      if (editingId) {
+        props.onOk(`Transfer ${res.documentNo} updated.`);
+      } else if (postImmediately) {
+        props.onOk(
+          formMode === "intra"
+            ? "Location move posted; balances updated."
+            : "Transfer dispatched and received; balances updated.",
+        );
+      } else {
+        props.onOk(`Transfer ${res.documentNo} drafted.`);
+      }
       setOpen(false);
       resetForm();
     } finally {
@@ -277,6 +417,7 @@ export function TransfersTab(props: TransfersTabProps) {
     try {
       const res = await getElectronApi().stock.postInternalTransfer({
         userId,
+        productFilter,
         transferId: id,
       });
       if (res.ok === false) {
@@ -295,6 +436,7 @@ export function TransfersTab(props: TransfersTabProps) {
     try {
       const res = await getElectronApi().stock.dispatchTransfer({
         userId,
+        productFilter,
         transferId: id,
       });
       if (res.ok === false) {
@@ -328,10 +470,18 @@ export function TransfersTab(props: TransfersTabProps) {
   async function onReceiveSubmit(event: Event) {
     event.preventDefault();
     if (!receiveDetail || busy) return;
+    if (
+      transferReceiveUsesDocumentDate &&
+      !/^\d{4}-\d{2}-\d{2}$/.test(receiveDate.trim())
+    ) {
+      props.onErr("Receive date is required.");
+      return;
+    }
     setBusy(true);
     try {
       const res = await getElectronApi().stock.receiveTransfer({
         userId,
+        productFilter,
         transferId: receiveDetail.id,
         lines: receiveLines
           .filter((l) => l.toStorageLocationId)
@@ -339,6 +489,9 @@ export function TransfersTab(props: TransfersTabProps) {
             lineId: l.lineId,
             toStorageLocationId: Number.parseInt(l.toStorageLocationId, 10),
           })),
+        receiveBy: receiveBy || null,
+        receiveByDesign: receiveByDesign || null,
+        receiveDate: receiveDate || null,
       });
       if (res.ok === false) {
         props.onErr(res.error);
@@ -360,6 +513,7 @@ export function TransfersTab(props: TransfersTabProps) {
     try {
       const res = await getElectronApi().stock.cancelTransfer({
         userId,
+        productFilter,
         transferId: id,
       });
       if (res.ok === false) {
@@ -391,8 +545,10 @@ export function TransfersTab(props: TransfersTabProps) {
   }
 
   function populateFormFromDetail(detail: TransferDetail) {
-    const intra = detail.transferMode === "INTRA_SALES_POINT";
+    const intra =
+      !storeKeeperTransferMode && detail.transferMode === "INTRA_SALES_POINT";
     setEditingId(detail.id);
+    setTransferNo(detail.transferNo);
     setFormMode(intra ? "intra" : "inter");
     setFromSalesPointId(String(detail.fromSalesPointId));
     setToSalesPointId(String(detail.toSalesPointId));
@@ -403,6 +559,12 @@ export function TransfersTab(props: TransfersTabProps) {
       : utcIsoDateToday();
     setDispatchedAt(clampIsoDateToRange(rawDate, postingPeriod));
     setNotes(detail.notes ?? "");
+    setConsignedBy(detail.consignedBy ?? "");
+    setConsDesign(detail.consDesign ?? "");
+    setConsDate(detail.consDate ?? "");
+    setReceiveBy(detail.receiveBy ?? "");
+    setReceiveByDesign(detail.receiveByDesign ?? "");
+    setReceiveDate(detail.receiveDate ?? "");
     const defFrom = defaultLocationId(
       storageLocations,
       detail.fromSalesPointId,
@@ -523,8 +685,8 @@ export function TransfersTab(props: TransfersTabProps) {
               </button>
             </form>
           ) : null}
-          
-          {props.canDraft ? (
+
+          {props.canDraft || props.canDirectPost ? (
             <button
               type="button"
               class="stock-btn-primary"
@@ -548,16 +710,15 @@ export function TransfersTab(props: TransfersTabProps) {
               <th>Received</th>
               <th class="stock-num">Total qty</th>
               <th>Status</th>
-              <th>Created by</th>
               <th class="stock-actions-col">Actions</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={10} class="stock-empty-cell">
+                <td colSpan={9} class="stock-empty-cell">
                   No transfers recorded yet.
-                  {props.canDraft ? (
+                  {props.canDraft || props.canDirectPost ? (
                     <>
                       {" "}
                       Use <span class="stock-strong">New transfer</span> to
@@ -599,12 +760,6 @@ export function TransfersTab(props: TransfersTabProps) {
                     <td>
                       <StatusBadge status={r.status} />
                     </td>
-                    <td class="stock-muted">
-                      <div>{r.createdByName}</div>
-                      <div class="stock-subtext">
-                        {formatDateTime(r.createdAtIso)}
-                      </div>
-                    </td>
                     <td class="stock-actions-col">
                       <div class="stock-actions-cell">
                         <button
@@ -616,7 +771,9 @@ export function TransfersTab(props: TransfersTabProps) {
                         >
                           Review
                         </button>
-                        {r.status === "DRAFT" && props.canDraft && isSourceUser ? (
+                        {r.status === "DRAFT" &&
+                        props.canDraft &&
+                        isSourceUser ? (
                           <button
                             type="button"
                             disabled={busy || reviewBusy}
@@ -638,19 +795,6 @@ export function TransfersTab(props: TransfersTabProps) {
                             class="stock-btn-primary stock-btn-small"
                           >
                             Post
-                          </button>
-                        ) : null}
-                        {r.status === "DRAFT" &&
-                        props.canDispatch &&
-                        isSourceUser &&
-                        !intra ? (
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => void onDispatch(r.id)}
-                            class="stock-btn-primary stock-btn-small"
-                          >
-                            Dispatch
                           </button>
                         ) : null}
                         {r.status === "DISPATCHED" &&
@@ -695,59 +839,85 @@ export function TransfersTab(props: TransfersTabProps) {
           wide
           onClose={() => setOpen(false)}
         >
-          <form onSubmit={onSave} class="stock-form">
-            <div class="stock-form-row">
-              <span class="stock-form-label">Transfer type</span>
-              <div class="stock-form-control-wrap">
-                <select
-                  class="stock-form-control"
-                  value={formMode}
-                  onChange={(event) =>
-                    onFormModeChange(
-                      (event.currentTarget as HTMLSelectElement)
-                        .value as FormTransferMode,
-                    )
-                  }
-                >
-                  <option value="inter">Between sales points</option>
-                  <option value="intra">Within sales point</option>
-                </select>
-                {formMode === "intra" ? (
-                  <p class="stock-hint">
-                    Move stock between storage locations at one sales point.
-                    Posting applies both out and in movements in one step.
-                  </p>
-                ) : null}
-              </div>
-            </div>
-
-            <label class="stock-form-row">
-              <span class="stock-form-label">
-                {formMode === "intra" ? "Sales point" : "From"}
-              </span>
-              <span class="stock-form-control-wrap">
-                <select
-                  class="stock-form-control"
-                  value={fromSalesPointId}
-                  onChange={(event) =>
-                    onFromSalesPointChange(
-                      (event.currentTarget as HTMLSelectElement).value,
-                    )
-                  }
-                  required
-                  disabled={scopedSalesPointId != null}
-                >
-                  <option value="">Select…</option>
-                  {salesPoints.map((sp) => (
-                    <option key={sp.id} value={sp.id}>
-                      {sp.name}
-                    </option>
-                  ))}
-                </select>
-              </span>
-            </label>
-            {formMode === "inter" ? (
+          <form
+            onSubmit={(event) => void onSave(event, false)}
+            class="stock-form"
+          >
+            {!autoGenerateTransferNo && !editingId ? (
               <label class="stock-form-row">
+                <span class="stock-form-label">Consignment #</span>
+                <span class="stock-form-control-wrap">
+                  <input
+                    class="stock-form-control stock-mono"
+                    value={transferNo}
+                    onInput={(event) =>
+                      setTransferNo(
+                        (event.currentTarget as HTMLInputElement).value,
+                      )
+                    }
+                    placeholder="ST-2026-000001"
+                    required
+                  />
+                </span>
+              </label>
+            ) : null}
+            {!autoGenerateTransferNo && editingId ? (
+              <label class="stock-form-row">
+                <span class="stock-form-label">Consignment #</span>
+                <span class="stock-form-control-wrap">
+                  <input
+                    class="stock-form-control stock-mono"
+                    value={transferNo}
+                    readOnly
+                    disabled
+                  />
+                </span>
+              </label>
+            ) : null}
+            {!storeKeeperTransferMode ? (
+              <div class="stock-form-row">
+                <span class="stock-form-label">Transfer type</span>
+                <div class="stock-form-control-wrap">
+                  <select
+                    class="stock-form-control"
+                    value={formMode}
+                    onChange={(event) =>
+                      onFormModeChange(
+                        (event.currentTarget as HTMLSelectElement)
+                          .value as FormTransferMode,
+                      )
+                    }
+                  >
+                    <option value="inter">Between collection points</option>
+                    <option value="intra">Within collection point</option>
+                  </select>
+                </div>
+              </div>
+            ) : null}
+
+            {formMode === "inter" ? (
+              <div class="stock-form-endpoints">
+                <span class="stock-form-label">From</span>
+                <span class="stock-form-control-wrap">
+                  <select
+                    class="stock-form-control"
+                    value={fromSalesPointId}
+                    onChange={(event) =>
+                      onFromSalesPointChange(
+                        (event.currentTarget as HTMLSelectElement).value,
+                      )
+                    }
+                    required
+                    disabled={scopedSalesPointId != null}
+                  >
+                    <option value="">Select collection point</option>
+                    {salesPoints.map((sp) => (
+                      <option key={sp.id} value={sp.id}>
+                        {sp.name}
+                      </option>
+                    ))}
+                  </select>
+                </span>
                 <span class="stock-form-label">To</span>
                 <span class="stock-form-control-wrap">
                   <select
@@ -760,7 +930,7 @@ export function TransfersTab(props: TransfersTabProps) {
                     }
                     required
                   >
-                    <option value="">Select…</option>
+                    <option value="">Select collection point</option>
                     {salesPoints
                       .filter((sp) => String(sp.id) !== fromSalesPointId)
                       .map((sp) => (
@@ -770,11 +940,36 @@ export function TransfersTab(props: TransfersTabProps) {
                       ))}
                   </select>
                 </span>
+              </div>
+            ) : (
+              <label class="stock-form-row">
+                <span class="stock-form-label">Collection point</span>
+                <span class="stock-form-control-wrap">
+                  <select
+                    class="stock-form-control"
+                    value={fromSalesPointId}
+                    onChange={(event) =>
+                      onFromSalesPointChange(
+                        (event.currentTarget as HTMLSelectElement).value,
+                      )
+                    }
+                    required
+                    disabled={scopedSalesPointId != null}
+                  >
+                    <option value="">Select collection point</option>
+                    {salesPoints.map((sp) => (
+                      <option key={sp.id} value={sp.id}>
+                        {sp.name}
+                      </option>
+                    ))}
+                  </select>
+                </span>
               </label>
-            ) : null}
+            )}
+
             <label class="stock-form-row">
               <span class="stock-form-label">
-                {formMode === "intra" ? "Move date" : "Dispatch date"}
+                {formMode === "intra" ? "Move date" : "Date"}
               </span>
               <span class="stock-form-control-wrap">
                 <input
@@ -794,7 +989,7 @@ export function TransfersTab(props: TransfersTabProps) {
                   }
                   required
                 />
-                {!postingPeriod ? (
+                {/*  {!postingPeriod ? (
                   <span class="stock-form-hint">
                     Open a financial month to set the move date.
                   </span>
@@ -803,11 +998,11 @@ export function TransfersTab(props: TransfersTabProps) {
                     Open month: {postingPeriod.monthName}{" "}
                     {postingPeriod.financialYear}
                   </span>
-                )}
+                )} */}
               </span>
             </label>
             <label class="stock-form-row">
-              <span class="stock-form-label">Notes</span>
+              <span class="stock-form-label">Description</span>
               <span class="stock-form-control-wrap">
                 <input
                   class="stock-form-control"
@@ -819,13 +1014,129 @@ export function TransfersTab(props: TransfersTabProps) {
               </span>
             </label>
 
+            {formMode === "inter" ? (
+              <div class="stock-transfer-signatures">
+                <div class="stock-transfer-signature-col">
+                  <label class="stock-form-row">
+                    <span class="stock-form-label">Consigned by</span>
+                    <span class="stock-form-control-wrap">
+                      <input
+                        class="stock-form-control"
+                        value={consignedBy}
+                        onInput={(event) =>
+                          setConsignedBy(
+                            (event.currentTarget as HTMLInputElement).value,
+                          )
+                        }
+                      />
+                    </span>
+                  </label>
+                  <label class="stock-form-row">
+                    <span class="stock-form-label">Designation</span>
+                    <span class="stock-form-control-wrap">
+                      <input
+                        class="stock-form-control"
+                        value={consDesign}
+                        onInput={(event) =>
+                          setConsDesign(
+                            (event.currentTarget as HTMLInputElement).value,
+                          )
+                        }
+                      />
+                    </span>
+                  </label>
+                  <label class="stock-form-row">
+                    <span class="stock-form-label">Date</span>
+                    <span class="stock-form-control-wrap">
+                      <input
+                        type="date"
+                        class="stock-form-control"
+                        value={consDate}
+                        min={postingPeriod?.startDate}
+                        max={postingPeriod?.endDate}
+                        disabled={!postingPeriod}
+                        onInput={(event) =>
+                          setConsDate(
+                            clampIsoDateToRange(
+                              (event.currentTarget as HTMLInputElement).value,
+                              postingPeriod,
+                            ),
+                          )
+                        }
+                      />
+                    </span>
+                  </label>
+                </div>
+                <div class="stock-transfer-signature-col">
+                  <label class="stock-form-row">
+                    <span class="stock-form-label">Received by</span>
+                    <span class="stock-form-control-wrap">
+                      <input
+                        class="stock-form-control"
+                        value={receiveBy}
+                        onInput={(event) =>
+                          setReceiveBy(
+                            (event.currentTarget as HTMLInputElement).value,
+                          )
+                        }
+                      />
+                    </span>
+                  </label>
+                  <label class="stock-form-row">
+                    <span class="stock-form-label">Designation</span>
+                    <span class="stock-form-control-wrap">
+                      <input
+                        class="stock-form-control"
+                        value={receiveByDesign}
+                        onInput={(event) =>
+                          setReceiveByDesign(
+                            (event.currentTarget as HTMLInputElement).value,
+                          )
+                        }
+                      />
+                    </span>
+                  </label>
+                  <label class="stock-form-row">
+                    <span class="stock-form-label">
+                      Date
+                      {transferReceiveUsesDocumentDate ? " *" : ""}
+                    </span>
+                    <span class="stock-form-control-wrap">
+                      <input
+                        type="date"
+                        class="stock-form-control"
+                        value={receiveDate}
+                        min={postingPeriod?.startDate}
+                        max={postingPeriod?.endDate}
+                        disabled={!postingPeriod}
+                        required={transferReceiveUsesDocumentDate}
+                        onInput={(event) =>
+                          setReceiveDate(
+                            clampIsoDateToRange(
+                              (event.currentTarget as HTMLInputElement).value,
+                              postingPeriod,
+                            ),
+                          )
+                        }
+                      />
+                      {transferReceiveUsesDocumentDate ? (
+                        <span class="stock-hint">
+                          This date posts destination stock (open month).
+                        </span>
+                      ) : null}
+                    </span>
+                  </label>
+                </div>
+              </div>
+            ) : null}
+
             {formMode === "intra" &&
             fromSalesPointId &&
             locationsForSalesPoint(storageLocations, fromSalesPointId).length <
               2 ? (
               <p class="stock-hint stock-hint-warn">
-                Add at least two storage locations for this sales point to move
-                stock between bins.
+                Add at least two storage locations for this collection point to
+                move stock between bins.
               </p>
             ) : null}
 
@@ -835,14 +1146,18 @@ export function TransfersTab(props: TransfersTabProps) {
               onChange={setLines}
               mode={formMode}
               fromSalesPointId={fromSalesPointId}
-              onHand={onHand}
+              onHand={asOfOnHand}
+              asOfDate={dispatchedAt.trim().slice(0, 10)}
+              requireDestinationLocation={
+                props.canDirectPost && formMode === "inter" && !editingId
+              }
               fromLocationOptions={locationsForSalesPoint(
                 storageLocations,
                 fromSalesPointId,
               )}
               toLocationOptions={locationsForSalesPoint(
                 storageLocations,
-                fromSalesPointId,
+                formMode === "intra" ? fromSalesPointId : toSalesPointId,
               )}
               defaultFromLocationId={defaultLocationId(
                 storageLocations,
@@ -850,15 +1165,48 @@ export function TransfersTab(props: TransfersTabProps) {
               )}
               defaultToLocationId={defaultToLocationId(
                 storageLocations,
-                fromSalesPointId,
+                formMode === "intra" ? fromSalesPointId : toSalesPointId,
                 defaultLocationId(storageLocations, fromSalesPointId),
               )}
             />
 
             <div class="stock-modal-actions">
-              <button type="submit" disabled={busy} class="stock-btn-primary">
-                {editingId ? "Save changes" : "Create draft"}
-              </button>
+              {editingId ? (
+                <button type="submit" disabled={busy} class="stock-btn-primary">
+                  Save changes
+                </button>
+              ) : (
+                <>
+                  {props.canDirectPost ? (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      class="stock-btn-primary"
+                      onClick={(event) => void onSave(event, true)}
+                    >
+                      Post transfer
+                    </button>
+                  ) : null}
+                  {props.canDraft ? (
+                    <button
+                      type={props.canDirectPost ? "button" : "submit"}
+                      disabled={busy}
+                      class={
+                        props.canDirectPost
+                          ? "stock-btn-secondary"
+                          : "stock-btn-primary"
+                      }
+                      onClick={
+                        props.canDirectPost
+                          ? (event) => void onSave(event, false)
+                          : undefined
+                      }
+                    >
+                      {props.canDirectPost ? "Save as draft" : "Create draft"}
+                    </button>
+                  ) : null}
+                </>
+              )}
               <button
                 type="button"
                 onClick={() => setOpen(false)}
@@ -899,62 +1247,138 @@ export function TransfersTab(props: TransfersTabProps) {
           wide
           onClose={() => setReviewDetail(null)}
         >
-          <div class="stock-review">
-            <div class="stock-review-top">
-              <StatusBadge status={reviewDetail.status} />
+          <div class="stock-form">
+            <div class="stock-form-row">
+              <span class="stock-form-label">Status</span>
+              <span class="stock-form-control-wrap stock-form-control-wrap-inline">
+                <StatusBadge status={reviewDetail.status} />
+              </span>
             </div>
 
-            <div class="stock-review-grid">
-              <ReviewKeyValue label="Type">
-                {TRANSFER_MODE_LABELS[reviewDetail.transferMode]}
-              </ReviewKeyValue>
-              <ReviewKeyValue label="From">
-                {reviewDetail.fromSalesPointName}
-              </ReviewKeyValue>
-              <ReviewKeyValue
-                label={isIntraRow(reviewDetail) ? "Locations" : "To"}
-              >
-                {isIntraRow(reviewDetail)
-                  ? (reviewDetail.locationSummary ?? "—")
-                  : reviewDetail.toSalesPointName}
-              </ReviewKeyValue>
-              <ReviewKeyValue label="Dispatched">
-                {reviewDetail.dispatchedAtIso
-                  ? formatDate(reviewDetail.dispatchedAtIso)
-                  : "—"}
-                {reviewDetail.dispatchedByName ? (
-                  <span class="stock-subtext">
-                    {" "}
-                    by {reviewDetail.dispatchedByName}
-                  </span>
-                ) : null}
-              </ReviewKeyValue>
-              <ReviewKeyValue label="Received">
-                {reviewDetail.receivedAtIso
-                  ? formatDate(reviewDetail.receivedAtIso)
-                  : "—"}
-                {reviewDetail.receivedByName ? (
-                  <span class="stock-subtext">
-                    {" "}
-                    by {reviewDetail.receivedByName}
-                  </span>
-                ) : null}
-              </ReviewKeyValue>
-              <ReviewKeyValue label="Drafted by">
-                {reviewDetail.createdByName}
-                <span class="stock-subtext">
-                  {" "}
-                  {formatDateTime(reviewDetail.createdAtIso)}
+            <ReviewReadonlyField
+              label="Consignment #"
+              value={reviewDetail.transferNo}
+            />
+
+            {!storeKeeperTransferMode ? (
+              <ReviewReadonlyField
+                label="Transfer type"
+                value={
+                  isIntraRow(reviewDetail)
+                    ? "Within collection point"
+                    : "Between collection points"
+                }
+              />
+            ) : null}
+
+            {isIntraRow(reviewDetail) ? (
+              <label class="stock-form-row">
+                <span class="stock-form-label">Collection point</span>
+                <span class="stock-form-control-wrap">
+                  <input
+                    class="stock-form-control"
+                    value={reviewDetail.fromSalesPointName}
+                    readOnly
+                    disabled
+                  />
+                  {reviewDetail.locationSummary ? (
+                    <span class="stock-form-hint">
+                      {reviewDetail.locationSummary}
+                    </span>
+                  ) : null}
                 </span>
-              </ReviewKeyValue>
-              {reviewDetail.notes ? (
-                <ReviewKeyValue label="Notes">
-                  {reviewDetail.notes}
-                </ReviewKeyValue>
-              ) : null}
-            </div>
+              </label>
+            ) : (
+              <div class="stock-form-endpoints">
+                <span class="stock-form-label">From</span>
+                <span class="stock-form-control-wrap">
+                  <input
+                    class="stock-form-control"
+                    value={reviewDetail.fromSalesPointName}
+                    readOnly
+                    disabled
+                  />
+                </span>
+                <span class="stock-form-label">To</span>
+                <span class="stock-form-control-wrap">
+                  <input
+                    class="stock-form-control"
+                    value={reviewDetail.toSalesPointName}
+                    readOnly
+                    disabled
+                  />
+                </span>
+              </div>
+            )}
+
+            <ReviewReadonlyField
+              label={isIntraRow(reviewDetail) ? "Move date" : "Date"}
+              value={formatDate(reviewDetail.dispatchedAtIso)}
+            />
+
+            <ReviewReadonlyField
+              label="Description"
+              value={reviewDetail.notes?.trim() || "—"}
+            />
+
+            {!isIntraRow(reviewDetail) ? (
+              <div class="stock-transfer-signatures">
+                <div class="stock-transfer-signature-col">
+                  <ReviewReadonlyField
+                    label="Consigned by"
+                    value={reviewDetail.consignedBy ?? ""}
+                  />
+                  <ReviewReadonlyField
+                    label="Designation"
+                    value={reviewDetail.consDesign ?? ""}
+                  />
+                  <ReviewReadonlyField
+                    label="Date"
+                    value={formatDate(reviewDetail.consDate)}
+                  />
+                </div>
+                <div class="stock-transfer-signature-col">
+                  <ReviewReadonlyField
+                    label="Received by"
+                    value={reviewDetail.receiveBy ?? ""}
+                  />
+                  <ReviewReadonlyField
+                    label="Designation"
+                    value={reviewDetail.receiveByDesign ?? ""}
+                  />
+                  <ReviewReadonlyField
+                    label="Date"
+                    value={formatDate(reviewDetail.receiveDate)}
+                  />
+                </div>
+              </div>
+            ) : null}
 
             <ReviewLineTable lines={reviewDetail.lines} />
+
+            <div class="stock-form-audit">
+              <p>
+                Drafted by {reviewDetail.createdByName}
+                {" · "}
+                {formatDateTime(reviewDetail.createdAtIso)}
+              </p>
+              {reviewDetail.dispatchedByName ? (
+                <p>
+                  Validated by {reviewDetail.dispatchedByName}
+                  {reviewDetail.dispatchedAtIso
+                    ? ` · ${formatDateTime(reviewDetail.dispatchedAtIso)}`
+                    : ""}
+                </p>
+              ) : null}
+              {reviewDetail.receivedByName ? (
+                <p>
+                  Received in system by {reviewDetail.receivedByName}
+                  {reviewDetail.receivedAtIso
+                    ? ` · ${formatDateTime(reviewDetail.receivedAtIso)}`
+                    : ""}
+                </p>
+              ) : null}
+            </div>
 
             <div class="stock-modal-actions">
               <button
@@ -964,6 +1388,15 @@ export function TransfersTab(props: TransfersTabProps) {
               >
                 Close
               </button>
+              {productFilter === "bottled" ? (
+                <button
+                  type="button"
+                  class="stock-btn-secondary"
+                  onClick={() => setPrintOpen(true)}
+                >
+                  Print transfer
+                </button>
+              ) : null}
               {(reviewDetail.status === "DRAFT" && props.canDraft) ||
               ((reviewDetail.status === "DISPATCHED" ||
                 reviewDetail.status === "RECEIVED") &&
@@ -1018,7 +1451,7 @@ export function TransfersTab(props: TransfersTabProps) {
                   onClick={() => void onDispatch(reviewDetail.id)}
                   class="stock-btn-primary"
                 >
-                  Dispatch transfer
+                  Validate
                 </button>
               ) : null}
               {reviewDetail.status === "DISPATCHED" &&
@@ -1051,6 +1484,64 @@ export function TransfersTab(props: TransfersTabProps) {
               Choose where each line should be stored at{" "}
               {receiveDetail.toSalesPointName}.
             </p>
+            <label class="stock-form-row">
+              <span class="stock-form-label">Received by</span>
+              <span class="stock-form-control-wrap">
+                <input
+                  class="stock-form-control"
+                  value={receiveBy}
+                  onInput={(event) =>
+                    setReceiveBy(
+                      (event.currentTarget as HTMLInputElement).value,
+                    )
+                  }
+                />
+              </span>
+            </label>
+            <label class="stock-form-row">
+              <span class="stock-form-label">Receiver designation</span>
+              <span class="stock-form-control-wrap">
+                <input
+                  class="stock-form-control"
+                  value={receiveByDesign}
+                  onInput={(event) =>
+                    setReceiveByDesign(
+                      (event.currentTarget as HTMLInputElement).value,
+                    )
+                  }
+                />
+              </span>
+            </label>
+            <label class="stock-form-row">
+              <span class="stock-form-label">
+                Date
+                {transferReceiveUsesDocumentDate ? " *" : ""}
+              </span>
+              <span class="stock-form-control-wrap">
+                <input
+                  type="date"
+                  class="stock-form-control"
+                  value={receiveDate}
+                  min={postingPeriod?.startDate}
+                  max={postingPeriod?.endDate}
+                  disabled={!postingPeriod}
+                  required={transferReceiveUsesDocumentDate}
+                  onInput={(event) =>
+                    setReceiveDate(
+                      clampIsoDateToRange(
+                        (event.currentTarget as HTMLInputElement).value,
+                        postingPeriod,
+                      ),
+                    )
+                  }
+                />
+                {transferReceiveUsesDocumentDate ? (
+                  <span class="stock-hint">
+                    This date posts destination stock (open month).
+                  </span>
+                ) : null}
+              </span>
+            </label>
             <div class="stock-table-wrap">
               <table class="stock-table">
                 <thead>
@@ -1127,6 +1618,14 @@ export function TransfersTab(props: TransfersTabProps) {
             </div>
           </form>
         </DocDialog>
+      ) : null}
+
+      {printOpen && reviewDetail ? (
+        <TransferPrintView
+          transferId={reviewDetail.id}
+          userId={userId}
+          onClose={() => setPrintOpen(false)}
+        />
       ) : null}
     </section>
   );

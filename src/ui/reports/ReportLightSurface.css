@@ -1,0 +1,193 @@
+/**
+ * Keep printable report documents light/print-friendly when the main shell
+ * uses the dark UI theme. Dedicated report windows force agro separately.
+ */
+
+html[data-theme="dark"] .scr-document,
+html[data-theme="dark"] .report-overlay-body .scr-document {
+  background: #ffffff !important;
+  border-color: #d1d5db !important;
+  color: #111827 !important;
+}
+
+html[data-theme="dark"] .scr-document .report-header,
+html[data-theme="dark"] .scr-document .report-card,
+html[data-theme="dark"] .scr-document .scr-card,
+html[data-theme="dark"] .scr-document .report-footer {
+  background: #ffffff !important;
+  border-color: #111827 !important;
+  color: #111827 !important;
+}
+
+html[data-theme="dark"] .scr-document .report-header-logo-placeholder {
+  background: #f3f4f6 !important;
+  border-color: #d1d5db !important;
+  color: #9ca3af !important;
+}
+
+html[data-theme="dark"] .scr-document .report-header-meta,
+html[data-theme="dark"] .scr-document .report-header-department,
+html[data-theme="dark"] .scr-document .report-header-commercial-service,
+html[data-theme="dark"] .scr-document .scr-generated,
+html[data-theme="dark"] .scr-document .scr-meta-line,
+html[data-theme="dark"] .scr-document .scr-as-at,
+html[data-theme="dark"] .scr-document .bos-section-heading,
+html[data-theme="dark"] .scr-document .bcr-footnote,
+html[data-theme="dark"] .scr-document .bcr-location-hint {
+  color: #374151 !important;
+}
+
+html[data-theme="dark"] .scr-document .scr-as-at-date {
+  color: #2563eb !important;
+}
+
+/* All tables inside report documents (covers report-specific prefixes). */
+html[data-theme="dark"] .scr-document table th,
+html[data-theme="dark"] .scr-document table thead,
+html[data-theme="dark"] .scr-document .scr-section-title {
+  background: #f3f4f6 !important;
+  color: #111827 !important;
+  border-color: #111827 !important;
+}
+
+html[data-theme="dark"] .scr-document table td {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border-color: #111827 !important;
+}
+
+html[data-theme="dark"] .scr-document .scr-row-total td,
+html[data-theme="dark"] .scr-document .scr-total-cell,
+html[data-theme="dark"] .scr-document .sbc-foot td,
+html[data-theme="dark"] .scr-document .sbc-product-group,
+html[data-theme="dark"] .scr-document .sbc-month-head,
+html[data-theme="dark"] .scr-document .mdr-budget-table thead th,
+html[data-theme="dark"] .scr-document .mdr-budget-table .mdr-budget-corner,
+html[data-theme="dark"] .scr-document .mdr-budget-table .mdr-budget-row-label {
+  background: #f3f4f6 !important;
+  color: #111827 !important;
+}
+
+html[data-theme="dark"] .scr-document .scr-bottled-block {
+  border-top-color: #111827 !important;
+}
+
+html[data-theme="dark"] .scr-document .scr-comments,
+html[data-theme="dark"] .scr-document .scr-comments-title,
+html[data-theme="dark"] .scr-document .scr-comments-body {
+  color: #111827 !important;
+}
+
+html[data-theme="dark"] .scr-document .scr-comments-field > span {
+  color: #6b7280 !important;
+}
+
+html[data-theme="dark"] .scr-document .scr-comments-textarea {
+  background: #ffffff !important;
+  border-color: #d1d5db !important;
+  color: #111827 !important;
+}
+
+html[data-theme="dark"] .scr-document .sbc-intro,
+html[data-theme="dark"] .scr-document .sbc-intro-meta,
+html[data-theme="dark"] .scr-document .sbc-empty {
+  color: #6b7280 !important;
+}
+
+html[data-theme="dark"] .scr-document .sbc-intro strong {
+  color: #111827 !important;
+}
+
+html[data-theme="dark"] .scr-document .sbc-link-btn {
+  color: #2563eb !important;
+}
+
+html[data-theme="dark"] .scr-document .sbc-table-wrap {
+  border-color: #d4d4d8 !important;
+  background: #ffffff !important;
+}
+
+html[data-theme="dark"] .scr-document .sbc-sticky-col {
+  background: #ffffff !important;
+  color: #111827 !important;
+}
+
+html[data-theme="dark"] .scr-document .sbc-foot .sbc-sticky-col {
+  background: #f3f4f6 !important;
+}
+
+html[data-theme="dark"] .scr-status {
+  color: #4b5563 !important;
+}
+
+html[data-theme="dark"] .scr-status-error {
+  color: #b91c1c !important;
+}
+
+/* Toolbar chrome inside report pages may sit outside .scr-document */
+html[data-theme="dark"] .report-overlay-body .scr-status {
+  color: #4b5563 !important;
+}
+
+html[data-theme="dark"] .report-overlay-panel {
+  background: #ffffff;
+  color: #111827;
+}
+
+html[data-theme="dark"] .report-overlay-body {
+  background: #ffffff;
+  color: #111827;
+}
+
+html[data-theme="dark"] .report-overlay-title {
+  color: #111827;
+}
+
+html[data-theme="dark"] .report-overlay-body .scr-page,
+html[data-theme="dark"] .report-overlay-body .sbc-root {
+  color: #111827;
+}
+
+html[data-theme="dark"] .report-overlay-body .sbc-year-btn {
+  background: #ffffff !important;
+  border-color: #d4d4d8 !important;
+  color: #111827 !important;
+}
+
+html[data-theme="dark"] .report-overlay-body .sbc-year-btn.is-active {
+  background: #ecfdf5 !important;
+  border-color: #2f7d32 !important;
+  color: #111827 !important;
+}
+
+html[data-theme="dark"] .report-overlay-body .dsr-filter {
+  color: #6b7280 !important;
+}
+
+html[data-theme="dark"] .report-overlay-body .dsr-filter input,
+html[data-theme="dark"] .report-overlay-body .dsr-filter select,
+html[data-theme="dark"] .report-overlay-body .bwi-estimate-basis select {
+  background: #ffffff !important;
+  border-color: #d4d4d8 !important;
+  color: #111827 !important;
+}
+
+html[data-theme="dark"] .report-overlay-body .bwi-estimate-basis,
+html[data-theme="dark"] .report-overlay-body .bwi-estimate-hint {
+  color: #6b7280 !important;
+}
+
+/* Match Print (green) for all report toolbar actions under dark shell */
+html[data-theme="dark"] .scr-page .scr-btn-secondary,
+html[data-theme="dark"] .report-overlay-panel .scr-btn-secondary {
+  background: #2f7d32 !important;
+  background-color: #2f7d32 !important;
+  color: #ffffff !important;
+  border-color: #256628 !important;
+}
+
+html[data-theme="dark"] .scr-page .scr-btn-secondary:hover:not(:disabled),
+html[data-theme="dark"] .report-overlay-panel .scr-btn-secondary:hover:not(:disabled) {
+  background: #256628 !important;
+  background-color: #256628 !important;
+}

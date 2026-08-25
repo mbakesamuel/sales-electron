@@ -5,6 +5,7 @@ export type StockMutationResult = {
     ok: true;
     id: string;
     documentNo: string;
+    posted?: boolean;
 } | {
     ok: false;
     error: string;
@@ -18,12 +19,16 @@ export type StockGenericResult = {
 export interface SalesPointOption {
     id: number;
     name: string;
+    /** When true, collection point can receive mill stock receipts. */
+    attachedToMill: boolean;
 }
 export interface StorageLocationOption {
     id: number;
     salesPointId: number;
     name: string;
     isDefault: boolean;
+    /** When true, location is used for POS/sales invoicing only (not goods-in receipts). */
+    isSalesTank: boolean;
 }
 export interface ProductOption {
     productId: number;
@@ -34,7 +39,7 @@ export interface ProductOption {
 export interface StockBalanceRow {
     salesPointId: number;
     salesPointName: string;
-    storageLocationId: number;
+    storageLocationId: number | null;
     storageLocationName: string;
     productId: number;
     productName: string;
@@ -47,7 +52,7 @@ export interface StockMovementRow {
     occurredAtIso: string;
     salesPointId: number;
     salesPointName: string;
-    storageLocationId: number;
+    storageLocationId: number | null;
     storageLocationName: string;
     productId: number;
     productName: string;
@@ -93,6 +98,30 @@ export interface ReceiptDetail extends ReceiptListRow {
         storageLocationName: string;
     }>;
 }
+export interface ReceiptPrintPayload {
+    companyName: string;
+    department: string | null;
+    serviceName: string | null;
+    signatoryName: string | null;
+    signatoryTitle: string;
+    receipt: ReceiptDetail;
+}
+export interface TransferPrintPayload {
+    companyName: string;
+    department: string | null;
+    serviceName: string | null;
+    signatoryName: string | null;
+    signatoryTitle: string;
+    transfer: TransferDetail;
+}
+export interface TransferConsignmentFields {
+    consignedBy: string | null;
+    consDesign: string | null;
+    consDate: string | null;
+    receiveBy: string | null;
+    receiveByDesign: string | null;
+    receiveDate: string | null;
+}
 export interface TransferListRow {
     id: string;
     transferNo: string;
@@ -112,7 +141,7 @@ export interface TransferListRow {
     receivedByName: string | null;
     createdAtIso: string;
 }
-export interface TransferDetail extends TransferListRow {
+export interface TransferDetail extends TransferListRow, TransferConsignmentFields {
     notes: string | null;
     lines: Array<{
         id: string;
@@ -154,7 +183,9 @@ export interface AdjustmentDetail extends AdjustmentListRow {
         toCondition: StockCondition | null;
     }>;
 }
+export type StockProductFilter = "bulk" | "bottled";
 export interface StockBootstrap {
+    productFilter: StockProductFilter;
     canManageReceipts: boolean;
     canDispatchTransfers: boolean;
     canReceiveTransfers: boolean;
@@ -164,10 +195,18 @@ export interface StockBootstrap {
     canDraftReceipts: boolean;
     canDraftTransfers: boolean;
     canDraftAdjustments: boolean;
+    canDirectPostReceipts: boolean;
+    canDirectPostTransfers: boolean;
     scopedSalesPointId: number | null;
     salesPoints: SalesPointOption[];
     storageLocations: StorageLocationOption[];
     products: ProductOption[];
+    /** All products for Stock receipt modal (bottled + other). Empty on bottled bootstrap. */
+    receiptProducts: ProductOption[];
+    autoGenerateReceiptNo: boolean;
+    autoGenerateTransferNo: boolean;
+    /** When true, transfer receive posts stock on the user Date (open month). */
+    transferReceiveUsesDocumentDate: boolean;
     onHand: StockBalanceRow[];
     movements: StockMovementRow[];
     receipts: ReceiptListRow[];
@@ -197,7 +236,9 @@ export type AdjustmentReviewResult = {
 };
 export interface SaveReceiptInput {
     userId: string;
+    productFilter?: StockProductFilter | null;
     id?: string | null;
+    receiptNo?: string | null;
     salesPointId: number;
     supplierLabel: string;
     receivedAt: string;
@@ -207,31 +248,48 @@ export interface SaveReceiptInput {
         qty: string;
         storageLocationId: number;
     }>;
+    /** Create and post in one step; requires direct_post_stock_receipts. New documents only. */
+    postImmediately?: boolean;
 }
 export interface SaveTransferInput {
     userId: string;
+    productFilter?: StockProductFilter | null;
     id?: string | null;
+    transferNo?: string | null;
     fromSalesPointId: number;
     toSalesPointId: number;
     dispatchedAt: string;
     notes?: string | null;
+    consignedBy?: string | null;
+    consDesign?: string | null;
+    consDate?: string | null;
+    receiveBy?: string | null;
+    receiveByDesign?: string | null;
+    receiveDate?: string | null;
     lines: Array<{
         productId: number;
         qty: string;
         fromStorageLocationId: number;
         toStorageLocationId?: number | null;
     }>;
+    /** Create and finalize in one step; requires direct_post_stock_transfers. New documents only. */
+    postImmediately?: boolean;
 }
 export interface ReceiveTransferInput {
     userId: string;
+    productFilter?: StockProductFilter | null;
     transferId: string;
     lines: Array<{
         lineId: string;
         toStorageLocationId: number;
     }>;
+    receiveBy?: string | null;
+    receiveByDesign?: string | null;
+    receiveDate?: string | null;
 }
 export interface SaveAdjustmentInput {
     userId: string;
+    productFilter?: StockProductFilter | null;
     id?: string | null;
     salesPointId: number;
     reason: string;
@@ -247,6 +305,7 @@ export interface SaveAdjustmentInput {
 export interface StockUserActionInput {
     userId: string;
     id: string;
+    productFilter?: StockProductFilter | null;
 }
 export type BinCardConditionFilter = StockCondition | "ALL";
 export interface BinCardQuery {
@@ -256,6 +315,7 @@ export interface BinCardQuery {
     condition?: BinCardConditionFilter;
     fromIso: string;
     toIso: string;
+    productFilter?: StockProductFilter | null;
 }
 export interface BinCardLine {
     id: string;
@@ -293,3 +353,38 @@ export interface BinCardReport {
     department: string | null;
     serviceName: string | null;
 }
+export type StockValidationDocKind = "RECEIPT" | "TRANSFER" | "ADJUSTMENT";
+export interface StockValidationQueueRow {
+    kind: StockValidationDocKind;
+    id: string;
+    documentNo: string;
+    productFilter: StockProductFilter;
+    /** Intra transfers post; inter transfers dispatch. Null for receipts/adjustments. */
+    transferMode: "INTER_SALES_POINT" | "INTRA_SALES_POINT" | null;
+    fromSalesPointName: string;
+    toSalesPointName: string | null;
+    documentDateIso: string;
+    createdByName: string;
+    lineCount: number;
+    totalQty: string;
+}
+export interface StockValidationQueuePage {
+    totalPending: number;
+    rows: StockValidationQueueRow[];
+}
+export interface StockValidationItem {
+    kind: StockValidationDocKind;
+    id: string;
+}
+export type StockValidateManyResult = {
+    ok: true;
+    validated: number;
+    errors: Array<{
+        kind: StockValidationDocKind;
+        id: string;
+        error: string;
+    }>;
+} | {
+    ok: false;
+    error: string;
+};

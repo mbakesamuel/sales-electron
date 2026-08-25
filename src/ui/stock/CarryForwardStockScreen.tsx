@@ -10,7 +10,11 @@ import type { AuthUser } from "../auth/session.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
-import { clampIsoDateToRange, formatDate, utcIsoDateToday } from "./stockUtils.ts";
+import {
+  clampIsoDateToRange,
+  formatDate,
+  utcIsoDateToday,
+} from "./stockUtils.ts";
 import "../components/FormDialog.css";
 import "../commitments/CarryForwardCommitmentsScreen.css";
 
@@ -20,8 +24,64 @@ interface CarryForwardStockScreenProps {
   readOnly?: boolean;
 }
 
+type BatchLineDraft = {
+  key: string;
+  storageLocationId: string;
+  productId: string;
+  onHandQty: string;
+};
+
 function formatQty(value: number): string {
   return Math.round(value).toLocaleString("en-US");
+}
+
+function newLineKey(): string {
+  return `line-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function emptyLine(): BatchLineDraft {
+  return {
+    key: newLineKey(),
+    storageLocationId: "",
+    productId: "",
+    onHandQty: "",
+  };
+}
+
+function isBottleOilStoreLocation(name: string): boolean {
+  return name.toLowerCase().includes("bottle");
+}
+
+function productsForLocation(
+  products: CarryForwardStockFormOptions["products"],
+  locationName: string | null,
+): CarryForwardStockFormOptions["products"] {
+  const withLocation = products.filter(
+    (product) => !product.omitsStorageLocation,
+  );
+  if (!locationName) {
+    return withLocation;
+  }
+  const bottledOnly = isBottleOilStoreLocation(locationName);
+  return withLocation.filter((product) =>
+    bottledOnly ? product.isBottled : !product.isBottled,
+  );
+}
+
+function omitStorageProducts(
+  products: CarryForwardStockFormOptions["products"],
+): CarryForwardStockFormOptions["products"] {
+  return products.filter((product) => product.omitsStorageLocation);
+}
+
+function findProduct(
+  products: CarryForwardStockFormOptions["products"],
+  productId: string,
+) {
+  if (!productId) {
+    return undefined;
+  }
+  return products.find((product) => String(product.productId) === productId);
 }
 
 export function CarryForwardStockScreen({
@@ -44,16 +104,11 @@ export function CarryForwardStockScreen({
   const [saving, setSaving] = useState(false);
 
   const [batchSalesPointId, setBatchSalesPointId] = useState("");
-  const [batchProductId, setBatchProductId] = useState("");
   const [batchOccurredAt, setBatchOccurredAt] = useState(utcIsoDateToday());
   const [batchNotes, setBatchNotes] = useState("Opening On-hand Balance");
-  const [locationFilter, setLocationFilter] = useState("");
-  const [qtyByLocation, setQtyByLocation] = useState<Record<string, string>>(
-    {},
-  );
-  const [onHandByLocation, setOnHandByLocation] = useState<Map<number, number>>(
-    () => new Map(),
-  );
+  const [batchLines, setBatchLines] = useState<BatchLineDraft[]>(() => [
+    emptyLine(),
+  ]);
   const [postingPeriod, setPostingPeriod] = useState<OpenPostingPeriod | null>(
     null,
   );
@@ -124,69 +179,79 @@ export function CarryForwardStockScreen({
       return [];
     }
     const spId = Number.parseInt(batchSalesPointId, 10);
-    const query = locationFilter.trim().toLowerCase();
-    return options.storageLocations.filter(
-      (loc) =>
-        loc.salesPointId === spId &&
-        (!query || loc.name.toLowerCase().includes(query)),
-    );
-  }, [options, batchSalesPointId, locationFilter]);
+    return options.storageLocations.filter((loc) => loc.salesPointId === spId);
+  }, [options, batchSalesPointId]);
 
-  const batchProduct = useMemo(() => {
-    if (!options || !batchProductId) {
-      return null;
+  const canPostBatch = useMemo(() => {
+    if (!batchSalesPointId || !batchOccurredAt || !postingPeriod) {
+      return false;
     }
-    const productId = Number.parseInt(batchProductId, 10);
-    return options.products.find((p) => p.productId === productId) ?? null;
-  }, [options, batchProductId]);
-
-  async function loadScopeOnHand(salesPointId: string, productId: string) {
-    const spId = Number.parseInt(salesPointId, 10);
-    const prodId = Number.parseInt(productId, 10);
-    if (!Number.isFinite(spId) || !Number.isFinite(prodId)) {
-      setOnHandByLocation(new Map());
-      setQtyByLocation({});
-      return;
-    }
-    try {
-      const onHand = await getElectronApi().carryForwardStock.listOnHand({
-        salesPointId: spId,
-        productId: prodId,
-      });
-      const map = new Map<number, number>();
-      const nextQty: Record<string, string> = {};
-      for (const row of onHand) {
-        map.set(row.storageLocationId, row.qty);
-        nextQty[String(row.storageLocationId)] = String(Math.round(row.qty));
+    return batchLines.some((line) => {
+      if (!line.productId || line.onHandQty.trim() === "") {
+        return false;
       }
-      setOnHandByLocation(map);
-      setQtyByLocation(nextQty);
-    } catch {
-      setOnHandByLocation(new Map());
-      setQtyByLocation({});
-    }
-  }
+      const product = findProduct(options?.products ?? [], line.productId);
+      if (product?.omitsStorageLocation) {
+        return true;
+      }
+      return Boolean(line.storageLocationId);
+    });
+  }, [batchSalesPointId, batchOccurredAt, postingPeriod, batchLines, options]);
 
   function openBatchEntry(prefill?: {
     salesPointId: number;
     productId: number;
+    storageLocationId: number | null;
+    currentQty: number;
   }) {
     setActionError(null);
-    setLocationFilter("");
-    setBatchNotes("Carry-forward stock");
+    setBatchNotes("Opening On-hand Balance");
     setBatchOccurredAt(clampIsoDateToRange(utcIsoDateToday(), postingPeriod));
-    const salesPointId = prefill ? String(prefill.salesPointId) : "";
-    const productId = prefill ? String(prefill.productId) : "";
-    setBatchSalesPointId(salesPointId);
-    setBatchProductId(productId);
+    if (prefill) {
+      setBatchSalesPointId(String(prefill.salesPointId));
+      setBatchLines([
+        {
+          key: newLineKey(),
+          storageLocationId:
+            prefill.storageLocationId != null
+              ? String(prefill.storageLocationId)
+              : "",
+          productId: String(prefill.productId),
+          onHandQty: String(Math.round(prefill.currentQty)),
+        },
+      ]);
+    } else {
+      setBatchSalesPointId("");
+      setBatchLines([emptyLine()]);
+    }
     setBatchOpen(true);
-    void loadScopeOnHand(salesPointId, productId);
   }
 
-  function onBatchScopeChange(nextSalesPointId: string, nextProductId: string) {
+  function onSalesPointChange(nextSalesPointId: string) {
     setBatchSalesPointId(nextSalesPointId);
-    setBatchProductId(nextProductId);
-    void loadScopeOnHand(nextSalesPointId, nextProductId);
+    setBatchLines((current) =>
+      current.map((line) => ({ ...line, storageLocationId: "" })),
+    );
+  }
+
+  function updateLine(
+    key: string,
+    patch: Partial<Omit<BatchLineDraft, "key">>,
+  ) {
+    setBatchLines((current) =>
+      current.map((line) => (line.key === key ? { ...line, ...patch } : line)),
+    );
+  }
+
+  function addLine() {
+    setBatchLines((current) => [...current, emptyLine()]);
+  }
+
+  function removeLine(key: string) {
+    setBatchLines((current) => {
+      const next = current.filter((line) => line.key !== key);
+      return next.length > 0 ? next : [emptyLine()];
+    });
   }
 
   async function saveBatch() {
@@ -195,36 +260,15 @@ export function CarryForwardStockScreen({
     }
 
     const salesPointId = Number.parseInt(batchSalesPointId, 10);
-    const productId = Number.parseInt(batchProductId, 10);
-    if (!Number.isFinite(salesPointId) || !Number.isFinite(productId)) {
-      setActionError("Select sales point and product.");
-      return;
-    }
-
-    const lines: Array<{ storageLocationId: number; onHandQty: number }> = [];
-    for (const [locationIdKey, raw] of Object.entries(qtyByLocation)) {
-      const trimmed = raw.trim();
-      if (trimmed === "") {
-        continue;
-      }
-      const onHandQty = Number.parseFloat(trimmed.replace(",", "."));
-      if (!Number.isFinite(onHandQty) || onHandQty < 0) {
-        setActionError("On-hand quantities must be numbers ≥ 0.");
-        return;
-      }
-      lines.push({
-        storageLocationId: Number.parseInt(locationIdKey, 10),
-        onHandQty,
-      });
-    }
-
-    if (lines.length === 0) {
-      setActionError("Enter at least one on-hand quantity.");
+    if (!Number.isFinite(salesPointId)) {
+      setActionError("Select a collection point.");
       return;
     }
 
     if (!postingPeriod) {
-      setActionError("Open a financial month before posting carry-forward stock.");
+      setActionError(
+        "Open a financial month before posting carry-forward stock.",
+      );
       return;
     }
 
@@ -234,13 +278,80 @@ export function CarryForwardStockScreen({
       return;
     }
 
+    const seen = new Set<string>();
+    const lines: Array<{
+      storageLocationId: number | null;
+      productId: number;
+      onHandQty: number;
+    }> = [];
+
+    for (const line of batchLines) {
+      if (!line.productId || line.onHandQty.trim() === "") {
+        continue;
+      }
+      const productId = Number.parseInt(line.productId, 10);
+      const onHandQty = Number.parseFloat(
+        line.onHandQty.trim().replace(",", "."),
+      );
+      if (
+        !Number.isFinite(productId) ||
+        !Number.isFinite(onHandQty) ||
+        onHandQty < 0
+      ) {
+        setActionError("Each line needs a product and on-hand quantity ≥ 0.");
+        return;
+      }
+
+      const product = findProduct(options?.products ?? [], line.productId);
+      let storageLocationId: number | null;
+      if (product?.omitsStorageLocation) {
+        if (line.storageLocationId) {
+          setActionError(
+            "Palm Kernel / Cake products do not use storage locations.",
+          );
+          return;
+        }
+        storageLocationId = null;
+      } else {
+        if (!line.storageLocationId) {
+          continue;
+        }
+        storageLocationId = Number.parseInt(line.storageLocationId, 10);
+        if (!Number.isFinite(storageLocationId)) {
+          setActionError("Each location-based line needs a storage location.");
+          return;
+        }
+      }
+
+      const pairKey =
+        storageLocationId == null
+          ? `null:${productId}`
+          : `${storageLocationId}:${productId}`;
+      if (seen.has(pairKey)) {
+        setActionError(
+          storageLocationId == null
+            ? "Duplicate product in the same batch."
+            : "Duplicate location and product in the same batch.",
+        );
+        return;
+      }
+      seen.add(pairKey);
+      lines.push({ storageLocationId, productId, onHandQty });
+    }
+
+    if (lines.length === 0) {
+      setActionError(
+        "Add at least one complete line (product and quantity; location unless Palm Kernel / Cake).",
+      );
+      return;
+    }
+
     setSaving(true);
     setActionError(null);
     try {
       const result = await getElectronApi().carryForwardStock.upsertBatch({
         userId: user.id,
         salesPointId,
-        productId,
         occurredAt,
         notes: batchNotes.trim() || null,
         lines,
@@ -266,11 +377,11 @@ export function CarryForwardStockScreen({
     <div class="cf-screen">
       <header class="cf-header">
         <div>
-          <h2 class="cf-title">Broughforward stock Entry</h2>
+          <h2 class="cf-title">Brought-forward stock entry</h2>
           <p class="cf-subtitle">
-            Batch-set opening on-hand by sales point and product across storage
-            locations. Posts as stock adjustments so balances and reports update
-            immediately.
+            Batch-set opening balances by location and collection point: pick the date, then
+            add location, product, and desired quantity rows. Posts as stock
+            adjustments so balances and reports update immediately.
           </p>
         </div>
         <div class="cf-header-actions">
@@ -302,7 +413,7 @@ export function CarryForwardStockScreen({
           class="cf-search"
           type="search"
           value={search}
-          placeholder="Search product, sales point, location, adjustment…"
+          placeholder="Search product, collection point, location, adjustment…"
           onInput={(event) =>
             setSearch((event.currentTarget as HTMLInputElement).value)
           }
@@ -318,12 +429,12 @@ export function CarryForwardStockScreen({
         <table class="cf-table">
           <thead>
             <tr>
-              <th>Last CF adj.</th>
+              {/*  <th>Last CF adj.</th> */}
               <th>Date</th>
-              <th>Sales point</th>
+              <th>Collection point</th>
               <th>Product</th>
               <th>Location</th>
-              <th class="cf-num">On hand</th>
+              <th class="cf-num">Bal. Qty.</th>
               <th />
             </tr>
           </thead>
@@ -331,16 +442,16 @@ export function CarryForwardStockScreen({
             {filtered.length === 0 && !loading ? (
               <tr>
                 <td colSpan={7} class="cf-empty">
-                  No carry-forward stock yet. Use Batch entry to set opening
+                  No carry-forward stock yet. Use New Entry to set opening
                   on-hand.
                 </td>
               </tr>
             ) : (
               filtered.map((row) => (
                 <tr
-                  key={`${row.salesPointId}-${row.productId}-${row.storageLocationId}`}
+                  key={`${row.salesPointId}-${row.productId}-${row.storageLocationId ?? "null"}`}
                 >
-                  <td>{row.lastAdjustmentNo ?? "—"}</td>
+                  {/*  <td>{row.lastAdjustmentNo ?? "—"}</td> */}
                   <td>{formatDate(row.lastOccurredAt)}</td>
                   <td>{row.salesPointName}</td>
                   <td>
@@ -358,6 +469,8 @@ export function CarryForwardStockScreen({
                           openBatchEntry({
                             salesPointId: row.salesPointId,
                             productId: row.productId,
+                            storageLocationId: row.storageLocationId,
+                            currentQty: row.currentQty,
                           })
                         }
                       >
@@ -375,8 +488,8 @@ export function CarryForwardStockScreen({
       {batchOpen ? (
         <FormDialog
           ariaLabel="Carry-forward stock batch entry"
-          title="Batch Entry Form"
-          subtitle="Sales point and product, then desired on-hand per location. Blank or unchanged rows are skipped."
+          title="Entry Form"
+          subtitle="Select collection point and date, then add product rows (location required except Palm Kernel / Cake)."
           wide
           onClose={() => {
             if (!saving) setBatchOpen(false);
@@ -385,39 +498,20 @@ export function CarryForwardStockScreen({
           <div class="cf-batch cf-batch--stock">
             <div class="cf-batch-scope">
               <label class="cf-field">
-                <span>Sales point</span>
+                <span>Collection point</span>
                 <select
                   value={batchSalesPointId}
                   disabled={saving}
-                  onChange={(event) => {
-                    const next = (event.currentTarget as HTMLSelectElement)
-                      .value;
-                    onBatchScopeChange(next, batchProductId);
-                  }}
+                  onChange={(event) =>
+                    onSalesPointChange(
+                      (event.currentTarget as HTMLSelectElement).value,
+                    )
+                  }
                 >
-                  <option value="">Select sales point…</option>
+                  <option value="">Select collection point…</option>
                   {(options?.salesPoints ?? []).map((sp) => (
                     <option key={sp.id} value={sp.id}>
                       {sp.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label class="cf-field">
-                <span>Product</span>
-                <select
-                  value={batchProductId}
-                  disabled={saving}
-                  onChange={(event) => {
-                    const next = (event.currentTarget as HTMLSelectElement)
-                      .value;
-                    onBatchScopeChange(batchSalesPointId, next);
-                  }}
-                >
-                  <option value="">Select product…</option>
-                  {(options?.products ?? []).map((product) => (
-                    <option key={product.productId} value={product.productId}>
-                      {product.productName}
                     </option>
                   ))}
                 </select>
@@ -440,7 +534,7 @@ export function CarryForwardStockScreen({
                     )
                   }
                 />
-                {!postingPeriod ? (
+                {/* {!postingPeriod ? (
                   <span class="cf-hint">
                     Open a financial month to set the date.
                   </span>
@@ -449,10 +543,10 @@ export function CarryForwardStockScreen({
                     Open month: {postingPeriod.monthName}{" "}
                     {postingPeriod.financialYear}
                   </span>
-                )}
+                )} */}
               </label>
               <label class="cf-field cf-field-notes">
-                <span>Notes / reason</span>
+                <span>Remarks</span>
                 <input
                   type="text"
                   value={batchNotes}
@@ -467,76 +561,170 @@ export function CarryForwardStockScreen({
             </div>
 
             <div class="cf-batch-toolbar">
-              <input
-                class="cf-search"
-                type="search"
-                value={locationFilter}
-                placeholder="Filter locations…"
-                disabled={saving || !batchSalesPointId || !batchProductId}
-                onInput={(event) =>
-                  setLocationFilter(
-                    (event.currentTarget as HTMLInputElement).value,
-                  )
-                }
-              />
               <span class="cf-count">
-                {locationsForSalesPoint.length} location
-                {locationsForSalesPoint.length === 1 ? "" : "s"}
-                {batchProduct ? ` · ${batchProduct.uom}` : ""}
+                {batchLines.length} line{batchLines.length === 1 ? "" : "s"}
               </span>
+              <button
+                type="button"
+                class="cf-btn cf-btn-primary"
+                disabled={saving || !batchSalesPointId}
+                onClick={addLine}
+              >
+                Add line
+              </button>
             </div>
 
-            {!batchSalesPointId || !batchProductId ? (
+            {!batchSalesPointId ? (
               <p class="cf-hint">
-                Select sales point and product to load the location grid.
+                Select a collection point to enter product lines.
               </p>
-            ) : locationsForSalesPoint.length === 0 ? (
-              <p class="cf-hint">No storage locations for this sales point.</p>
             ) : (
               <div class="cf-batch-grid-wrap">
                 <table class="cf-table cf-batch-grid">
                   <thead>
                     <tr>
+                      <th>Product</th>
                       <th>Storage location</th>
-                      <th class="cf-num">Current</th>
                       <th class="cf-num">Desired on hand</th>
+                      <th class="cf-col-narrow" />
                     </tr>
                   </thead>
                   <tbody>
-                    {locationsForSalesPoint.map((loc) => {
-                      const key = String(loc.id);
-                      const current = onHandByLocation.get(loc.id);
+                    {batchLines.map((line) => {
+                      const allProducts = options?.products ?? [];
+                      const selectedProduct = findProduct(
+                        allProducts,
+                        line.productId,
+                      );
+                      const lineOmitsStorage =
+                        selectedProduct?.omitsStorageLocation ?? false;
+                      const selectedLocation = locationsForSalesPoint.find(
+                        (loc) => String(loc.id) === line.storageLocationId,
+                      );
+                      const locationProductOptions = productsForLocation(
+                        allProducts,
+                        selectedLocation?.name ?? null,
+                      );
+                      const productOptions = lineOmitsStorage
+                        ? omitStorageProducts(allProducts)
+                        : line.storageLocationId
+                          ? locationProductOptions
+                          : [
+                              ...locationProductOptions,
+                              ...omitStorageProducts(allProducts),
+                            ];
                       return (
-                        <tr key={loc.id}>
+                        <tr key={line.key}>
                           <td>
-                            {loc.name}
-                            {loc.isDefault ? (
-                              <span class="cf-hint-inline"> · default</span>
-                            ) : null}
+                            <select
+                              class="cf-line-select"
+                              value={line.productId}
+                              disabled={saving}
+                              onChange={(event) => {
+                                const nextProductId = (
+                                  event.currentTarget as HTMLSelectElement
+                                ).value;
+                                const nextProduct = findProduct(
+                                  allProducts,
+                                  nextProductId,
+                                );
+                                updateLine(line.key, {
+                                  productId: nextProductId,
+                                  storageLocationId:
+                                    nextProduct?.omitsStorageLocation
+                                      ? ""
+                                      : line.storageLocationId,
+                                });
+                              }}
+                            >
+                              <option value="">Select product…</option>
+                              {productOptions.map((product) => (
+                                <option
+                                  key={product.productId}
+                                  value={product.productId}
+                                >
+                                  {product.productName} ({product.uom})
+                                  {product.omitsStorageLocation
+                                    ? " · no location"
+                                    : ""}
+                                </option>
+                              ))}
+                            </select>
                           </td>
-                          <td class="cf-num">
-                            {current != null ? formatQty(current) : "—"}
+                          <td>
+                            {lineOmitsStorage ? (
+                              <span class="cf-hint-inline">—</span>
+                            ) : (
+                              <select
+                                class="cf-line-select"
+                                value={line.storageLocationId}
+                                disabled={saving}
+                                onChange={(event) => {
+                                  const nextLocationId = (
+                                    event.currentTarget as HTMLSelectElement
+                                  ).value;
+                                  const nextLocation =
+                                    locationsForSalesPoint.find(
+                                      (loc) =>
+                                        String(loc.id) === nextLocationId,
+                                    );
+                                  const nextProducts = productsForLocation(
+                                    allProducts,
+                                    nextLocation?.name ?? null,
+                                  );
+                                  const productStillValid =
+                                    !line.productId ||
+                                    nextProducts.some(
+                                      (product) =>
+                                        String(product.productId) ===
+                                        line.productId,
+                                    );
+                                  updateLine(line.key, {
+                                    storageLocationId: nextLocationId,
+                                    productId: productStillValid
+                                      ? line.productId
+                                      : "",
+                                  });
+                                }}
+                              >
+                                <option value="">Select location…</option>
+                                {locationsForSalesPoint.map((loc) => (
+                                  <option key={loc.id} value={loc.id}>
+                                    {loc.name}
+                                    {loc.isDefault ? " · default" : ""}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
                           </td>
                           <td class="cf-num">
                             <input
-                              id={`cfs-qty-${loc.id}`}
                               class="cf-qty-input"
                               type="number"
                               min={0}
                               step="any"
                               disabled={saving}
-                              value={qtyByLocation[key] ?? ""}
+                              value={line.onHandQty}
                               placeholder="—"
-                              onInput={(event) => {
-                                const value = (
-                                  event.currentTarget as HTMLInputElement
-                                ).value;
-                                setQtyByLocation((prev) => ({
-                                  ...prev,
-                                  [key]: value,
-                                }));
-                              }}
+                              onInput={(event) =>
+                                updateLine(line.key, {
+                                  onHandQty: (
+                                    event.currentTarget as HTMLInputElement
+                                  ).value,
+                                })
+                              }
                             />
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              class="cf-line-remove"
+                              disabled={saving}
+                              aria-label="Remove line"
+                              onClick={() => removeLine(line.key)}
+                            >
+                              ×
+                            </button>
                           </td>
                         </tr>
                       );
@@ -555,7 +743,7 @@ export function CarryForwardStockScreen({
               <button
                 type="button"
                 class="form-dialog-btn-primary"
-                disabled={saving || !batchSalesPointId || !batchProductId}
+                disabled={saving || !canPostBatch}
                 onClick={() => void saveBatch()}
               >
                 {saving ? "Posting…" : "Post"}

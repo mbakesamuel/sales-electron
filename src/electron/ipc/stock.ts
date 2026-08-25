@@ -3,13 +3,21 @@ import type {
   BinCardQuery,
   BinCardReport,
   ReceiveTransferInput,
+  ReceiptPrintPayload,
+  TransferPrintPayload,
   SaveAdjustmentInput,
   SaveReceiptInput,
   SaveTransferInput,
+  StockBalanceRow,
   StockBootstrap,
   StockGenericResult,
   StockMutationResult,
+  StockProductFilter,
+  StockValidateManyResult,
+  StockValidationItem,
+  StockValidationQueuePage,
 } from "../../shared/stock.types.js";
+import { normalizeStockProductFilter } from "../../shared/stockModule.js";
 import {
   cancelAdjustment,
   cancelReceipt,
@@ -19,6 +27,7 @@ import {
   findReceiptByNumber,
   findTransferByNumber,
   getStockBootstrap,
+  listOnHandAsOf,
   loadAdjustmentForReview,
   loadReceiptForReview,
   loadTransferForReview,
@@ -30,15 +39,51 @@ import {
   saveReceipt,
   saveTransfer,
 } from "../stock/service.js";
+import {
+  listStockValidationQueue,
+  validateStockDocuments,
+} from "../stock/validationQueue.js";
 import { getBinCard } from "../stock/binCard.js";
+import { loadReceiptPrintById } from "../stock/receiptPrint.js";
+import { loadTransferPrintById } from "../stock/transferPrint.js";
+
+type DocActionPayload = {
+  userId: string;
+  productFilter?: StockProductFilter | null;
+};
 
 export function registerStockHandlers(): void {
-  ipcMain.handle("stock:getBootstrap", (_event, userId: string): StockBootstrap => {
-    if (typeof userId !== "string" || !userId.trim()) {
-      throw new Error("Login required.");
-    }
-    return getStockBootstrap(userId);
-  });
+  ipcMain.handle(
+    "stock:getBootstrap",
+    (
+      _event,
+      userId: string,
+      productFilter?: StockProductFilter | null,
+    ): StockBootstrap => {
+      if (typeof userId !== "string" || !userId.trim()) {
+        throw new Error("Login required.");
+      }
+      return getStockBootstrap(userId, normalizeStockProductFilter(productFilter));
+    },
+  );
+
+  ipcMain.handle(
+    "stock:listOnHandAsOf",
+    (
+      _event,
+      userId: string,
+      payload: {
+        asOfDate: string;
+        salesPointId?: number | null;
+        productFilter?: StockProductFilter | null;
+      },
+    ): StockBalanceRow[] => {
+      if (typeof userId !== "string" || !userId.trim()) {
+        throw new Error("Login required.");
+      }
+      return listOnHandAsOf(userId, payload ?? { asOfDate: "" });
+    },
+  );
 
   ipcMain.handle(
     "stock:getBinCard",
@@ -62,21 +107,27 @@ export function registerStockHandlers(): void {
 
   ipcMain.handle(
     "stock:postReceipt",
-    (_event, payload: { userId: string; receiptId: string }): StockGenericResult => {
+    (
+      _event,
+      payload: DocActionPayload & { receiptId: string },
+    ): StockGenericResult => {
       if (!payload?.userId || !payload?.receiptId) {
         return { ok: false, error: "Invalid receipt." };
       }
-      return postReceipt(payload.userId, payload.receiptId);
+      return postReceipt(payload.userId, payload.receiptId, payload.productFilter);
     },
   );
 
   ipcMain.handle(
     "stock:cancelReceipt",
-    (_event, payload: { userId: string; receiptId: string }): StockGenericResult => {
+    (
+      _event,
+      payload: DocActionPayload & { receiptId: string },
+    ): StockGenericResult => {
       if (!payload?.userId || !payload?.receiptId) {
         return { ok: false, error: "Invalid receipt." };
       }
-      return cancelReceipt(payload.userId, payload.receiptId);
+      return cancelReceipt(payload.userId, payload.receiptId, payload.productFilter);
     },
   );
 
@@ -101,6 +152,32 @@ export function registerStockHandlers(): void {
   );
 
   ipcMain.handle(
+    "stock:loadReceiptPrintById",
+    (
+      _event,
+      payload: { userId: string; receiptId: string },
+    ): ReceiptPrintPayload | null => {
+      if (!payload?.userId || !payload?.receiptId) {
+        return null;
+      }
+      return loadReceiptPrintById(payload.userId, payload.receiptId);
+    },
+  );
+
+  ipcMain.handle(
+    "stock:loadTransferPrintById",
+    (
+      _event,
+      payload: { userId: string; transferId: string },
+    ): TransferPrintPayload | null => {
+      if (!payload?.userId || !payload?.transferId) {
+        return null;
+      }
+      return loadTransferPrintById(payload.userId, payload.transferId);
+    },
+  );
+
+  ipcMain.handle(
     "stock:saveTransfer",
     (_event, input: SaveTransferInput): StockMutationResult => {
       if (!input?.userId) {
@@ -112,21 +189,31 @@ export function registerStockHandlers(): void {
 
   ipcMain.handle(
     "stock:dispatchTransfer",
-    (_event, payload: { userId: string; transferId: string }): StockGenericResult => {
+    (
+      _event,
+      payload: DocActionPayload & { transferId: string },
+    ): StockGenericResult => {
       if (!payload?.userId || !payload?.transferId) {
         return { ok: false, error: "Invalid transfer." };
       }
-      return dispatchTransfer(payload.userId, payload.transferId);
+      return dispatchTransfer(payload.userId, payload.transferId, payload.productFilter);
     },
   );
 
   ipcMain.handle(
     "stock:postInternalTransfer",
-    (_event, payload: { userId: string; transferId: string }): StockGenericResult => {
+    (
+      _event,
+      payload: DocActionPayload & { transferId: string },
+    ): StockGenericResult => {
       if (!payload?.userId || !payload?.transferId) {
         return { ok: false, error: "Invalid transfer." };
       }
-      return postInternalTransfer(payload.userId, payload.transferId);
+      return postInternalTransfer(
+        payload.userId,
+        payload.transferId,
+        payload.productFilter,
+      );
     },
   );
 
@@ -142,11 +229,14 @@ export function registerStockHandlers(): void {
 
   ipcMain.handle(
     "stock:cancelTransfer",
-    (_event, payload: { userId: string; transferId: string }): StockGenericResult => {
+    (
+      _event,
+      payload: DocActionPayload & { transferId: string },
+    ): StockGenericResult => {
       if (!payload?.userId || !payload?.transferId) {
         return { ok: false, error: "Invalid transfer." };
       }
-      return cancelTransfer(payload.userId, payload.transferId);
+      return cancelTransfer(payload.userId, payload.transferId, payload.productFilter);
     },
   );
 
@@ -182,21 +272,35 @@ export function registerStockHandlers(): void {
 
   ipcMain.handle(
     "stock:postAdjustment",
-    (_event, payload: { userId: string; adjustmentId: string }): StockGenericResult => {
+    (
+      _event,
+      payload: DocActionPayload & { adjustmentId: string },
+    ): StockGenericResult => {
       if (!payload?.userId || !payload?.adjustmentId) {
         return { ok: false, error: "Invalid adjustment." };
       }
-      return postAdjustment(payload.userId, payload.adjustmentId);
+      return postAdjustment(
+        payload.userId,
+        payload.adjustmentId,
+        payload.productFilter,
+      );
     },
   );
 
   ipcMain.handle(
     "stock:cancelAdjustment",
-    (_event, payload: { userId: string; adjustmentId: string }): StockGenericResult => {
+    (
+      _event,
+      payload: DocActionPayload & { adjustmentId: string },
+    ): StockGenericResult => {
       if (!payload?.userId || !payload?.adjustmentId) {
         return { ok: false, error: "Invalid adjustment." };
       }
-      return cancelAdjustment(payload.userId, payload.adjustmentId);
+      return cancelAdjustment(
+        payload.userId,
+        payload.adjustmentId,
+        payload.productFilter,
+      );
     },
   );
 
@@ -217,6 +321,29 @@ export function registerStockHandlers(): void {
         return { ok: false, error: "Invalid adjustment." };
       }
       return loadAdjustmentForReview(payload.userId, payload.adjustmentId);
+    },
+  );
+
+  ipcMain.handle(
+    "stock:listValidationQueue",
+    (_event, userId: string): StockValidationQueuePage => {
+      if (typeof userId !== "string" || !userId.trim()) {
+        throw new Error("Login required.");
+      }
+      return listStockValidationQueue(userId);
+    },
+  );
+
+  ipcMain.handle(
+    "stock:validateMany",
+    (
+      _event,
+      payload: { userId: string; items: StockValidationItem[] },
+    ): StockValidateManyResult => {
+      if (!payload?.userId) {
+        return { ok: false, error: "Login required." };
+      }
+      return validateStockDocuments(payload.userId, payload.items ?? []);
     },
   );
 }

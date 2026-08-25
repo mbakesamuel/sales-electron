@@ -6,6 +6,7 @@ import type {
   StockCondition,
   StockMovementKind,
 } from "../../shared/stock.types.js";
+import { canAccessRoute } from "../auth/permissions/service.js";
 import { getDatabase } from "../db/index.js";
 import { loadReportCompanySettings } from "../reports/companySettings.js";
 import { formatQty, parseQty } from "./decimal.js";
@@ -258,6 +259,15 @@ function buildParticulars(
 
 export function getBinCard(userId: string, query: BinCardQuery): BinCardReport {
   const actor = getActor(userId);
+
+  // Bin card is bottled products only.
+  if (
+    !canAccessRoute(actor.role, "stock-bin-card") &&
+    !canAccessRoute(actor.role, "bottled-stock")
+  ) {
+    throw new Error("You do not have permission to view the bin card.");
+  }
+
   const productId = Number(query.productId);
   if (!Number.isFinite(productId) || productId <= 0) {
     throw new Error("Select a product.");
@@ -306,13 +316,19 @@ export function getBinCard(userId: string, query: BinCardQuery): BinCardReport {
     throw new Error("Product not found.");
   }
 
-  let salesPointLabel = "All sales points";
+  if (product.isBottled !== 1) {
+    throw new Error(
+      `"${product.productName}" is not a bottled product. Bin card is for bottled products only.`,
+    );
+  }
+
+  let salesPointLabel = "All collection points";
   if (salesPointId != null) {
     const sp = db
       .prepare(`SELECT name FROM SalesPoint WHERE id = ?`)
       .get(salesPointId) as { name: string } | undefined;
     if (!sp) {
-      throw new Error("Sales point not found.");
+      throw new Error("Collection point not found.");
     }
     salesPointLabel = sp.name;
   }
@@ -333,7 +349,7 @@ export function getBinCard(userId: string, query: BinCardQuery): BinCardReport {
       throw new Error("Storage location not found.");
     }
     if (salesPointId != null && location.salesPointId !== salesPointId) {
-      throw new Error("Storage location does not belong to the selected sales point.");
+      throw new Error("Storage location does not belong to the selected collection point.");
     }
     storageLocationLabel = location.name;
   }

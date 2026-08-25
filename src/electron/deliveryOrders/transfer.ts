@@ -120,14 +120,14 @@ export function transferDeliveryOrderBalance(
 
   const toSalesPointId = Number(input.toSalesPointId);
   if (!Number.isFinite(toSalesPointId)) {
-    return { ok: false, error: "Destination sales point is required." };
+    return { ok: false, error: "Destination collection point is required." };
   }
 
   const destination = db
     .prepare(`SELECT id, name FROM SalesPoint WHERE id = ?`)
     .get(toSalesPointId) as { id: number; name: string } | undefined;
   if (!destination) {
-    return { ok: false, error: "Destination sales point not found." };
+    return { ok: false, error: "Destination collection point not found." };
   }
 
   const sourceKey =
@@ -184,7 +184,7 @@ export function transferDeliveryOrderBalance(
   if (source.salesPointId === toSalesPointId) {
     return {
       ok: false,
-      error: "Destination sales point must be different from the source.",
+      error: "Destination collection point must be different from the source.",
     };
   }
 

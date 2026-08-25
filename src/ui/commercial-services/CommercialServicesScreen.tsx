@@ -51,7 +51,7 @@ const TAB_LABELS: Record<ActiveTab, string> = {
   all: "All",
   active: "Active",
   inactive: "Inactive",
-  sales_point: "Sales point",
+  sales_point: "Collection point",
   factory: "Factory",
 };
 
@@ -65,7 +65,7 @@ function initials(name: string): string {
 }
 
 function siteKindLabel(siteKind: string): string {
-  return siteKind === "FACTORY" ? "Factory" : "Sales point";
+  return siteKind === "FACTORY" ? "Factory" : "Collection point";
 }
 
 function parseModuleCount(value: string): number {
@@ -585,7 +585,7 @@ export function CommercialServicesScreen({
         className: "customers-stat-icon-emerald",
       },
       {
-        label: "Sales Point Sites",
+        label: "Collection Point Sites",
         value: rows.filter((row) => row.siteKind === "SALES_POINT").length,
         icon: IconStore,
         className: "customers-stat-icon-violet",

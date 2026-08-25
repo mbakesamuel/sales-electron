@@ -39,7 +39,7 @@ function downloadCsv(report: RevenueTaxesReport): void {
   const lines: string[] = [
     `Company:,${report.settings.companyName}`,
     `Period:,${report.periodLabel}`,
-    `Sales point:,${report.salesPointLabel}`,
+    `Collection point:,${report.salesPointLabel}`,
     `Basis:,Validated invoices by date issued (taxes excluded from net)`,
     "",
     "SUMMARY",
@@ -127,7 +127,7 @@ function MoneyTable({
       <table class="scr-table rtr-table">
         <thead>
           <tr>
-            <th>{title.startsWith("By sales") ? "Sales point" : "Period"}</th>
+            <th>{title.startsWith("By collection") ? "Collection point" : "Period"}</th>
             <th class="scr-num">Invoices</th>
             <th class="scr-num">Net</th>
             <th class="scr-num">VAT</th>
@@ -180,9 +180,9 @@ function ReportDocument({ report }: { report: RevenueTaxesReport }) {
         emptyLabel="No validated invoices in this period."
       />
       <MoneyTable
-        title="By sales point"
+        title="By collection point"
         rows={report.bySalesPoint}
-        emptyLabel="No sales-point breakdown for this period."
+        emptyLabel="No collection-point breakdown for this period."
       />
       <ReportCommentsSection comments={report.comments} />
       <ReportFooter
@@ -270,7 +270,7 @@ export function RevenueTaxesReportScreen({
             </select>
           </label>
           <label class="dsr-filter">
-            <span>Sales point</span>
+            <span>Collection point</span>
             <select
               value={salesPointId == null ? "" : String(salesPointId)}
               disabled={loading}
@@ -279,7 +279,7 @@ export function RevenueTaxesReportScreen({
                 setSalesPointId(value ? Number.parseInt(value, 10) : null);
               }}
             >
-              <option value="">All sales points</option>
+              <option value="">All collection points</option>
               {report.salesPointOptions.map((point) => (
                 <option key={point.id} value={String(point.id)}>
                   {point.name}

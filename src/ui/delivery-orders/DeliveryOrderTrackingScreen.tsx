@@ -410,7 +410,7 @@ export function DeliveryOrderTrackingScreen({
               <div>
                 <h3>4 · Transfers out</h3>
                 <p class="sales-muted">
-                  Remaining balance moved to other sales points from this DO.
+                  Remaining balance moved to other collection points from this DO.
                 </p>
               </div>
             </div>

@@ -15,8 +15,8 @@ Default route access is defined per role (admins can change the matrix):
 | **ADMIN** | All routes write; manage permissions. |
 | **MANAGER** | Most routes write (not user admin); validate sales/DOs; can cancel validated DOs. |
 | **SENIOR_SALES_SUPERVISOR** | Operations, customers, inventory read/write; can validate sales/DOs. |
-| **STATISTICS_SUPERVISOR** | Broad **read** on operations, budgets, inventory, financial/tax screens by default; admins can grant **write** on specific routes. No validate actions by default. |
-| **SALES_CLERK** | Sales, DOs, customers, selected reports/stock balance; cannot validate by default. |
+| **STATISTICS_CLERK** | Broad **read** on operations, budgets, inventory, financial/tax screens by default; admins can grant **write** on specific routes. No validate actions by default. |
+| **STORE_KEEPER** | Bottled stock, transfers, and selected reports; cannot validate by default. |
 
 ## Route access vs actions
 
@@ -25,7 +25,8 @@ Default route access is defined per role (admins can change the matrix):
 
 | Action | Meaning |
 |--------|---------|
-| `validate_sales` | Validate sales invoices. |
+| `validate_sales` | Validate sales invoices (pending invoices saved by clerks or yourself). |
+| `direct_validate_sales` | Create and validate a sales invoice in one step from the POS screen (skip pending). |
 | `validate_delivery_orders` | Validate delivery orders (including the **Validation queue** tab under Delivery Order). |
 | `cancel_validated_delivery_order` | Cancel an already validated DO. |
 | `transfer_delivery_order_balance` | Move remaining DO kg to another sales point (**Transfer DO balance** screen). |
@@ -69,8 +70,10 @@ These boolean actions appear on **Role permissions** next to Validate sales / Va
 | Post / dispatch / receive stock transfers | Post location moves, dispatch, receive, cancel posted |
 | Draft stock adjustments | New adjustment, edit/delete drafts |
 | Post stock adjustments | Post (including reclassify) and cancel posted |
+| Post stock receipts directly (skip draft review) | Create and post a new receipt in one step |
+| Post stock transfers directly (skip draft review) | Create and finalize a new transfer in one step |
 
-Example: give a clerk **write** on `stock-receipts` and **Draft stock receipts** only so they can prepare vouchers; grant **Post stock receipts** to supervisors who approve them.
+Example: give a clerk **write** on `stock-receipts` and **Draft stock receipts** only so they can prepare vouchers; grant **Post stock receipts** to supervisors who approve them. For sales, clerks save **pending** invoices; **Direct validate sales** lets managers validate at entry without a separate step.
 
 ## Role permissions screen
 

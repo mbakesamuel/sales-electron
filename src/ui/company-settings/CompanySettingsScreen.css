@@ -444,6 +444,69 @@
   gap: 8px;
 }
 
+.company-settings-stock-numbering {
+  margin: 0 24px 20px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  max-width: 40rem;
+}
+
+.company-settings-stock-numbering-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.company-settings-stock-numbering-header h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  color: var(--text-h);
+}
+
+.company-settings-stock-numbering-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.company-settings-stock-numbering-hint {
+  margin: 0 0 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.company-settings-stock-numbering-option {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 12px;
+}
+
+.company-settings-stock-numbering-option input {
+  margin-top: 3px;
+}
+
+.company-settings-stock-numbering-option strong {
+  display: block;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.company-settings-stock-numbering-option span span {
+  display: block;
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .company-settings-theme-option {
   display: flex;
   flex-direction: column;

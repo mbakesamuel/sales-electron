@@ -67,4 +67,4 @@ Do not dump full SQL into docs — read migrations for authoritative DDL.
 
 ## Company settings extras
 
-Notable report-related columns include `hideZeroReportRows`, legacy `stockCommitmentReportComments`, and `reportCommentsJson` (map of report id → comment text). Legacy stock-commitment comments are migrated into the JSON map at startup when needed. Theme columns (migrations 014/015) drive UI theme via company settings / `applyUiTheme`.
+Notable report-related columns include `hideZeroReportRows`, legacy `stockCommitmentReportComments`, and `reportCommentsJson` (map of report id → comment text). Legacy stock-commitment comments are migrated into the JSON map at startup when needed. Theme columns (migrations 014/015) drive UI theme via company settings / `applyUiTheme`. Stock document numbering toggles are `autoGenerateStockReceiptNo` / `autoGenerateStockTransferNo` (migration `064`). Bottle Oil options are `bottleOilUseRegisteredCustomers` (migration `078`) and `bottleOilAllowRation` (migration `079`), both default off.

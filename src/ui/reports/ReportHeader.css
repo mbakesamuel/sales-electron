@@ -33,7 +33,7 @@
   height: var(--report-header-logo-height);
   border: 1px solid #d1d5db;
   border-radius: 8px;
-  background: var(--bg-soft);
+  background: #f3f4f6;
   color: #9ca3af;
 }
 

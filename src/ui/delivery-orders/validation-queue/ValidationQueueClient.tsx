@@ -126,7 +126,7 @@ export function ValidationQueueClient({ user, onOpenOrder }: ValidationQueueClie
                   </th>
                   <th>DO no.</th>
                   <th>Date</th>
-                  <th>Sales point</th>
+                  <th>Collection point</th>
                   <th>Customer</th>
                   <th class="sales-num">Total</th>
                   <th />

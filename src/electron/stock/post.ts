@@ -1,13 +1,15 @@
 import { randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
 import type { StockCondition, StockMovementKind } from "../../shared/stock.types.js";
+import { getTransferableSellableBalanceAsOf } from "./asOfBalance.js";
 import { formatQty, parseQty } from "./decimal.js";
 import { InsufficientStockError } from "./errors.js";
+import { assertMovementLocationRules } from "./productStorage.js";
 
 export interface ApplyMovementInput {
   salesPointId: number;
   productId: number;
-  storageLocationId: number;
+  storageLocationId: number | null;
   qty: string;
   kind: StockMovementKind;
   occurredAt: string;
@@ -44,7 +46,13 @@ function productLabel(db: Database.Database, productId: number): string {
   return row?.productName?.trim() || `product ${productId}`;
 }
 
-function storageLocationLabel(db: Database.Database, storageLocationId: number): string {
+function storageLocationLabel(
+  db: Database.Database,
+  storageLocationId: number | null,
+): string {
+  if (storageLocationId == null) {
+    return "collection point";
+  }
   const row = db
     .prepare(
       `SELECT l.locationName AS name
@@ -60,15 +68,24 @@ function getBalanceQty(
   db: Database.Database,
   salesPointId: number,
   productId: number,
-  storageLocationId: number,
+  storageLocationId: number | null,
   condition: StockCondition,
 ): number {
-  const row = db
-    .prepare(
-      `SELECT qty FROM StockBalance
-       WHERE salesPointId = ? AND productId = ? AND storageLocationId = ? AND condition = ?`,
-    )
-    .get(salesPointId, productId, storageLocationId, condition) as { qty: string } | undefined;
+  const row = (
+    storageLocationId == null
+      ? db.prepare(
+          `SELECT qty FROM StockBalance
+           WHERE salesPointId = ? AND productId = ? AND storageLocationId IS NULL AND condition = ?`,
+        )
+      : db.prepare(
+          `SELECT qty FROM StockBalance
+           WHERE salesPointId = ? AND productId = ? AND storageLocationId = ? AND condition = ?`,
+        )
+  ).get(
+    ...(storageLocationId == null
+      ? [salesPointId, productId, condition]
+      : [salesPointId, productId, storageLocationId, condition]),
+  ) as { qty: string } | undefined;
 
   return row ? parseQty(row.qty) : 0;
 }
@@ -160,24 +177,45 @@ function upsertBalance(
   db: Database.Database,
   salesPointId: number,
   productId: number,
-  storageLocationId: number,
+  storageLocationId: number | null,
   condition: StockCondition,
   nextQty: number,
 ): void {
   const qty = formatQty(nextQty);
-  const existing = db
-    .prepare(
-      `SELECT qty FROM StockBalance
-       WHERE salesPointId = ? AND productId = ? AND storageLocationId = ? AND condition = ?`,
-    )
-    .get(salesPointId, productId, storageLocationId, condition);
+  const existing = (
+    storageLocationId == null
+      ? db.prepare(
+          `SELECT qty FROM StockBalance
+           WHERE salesPointId = ? AND productId = ? AND storageLocationId IS NULL AND condition = ?`,
+        )
+      : db.prepare(
+          `SELECT qty FROM StockBalance
+           WHERE salesPointId = ? AND productId = ? AND storageLocationId = ? AND condition = ?`,
+        )
+  ).get(
+    ...(storageLocationId == null
+      ? [salesPointId, productId, condition]
+      : [salesPointId, productId, storageLocationId, condition]),
+  );
 
   if (existing) {
-    db.prepare(
-      `UPDATE StockBalance
-       SET qty = ?, updatedAt = datetime('now')
-       WHERE salesPointId = ? AND productId = ? AND storageLocationId = ? AND condition = ?`,
-    ).run(qty, salesPointId, productId, storageLocationId, condition);
+    (
+      storageLocationId == null
+        ? db.prepare(
+            `UPDATE StockBalance
+             SET qty = ?, updatedAt = datetime('now')
+             WHERE salesPointId = ? AND productId = ? AND storageLocationId IS NULL AND condition = ?`,
+          )
+        : db.prepare(
+            `UPDATE StockBalance
+             SET qty = ?, updatedAt = datetime('now')
+             WHERE salesPointId = ? AND productId = ? AND storageLocationId = ? AND condition = ?`,
+          )
+    ).run(
+      ...(storageLocationId == null
+        ? [qty, salesPointId, productId, condition]
+        : [qty, salesPointId, productId, storageLocationId, condition]),
+    );
     return;
   }
 
@@ -188,6 +226,8 @@ function upsertBalance(
 }
 
 export function applyMovement(db: Database.Database, input: ApplyMovementInput): void {
+  assertMovementLocationRules(db, input.productId, input.storageLocationId);
+
   const condition = input.condition ?? "SELLABLE";
   const signedDelta = signedDeltaForKind(input.kind, input.qty);
   const current = getBalanceQty(
@@ -206,7 +246,11 @@ export function applyMovement(db: Database.Database, input: ApplyMovementInput):
   }
 
   // Incoming stock into a location that already holds incompatible stock.
-  if (signedDelta > QTY_EPS && next > QTY_EPS) {
+  if (
+    input.storageLocationId != null &&
+    signedDelta > QTY_EPS &&
+    next > QTY_EPS
+  ) {
     assertStorageLocationProductRules(
       db,
       input.salesPointId,
@@ -268,7 +312,7 @@ export function reverseMovementsBySource(
     .all(input.sourceKind, input.sourceId) as Array<{
     salesPointId: number;
     productId: number;
-    storageLocationId: number;
+    storageLocationId: number | null;
     condition: StockCondition;
     kind: StockMovementKind;
     qty: string;
@@ -300,13 +344,30 @@ export function assertStorageLocationForSalesPoint(
   db: Database.Database,
   salesPointId: number,
   storageLocationId: number,
+  purpose: "receipt" | "sale" | "any" = "any",
+  requireSalesTank = false,
 ): void {
   const row = db
-    .prepare(`SELECT id FROM StorageLocation WHERE id = ? AND salesPointId = ?`)
-    .get(storageLocationId, salesPointId);
+    .prepare(
+      `SELECT id, COALESCE(isSalesTank, 0) AS isSalesTank
+       FROM StorageLocation
+       WHERE id = ? AND salesPointId = ?`,
+    )
+    .get(storageLocationId, salesPointId) as
+    | { id: number; isSalesTank: number }
+    | undefined;
 
   if (!row) {
-    throw new Error("Storage location does not belong to the selected sales point.");
+    throw new Error("Storage location does not belong to the selected collection point.");
+  }
+
+  if (purpose === "receipt" && row.isSalesTank === 1) {
+    throw new Error("Receipts cannot be posted to a sales tank location.");
+  }
+
+  // Loose Palm Oil only when App setting requireSalesTank is on.
+  if (purpose === "sale" && requireSalesTank && row.isSalesTank !== 1) {
+    throw new Error("Loose Palm Oil invoices must use a sales tank location.");
   }
 }
 
@@ -318,19 +379,34 @@ export function assertTransferLinesAvailableAtSource(
     qty: string;
     fromStorageLocationId: number;
   }>,
+  asOfDateIso: string,
 ): void {
+  const asOf = asOfDateIso.slice(0, 10);
+  const reserved = new Map<string, number>();
+
   for (const line of lines) {
-    const available = getBalanceQty(
+    const qty = parseQty(line.qty);
+    if (qty <= 0) {
+      continue;
+    }
+
+    const key = `${line.productId}:${line.fromStorageLocationId}`;
+    const alreadyReserved = reserved.get(key) ?? 0;
+    const available = getTransferableSellableBalanceAsOf(
       db,
       fromSalesPointId,
       line.productId,
       line.fromStorageLocationId,
-      "SELLABLE",
+      asOf,
     );
-    if (available + 0.000001 < parseQty(line.qty)) {
+    const remaining = available - alreadyReserved;
+    if (remaining + 0.000001 < qty) {
       throw new InsufficientStockError(
-        `Insufficient stock for ${productLabel(db, line.productId)} at the selected source location.`,
+        `Insufficient stock for ${productLabel(db, line.productId)} at ${storageLocationLabel(db, line.fromStorageLocationId)} ` +
+          `as of ${asOf} (transferable ${Math.max(0, remaining).toLocaleString()}, needed ${qty.toLocaleString()}).`,
       );
     }
+
+    reserved.set(key, alreadyReserved + qty);
   }
 }

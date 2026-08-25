@@ -10,20 +10,20 @@ app.whenReady().then(() => {
   initDatabase();
 
   const inserted = insertRow({
-    table: "Mill",
-    values: { name: `Test Mill ${Date.now()}` },
+    table: "SalesPoint",
+    values: { name: `Test Sales Point ${Date.now()}` },
   });
   console.log("insertOk", inserted.id, inserted.name);
 
   const updated = updateRow({
-    table: "Mill",
+    table: "SalesPoint",
     primaryKey: { id: inserted.id },
     values: { name: `${inserted.name} Updated` },
   });
   console.log("updateOk", updated.name);
 
   deleteRow({
-    table: "Mill",
+    table: "SalesPoint",
     primaryKey: { id: inserted.id },
   });
   console.log("deleteOk");

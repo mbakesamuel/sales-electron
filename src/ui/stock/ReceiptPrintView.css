@@ -1,0 +1,64 @@
+.sr-print-backdrop {
+  z-index: 130;
+}
+
+.sr-print-document {
+  text-transform: none;
+}
+
+.sr-print-audit-grid {
+  margin-top: -4px;
+}
+
+.sr-print-notes {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #d1d5db;
+}
+
+.sr-print-notes p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.sr-print-table col.sr-print-col-item {
+  width: 6%;
+}
+
+.sr-print-table col.sr-print-col-uom {
+  width: 12%;
+}
+
+.sr-print-table col.sr-print-col-qty {
+  width: 14%;
+}
+
+.sr-print-generated {
+  margin: 0 0 20px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+@media print {
+  body.sr-print-mode .sr-print-backdrop {
+    position: static;
+    inset: auto;
+    display: block;
+    padding: 0;
+    background: transparent;
+  }
+
+  body.sr-print-mode .do-print-modal {
+    width: auto;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  body.sr-print-mode .no-print {
+    display: none !important;
+  }
+}

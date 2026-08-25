@@ -23,7 +23,17 @@ Legacy auto-allocators `allocateDeliveryOrderNo` / `allocateInvoiceNo` in `doNo.
 | Print payload | `src/electron/sales/print.ts` |
 | DO list/lookup for POS | `src/electron/sales/deliveryOrders.ts` |
 | IPC | `src/electron/ipc/sales.ts` |
-| UI | `src/ui/sales/SalesClient.tsx`, `SalesScreen.tsx` |
+| UI | `src/ui/sales/SalesClient.tsx`, `SalesScreen.tsx` (`variant`: `loose` \| `bottled`) |
+| Routes | `sales`, `bottle-oil-sales` |
+
+### Bottle Oil company settings
+
+| Column | Migration | Default | Effect |
+|--------|-----------|---------|--------|
+| `bottleOilUseRegisteredCustomers` | `078` | off | Directory customers vs invoice name on Bottle Oil |
+| `bottleOilAllowRation` | `079` | off | Whether Ration disposition is offered / accepted on Bottle Oil |
+
+Form options expose both flags; `createSale` enforces them. The Sales UI never shows the per-invoice registered-customer checkbox on the bottled variant. Ration is hidden on Bottle Oil when `bottleOilAllowRation` is off. Admins toggle both under App settings.
 
 ### Pick DO behaviour (current)
 
@@ -111,7 +121,7 @@ One validated `CARRY_FORWARD` DO per customer + sales point; lines upserted per 
 | UI (print window) | `src/ui/stock/BinCardReportScreen.tsx` |
 | Report route | `stock-bin-card-report` in `REPORT_WINDOW_ROUTE_IDS` |
 
-The main screen posts filters to `windows:openReport` with a **`query`** payload (product, date range, optional sales point / location / condition). The report window bootstraps via `report-window:bootstrap` and renders with shared report chrome (`StockCommitmentReport.css` + `BinCardReport.css`). Report window size is **A4 portrait** (~820×1120). Permissions: migration `051_stock_bin_card_permissions.sql` (copied from stock-movements / stock-balance routes).
+The main screen posts filters to `windows:openReport` with a **`query`** payload (bottled product, date range, optional sales point / location / condition). Bin card is **bottled products only** (enforced in `getBinCard` and the product picker). The report window bootstraps via `report-window:bootstrap` and renders with shared report chrome (`StockCommitmentReport.css` + `BinCardReport.css`). Report window size is **A4 portrait** (~820×1120). Permissions: migration `051_stock_bin_card_permissions.sql` (copied from stock-movements / stock-balance routes).
 
 ## Pricing and tax
 

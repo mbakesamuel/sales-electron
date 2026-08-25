@@ -55,14 +55,8 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         description: "Commercial service sites and modules.",
       },
       {
-        id: "mills",
-        label: "Mills",
-        table: "Mill",
-        description: "Mill sites linked to sales points.",
-      },
-      {
         id: "sales-points",
-        label: "Sales points",
+        label: "Collection points",
         table: "SalesPoint",
         description: "Sales outlet locations.",
       },
@@ -76,7 +70,7 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         id: "storage-locations",
         label: "Storage locations",
         table: "StorageLocation",
-        description: "Assign locations to sales points.",
+        description: "Assign locations to collection points.",
       },
       {
         id: "payment-methods",
@@ -173,21 +167,28 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         label: "Opening Stock balances",
         table: "StockBalance",
         description:
-          "Enter opening / carried-forward on-hand quantities by sales point and location.",
-      },
-      {
-        id: "stock-bin-card",
-        label: "Bin card",
-        table: "StockMovement",
-        description:
-          "Product stock ledger with opening balance, movements in/out, running balance, and print.",
+          "Enter opening / carried-forward on-hand quantities by collection point and location.",
       },
       {
         id: "stock",
         label: "Stock",
         table: "StockBalance",
         description:
-          "Manage stock balance, movements, receipts, transfers, and adjustments.",
+          "Manage bulk (non-bottled) stock balance, movements, receipts, transfers, and adjustments.",
+      },
+      {
+        id: "bottled-stock",
+        label: "Bottled Stock",
+        table: "StockBalance",
+        description:
+          "Bin card ledger, transfers, and adjustments for bottled products.",
+      },
+      {
+        id: "stock-validation",
+        label: "Stock validation",
+        table: "StockTransfer",
+        description:
+          "Review and validate draft stock receipts, transfers, and adjustments.",
       },
     ],
   },
@@ -200,7 +201,7 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         label: "Opening commitments",
         table: "DeliveryOrder",
         description:
-          "Enter opening / carried-forward customer commitments by product and sales point.",
+          "Enter opening / carried-forward customer commitments by product and collection point.",
       },
       {
         id: "delivery-orders",
@@ -220,7 +221,7 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         label: "Transfer DO balance",
         table: "DeliveryOrder",
         description:
-          "Move remaining DO commitment from one sales point to another.",
+          "Move remaining DO commitment from one collection point to another.",
       },
     ],
   },
@@ -232,7 +233,19 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         id: "sales",
         label: "Sales Invoicing",
         table: "Sale",
-        description: "Create and manage sales invoices (POS screen).",
+        description: "Create and manage loose-product sales invoices (POS screen).",
+      },
+      {
+        id: "bottle-oil-sales",
+        label: "Bottle Oil sales",
+        table: "Sale",
+        description: "Create and manage bottled palm-oil sales invoices.",
+      },
+      {
+        id: "sales-validation",
+        label: "Sales validation",
+        table: "Sale",
+        description: "Review and validate pending sales invoices.",
       },
     ],
   },
@@ -258,21 +271,21 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         id: "stock-report",
         label: "Stock report",
         table: "StockBalance",
-        description: "Stock by sales point and storage location.",
+        description: "Stock by collection point and storage location.",
       },
       {
         id: "commitment-report",
         label: "Commitment report",
         table: "DeliveryOrder",
         description:
-          "Outstanding delivery-order commitments by customer and sales point.",
+          "Outstanding delivery-order commitments by customer and collection point.",
       },
       {
         id: "bottle-oil-stock-sales-report",
         label: "Bottle Oil stock & sales",
         table: "StockBalance",
         description:
-          "Bottled palm oil stock by sales point and monthly sales to date.",
+          "Bottled palm oil stock by collection point and monthly sales to date.",
       },
       {
         id: "bottled-weekly-issues-report",
@@ -341,7 +354,7 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         label: "Industry Product Monthly sales",
         table: "Sale",
         description:
-          "Full-year Industry sales by sales point for each non-LPO, non-bottled product (tons and '000 FRS).",
+          "Full-year Industry sales by collection point for each non-LPO, non-bottled product (tons and '000 FRS).",
       },
       {
         id: "bottled-palm-oil-sales-return-report",
@@ -355,7 +368,7 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         label: "Other Products Sales/Deliveries",
         table: "Sale",
         description:
-          "Open-month non-LPO / non-bottled sales by sales point and product (deliveries kg and F.CFA without taxes).",
+          "Open-month non-LPO / non-bottled sales by collection point and product (deliveries kg and F.CFA without taxes).",
       },
     ];
     const groups: SchemaRouteGroup[] = [
@@ -381,10 +394,16 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         description: "Application user accounts.",
       },
       {
-        id: "role-permissions",
-        label: "Manage Role permissions",
+        id: "roles",
+        label: "Manage roles",
         table: "",
-        description: "Configure module access and actions per role.",
+        description: "Create, rename, and delete application roles.",
+      },
+      {
+        id: "role-permissions",
+        label: "Role permissions",
+        table: "",
+        description: "Configure module access and special actions for each role.",
       },
     ],
   },

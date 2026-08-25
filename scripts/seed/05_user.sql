@@ -104,7 +104,7 @@ INSERT INTO User (
 SELECT
   'seed-clerk-001',
   'Main Sales Clerk',
-  'SALES_CLERK',
+  'STORE_KEEPER',
   1,
   'clerk',
   'scrypt$41ea3979fd2d52e9bbf8c0f19f695be5$4f26ee04439884109e1f2f8b02fa85115f37ac1d4ad52e036667b8ac969238adcf60b81c4590cbd9543147a05363d5ef41b00241bf98693847b48b3106a4997a',
@@ -131,7 +131,7 @@ INSERT INTO User (
 SELECT
   'seed-clerk-bota-001',
   'BOTA Sales Clerk',
-  'SALES_CLERK',
+  'STORE_KEEPER',
   1,
   'bota_clerk',
   'scrypt$41ea3979fd2d52e9bbf8c0f19f695be5$4f26ee04439884109e1f2f8b02fa85115f37ac1d4ad52e036667b8ac969238adcf60b81c4590cbd9543147a05363d5ef41b00241bf98693847b48b3106a4997a',

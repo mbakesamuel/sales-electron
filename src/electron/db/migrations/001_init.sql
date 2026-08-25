@@ -95,15 +95,6 @@ CREATE TABLE IF NOT EXISTS VehicleConsignmentNoteSequence (
   updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE TABLE IF NOT EXISTS Mill (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  isActive INTEGER NOT NULL DEFAULT 1 CHECK (isActive IN (0, 1)),
-  createdAt TEXT NOT NULL DEFAULT (datetime('now')),
-  updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
-);
-CREATE INDEX IF NOT EXISTS Mill_isActive_idx ON Mill (isActive);
-
 CREATE TABLE IF NOT EXISTS ProductCat (
   productCatId INTEGER PRIMARY KEY AUTOINCREMENT,
   productCat TEXT NOT NULL,
@@ -173,13 +164,13 @@ CREATE INDEX IF NOT EXISTS PaymentMethodDefinition_active_sort_idx ON PaymentMet
 CREATE TABLE IF NOT EXISTS SalesPoint (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
-  millId INTEGER REFERENCES Mill(id),
   isActive INTEGER NOT NULL DEFAULT 1 CHECK (isActive IN (0, 1)),
+  attachedToMill INTEGER NOT NULL DEFAULT 0 CHECK (attachedToMill IN (0, 1)),
   createdAt TEXT NOT NULL DEFAULT (datetime('now')),
   updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
 );
-CREATE INDEX IF NOT EXISTS SalesPoint_mill_idx ON SalesPoint (millId);
 CREATE INDEX IF NOT EXISTS SalesPoint_isActive_idx ON SalesPoint (isActive);
+CREATE INDEX IF NOT EXISTS SalesPoint_attachedToMill_idx ON SalesPoint (attachedToMill);
 
 -- ---------------------------------------------------------------------------
 -- Users & auth (User FK targets created above except self-references)
@@ -188,7 +179,7 @@ CREATE INDEX IF NOT EXISTS SalesPoint_isActive_idx ON SalesPoint (isActive);
 CREATE TABLE IF NOT EXISTS User (
   id TEXT PRIMARY KEY NOT NULL,
   name TEXT NOT NULL,
-  role TEXT NOT NULL DEFAULT 'SALES_CLERK' CHECK (role IN ('ADMIN','MANAGER','SENIOR_SALES_SUPERVISOR','STATISTICS_SUPERVISOR','SALES_CLERK')),
+  role TEXT NOT NULL DEFAULT 'STORE_KEEPER' CHECK (role IN ('ADMIN','MANAGER','SENIOR_SALES_SUPERVISOR','STATISTICS_CLERK','STORE_KEEPER')),
   isActive INTEGER NOT NULL DEFAULT 1 CHECK (isActive IN (0, 1)),
   username TEXT NOT NULL UNIQUE,
   passwordPlain TEXT,
@@ -370,28 +361,19 @@ CREATE INDEX IF NOT EXISTS Location_isActive_idx ON Location (isActive);
 
 CREATE TABLE IF NOT EXISTS StorageLocation (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  salesPointId INTEGER REFERENCES SalesPoint(id) ON DELETE CASCADE,
-  millId INTEGER REFERENCES Mill(id) ON DELETE CASCADE,
+  salesPointId INTEGER NOT NULL REFERENCES SalesPoint(id) ON DELETE CASCADE,
   locationId INTEGER NOT NULL REFERENCES Location(id) ON DELETE RESTRICT,
   createdAt TEXT NOT NULL DEFAULT (datetime('now')),
   updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
   isDefault INTEGER NOT NULL DEFAULT 0 CHECK (isDefault IN (0, 1)),
   isActive INTEGER NOT NULL DEFAULT 1 CHECK (isActive IN (0, 1)),
-  CHECK (
-    (millId IS NOT NULL AND salesPointId IS NULL)
-    OR (millId IS NULL AND salesPointId IS NOT NULL)
-  )
+  isSalesTank INTEGER NOT NULL DEFAULT 0 CHECK (isSalesTank IN (0, 1)),
+  UNIQUE (salesPointId, locationId)
 );
 CREATE INDEX IF NOT EXISTS StorageLocation_salesPoint_idx ON StorageLocation (salesPointId);
-CREATE INDEX IF NOT EXISTS StorageLocation_mill_idx ON StorageLocation (millId);
 CREATE INDEX IF NOT EXISTS StorageLocation_location_idx ON StorageLocation (locationId);
-CREATE UNIQUE INDEX IF NOT EXISTS StorageLocation_salesPoint_location_unique
-  ON StorageLocation (salesPointId, locationId)
-  WHERE salesPointId IS NOT NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS StorageLocation_mill_location_unique
-  ON StorageLocation (millId, locationId)
-  WHERE millId IS NOT NULL;
 CREATE INDEX IF NOT EXISTS StorageLocation_isActive_idx ON StorageLocation (isActive);
+CREATE INDEX IF NOT EXISTS StorageLocation_isSalesTank_idx ON StorageLocation (isSalesTank);
 
 CREATE TABLE IF NOT EXISTS SaleLine (
   id TEXT PRIMARY KEY NOT NULL,
@@ -615,6 +597,12 @@ CREATE TABLE IF NOT EXISTS StockTransfer (
   receivedAt TEXT,
   status TEXT NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT','POSTED','DISPATCHED','RECEIVED','CANCELLED')),
   notes TEXT,
+  consignedBy TEXT,
+  consDesign TEXT,
+  consDate TEXT,
+  receiveBy TEXT,
+  receiveByDesign TEXT,
+  receiveDate TEXT,
   createdByUserId TEXT NOT NULL REFERENCES User(id),
   dispatchedByUserId TEXT REFERENCES User(id),
   receivedByUserId TEXT REFERENCES User(id),
@@ -658,7 +646,7 @@ CREATE TABLE IF NOT EXISTS StockAdjustmentLine (
   adjustmentId TEXT NOT NULL REFERENCES StockAdjustment(id) ON DELETE CASCADE,
   productId INTEGER NOT NULL REFERENCES Product(productId),
   deltaQty TEXT NOT NULL,
-  storageLocationId INTEGER NOT NULL REFERENCES StorageLocation(id),
+  storageLocationId INTEGER REFERENCES StorageLocation(id),
   fromCondition TEXT CHECK (fromCondition IS NULL OR fromCondition IN ('SELLABLE','UNSELLABLE')),
   toCondition TEXT CHECK (toCondition IS NULL OR toCondition IN ('SELLABLE','UNSELLABLE'))
 );
@@ -671,12 +659,17 @@ CREATE TABLE IF NOT EXISTS StockBalance (
   productId INTEGER NOT NULL REFERENCES Product(productId) ON DELETE CASCADE,
   qty TEXT NOT NULL,
   updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
-  storageLocationId INTEGER NOT NULL REFERENCES StorageLocation(id),
-  condition TEXT NOT NULL DEFAULT 'SELLABLE' CHECK (condition IN ('SELLABLE','UNSELLABLE')),
-  PRIMARY KEY (salesPointId, productId, storageLocationId, condition)
+  storageLocationId INTEGER REFERENCES StorageLocation(id),
+  condition TEXT NOT NULL DEFAULT 'SELLABLE' CHECK (condition IN ('SELLABLE','UNSELLABLE'))
 );
 CREATE INDEX IF NOT EXISTS StockBalance_product_idx ON StockBalance (productId);
 CREATE INDEX IF NOT EXISTS StockBalance_location_idx ON StockBalance (storageLocationId);
+CREATE UNIQUE INDEX IF NOT EXISTS StockBalance_loc_key
+  ON StockBalance (salesPointId, productId, storageLocationId, condition)
+  WHERE storageLocationId IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS StockBalance_no_loc_key
+  ON StockBalance (salesPointId, productId, condition)
+  WHERE storageLocationId IS NULL;
 
 CREATE TABLE IF NOT EXISTS StockMovement (
   id TEXT PRIMARY KEY NOT NULL,
@@ -690,7 +683,7 @@ CREATE TABLE IF NOT EXISTS StockMovement (
   sourceId TEXT NOT NULL,
   notes TEXT,
   createdAt TEXT NOT NULL DEFAULT (datetime('now')),
-  storageLocationId INTEGER NOT NULL REFERENCES StorageLocation(id),
+  storageLocationId INTEGER REFERENCES StorageLocation(id),
   condition TEXT NOT NULL DEFAULT 'SELLABLE' CHECK (condition IN ('SELLABLE','UNSELLABLE'))
 );
 CREATE INDEX IF NOT EXISTS StockMovement_point_product_date_idx ON StockMovement (salesPointId, productId, occurredAt);

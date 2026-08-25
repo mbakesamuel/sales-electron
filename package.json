@@ -69,6 +69,7 @@
   "dependencies": {
     "better-sqlite3": "^12.11.1",
     "chart.js": "^4.5.1",
+    "exceljs": "^4.4.0",
     "lucide-react": "^1.24.0",
     "preact": "^10.29.3",
     "qrcode": "^1.5.4"

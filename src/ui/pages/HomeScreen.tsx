@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts";
 import {
   canAccessRouteFromSnapshot,
+  canPerformActionFromSnapshot,
   canWriteRouteFromSnapshot,
   filterSectionsForPermissions,
   getRouteAccessFromSnapshot,
@@ -19,7 +20,6 @@ import { ProductsScreen } from "../products/ProductsScreen.tsx";
 import { CategoriesScreen } from "../products/CategoriesScreen.tsx";
 import { ProductUnitPricesScreen } from "../products/ProductUnitPricesScreen.tsx";
 import { LocationsScreen } from "../locations/LocationsScreen.tsx";
-import { MillsScreen } from "../mills/MillsScreen.tsx";
 import { SalesPointsScreen } from "../sales-points/SalesPointsScreen.tsx";
 import { CommercialServicesScreen } from "../commercial-services/CommercialServicesScreen.tsx";
 import { CompanySettingsScreen } from "../company-settings/CompanySettingsScreen.tsx";
@@ -31,19 +31,29 @@ import { PaymentMethodsScreen } from "../payment-methods/PaymentMethodsScreen.ts
 import { FinancialYearsScreen } from "../financial-years/FinancialYearsScreen.tsx";
 import { FinancialMonthsScreen } from "../financial-years/FinancialMonthsScreen.tsx";
 import { SalesScreen } from "../sales/SalesScreen.tsx";
+import { SalesValidationScreen } from "../sales/SalesValidationScreen.tsx";
 import { DeliveryOrdersScreen } from "../delivery-orders/DeliveryOrdersScreen.tsx";
 import { DeliveryOrderTrackingScreen } from "../delivery-orders/DeliveryOrderTrackingScreen.tsx";
 import { DeliveryOrderTransferScreen } from "../delivery-orders/DeliveryOrderTransferScreen.tsx";
 import { CarryForwardCommitmentsScreen } from "../commitments/CarryForwardCommitmentsScreen.tsx";
 import { CarryForwardStockScreen } from "../stock/CarryForwardStockScreen.tsx";
-import { BinCardScreen } from "../stock/BinCardScreen.tsx";
 import { StockScreen } from "../stock/StockScreen.tsx";
+import { StockValidationScreen } from "../stock/StockValidationScreen.tsx";
 import { SalesBudgetScreen } from "../sales-budget/SalesBudgetScreen.tsx";
-import { canAccessStockModule } from "../../shared/stockModule.ts";
+import {
+  canAccessBottledStockModule,
+  canAccessStockModule,
+} from "../../shared/stockModule.ts";
 import { opensInReportWindow } from "../../shared/reportWindow.ts";
+import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
+import { ReportBody } from "../reports/reportBody.tsx";
+import {
+  ReportOverlayContext,
+  type ReportOverlayContextValue,
+} from "../reports/ReportOverlayContext.tsx";
 import { PermissionsScreen } from "../permissions/PermissionsScreen.tsx";
+import { RolesScreen } from "../permissions/RolesScreen.tsx";
 import { UsersScreen } from "../users/UsersScreen.tsx";
-import { getAuthToken } from "../auth/db.ts";
 import { getElectronApi } from "../auth/client.ts";
 import {
   DEFAULT_ROUTE_ID,
@@ -63,6 +73,7 @@ import { ConfirmDialog } from "../components/ConfirmDialog.tsx";
 import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import type { OpenPostingPeriod } from "../../shared/financialYears.types.ts";
 import { DashboardScreen } from "../dashboard/DashboardScreen.tsx";
+import { AppThemeToggle } from "../theme/AppThemeToggle.tsx";
 import "./HomeScreen.css";
 
 interface HomeScreenProps {
@@ -78,8 +89,7 @@ function RouteContent({
   permissions,
   onPermissionsSaved,
   openCalendarMonth,
-  onOpenReportWindow,
-  onOpenBinCard,
+  onOpenReportOverlay,
   deliveryOrderLookupNo,
   onOpenDeliveryOrder,
   onOpenDeliveryOrderTracking,
@@ -89,8 +99,7 @@ function RouteContent({
   permissions: RolePermissionsSnapshot;
   onPermissionsSaved: (next: RolePermissionsSnapshot) => void;
   openCalendarMonth: number | null;
-  onOpenReportWindow: (reportId: string) => void;
-  onOpenBinCard?: () => void;
+  onOpenReportOverlay: (reportId: string) => void;
   deliveryOrderLookupNo?: string;
   onOpenDeliveryOrder?: (deliveryOrderNo: string) => void;
   onOpenDeliveryOrderTracking?: (deliveryOrderNo: string) => void;
@@ -101,13 +110,19 @@ function RouteContent({
   if (
     route.id === "stock"
       ? !canAccessStockModule(permissions)
-      : !canAccessRouteFromSnapshot(permissions, route.id)
+      : route.id === "bottled-stock"
+        ? !canAccessBottledStockModule(permissions)
+        : !canAccessRouteFromSnapshot(permissions, route.id)
   ) {
     return (
       <p class="home-access-denied">
         You do not have permission to open this module.
       </p>
     );
+  }
+
+  if (route.id === "roles") {
+    return <RolesScreen permissions={permissions} />;
   }
 
   if (route.id === "role-permissions") {
@@ -124,7 +139,29 @@ function RouteContent({
   }
 
   if (route.id === "sales") {
-    return <SalesScreen user={user} permissions={permissions} readOnly={readOnly} />;
+    return <SalesScreen user={user} permissions={permissions} readOnly={readOnly} variant="loose" />;
+  }
+
+  if (route.id === "bottle-oil-sales") {
+    return (
+      <SalesScreen
+        user={user}
+        permissions={permissions}
+        readOnly={readOnly}
+        variant="bottled"
+      />
+    );
+  }
+
+  if (route.id === "sales-validation") {
+    if (!canPerformActionFromSnapshot(permissions, "validate_sales")) {
+      return (
+        <p class="home-access-denied">
+          You do not have permission to validate sales invoices.
+        </p>
+      );
+    }
+    return <SalesValidationScreen user={user} />;
   }
 
   if (route.id === "delivery-orders") {
@@ -181,18 +218,37 @@ function RouteContent({
     );
   }
 
-  if (route.id === "stock-bin-card") {
-    return <BinCardScreen user={user} permissions={permissions} />;
-  }
-
   if (route.id === "stock") {
     return (
       <StockScreen
         user={user}
         permissions={permissions}
-        onOpenBinCard={onOpenBinCard}
+        variant="bulk"
       />
     );
+  }
+
+  if (route.id === "bottled-stock") {
+    return (
+      <StockScreen
+        user={user}
+        permissions={permissions}
+        variant="bottled"
+      />
+    );
+  }
+
+  if (route.id === "stock-validation") {
+    if (
+      !canPerformActionFromSnapshot(permissions, "validate_stock_documents")
+    ) {
+      return (
+        <p class="home-access-denied">
+          You do not have permission to validate stock documents.
+        </p>
+      );
+    }
+    return <StockValidationScreen user={user} />;
   }
 
   if (opensInReportWindow(route.id)) {
@@ -211,16 +267,17 @@ function RouteContent({
     }
 
     return (
-      <div class="report-window-placeholder">
+      <div class="report-overlay-placeholder">
         <p class="scr-status">
-          {route.label} opens in a separate window with Print and Save.
+          {route.label} opens in a report overlay with Print and Save PDF. If
+          you closed it, use the button below to reopen.
         </p>
         <button
           type="button"
           class="scr-btn"
-          onClick={() => onOpenReportWindow(route.id)}
+          onClick={() => onOpenReportOverlay(route.id)}
         >
-          Reopen report window
+          Open report
         </button>
       </div>
     );
@@ -248,10 +305,6 @@ function RouteContent({
 
   if (route.id === "unit-prices") {
     return <ProductUnitPricesScreen readOnly={readOnly} />;
-  }
-
-  if (route.id === "mills") {
-    return <MillsScreen readOnly={readOnly} />;
   }
 
   if (route.id === "sales-points") {
@@ -321,6 +374,10 @@ export function HomeScreen({
     sales: true,
   });
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [overlayReport, setOverlayReport] = useState<{
+    reportId: string;
+    query?: unknown;
+  } | null>(null);
   const [openPostingPeriod, setOpenPostingPeriod] =
     useState<OpenPostingPeriod | null>(null);
 
@@ -379,7 +436,9 @@ export function HomeScreen({
     const canAccess =
       activeRouteId === "stock"
         ? canAccessStockModule(permissions)
-        : canAccessRouteFromSnapshot(permissions, activeRouteId);
+        : activeRouteId === "bottled-stock"
+          ? canAccessBottledStockModule(permissions)
+          : canAccessRouteFromSnapshot(permissions, activeRouteId);
 
     if (!canAccess) {
       setActiveRouteId(DEFAULT_ROUTE_ID);
@@ -402,6 +461,28 @@ export function HomeScreen({
     });
   }
 
+  function openReportOverlay(reportId: string, query?: unknown) {
+    setOverlayReport({ reportId, query });
+  }
+
+  function closeReportOverlay() {
+    setOverlayReport((current) => {
+      if (current) {
+        setActiveRouteId((routeId) =>
+          routeId === current.reportId ? DEFAULT_ROUTE_ID : routeId,
+        );
+      }
+      return null;
+    });
+  }
+
+  const reportOverlayContextValue = useMemo<ReportOverlayContextValue>(
+    () => ({
+      openReportOverlay,
+    }),
+    [],
+  );
+
   function selectRoute(routeId: string, sectionId?: string) {
     setActiveRouteId(routeId);
     if (routeId !== "delivery-orders") {
@@ -414,29 +495,27 @@ export function HomeScreen({
       setOpenSections({ [sectionId]: true });
     }
     if (opensInReportWindow(routeId)) {
-      void openReportWindow(routeId);
-    }
-  }
-
-  async function openReportWindow(reportId: string) {
-    const token = getAuthToken();
-    if (!token) {
-      window.alert("Login required.");
-      return;
-    }
-    try {
-      const result = await getElectronApi().windows.openReport(token, reportId);
-      if (!result.ok) {
-        window.alert(result.error);
+      if (
+        routeId !== "monthly-delivery-report-h1" &&
+        routeId !== "monthly-delivery-report-h2"
+      ) {
+        openReportOverlay(routeId);
+      } else if (
+        isMonthlyDeliveryRouteVisible(
+          routeId,
+          openPostingPeriod?.calendarMonth ?? null,
+        )
+      ) {
+        openReportOverlay(routeId);
       }
-    } catch (error) {
-      window.alert(error instanceof Error ? error.message : "Failed to open report window.");
     }
   }
 
   const customScreenRoutes = new Set([
     "stock",
-    "stock-bin-card",
+    "bottled-stock",
+    "stock-validation",
+    "sales-validation",
     "stock-commitment-report",
     "stock-report",
     "commitment-report",
@@ -463,7 +542,6 @@ export function HomeScreen({
     "product-categories",
     "unit-prices",
     "sales-points",
-    "mills",
     "commercial-services",
     "company-settings",
     "report-settings",
@@ -474,16 +552,19 @@ export function HomeScreen({
     "payment-methods",
     "financial-year-periods",
     "financial-months",
+    "roles",
     "role-permissions",
     "carry-forward-commitments",
     "carry-forward-stock",
-    "stock-bin-card",
+    "sales",
+    "bottle-oil-sales",
     "delivery-orders",
     "delivery-order-tracking",
     "delivery-order-transfer",
   ]);
 
   return (
+    <ReportOverlayContext.Provider value={reportOverlayContextValue}>
     <div class="home-layout">
       <aside class="home-sidebar">
         <div class="sidebar-header">
@@ -600,7 +681,19 @@ export function HomeScreen({
       ) : null}
 
       <main
-        class={`home-main${activeRouteId === DEFAULT_ROUTE_ID ? " home-main--dashboard" : ""}`}
+        class={`home-main${
+          activeRouteId === DEFAULT_ROUTE_ID
+            ? " home-main--dashboard"
+            : activeRouteId === "stock" ||
+                activeRouteId === "bottled-stock" ||
+                activeRouteId === "stock-validation" ||
+                activeRouteId === "sales-validation" ||
+                activeRouteId === "bottle-oil-sales"
+              ? " home-main--stock"
+              : activeRouteId === "roles" || activeRouteId === "role-permissions"
+                ? " home-main--fill"
+                : ""
+        }`}
       >
         <header class="home-topbar no-print">
           <div class="home-topbar-period">
@@ -614,6 +707,7 @@ export function HomeScreen({
               <strong>{openPostingPeriod?.monthName ?? "None"}</strong>
             </span>
           </div>
+          {user.role === "ADMIN" ? <AppThemeToggle /> : null}
         </header>
 
         {activeRouteId !== DEFAULT_ROUTE_ID && !customScreenRoutes.has(activeRouteId) ? (
@@ -654,11 +748,8 @@ export function HomeScreen({
                 setActiveRouteId("delivery-order-tracking");
                 setOpenSections({ delivery: true });
               }}
-              onOpenReportWindow={(reportId) => {
-                void openReportWindow(reportId);
-              }}
-              onOpenBinCard={() => {
-                selectRoute("stock-bin-card", "inventory");
+              onOpenReportOverlay={(reportId) => {
+                openReportOverlay(reportId);
               }}
             />
           </section>
@@ -668,6 +759,20 @@ export function HomeScreen({
           <span>ISD 2026</span>
         </footer>
       </main>
+
+      {overlayReport ? (
+        <ReportOverlayShell
+          reportId={overlayReport.reportId}
+          onClose={closeReportOverlay}
+        >
+          <ReportBody
+            reportId={overlayReport.reportId}
+            query={overlayReport.query}
+            windowMode
+          />
+        </ReportOverlayShell>
+      ) : null}
     </div>
+    </ReportOverlayContext.Provider>
   );
 }

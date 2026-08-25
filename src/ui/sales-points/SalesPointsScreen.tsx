@@ -14,20 +14,18 @@ import "../customers/CustomersScreen.css";
 
 type SortKey =
   | "name"
-  | "millLabel"
   | "locationCount"
   | "userCount"
   | "createdAt"
   | "isActive";
 type SortDir = "asc" | "desc";
-type ActiveTab = "all" | "active" | "inactive" | "linked" | "standalone";
+type ActiveTab = "all" | "active" | "inactive";
 
 interface SalesPointRow {
   id: number;
   name: string;
   isActive: boolean;
-  millId: number | null;
-  millLabel: string;
+  attachedToMill: boolean;
   locationCount: number;
   userCount: number;
   createdAt: string;
@@ -55,10 +53,7 @@ function matchesTab(row: SalesPointRow, tab: ActiveTab): boolean {
   if (tab === "inactive") {
     return !row.isActive;
   }
-  if (tab === "linked") {
-    return row.millId != null;
-  }
-  return row.millId == null;
+  return true;
 }
 
 function exportCsv(rows: SalesPointRow[]) {
@@ -66,7 +61,7 @@ function exportCsv(rows: SalesPointRow[]) {
     "id",
     "name",
     "isActive",
-    "mill",
+    "attachedToMill",
     "storageLocations",
     "users",
     "createdAt",
@@ -78,7 +73,7 @@ function exportCsv(rows: SalesPointRow[]) {
       row.id,
       row.name,
       row.isActive ? "1" : "0",
-      row.millLabel,
+      row.attachedToMill ? "1" : "0",
       row.locationCount,
       row.userCount,
       row.createdAt,
@@ -307,10 +302,9 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
       setError(null);
       try {
         const api = getElectronApi();
-        const [salesPointResult, millResult, locationResult, userResult, tableSchema] =
+        const [salesPointResult, locationResult, userResult, tableSchema] =
           await Promise.all([
             api.db.queryTable({ table: "SalesPoint", limit: 200 }),
-            api.db.queryTable({ table: "Mill", limit: 200 }),
             api.db.queryTable({ table: "StorageLocation", limit: 1000 }),
             api.db.queryTable({ table: "User", limit: 500 }),
             api.db.getTableSchema("SalesPoint"),
@@ -318,11 +312,6 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
 
         if (cancelled) {
           return;
-        }
-
-        const millLabels = new Map<number, string>();
-        for (const mill of millResult.rows) {
-          millLabels.set(Number(mill.id), String(mill.name ?? `Mill ${mill.id}`));
         }
 
         const locationCounts = new Map<number, number>();
@@ -342,15 +331,13 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
 
         const mapped = salesPointResult.rows.map((row) => {
           const id = Number(row.id);
-          const millId =
-            row.millId != null && row.millId !== "" ? Number(row.millId) : null;
 
           return {
             id,
             name: String(row.name ?? ""),
             isActive: row.isActive === 1 || row.isActive === true || row.isActive == null,
-            millId,
-            millLabel: millId != null ? (millLabels.get(millId) ?? `Mill #${millId}`) : "—",
+            attachedToMill:
+              row.attachedToMill === 1 || row.attachedToMill === true,
             locationCount: locationCounts.get(id) ?? 0,
             userCount: userCounts.get(id) ?? 0,
             createdAt: formatDate(row.createdAt),
@@ -366,7 +353,7 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
         if (!cancelled) {
           setRows([]);
           setError(
-            loadError instanceof Error ? loadError.message : "Failed to load sales points.",
+            loadError instanceof Error ? loadError.message : "Failed to load collection points.",
           );
         }
       } finally {
@@ -387,8 +374,7 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
     return rows.filter((row) => {
       const matchSearch =
         !query ||
-        row.name.toLowerCase().includes(query) ||
-        row.millLabel.toLowerCase().includes(query);
+        row.name.toLowerCase().includes(query);
       return matchSearch && matchesTab(row, activeTab);
     });
   }, [rows, search, activeTab]);
@@ -428,7 +414,7 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
   const stats = useMemo(
     () => [
       {
-        label: "Total Sales Points",
+        label: "Total Collection Points",
         value: rows.length,
         icon: IconStore,
         className: "customers-stat-icon-blue",
@@ -502,7 +488,7 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
       return;
     }
     const confirmed = window.confirm(
-      `Delete sales point "${row.name}"? This cannot be undone.`,
+      `Delete collection point "${row.name}"? This cannot be undone.`,
     );
     if (!confirmed) {
       return;
@@ -516,7 +502,7 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
       refreshRows();
     } catch (deleteError) {
       setActionError(
-        deleteError instanceof Error ? deleteError.message : "Failed to delete sales point.",
+        deleteError instanceof Error ? deleteError.message : "Failed to delete collection point.",
       );
     }
   }
@@ -526,7 +512,7 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
       return;
     }
     const confirmed = window.confirm(
-      `Delete ${selectedIds.size} selected sales point(s)? This cannot be undone.`,
+      `Delete ${selectedIds.size} selected collection point(s)? This cannot be undone.`,
     );
     if (!confirmed) {
       return;
@@ -544,7 +530,7 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
       setActionError(
         deleteError instanceof Error
           ? deleteError.message
-          : "Failed to delete selected sales points.",
+          : "Failed to delete selected collection points.",
       );
     }
   }
@@ -586,14 +572,10 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
 
   const printFilterLabel =
     activeTab === "all"
-      ? "All sales points"
+      ? "All collection points"
       : activeTab === "active"
-        ? "Active sales points"
-        : activeTab === "inactive"
-          ? "Inactive sales points"
-          : activeTab === "linked"
-            ? "Sales points linked to mill"
-            : "Standalone sales points";
+        ? "Active collection points"
+        : "Inactive collection points";
 
   const printGeneratedAt = formatDisplayDateTime(
     (() => {
@@ -637,7 +619,7 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
             <IconStore />
           </div>
           <div>
-            <h2 class="customers-screen-brand-title">Sales Points</h2>
+            <h2 class="customers-screen-brand-title">Collection Points</h2>
             <p class="customers-screen-brand-subtitle">Outlet Management</p>
           </div>
         </div>
@@ -668,7 +650,7 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
                 setFormState({ mode: "create" });
               }}
             >
-              <IconPlus /> Add Sales Point
+              <IconPlus /> Add Collection Point
             </button>
           ) : null}
         </div>
@@ -695,7 +677,7 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
         <div class="customers-card-toolbar">
           <div class="customers-card-toolbar-row">
             <div>
-              <h3 class="customers-card-title">All Sales Points</h3>
+              <h3 class="customers-card-title">All Collection Points</h3>
               <p class="customers-card-subtitle">
                 {isLoading ? "Loading…" : `${filtered.length} records`}
               </p>
@@ -707,8 +689,6 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
                     ["all", "All"],
                     ["active", "Active"],
                     ["inactive", "Inactive"],
-                    ["linked", "Linked mill"],
-                    ["standalone", "Standalone"],
                   ] as const
                 ).map(([tab, label]) => (
                   <button
@@ -730,7 +710,7 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
                   class="customers-search"
                   type="search"
                   value={search}
-                  placeholder="Search sales points…"
+                  placeholder="Search collection points…"
                   onInput={(event) => {
                     setSearch((event.currentTarget as HTMLInputElement).value);
                     setPage(1);
@@ -787,9 +767,9 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
                     onChange={toggleSelectAll}
                   />
                 </th>
-                <SortableTh label="Sales point" col="name" />
+                <SortableTh label="Collection point" col="name" />
                 <SortableTh label="Status" col="isActive" />
-                <SortableTh label="Mill" col="millLabel" className="customers-col-hide-md" />
+                <th>Mill</th>
                 <SortableTh
                   label="Locations"
                   col="locationCount"
@@ -804,13 +784,13 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
               {isLoading ? (
                 <tr>
                   <td colSpan={8} class="customers-table-empty">
-                    Loading sales points…
+                    Loading collection points…
                   </td>
                 </tr>
               ) : paginated.length === 0 ? (
                 <tr>
                   <td colSpan={8} class="customers-table-empty">
-                    No sales points match your search.
+                    No collection points match your search.
                   </td>
                 </tr>
               ) : (
@@ -836,8 +816,14 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
                         {row.isActive ? "Active" : "Inactive"}
                       </span>
                     </td>
-                    <td class="customers-col-hide-md">
-                      <span class="customers-contact-mono">{row.millLabel}</span>
+                    <td>
+                      {row.attachedToMill ? (
+                        <span class="customers-badge customers-badge-sky">
+                          Attached
+                        </span>
+                      ) : (
+                        <span class="customers-contact-mono">—</span>
+                      )}
                     </td>
                     <td class="customers-col-hide-lg">
                       <span class="customers-contact-mono">
@@ -913,14 +899,17 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
         <FormDialog
           ariaLabel={`View ${viewRow.name}`}
           title={viewRow.name}
-          subtitle="Sales point details"
+          subtitle="Collection point details"
           onClose={() => setViewRow(null)}
         >
           <div class="customers-view-grid">
             {[
               ["ID", String(viewRow.id)],
               ["Status", viewRow.isActive ? "Active" : "Inactive"],
-              ["Mill", viewRow.millLabel],
+              [
+                "Attached to mill",
+                viewRow.attachedToMill ? "Yes" : "No",
+              ],
               ["Storage locations", String(viewRow.locationCount)],
               ["Assigned users", String(viewRow.userCount)],
               ["Created", viewRow.createdAt],
@@ -942,7 +931,7 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
                   setFormState({ mode: "edit", row: viewRow.raw });
                 }}
               >
-                Edit sales point
+                Edit collection point
               </button>
             ) : null}
             <button
@@ -958,7 +947,7 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
 
       <div class="customers-print-document" aria-hidden="true">
         <header class="customers-print-header">
-          <h1>Sales Point List</h1>
+          <h1>Collection Point List</h1>
           <p>
             {printFilterLabel}
             {selectedIds.size > 0 ? ` · ${selectedIds.size} selected` : ""}
@@ -985,7 +974,7 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
                 <td>{index + 1}</td>
                 <td>{row.name}</td>
                 <td>{row.isActive ? "Active" : "Inactive"}</td>
-                <td>{row.millLabel}</td>
+                <td>{row.attachedToMill ? "Attached" : "—"}</td>
                 <td>{row.locationCount > 0 ? row.locationCount : "—"}</td>
                 <td>{row.userCount > 0 ? row.userCount : "—"}</td>
                 <td>{row.createdAt}</td>

@@ -7,6 +7,18 @@ export interface RouteDefinition {
 
 export const ROUTE_DEFINITIONS: RouteDefinition[] = [
   { id: "sales", label: "Sales Invoice", sectionId: "sales", table: "Sale" },
+  {
+    id: "bottle-oil-sales",
+    label: "Bottle Oil sales",
+    sectionId: "sales",
+    table: "Sale",
+  },
+  {
+    id: "sales-validation",
+    label: "Sales validation",
+    sectionId: "sales",
+    table: "Sale",
+  },
   { id: "customers", label: "Customers", sectionId: "customers", table: "Customer" },
   {
     id: "customer-types",
@@ -86,6 +98,24 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
     table: "VehicleConsignmentNote",
   },
   { id: "stock-balance", label: "Stock balance", sectionId: "inventory", table: "StockBalance" },
+  {
+    id: "stock",
+    label: "Stock",
+    sectionId: "inventory",
+    table: "StockBalance",
+  },
+  {
+    id: "bottled-stock",
+    label: "Bottled Stock",
+    sectionId: "inventory",
+    table: "StockBalance",
+  },
+  {
+    id: "stock-validation",
+    label: "Stock validation",
+    sectionId: "inventory",
+    table: "StockTransfer",
+  },
   {
     id: "carry-forward-stock",
     label: "Carry-forward stock",
@@ -236,8 +266,7 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
     sectionId: "organization",
     table: "CommercialService",
   },
-  { id: "mills", label: "Mills", sectionId: "organization", table: "Mill" },
-  { id: "sales-points", label: "Sales points", sectionId: "organization", table: "SalesPoint" },
+  { id: "sales-points", label: "Collection points", sectionId: "organization", table: "SalesPoint" },
   { id: "locations", label: "Locations", sectionId: "organization", table: "Location" },
   {
     id: "storage-locations",
@@ -283,6 +312,7 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
     table: "FinancialMonth",
   },
   { id: "users", label: "Users", sectionId: "users-access", table: "User" },
+  { id: "roles", label: "Roles", sectionId: "users-access" },
   {
     id: "role-permissions",
     label: "Role permissions",

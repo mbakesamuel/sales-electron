@@ -351,7 +351,10 @@ export interface DeliveryOrdersApi {
   listPending(): Promise<PendingDeliveryOrderRow[]>;
   listOrders(filters?: DeliveryOrdersListFilters): Promise<DeliveryOrdersListResult>;
   save(input: SaveDeliveryOrderInput): Promise<SaveDeliveryOrderResult>;
-  deleteOrder(orderId: number): Promise<DeliveryOrderMutationResult>;
+  deleteOrder(payload: {
+    orderId: number;
+    userId: string;
+  }): Promise<DeliveryOrderMutationResult>;
   validateOrder(payload: { orderId: number; userId: string }): Promise<DeliveryOrderMutationResult>;
   cancelValidated(payload: {
     orderId: number;

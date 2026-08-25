@@ -5,6 +5,7 @@ export const BLOCKED_TABLES = new Set([
   "schema_migrations",
   "AuthSession",
   "MobileRefreshToken",
+  "Role",
   "RoleRoutePermission",
   "RoleActionPermission",
 ]);
@@ -106,7 +107,19 @@ function isBooleanColumn(name: string, type: string): boolean {
     return false;
   }
 
-  return /^(is|has)[A-Z]/.test(name) || name === "allowed";
+  return (
+    /^(is|has)[A-Z]/.test(name) ||
+    name === "allowed" ||
+    name === "autoGenerateStockReceiptNo" ||
+    name === "autoGenerateStockTransferNo" ||
+    name === "bottleOilUseRegisteredCustomers" ||
+    name === "bottleOilAllowRation" ||
+    name === "stockTransferReceiveUsesDocumentDate" ||
+    name === "looseSalesAllowPublicRelation" ||
+    name === "looseSalesAllowUnregisteredCustomer" ||
+    name === "loosePalmOilRequireSalesTank" ||
+    name === "hideZeroReportRows"
+  );
 }
 
 function hasDefaultValue(defaultValue: string | null): boolean {

@@ -32,9 +32,11 @@ All posting dates must fall in the **open financial month**.
 
 Screen: **Opening Stock balances** (`carry-forward-stock`).
 
-Enter opening / carried-forward on-hand quantities by **sales point** and **storage location**, typically as a batch by product.
+Enter opening / carried-forward on-hand quantities by choosing a **collection point** and **date**, then adding table rows of **product** and **desired on-hand**. Most products also require a **storage location**.
 
-These post as stock adjustments with a carry-forward source kind so movements and reports can distinguish them from ordinary adjustments.
+**Palm Kernel / Cake (category codes PKCP and PKP):** these products do not use storage locations. On the batch form, pick the product only (location shows as **—**). Opening balance is stored at **collection-point level**. Validated sales of those products deduct from that total (no tank on the invoice).
+
+These post as stock adjustments with a carry-forward source kind so movements and reports can distinguish them from ordinary adjustments. Receipts, transfers, and manual adjustments remain unavailable for PKCP/PKP products.
 
 **Dating:** Choose a date in the batch form (must fall in the **open financial month**). That date becomes the adjustment / movement `occurredAt`. On the **Stock report** it counts from that date. On **Monthly stock reconciliation**, posted carry-forward LPO qty in the open month is included in **Opening stock** (one-time backlog), not under Reception.
 
@@ -42,15 +44,15 @@ These post as stock adjustments with a carry-forward source kind so movements an
 
 Screen: **Bin card** (`stock-bin-card`). Also reachable from **Stock → Open bin card**.
 
-Pick a **product** (required) plus optional sales point, storage location, condition, and date range. The main screen shows a stock-style table:
+Pick a **bottled product** (required) plus optional sales point, storage location, condition, and date range. Bulk (non-bottled) products are not available on this screen. The main screen shows a stock-style table:
 
 - Opening balance (movements before the From date)
 - Each movement as **In** / **Out** with a running **Balance**
 - Closing balance
 
-Use **Open report** to open a printable bin card in a secondary window (**Print** / **Save PDF**), same pattern as other reports. The report window opens in **A4 portrait** layout.
+Use **Open report** to open a printable bin card in the in-app report overlay (**Print** / **Save PDF**), same pattern as other reports. The report opens in **A4 portrait** layout.
 
-Quantities use the product’s stock unit (Kg for bulk, pack units for bottled). Movements are limited to the **open financial month** on the main screen date pickers.
+Quantities use pack units for bottled products. Movements are limited to the **open financial month** on the main screen date pickers.
 
 ## Practical tips
 

@@ -5,20 +5,26 @@ import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import type { AuthUser } from "../auth/session.ts";
 import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts";
 import { canPerformActionFromSnapshot } from "../../shared/permissionUtils.ts";
+import {
+  saleProductModeForVariant,
+  type SalesModuleVariant,
+} from "../../shared/salesModule.ts";
 import type { OpenPostingPeriod } from "../../shared/financialYears.types.ts";
 import {
   FALLBACK_TAX_RATES,
   resolveCustomerTaxProfile,
   type TaxRatesBag,
 } from "../../shared/taxRules.ts";
-import { isValidBookletSerial } from "../../shared/bookletSerial.ts";
+import {
+  isValidBookletSerial,
+  validateBookletSerial,
+} from "../../shared/bookletSerial.ts";
 import { SalePrintView } from "./SalePrintView.tsx";
 import { SalesLineModal, type SalesLineDraft } from "./SalesLineModal.tsx";
 import type {
   AvailableDeliveryOrderRow,
   DeliveryOrderLookupResult,
   LoadedSaleView,
-  PendingSaleRow,
   SaleDisposition,
   SaleProductMode,
   SalesFormOptions,
@@ -31,6 +37,7 @@ import "./sales.css";
 interface SalesClientProps {
   user: AuthUser;
   permissions: RolePermissionsSnapshot;
+  variant?: SalesModuleVariant;
   onOpenList: () => void;
   initialInvoiceNo?: string;
 }
@@ -80,6 +87,13 @@ function todayIsoDate(): string {
 function defaultPaymentMethodId(methods: SalesPaymentMethodOption[]): string {
   return (
     methods.find((method) => method.code === "CASH")?.id ?? methods[0]?.id ?? ""
+  );
+}
+
+function paymentsMissingMethod(payments: PaymentDraft[]): boolean {
+  return payments.some(
+    (payment) =>
+      parseDec(payment.amount) > 0 && !payment.paymentMethodId.trim(),
   );
 }
 
@@ -187,6 +201,19 @@ function emptyLine(
   };
 }
 
+function defaultUseRegisteredCustomer(
+  options: SalesFormOptions,
+  isBottleVariant: boolean,
+): boolean {
+  if (options.customers.length === 0) {
+    return false;
+  }
+  if (isBottleVariant) {
+    return Boolean(options.bottleOilUseRegisteredCustomers);
+  }
+  return !options.looseSalesAllowUnregisteredCustomer;
+}
+
 type DoLinePrefill = {
   productId: number;
   qtyKg: string;
@@ -196,9 +223,12 @@ type DoLinePrefill = {
 export function SalesClient({
   user,
   permissions,
+  variant = "loose",
   onOpenList,
   initialInvoiceNo = "",
 }: SalesClientProps) {
+  const isBottleVariant = variant === "bottled";
+  const defaultProductMode = saleProductModeForVariant(variant);
   const canValidate = canPerformActionFromSnapshot(
     permissions,
     "validate_sales",
@@ -212,22 +242,24 @@ export function SalesClient({
   const [busy, setBusy] = useState<string | null>(null);
 
   const [saleId, setSaleId] = useState<string | null>(null);
-  const [invoiceNo, setInvoiceNo] = useState("");
+  const [invoiceNo, setInvoiceNo] = useState(initialInvoiceNo);
+  const [confirmedInvoiceNo, setConfirmedInvoiceNo] = useState<string | null>(
+    null,
+  );
   const [saleStatus, setSaleStatus] = useState<LoadedSaleView["status"] | null>(
     null,
   );
   const [validatedByName, setValidatedByName] = useState("");
-  const [lookupNo, setLookupNo] = useState(initialInvoiceNo);
-  const [pendingSales, setPendingSales] = useState<PendingSaleRow[]>([]);
-  const [pendingOpen, setPendingOpen] = useState(false);
   const [printOpen, setPrintOpen] = useState(false);
 
   const [customerId, setCustomerId] = useState("");
   const [invoiceCustomerName, setInvoiceCustomerName] = useState("");
-  const [useRegisteredCustomer, setUseRegisteredCustomer] = useState(true);
+  const [useRegisteredCustomer, setUseRegisteredCustomer] = useState(
+    !isBottleVariant,
+  );
   const [salesPointId, setSalesPointId] = useState("");
   const [saleProductMode, setSaleProductMode] =
-    useState<SaleProductMode>("LOOSE");
+    useState<SaleProductMode>(defaultProductMode);
   const [saleDisposition, setSaleDisposition] =
     useState<SaleDisposition>("NORMAL");
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -253,16 +285,22 @@ export function SalesClient({
   } | null>(null);
 
   const isReadOnly = saleId != null;
-  const isAtBota =
-    options?.botaSalesPointId != null &&
-    salesPointId === String(options.botaSalesPointId);
-  const isBottleMode = isAtBota && saleProductMode === "BOTTLE";
+  const invoiceReady =
+    saleId != null ||
+    (confirmedInvoiceNo !== null &&
+      confirmedInvoiceNo === invoiceNo.trim() &&
+      isValidBookletSerial(invoiceNo));
+  const isAwaitingInvoice = !saleId && !invoiceReady;
+  const isFormEditable = !isReadOnly && invoiceReady;
+  const isBottleMode = isBottleVariant;
   const isSpecialDisposition =
     saleDisposition === "RATION" || saleDisposition === "PUBLIC_RELATION";
   const isInvoiceOnlyCustomer = isSpecialDisposition || !useRegisteredCustomer;
   const activeProducts = isBottleMode
     ? (options?.bottledProducts ?? [])
-    : (options?.looseProducts ?? []);
+    : isSpecialDisposition
+      ? (options?.looseProducts ?? []).filter((product) => product.isMain)
+      : (options?.looseProducts ?? []);
   const salesPointLocations = locationsForSalesPoint(salesPointId);
   const catalogProducts = useMemo(
     () => [
@@ -360,7 +398,7 @@ export function SalesClient({
   }, [transactionDate]);
 
   useEffect(() => {
-    if (isReadOnly || isSpecialDisposition) {
+    if (!isFormEditable || isSpecialDisposition) {
       return;
     }
 
@@ -373,24 +411,22 @@ export function SalesClient({
       next[0] = { ...next[0], amount: String(totals.gross) };
       return next;
     });
-  }, [totals.gross, isReadOnly, isSpecialDisposition]);
+  }, [totals.gross, isFormEditable, isSpecialDisposition]);
 
   useEffect(() => {
     async function bootstrap() {
       try {
-        const [formOptions, pending, period] = await Promise.all([
-          getElectronApi().sales.getFormOptions(),
-          getElectronApi().sales.listPendingSales(),
+        const [formOptions, period] = await Promise.all([
+          getElectronApi().sales.getFormOptions(user.id),
           getAuthenticatedFinancialYears().getOpenPostingPeriod(),
         ]);
         setOptions(formOptions);
-        setPendingSales(pending);
         setPostingPeriod(period);
         setTransactionDate((current) => clampDateToPeriod(current, period));
 
-        const hasCustomers = formOptions.customers.length > 0;
-
-        setUseRegisteredCustomer(hasCustomers);
+        setUseRegisteredCustomer(
+          defaultUseRegisteredCustomer(formOptions, isBottleVariant),
+        );
         setCustomerId("");
         setInvoiceCustomerName("");
         setSalesPointId("");
@@ -417,7 +453,7 @@ export function SalesClient({
   useEffect(() => {
     if (
       !options ||
-      isReadOnly ||
+      !isFormEditable ||
       isBottleMode ||
       isSpecialDisposition ||
       !useRegisteredCustomer
@@ -462,12 +498,12 @@ export function SalesClient({
     customerId,
     isBottleMode,
     isSpecialDisposition,
-    isReadOnly,
+    isFormEditable,
     useRegisteredCustomer,
   ]);
 
   useEffect(() => {
-    if (!options || isReadOnly) {
+    if (!options || !isFormEditable) {
       return;
     }
 
@@ -477,20 +513,100 @@ export function SalesClient({
       setDeliveryOrderNo("");
       setDoLinePrefill(null);
     }
-  }, [saleDisposition, options, isReadOnly]);
+  }, [saleDisposition, options, isFormEditable]);
 
   useEffect(() => {
-    if (!options || isReadOnly) {
+    if (!options || !isFormEditable || isBottleVariant) {
+      return;
+    }
+    if (saleDisposition !== "RATION" && saleDisposition !== "PUBLIC_RELATION") {
       return;
     }
 
-    if (!isAtBota && saleProductMode === "BOTTLE") {
-      setSaleProductMode("LOOSE");
-    }
-  }, [isAtBota, saleProductMode, options, isReadOnly]);
+    const lpoIds = new Set(
+      options.looseProducts
+        .filter((product) => product.isMain)
+        .map((product) => String(product.productId)),
+    );
+    setLines((current) => {
+      const next = current.filter((line) => lpoIds.has(line.productId));
+      return next.length === current.length ? current : next;
+    });
+  }, [options, isFormEditable, isBottleVariant, saleDisposition]);
 
   useEffect(() => {
-    if (!options || isReadOnly) {
+    if (!options || !isFormEditable || !isBottleVariant) {
+      return;
+    }
+
+    if (options.botaSalesPointId != null) {
+      setSalesPointId(String(options.botaSalesPointId));
+    }
+  }, [options, isFormEditable, isBottleVariant]);
+
+  useEffect(() => {
+    if (!options || !isFormEditable || saleId != null) {
+      return;
+    }
+
+    if (
+      !isBottleVariant &&
+      saleDisposition === "PUBLIC_RELATION" &&
+      !options.looseSalesAllowPublicRelation
+    ) {
+      setSaleDisposition("NORMAL");
+    }
+  }, [
+    options,
+    isFormEditable,
+    isBottleVariant,
+    saleId,
+    saleDisposition,
+  ]);
+
+  useEffect(() => {
+    if (!options || !isFormEditable || isBottleVariant || saleId != null) {
+      return;
+    }
+
+    if (saleDisposition === "RATION" || saleDisposition === "PUBLIC_RELATION") {
+      setUseRegisteredCustomer(false);
+      return;
+    }
+
+    const next = defaultUseRegisteredCustomer(options, false);
+    setUseRegisteredCustomer(next);
+    if (next) {
+      setInvoiceCustomerName("");
+    } else {
+      setCustomerId("");
+      setDeliveryOrderNo("");
+      setDoLinePrefill(null);
+    }
+  }, [options, isFormEditable, isBottleVariant, saleId, saleDisposition]);
+
+  useEffect(() => {
+    if (!options || !isFormEditable || !isBottleVariant || saleId != null) {
+      return;
+    }
+
+    if (saleDisposition === "RATION" || saleDisposition === "PUBLIC_RELATION") {
+      if (saleDisposition === "RATION" && !options.bottleOilAllowRation) {
+        setSaleDisposition("NORMAL");
+        return;
+      }
+      setUseRegisteredCustomer(false);
+      return;
+    }
+
+    setUseRegisteredCustomer(defaultUseRegisteredCustomer(options, true));
+    if (!options.bottleOilUseRegisteredCustomers) {
+      setCustomerId("");
+    }
+  }, [options, isFormEditable, isBottleVariant, saleId, saleDisposition]);
+
+  useEffect(() => {
+    if (!options || !isFormEditable) {
       return;
     }
 
@@ -509,26 +625,28 @@ export function SalesClient({
           : String(activeProducts[0]?.productId ?? ""),
       })),
     );
-  }, [isBottleMode, salesPointId, options, isReadOnly, activeProducts.length]);
+  }, [isBottleMode, salesPointId, options, isFormEditable, activeProducts.length]);
 
   function resetNew() {
     if (!options) {
       return;
     }
 
-    const hasCustomers = options.customers.length > 0;
-
     setSaleId(null);
     setInvoiceNo("");
+    setConfirmedInvoiceNo(null);
     setSaleStatus(null);
     setValidatedByName("");
-    setLookupNo("");
     setPrintOpen(false);
-    setUseRegisteredCustomer(hasCustomers);
+    setUseRegisteredCustomer(defaultUseRegisteredCustomer(options, isBottleVariant));
     setCustomerId("");
     setInvoiceCustomerName("");
-    setSalesPointId("");
-    setSaleProductMode("LOOSE");
+    setSalesPointId(
+      isBottleVariant && options.botaSalesPointId != null
+        ? String(options.botaSalesPointId)
+        : "",
+    );
+    setSaleProductMode(defaultProductMode);
     setSaleDisposition("NORMAL");
     setReferenceNumber("");
     setDeliveryOrderNo("");
@@ -562,7 +680,7 @@ export function SalesClient({
   }
 
   function openAddLineModal() {
-    if (!options) {
+    if (!options || !isFormEditable) {
       return;
     }
 
@@ -604,11 +722,68 @@ export function SalesClient({
     );
   }
 
-  async function loadSale(rawNo?: string) {
-    const invoice = (rawNo ?? lookupNo).trim();
+  function populateSaleFromLoaded(sale: LoadedSaleView) {
+    setSaleId(sale.id);
+    setInvoiceNo(sale.invoiceNo);
+    setConfirmedInvoiceNo(sale.invoiceNo);
+    setSaleStatus(sale.status);
+    setValidatedByName(sale.validatedByName ?? "");
+    const registered = sale.customerId != null;
+    setUseRegisteredCustomer(registered);
+    setCustomerId(registered ? String(sale.customerId) : "");
+    setInvoiceCustomerName(registered ? "" : sale.customerName);
+    setSalesPointId(
+      sale.salesPointId != null ? String(sale.salesPointId) : "",
+    );
+    setSaleProductMode(sale.saleProductMode ?? "LOOSE");
+    setSaleDisposition(sale.saleDisposition ?? "NORMAL");
+    setReferenceNumber(sale.referenceNumber ?? "");
+    setDeliveryOrderNo(sale.deliveryOrderNo ?? "");
+    setDoLinePrefill(null);
+    setVehicleNumber(sale.vehicleNumber);
+    setTransactionDate(sale.dateIssuedIso.slice(0, 10));
+    setLines(
+      sale.lines.map((line) => ({
+        productId: String(line.productId),
+        qtyKg: line.qtyKg,
+        qtyUnits: line.qtyUnits ?? line.qtyKg,
+        unitPricePerKg: line.unitPricePerKg,
+        unitPricePerUnit: line.unitPricePerUnit ?? line.unitPricePerKg,
+        storageLocationId: line.storageLocationId
+          ? String(line.storageLocationId)
+          : "",
+      })),
+    );
+    setPayments(
+      sale.payments.length > 0
+        ? sale.payments.map((payment) => ({
+            paymentMethodId: payment.paymentMethodId,
+            amount: payment.amount,
+            chequeNo: payment.chequeNo ?? "",
+            bank: payment.bank ?? "",
+          }))
+        : [
+            {
+              paymentMethodId: defaultPaymentMethodId(
+                options?.paymentMethods ?? [],
+              ),
+              amount: "0",
+            },
+          ],
+    );
+    setLineModal(null);
+  }
+
+  async function loadSale(
+    rawNo?: string,
+    loadOptions?: { notFoundMode?: "error" | "silent" },
+  ) {
+    const invoice = (rawNo ?? invoiceNo).trim();
     if (!invoice) {
       return;
     }
+
+    const notFoundMode = loadOptions?.notFoundMode ?? "error";
 
     setBusy("load");
     setBanner(null);
@@ -616,59 +791,31 @@ export function SalesClient({
     try {
       const sale = await getElectronApi().sales.loadSaleByInvoiceNo(invoice);
       if (!sale) {
-        setBanner({ type: "error", text: "Invoice not found." });
+        if (notFoundMode === "error") {
+          setBanner({ type: "error", text: "Invoice not found." });
+        } else {
+          setSaleId(null);
+          setSaleStatus(null);
+          setValidatedByName("");
+          setConfirmedInvoiceNo(invoice);
+        }
         return;
       }
 
-      setSaleId(sale.id);
-      setInvoiceNo(sale.invoiceNo);
-      setSaleStatus(sale.status);
-      setValidatedByName(sale.validatedByName ?? "");
-      setLookupNo(sale.invoiceNo);
-      const registered = sale.customerId != null;
-      setUseRegisteredCustomer(registered);
-      setCustomerId(registered ? String(sale.customerId) : "");
-      setInvoiceCustomerName(registered ? "" : sale.customerName);
-      setSalesPointId(
-        sale.salesPointId != null ? String(sale.salesPointId) : "",
-      );
-      setSaleProductMode(sale.saleProductMode ?? "LOOSE");
-      setSaleDisposition(sale.saleDisposition ?? "NORMAL");
-      setReferenceNumber(sale.referenceNumber ?? "");
-      setDeliveryOrderNo(sale.deliveryOrderNo ?? "");
-      setDoLinePrefill(null);
-      setVehicleNumber(sale.vehicleNumber);
-      setTransactionDate(sale.dateIssuedIso.slice(0, 10));
-      setLines(
-        sale.lines.map((line) => ({
-          productId: String(line.productId),
-          qtyKg: line.qtyKg,
-          qtyUnits: line.qtyUnits ?? line.qtyKg,
-          unitPricePerKg: line.unitPricePerKg,
-          unitPricePerUnit: line.unitPricePerUnit ?? line.unitPricePerKg,
-          storageLocationId: line.storageLocationId
-            ? String(line.storageLocationId)
-            : "",
-        })),
-      );
-      setPayments(
-        sale.payments.length > 0
-          ? sale.payments.map((payment) => ({
-              paymentMethodId: payment.paymentMethodId,
-              amount: payment.amount,
-              chequeNo: payment.chequeNo ?? "",
-              bank: payment.bank ?? "",
-            }))
-          : [
-              {
-                paymentMethodId: defaultPaymentMethodId(
-                  options?.paymentMethods ?? [],
-                ),
-                amount: "0",
-              },
-            ],
-      );
-      setLineModal(null);
+      const loadedMode = sale.saleProductMode ?? "LOOSE";
+      const expectedMode = defaultProductMode;
+      if (loadedMode !== expectedMode) {
+        setBanner({
+          type: "error",
+          text:
+            expectedMode === "BOTTLE"
+              ? "This is a loose-product invoice. Open it on Sales Invoicing."
+              : "This is a Bottle Oil invoice. Open it on Bottle Oil sales.",
+        });
+        return;
+      }
+
+      populateSaleFromLoaded(sale);
     } catch (error) {
       setBanner({
         type: "error",
@@ -678,6 +825,20 @@ export function SalesClient({
     } finally {
       setBusy(null);
     }
+  }
+
+  async function tryLoadInvoiceOnEnter() {
+    if (busy !== null || saleId || !invoiceNo.trim()) {
+      return;
+    }
+
+    const validation = validateBookletSerial(invoiceNo);
+    if (validation.ok === false) {
+      setBanner({ type: "error", text: validation.error });
+      return;
+    }
+
+    await loadSale(undefined, { notFoundMode: "silent" });
   }
 
   function linkDeliveryOrder(
@@ -720,6 +881,10 @@ export function SalesClient({
   }
 
   async function lookupDo() {
+    if (!isFormEditable) {
+      return;
+    }
+
     const trimmed = deliveryOrderNo.trim();
     const spId = Number.parseInt(salesPointId, 10);
 
@@ -767,7 +932,7 @@ export function SalesClient({
     if (!Number.isFinite(spId) || !Number.isFinite(custId)) {
       setBanner({
         type: "error",
-        text: "Select a sales point and customer before picking a delivery order.",
+        text: "Select a collection point and customer before picking a delivery order.",
       });
       return;
     }
@@ -812,12 +977,20 @@ export function SalesClient({
     }
   }
 
-  async function saveSale() {
+  async function saveSale(validateImmediately = false) {
     if (!options) {
       return;
     }
+    if (validateImmediately && !canDirectValidate) {
+      return;
+    }
 
-    setBusy("save");
+    if (!isSpecialDisposition && paymentsMissingMethod(payments)) {
+      setBanner({ type: "error", text: "Select a payment method." });
+      return;
+    }
+
+    setBusy(validateImmediately ? "validate" : "save");
     setBanner(null);
 
     try {
@@ -830,6 +1003,7 @@ export function SalesClient({
       const result = await getElectronApi().sales.createSale({
         userId: user.id,
         invoiceNo,
+        validateImmediately: validateImmediately || undefined,
         customerId: useRegisteredCustomer
           ? Number.parseInt(customerId, 10)
           : null,
@@ -847,7 +1021,7 @@ export function SalesClient({
           deliveryOrderNo.trim()
             ? deliveryOrderNo.trim()
             : undefined,
-        saleProductMode: isAtBota ? saleProductMode : "LOOSE",
+        saleProductMode: defaultProductMode,
         saleDisposition,
         lines: filteredLines.map((line) => ({
           productId: Number.parseInt(line.productId, 10),
@@ -878,9 +1052,10 @@ export function SalesClient({
 
       setBanner({
         type: "ok",
-        text: `Sale saved as ${result.invoiceNo}.`,
+        text: validateImmediately
+          ? `Invoice ${result.invoiceNo} validated.`
+          : `Sale saved as ${result.invoiceNo}.`,
       });
-      setPendingSales(await getElectronApi().sales.listPendingSales());
       await loadSale(result.invoiceNo);
     } catch (error) {
       setBanner({
@@ -912,7 +1087,6 @@ export function SalesClient({
 
       setBanner({ type: "ok", text: "Invoice validated." });
       await loadSale(invoiceNo);
-      setPendingSales(await getElectronApi().sales.listPendingSales());
     } catch (error) {
       setBanner({
         type: "error",
@@ -951,7 +1125,6 @@ export function SalesClient({
 
       setBanner({ type: "ok", text: "Invoice deleted." });
       resetNew();
-      setPendingSales(await getElectronApi().sales.listPendingSales());
     } catch (error) {
       setBanner({
         type: "error",
@@ -982,9 +1155,16 @@ export function SalesClient({
   }
 
   const setupRequired =
-    (options.looseProducts.length === 0 &&
-      options.bottledProducts.length === 0) ||
-    options.paymentMethods.length === 0;
+    (isBottleVariant
+      ? options.bottledProducts.length === 0
+      : options.looseProducts.length === 0) ||
+    options.paymentMethods.length === 0 ||
+    (isBottleVariant &&
+      options.bottleOilUseRegisteredCustomers &&
+      options.customers.length === 0) ||
+    (!isBottleVariant &&
+      !options.looseSalesAllowUnregisteredCustomer &&
+      options.customers.length === 0);
 
   const vehicleRequired = !isBottleMode && !isSpecialDisposition;
   const showDeliveryOrders =
@@ -996,23 +1176,47 @@ export function SalesClient({
       ? customerId.trim().length > 0
       : invoiceCustomerName.trim().length > 0;
   const canSave =
+    isFormEditable &&
     busy === null &&
     hasCustomer &&
     isValidBookletSerial(invoiceNo) &&
     (!vehicleRequired || vehicleNumber.trim()) &&
-    (isSpecialDisposition || totals.paid === totals.gross);
+    (isSpecialDisposition ||
+      (totals.paid === totals.gross && !paymentsMissingMethod(payments)));
+  const canDirectValidate = isBottleVariant
+    ? options.canDirectValidateBottled
+    : options.canDirectValidateLoose;
 
   if (setupRequired) {
     return (
       <div class="sales-setup">
         <h3>Setup required</h3>
         <ul>
-          {options.looseProducts.length === 0 &&
-          options.bottledProducts.length === 0 ? (
-            <li>Add at least one product.</li>
+          {(isBottleVariant
+            ? options.bottledProducts.length === 0
+            : options.looseProducts.length === 0) ? (
+            <li>
+              Add at least one {isBottleVariant ? "bottled" : "loose"} product.
+            </li>
           ) : null}
           {options.paymentMethods.length === 0 ? (
             <li>Activate at least one payment method.</li>
+          ) : null}
+          {isBottleVariant &&
+          options.bottleOilUseRegisteredCustomers &&
+          options.customers.length === 0 ? (
+            <li>
+              Add at least one customer, or turn off “Use registered customers”
+              under App settings → Bottle Oil sales.
+            </li>
+          ) : null}
+          {!isBottleVariant &&
+          !options.looseSalesAllowUnregisteredCustomer &&
+          options.customers.length === 0 ? (
+            <li>
+              Add at least one customer, or turn on “Use unregistered customer”
+              under App settings → Loose sales.
+            </li>
           ) : null}
         </ul>
         <p class="sales-muted">
@@ -1023,7 +1227,7 @@ export function SalesClient({
   }
 
   return (
-    <div class="sales-client">
+    <div class="sales-client sales-client-compact">
       {printOpen && saleId ? (
         <SalePrintView saleId={saleId} onClose={() => setPrintOpen(false)} />
       ) : null}
@@ -1033,84 +1237,6 @@ export function SalesClient({
           {banner.text}
         </div>
       ) : null}
-
-      <div class="sales-panel">
-        <div class="sales-panel-header">
-          <div>
-            <h3>Open existing invoice</h3>
-            <p class="sales-muted">
-              Enter the invoice number to load the full document, or pick a
-              pending invoice.
-            </p>
-          </div>
-          <button
-            type="button"
-            class="sales-btn-secondary"
-            onClick={onOpenList}
-          >
-            View all invoices
-          </button>
-        </div>
-
-        <div class="sales-lookup-row">
-          <label class="sales-field sales-field-grow">
-            <span>Invoice no.</span>
-            <div class="sales-lookup-input-wrap">
-              <input
-                type="text"
-                value={lookupNo}
-                disabled={busy !== null}
-                placeholder="12345"
-                onInput={(event) =>
-                  setLookupNo((event.currentTarget as HTMLInputElement).value)
-                }
-              />
-              {pendingSales.length > 0 ? (
-                <button
-                  type="button"
-                  class="sales-pending-toggle"
-                  onClick={() => setPendingOpen((open) => !open)}
-                >
-                  {pendingSales.length} pending {pendingOpen ? "▴" : "▾"}
-                </button>
-              ) : null}
-            </div>
-            {pendingOpen ? (
-              <ul class="sales-pending-list">
-                {pendingSales.map((pending) => (
-                  <li key={pending.invoiceNo}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLookupNo(pending.invoiceNo);
-                        setPendingOpen(false);
-                        void loadSale(pending.invoiceNo);
-                      }}
-                    >
-                      <strong>{pending.invoiceNo}</strong>
-                      <span>
-                        {pending.customerName} · {formatDisplayDate(pending.soldAtIso)}
-                        {pending.totalLabel ? ` · ${pending.totalLabel}` : ""}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </label>
-          <button
-            type="button"
-            class="sales-btn-primary"
-            disabled={busy !== null || !lookupNo.trim()}
-            onClick={() => void loadSale()}
-          >
-            {busy === "load" ? "Loading…" : "Load"}
-          </button>
-          <button type="button" class="sales-btn-secondary" onClick={resetNew}>
-            New sale
-          </button>
-        </div>
-      </div>
 
       <section class="sales-panel">
         <div class="sales-invoice-header">
@@ -1124,93 +1250,116 @@ export function SalesClient({
                 "—"
               )}
               {validatedByName ? ` · validated by ${validatedByName}` : ""}
-              {saleProductMode === "BOTTLE" ? " · Bottle mode" : ""}
+              {isBottleVariant || saleProductMode === "BOTTLE"
+                ? " · Bottle mode"
+                : ""}
               {saleDisposition !== "NORMAL"
                 ? ` · ${saleDisposition.replace("_", " ")}`
                 : ""}
             </p>
           </div>
-          {saleId ? (
-            <div class="sales-invoice-no">{invoiceNo}</div>
-          ) : (
-            <label class="sales-field sales-invoice-no-field">
-              <span>Booklet serial no.</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="\\d*"
-                value={invoiceNo}
-                placeholder="12345"
-                onInput={(event) =>
-                  setInvoiceNo((event.currentTarget as HTMLInputElement).value)
-                }
-              />
-            </label>
-          )}
+          <div class="sales-invoice-header-end">
+            <div class="sales-invoice-header-controls">
+              {saleId ? (
+                <div class="sales-invoice-no">{invoiceNo}</div>
+              ) : (
+                <label class="sales-field sales-invoice-no-field">
+                 {/*  <span>Booklet serial no.</span> */}
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="\\d*"
+                    value={invoiceNo}
+                    placeholder="Invoice No."
+                    disabled={busy !== null}
+                    onInput={(event) =>
+                      setInvoiceNo(
+                        (event.currentTarget as HTMLInputElement).value,
+                      )
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void tryLoadInvoiceOnEnter();
+                      }
+                    }}
+                  />
+                </label>
+              )}
+              <div class="sales-invoice-header-actions">
+                <button
+                  type="button"
+                  class="sales-btn-secondary"
+                  onClick={onOpenList}
+                >
+                  View all invoices
+                </button>
+                {saleId ? (
+                  <button
+                    type="button"
+                    class="sales-btn-secondary"
+                    disabled={busy !== null}
+                    onClick={resetNew}
+                  >
+                    New sale
+                  </button>
+                ) : null}
+              </div>
+            </div>
+            {isAwaitingInvoice ? (
+              <p class="sales-hint sales-invoice-serial-hint">
+                Enter invoice no. and press Enter to continue.
+              </p>
+            ) : null}
+          </div>
         </div>
 
-        <div class="sales-invoice-form">
+        <div
+          class={`sales-invoice-form${isAwaitingInvoice ? " sales-form-locked" : ""}`}
+        >
           <div class="sales-invoice-grid">
             <div class="sales-invoice-options sales-field-span-full">
-              <fieldset class="sales-checkbox-group" disabled={isReadOnly}>
+              <fieldset class="sales-checkbox-group" disabled={!isFormEditable}>
                 <legend>Disposition</legend>
-                <label class="sales-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={saleDisposition === "RATION"}
-                    disabled={isReadOnly}
-                    onChange={(event) =>
-                      setSaleDisposition(
-                        (event.currentTarget as HTMLInputElement).checked
-                          ? "RATION"
-                          : "NORMAL",
-                      )
-                    }
-                  />
-                  Ration
-                </label>
-                <label class="sales-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={saleDisposition === "PUBLIC_RELATION"}
-                    disabled={isReadOnly}
-                    onChange={(event) =>
-                      setSaleDisposition(
-                        (event.currentTarget as HTMLInputElement).checked
-                          ? "PUBLIC_RELATION"
-                          : "NORMAL",
-                      )
-                    }
-                  />
-                  Public relation
-                </label>
-              </fieldset>
-
-              {isAtBota ? (
-                <fieldset class="sales-checkbox-group" disabled={isReadOnly}>
-                  <legend>Product mode (BOTA)</legend>
+                {!isBottleVariant || options.bottleOilAllowRation ? (
                   <label class="sales-checkbox">
                     <input
                       type="checkbox"
-                      checked={saleProductMode === "BOTTLE"}
-                      disabled={isReadOnly}
+                      checked={saleDisposition === "RATION"}
+                      disabled={!isFormEditable}
                       onChange={(event) =>
-                        setSaleProductMode(
+                        setSaleDisposition(
                           (event.currentTarget as HTMLInputElement).checked
-                            ? "BOTTLE"
-                            : "LOOSE",
+                            ? "RATION"
+                            : "NORMAL",
                         )
                       }
                     />
-                    Bottle (units)
+                    Ration
                   </label>
-                  <span class="sales-muted sales-checkbox-hint">
-                    {saleProductMode === "BOTTLE"
-                      ? "Tax-inclusive pricing"
-                      : "Loose (kg)"}
-                  </span>
-                </fieldset>
+                ) : null}
+                {isBottleVariant || options.looseSalesAllowPublicRelation ? (
+                  <label class="sales-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={saleDisposition === "PUBLIC_RELATION"}
+                      disabled={!isFormEditable}
+                      onChange={(event) =>
+                        setSaleDisposition(
+                          (event.currentTarget as HTMLInputElement).checked
+                            ? "PUBLIC_RELATION"
+                            : "NORMAL",
+                        )
+                      }
+                    />
+                    Public relation
+                  </label>
+                ) : null}
+              </fieldset>
+              {!isBottleVariant && isSpecialDisposition ? (
+                <p class="sales-hint">Limited to Loose Palm Oil.</p>
               ) : null}
+
             </div>
 
             <label class="sales-field">
@@ -1220,14 +1369,14 @@ export function SalesClient({
                 value={transactionDate}
                 min={postingPeriod?.startDate}
                 max={postingPeriod?.endDate}
-                disabled={isReadOnly || !postingPeriod}
+                disabled={!isFormEditable || !postingPeriod}
                 onInput={(event) =>
                   setTransactionDate(
                     (event.currentTarget as HTMLInputElement).value,
                   )
                 }
               />
-              {!postingPeriod ? (
+              {/* {!postingPeriod ? (
                 <span class="sales-muted sales-checkbox-hint">
                   Open a financial month before posting.
                 </span>
@@ -1235,20 +1384,23 @@ export function SalesClient({
                 <span class="sales-muted sales-checkbox-hint">
                   Open month: {postingPeriod.monthName} {postingPeriod.financialYear}
                 </span>
-              )}
+              )} */}
             </label>
 
             <label class="sales-field">
-              <span>Sales point</span>
+              <span>Collection point</span>
               <select
                 value={salesPointId}
-                disabled={isReadOnly}
+                disabled={
+                  !isFormEditable ||
+                  (isBottleVariant && options.botaSalesPointId != null)
+                }
                 onChange={(event) => {
                   const next = (event.currentTarget as HTMLSelectElement).value;
                   setSalesPointId(next);
                 }}
               >
-                <option value="">Select sales point</option>
+                <option value="">Select collection point</option>
                 {options.salesPoints.map((point) => (
                   <option key={point.id} value={String(point.id)}>
                     {point.name}
@@ -1258,11 +1410,11 @@ export function SalesClient({
             </label>
 
             <label class="sales-field">
-              <span>Reference no. (optional)</span>
+              <span>Ref.no. (optional)</span>
               <input
                 type="text"
                 value={referenceNumber}
-                disabled={isReadOnly}
+                disabled={!isFormEditable}
                 onInput={(event) =>
                   setReferenceNumber(
                     (event.currentTarget as HTMLInputElement).value,
@@ -1271,36 +1423,24 @@ export function SalesClient({
               />
             </label>
 
-            {!isReadOnly &&
-            !isSpecialDisposition &&
-            options.customers.length > 0 ? (
-              <label class="sales-field sales-field-span-full">
-                <span class="sales-checkbox-inline">
-                  <input
-                    type="checkbox"
-                    checked={useRegisteredCustomer}
-                    onChange={(event) => {
-                      const checked = (event.currentTarget as HTMLInputElement)
-                        .checked;
-                      setUseRegisteredCustomer(checked);
-                      if (checked) {
-                        setCustomerId("");
-                        setInvoiceCustomerName("");
-                      } else {
-                        setCustomerId("");
-                        setInvoiceCustomerName("");
-                        setDeliveryOrderNo("");
-                        setDoLinePrefill(null);
-                      }
-                    }}
-                  />
-                  Registered customer (from directory)
-                </span>
+            {vehicleRequired ? (
+              <label class="sales-field">
+                <span>Veh. Consign. #</span>
+                <input
+                  type="text"
+                  value={vehicleNumber}
+                  disabled={!isFormEditable}
+                  onInput={(event) =>
+                    setVehicleNumber(
+                      (event.currentTarget as HTMLInputElement).value,
+                    )
+                  }
+                />
               </label>
             ) : null}
 
             <label
-              class={`sales-field${vehicleRequired ? " sales-field-span-2" : " sales-field-span-full"}`}
+              class={`sales-field${showDeliveryOrders ? " sales-field-span-2" : " sales-field-span-full"}`}
             >
               <span>Customer</span>
               {isInvoiceOnlyCustomer ? (
@@ -1308,7 +1448,7 @@ export function SalesClient({
                   <input
                     type="text"
                     value={invoiceCustomerName}
-                    disabled={isReadOnly}
+                    disabled={!isFormEditable}
                     placeholder="Customer name on invoice"
                     onInput={(event) =>
                       setInvoiceCustomerName(
@@ -1324,7 +1464,7 @@ export function SalesClient({
                 <>
                   <select
                     value={customerId}
-                    disabled={isReadOnly}
+                    disabled={!isFormEditable}
                     onChange={(event) =>
                       setCustomerId(
                         (event.currentTarget as HTMLSelectElement).value,
@@ -1338,7 +1478,12 @@ export function SalesClient({
                       </option>
                     ))}
                   </select>
-                  <span class="sales-hint">
+                  {isBottleVariant ? (
+                    <span class="sales-hint">
+                      Directory customer required (App settings)
+                    </span>
+                  ) : null}
+                 {/*  <span class="sales-hint">
                     Regime: {customer?.taxRegimeName ?? "—"}
                     {!skipTax && taxProfile?.vatApplies
                       ? " · VAT applies"
@@ -1346,34 +1491,19 @@ export function SalesClient({
                     {!skipTax && taxProfile
                       ? ` · Sales tax ${(taxProfile.salesTaxRate * 100).toFixed(0)}%`
                       : ""}
-                  </span>
+                  </span> */}
                 </>
               )}
             </label>
 
-            {vehicleRequired ? (
-              <label class="sales-field">
-                <span>Vehicle number</span>
-                <input
-                  type="text"
-                  value={vehicleNumber}
-                  disabled={isReadOnly}
-                  onInput={(event) =>
-                    setVehicleNumber(
-                      (event.currentTarget as HTMLInputElement).value,
-                    )
-                  }
-                />
-              </label>
-            ) : null}
             {showDeliveryOrders ? (
-              <label class="sales-field sales-field-span-full">
+              <label class="sales-field sales-field-span-2 sales-field-do">
                 <span>Delivery order no. (optional)</span>
                 <div class="sales-do-row">
                   <input
                     type="text"
                     value={deliveryOrderNo}
-                    disabled={isReadOnly}
+                    disabled={!isFormEditable}
                     placeholder="DO-2026-000001"
                     onInput={(event) => {
                       setDeliveryOrderNo(
@@ -1382,12 +1512,16 @@ export function SalesClient({
                       setDoLinePrefill(null);
                     }}
                   />
-                  {!isReadOnly ? (
+                  {isFormEditable ? (
                     <>
                       <button
                         type="button"
                         class="sales-btn-secondary sales-do-btn"
-                        disabled={busy !== null || !deliveryOrderNo.trim()}
+                        disabled={
+                          busy !== null ||
+                          !isFormEditable ||
+                          !deliveryOrderNo.trim()
+                        }
                         onClick={() => void lookupDo()}
                       >
                         {busy === "do-lookup" ? "…" : "Lookup"}
@@ -1396,7 +1530,7 @@ export function SalesClient({
                         <button
                           type="button"
                           class="sales-btn-secondary sales-do-btn"
-                          disabled={busy !== null}
+                          disabled={busy !== null || !isFormEditable}
                           onClick={() => setDoPickerOpen((open) => !open)}
                         >
                           Pick DO {doPickerOpen ? "▴" : "▾"}
@@ -1411,7 +1545,7 @@ export function SalesClient({
                       <li key={`${row.deliveryOrderNo}:${row.productId}`}>
                         <button
                           type="button"
-                          disabled={busy !== null}
+                          disabled={busy !== null || !isFormEditable}
                           onClick={() =>
                             void selectDeliveryOrder(
                               row.deliveryOrderNo,
@@ -1439,16 +1573,17 @@ export function SalesClient({
         </div>
       </section>
 
-      <section class="sales-panel sales-items-panel">
+      <section
+        class={`sales-panel sales-items-panel${isAwaitingInvoice ? " sales-panel-locked" : ""}`}
+      >
         <div class="sales-section-header">
           <div>
-            <h3>Items</h3>
-            <p class="sales-muted">
-              {lines.length} line{lines.length === 1 ? "" : "s"} ·{" "}
+            <h3>
+              Items · {lines.length} line{lines.length === 1 ? "" : "s"} ·{" "}
               {formatAmount(itemsSubtotal)} XAF subtotal
-            </p>
+            </h3>
           </div>
-          {!isReadOnly ? (
+          {isFormEditable ? (
             <button
               type="button"
               class="sales-btn-secondary"
@@ -1473,7 +1608,7 @@ export function SalesClient({
                   {isBottleMode ? "Price / unit" : "Price / kg"}
                 </th>
                 <th class="sales-num">Amount (XAF)</th>
-                {!isReadOnly ? (
+                {isFormEditable ? (
                   <th class="sales-items-col-actions">Actions</th>
                 ) : null}
               </tr>
@@ -1491,17 +1626,10 @@ export function SalesClient({
                     <span>
                       {isReadOnly
                         ? "This invoice has no line items."
-                        : "Use Add line to enter products for this sale."}
+                        : isAwaitingInvoice
+                          ? "Enter invoice no. and press Enter to add items."
+                          : "Use Add line to enter products for this sale."}
                     </span>
-                    {!isReadOnly ? (
-                      <button
-                        type="button"
-                        class="sales-btn-primary"
-                        onClick={openAddLineModal}
-                      >
-                        Add first item
-                      </button>
-                    ) : null}
                   </td>
                 </tr>
               ) : (
@@ -1545,7 +1673,7 @@ export function SalesClient({
                       <td class="sales-num sales-strong">
                         {formatAmount(subtotal)}
                       </td>
-                      {!isReadOnly ? (
+                      {isFormEditable ? (
                         <td class="sales-items-col-actions">
                           <div class="sales-items-actions">
                             <button
@@ -1635,16 +1763,18 @@ export function SalesClient({
       </section>
 
       {showPayments ? (
-        <section class="sales-panel sales-payments-panel">
+        <section
+          class={`sales-panel sales-payments-panel${isAwaitingInvoice ? " sales-panel-locked" : ""}`}
+        >
           <div class="sales-section-header">
             <div>
-              <h3>Payments</h3>
-              <p class="sales-muted">
-                {payments.length} payment{payments.length === 1 ? "" : "s"} ·{" "}
-                {formatAmount(totals.paid)} XAF paid
-              </p>
+              <h3>
+                Payments · {payments.length} payment
+                {payments.length === 1 ? "" : "s"} · {formatAmount(totals.paid)}{" "}
+                XAF paid
+              </h3>
             </div>
-            {!isReadOnly ? (
+            {isFormEditable ? (
               <button
                 type="button"
                 class="sales-btn-secondary"
@@ -1681,6 +1811,7 @@ export function SalesClient({
                       ) : (
                         <select
                           value={payment.paymentMethodId}
+                          disabled={!isFormEditable}
                           onChange={(event) =>
                             setPayments((current) =>
                               current.map((item, i) =>
@@ -1719,6 +1850,7 @@ export function SalesClient({
                           type="text"
                           inputMode="numeric"
                           value={formatAmountInput(payment.amount)}
+                          disabled={!isFormEditable}
                           onInput={(event) =>
                             setPayments((current) =>
                               current.map((item, i) =>
@@ -1749,7 +1881,7 @@ export function SalesClient({
                         <input
                           type="text"
                           value={payment.chequeNo ?? ""}
-                          disabled={!isCheque}
+                          disabled={!isFormEditable || !isCheque}
                           placeholder={isCheque ? "Cheque number" : "—"}
                           onInput={(event) =>
                             setPayments((current) =>
@@ -1779,7 +1911,7 @@ export function SalesClient({
                         <input
                           type="text"
                           value={payment.bank ?? ""}
-                          disabled={!bankEnabled}
+                          disabled={!isFormEditable || !bankEnabled}
                           placeholder={bankEnabled ? "Bank name" : "—"}
                           onInput={(event) =>
                             setPayments((current) =>
@@ -1800,7 +1932,7 @@ export function SalesClient({
                     </label>
                   </div>
 
-                  {!isReadOnly ? (
+                  {isFormEditable ? (
                     <button
                       type="button"
                       class="sales-btn-secondary sales-payment-remove"
@@ -1822,12 +1954,31 @@ export function SalesClient({
       ) : null}
 
       <div class="sales-actions">
-        {!isReadOnly ? (
+        {isFormEditable && canDirectValidate ? (
+          <>
+            <button
+              type="button"
+              class="sales-btn-primary"
+              disabled={!canSave || busy !== null}
+              onClick={() => void saveSale(true)}
+            >
+              {busy === "validate" ? "Validating…" : "Validate invoice"}
+            </button>
+            <button
+              type="button"
+              class="sales-btn-secondary"
+              disabled={!canSave || busy !== null}
+              onClick={() => void saveSale(false)}
+            >
+              {busy === "save" ? "Saving…" : "Save as pending"}
+            </button>
+          </>
+        ) : isFormEditable ? (
           <button
             type="button"
             class="sales-btn-primary"
             disabled={!canSave}
-            onClick={() => void saveSale()}
+            onClick={() => void saveSale(false)}
           >
             {busy === "save" ? "Saving…" : "Save sale (create invoice)"}
           </button>
@@ -1885,6 +2036,9 @@ export function SalesClient({
           useRegisteredCustomer={useRegisteredCustomer}
           customerId={customerId}
           transactionDate={transactionDate}
+          loosePalmOilRequireSalesTank={
+            options?.loosePalmOilRequireSalesTank ?? true
+          }
           mode={lineModal.mode}
           onClose={() => setLineModal(null)}
           onSave={saveLineModal}

@@ -77,7 +77,7 @@ function ReportDocument({ report }: { report: BinCardReport }) {
           <span class="scr-meta-label">UOM:</span> {report.uom}
         </p>
         <p>
-          <span class="scr-meta-label">Sales point:</span>{" "}
+          <span class="scr-meta-label">Collection point:</span>{" "}
           {report.salesPointLabel}
         </p>
         <p>

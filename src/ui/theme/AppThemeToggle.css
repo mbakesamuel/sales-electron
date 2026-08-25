@@ -1,0 +1,56 @@
+.app-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-soft);
+}
+
+.app-theme-toggle-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.app-theme-toggle-option:hover:not(:disabled) {
+  background: var(--bg-elevated);
+  color: var(--text-h);
+}
+
+.app-theme-toggle-option.is-active {
+  border-color: var(--border-strong);
+  background: var(--bg-elevated);
+  color: var(--text-h);
+}
+
+.app-theme-toggle-option:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.app-theme-toggle-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid rgb(0 0 0 / 12%);
+  flex-shrink: 0;
+}
+
+html[data-theme="dark"] .app-theme-toggle-dot {
+  border-color: rgb(255 255 255 / 18%);
+}

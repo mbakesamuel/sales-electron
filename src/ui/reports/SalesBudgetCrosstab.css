@@ -26,9 +26,10 @@
 }
 
 .sbc-year-btn {
-  border: 1px solid var(--border-strong, var(--border, #d4d4d8));
+  border: 1px solid #d4d4d8;
   border-radius: 8px;
-  background: var(--bg-elevated, transparent);
+  background: #ffffff;
+  color: #111827;
   padding: 6px 10px;
   font: inherit;
   font-size: 13px;
@@ -37,13 +38,13 @@
 }
 
 .sbc-year-btn.is-active {
-  border-color: var(--accent-border, color-mix(in srgb, currentColor 25%, transparent));
-  background: var(--accent-bg, color-mix(in srgb, currentColor 8%, transparent));
+  border-color: #2f7d32;
+  background: #ecfdf5;
   font-weight: 600;
 }
 
 .sbc-year-btn:hover {
-  background: var(--nav-hover, color-mix(in srgb, currentColor 6%, transparent));
+  background: #f3f4f6;
 }
 
 .sbc-actions {
@@ -56,11 +57,11 @@
   margin: 0;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--text-muted, inherit);
+  color: #6b7280;
 }
 
 .sbc-intro strong {
-  color: var(--text-h, inherit);
+  color: #111827;
   font-weight: 600;
 }
 
@@ -68,7 +69,7 @@
   margin: 4px 0 0;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-  color: var(--text-muted, inherit);
+  color: #6b7280;
 }
 
 .sbc-link-btn {
@@ -77,7 +78,7 @@
   padding: 0;
   font: inherit;
   font-size: inherit;
-  color: var(--accent, inherit);
+  color: #2563eb;
   text-decoration: underline;
   cursor: pointer;
 }
@@ -85,19 +86,22 @@
 .sbc-empty {
   margin: 0;
   font-size: 13px;
-  color: var(--text-muted, inherit);
+  color: #6b7280;
 }
 
 .sbc-table-wrap {
   overflow-x: auto;
-  border: 1px solid var(--border, #d4d4d8);
+  border: 1px solid #d4d4d8;
   border-radius: 8px;
+  background: #ffffff;
 }
 
 .sbc-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  color: #111827;
+  background: #ffffff;
 }
 
 .sbc-table-weekly {
@@ -109,8 +113,9 @@
 .sbc-table th,
 .sbc-table td {
   padding: 6px 8px;
-  border-bottom: 1px solid var(--border, #d4d4d8);
+  border-bottom: 1px solid #d4d4d8;
   line-height: 1.25;
+  color: #111827;
 }
 
 .sbc-table th {
@@ -118,13 +123,14 @@
   font-weight: 600;
   text-align: right;
   white-space: nowrap;
+  background: #f3f4f6;
 }
 
 .sbc-sticky-col {
   position: sticky;
   left: 0;
   z-index: 2;
-  background: var(--bg-elevated, #fff);
+  background: #ffffff;
   text-align: left;
 }
 
@@ -145,38 +151,38 @@
 }
 
 .sbc-total-col {
-  border-left: 1px solid var(--border, #d4d4d8);
+  border-left: 1px solid #d4d4d8;
   font-weight: 600;
 }
 
 .sbc-week-col {
   min-width: 5.5rem;
-  border-right: 1px solid var(--border, #d4d4d8);
+  border-right: 1px solid #d4d4d8;
   font-family: var(--mono, ui-monospace, Consolas, monospace);
   font-size: 11px;
 }
 
 .sbc-product-group {
-  border-left: 1px solid var(--border, #d4d4d8);
-  background: var(--bg-soft, color-mix(in srgb, currentColor 4%, transparent));
+  border-left: 1px solid #d4d4d8;
+  background: #f3f4f6;
   text-align: center;
   font-size: 12px;
 }
 
 .sbc-month-head {
   min-width: 3.25rem;
-  border-left: 1px solid var(--border, #d4d4d8);
-  background: var(--bg-soft, color-mix(in srgb, currentColor 2%, transparent));
+  border-left: 1px solid #d4d4d8;
+  background: #f9fafb;
 }
 
 .sbc-foot {
-  border-top: 2px solid var(--border, #d4d4d8);
+  border-top: 2px solid #d4d4d8;
   font-weight: 600;
   font-size: 12px;
 }
 
 .sbc-foot td {
-  background: var(--bg-soft);
+  background: #f3f4f6;
 }
 
 .sbc-root .report-footer {

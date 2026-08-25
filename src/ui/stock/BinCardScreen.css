@@ -21,7 +21,7 @@
 
 .bincard-filters {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px 14px;
   align-items: end;
   padding: 14px;
@@ -136,6 +136,14 @@
   background: #fef3c7;
   color: #92400e;
   font-size: 13px;
+}
+
+.bincard-embedded {
+  gap: 12px;
+}
+
+.bincard-embedded .stock-section {
+  padding: 0;
 }
 
 .bincard-empty {

@@ -1,24 +1,51 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
+import type { SaleProductMode } from "../../shared/sales.types.ts";
+import type { SalesModuleVariant } from "../../shared/salesModule.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { SalePrintView } from "./SalePrintView.tsx";
 import type { SalesListFilters, SalesListResult } from "./types.ts";
 
 interface SalesListProps {
+  variant?: SalesModuleVariant;
+  listTitle?: string;
+  productMode: SaleProductMode;
   onOpenInvoice: (invoiceNo: string) => void;
   onOpenPos?: () => void;
 }
 
-export function SalesList({ onOpenInvoice, onOpenPos }: SalesListProps) {
-  const [filters, setFilters] = useState<SalesListFilters>({
-    q: "",
-    period: "month",
-  });
+export function SalesList({
+  variant = "loose",
+  listTitle,
+  productMode,
+  onOpenInvoice,
+  onOpenPos,
+}: SalesListProps) {
+  const filters = useMemo<SalesListFilters>(
+    () => ({
+      q: "",
+      period: "month",
+      productMode,
+    }),
+    [productMode],
+  );
+  const [appliedFilters, setAppliedFilters] = useState<SalesListFilters>(filters);
   const [draftQ, setDraftQ] = useState("");
   const [result, setResult] = useState<SalesListResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [printSaleId, setPrintSaleId] = useState<string | null>(null);
+  const isBottled = variant === "bottled";
+  const title =
+    listTitle ?? (isBottled ? "Bottle Oil invoices" : "Sales invoices");
+  const qtyHeader = isBottled ? "Qty (units)" : "Qty (kg)";
+
+  useEffect(() => {
+    setAppliedFilters((current) => ({
+      ...current,
+      productMode,
+    }));
+  }, [productMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -28,7 +55,7 @@ export function SalesList({ onOpenInvoice, onOpenPos }: SalesListProps) {
       setError(null);
 
       try {
-        const data = await getElectronApi().sales.listSales(filters);
+        const data = await getElectronApi().sales.listSales(appliedFilters);
         if (!cancelled) {
           setResult(data);
         }
@@ -52,11 +79,11 @@ export function SalesList({ onOpenInvoice, onOpenPos }: SalesListProps) {
     return () => {
       cancelled = true;
     };
-  }, [filters]);
+  }, [appliedFilters]);
 
   function applyFilters(event: Event) {
     event.preventDefault();
-    setFilters((current) => ({ ...current, q: draftQ.trim() }));
+    setAppliedFilters((current) => ({ ...current, q: draftQ.trim() }));
   }
 
   return (
@@ -67,7 +94,7 @@ export function SalesList({ onOpenInvoice, onOpenPos }: SalesListProps) {
 
       <div class="sales-panel-header">
         <div>
-          <h3>Sales invoices</h3>
+          <h3>{title}</h3>
           <p class="sales-muted">
             Filter by invoice number, or view documents in the open posting month or year.
           </p>
@@ -95,9 +122,9 @@ export function SalesList({ onOpenInvoice, onOpenPos }: SalesListProps) {
         <label class="sales-field">
           <span>Period</span>
           <select
-            value={filters.period ?? "month"}
+            value={appliedFilters.period ?? "month"}
             onChange={(event) =>
-              setFilters((current) => ({
+              setAppliedFilters((current) => ({
                 ...current,
                 period: (event.currentTarget as HTMLSelectElement)
                   .value as SalesListFilters["period"],
@@ -113,10 +140,6 @@ export function SalesList({ onOpenInvoice, onOpenPos }: SalesListProps) {
         <button type="submit" class="sales-btn-primary">
           Apply
         </button>
-
-       {/*  {result ? (
-          <span class="sales-muted sales-filter-label">{result.periodLabel}</span>
-        ) : null} */}
       </form>
 
       {error ? <p class="sales-error">{error}</p> : null}
@@ -127,12 +150,12 @@ export function SalesList({ onOpenInvoice, onOpenPos }: SalesListProps) {
             <tr>
               <th>Invoice No</th>
               <th>Date</th>
-              <th>Sales point</th>
-              <th>DO No</th>
+              <th>Collection point</th>
+              {!isBottled ? <th>DO No</th> : null}
               <th>Customer</th>
               <th>Product</th>
               <th>Status</th>
-              <th class="sales-num">Qty</th>
+              <th class="sales-num">{qtyHeader}</th>
               <th class="sales-num">Total</th>
               <th>Actions</th>
             </tr>
@@ -140,13 +163,13 @@ export function SalesList({ onOpenInvoice, onOpenPos }: SalesListProps) {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={10} class="sales-empty-cell">
+                <td colSpan={isBottled ? 9 : 10} class="sales-empty-cell">
                   Loading invoices…
                 </td>
               </tr>
             ) : result && result.rows.length === 0 ? (
               <tr>
-                <td colSpan={10} class="sales-empty-cell">
+                <td colSpan={isBottled ? 9 : 10} class="sales-empty-cell">
                   No sales invoices match these filters.
                 </td>
               </tr>
@@ -156,7 +179,7 @@ export function SalesList({ onOpenInvoice, onOpenPos }: SalesListProps) {
                   <td class="sales-strong">{row.invoiceNo}</td>
                   <td>{formatDisplayDate(row.soldAtIso)}</td>
                   <td>{row.salesPointName}</td>
-                  <td>{row.deliveryOrderNo ?? ""}</td>
+                  {!isBottled ? <td>{row.deliveryOrderNo ?? ""}</td> : null}
                   <td>{row.customerName}</td>
                   <td>{row.productSummary}</td>
                   <td>
@@ -189,7 +212,7 @@ export function SalesList({ onOpenInvoice, onOpenPos }: SalesListProps) {
           {result && result.rows.length > 0 ? (
             <tfoot>
               <tr>
-                <td colSpan={7}>
+                <td colSpan={isBottled ? 6 : 7}>
                   Totals ({result.periodLabel}) · {result.totals.count} invoices
                 </td>
                 <td class="sales-num">{result.totals.totalQtyLabel}</td>

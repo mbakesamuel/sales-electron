@@ -169,7 +169,7 @@ export function CarryForwardCommitmentsScreen({
     const salesPointId = Number.parseInt(batchSalesPointId, 10);
     const productId = Number.parseInt(batchProductId, 10);
     if (!Number.isFinite(salesPointId) || !Number.isFinite(productId)) {
-      setActionError("Select sales point and product.");
+      setActionError("Select collection point and product.");
       return;
     }
 
@@ -265,7 +265,7 @@ export function CarryForwardCommitmentsScreen({
         <div>
           <h2 class="cf-title">Carry-forward commitments</h2>
           <p class="cf-subtitle">
-            Batch-enter opening balances per sales point and product across customers.
+            Batch-enter opening balances per collection point and product across customers.
             Saved as sellable CF delivery orders for the commitment report and POS.
           </p>
         </div>
@@ -298,7 +298,7 @@ export function CarryForwardCommitmentsScreen({
           class="cf-search"
           type="search"
           value={search}
-          placeholder="Search customer, product, sales point, DO…"
+          placeholder="Search customer, product, collection point, DO…"
           onInput={(event) =>
             setSearch((event.currentTarget as HTMLInputElement).value)
           }
@@ -313,7 +313,7 @@ export function CarryForwardCommitmentsScreen({
           <thead>
             <tr>
               <th>Customer</th>
-              <th>Sales point</th>
+              <th>Collection point</th>
               <th>Product</th>
               <th>CF DO</th>
               <th class="cf-num">Outstanding (kg)</th>
@@ -377,7 +377,7 @@ export function CarryForwardCommitmentsScreen({
         <FormDialog
           ariaLabel="Batch carry-forward entry"
           title="Batch carry-forward entry"
-          subtitle="Pick sales point and product, then enter outstanding kg per customer."
+          subtitle="Pick collection point and product, then enter outstanding kg per customer."
           wide
           onClose={() => {
             if (!saving) {
@@ -389,7 +389,7 @@ export function CarryForwardCommitmentsScreen({
           <div class="cf-batch">
             <div class="cf-batch-scope">
               <label class="cf-field">
-                <span>Sales point</span>
+                <span>Collection point</span>
                 <select
                   value={batchSalesPointId}
                   disabled={saving}
@@ -398,7 +398,7 @@ export function CarryForwardCommitmentsScreen({
                     onBatchScopeChange(next, batchProductId);
                   }}
                 >
-                  <option value="">Select sales point…</option>
+                  <option value="">Select collection point…</option>
                   {options.salesPoints.map((point) => (
                     <option key={point.id} value={point.id}>
                       {point.name}
@@ -457,7 +457,7 @@ export function CarryForwardCommitmentsScreen({
             </div>
 
             {!batchSalesPointId || !batchProductId ? (
-              <p class="cf-hint">Select sales point and product to load the customer grid.</p>
+              <p class="cf-hint">Select collection point and product to load the customer grid.</p>
             ) : (
               <div class="cf-batch-grid-wrap">
                 <table class="cf-table cf-batch-grid">

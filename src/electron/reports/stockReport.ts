@@ -26,17 +26,19 @@ import {
 } from "./shared.js";
 import { getDatabase } from "../db/index.js";
 import { loadStockBalancesAsOf } from "../stock/asOfBalance.js";
+import { productOmitsStorageLocation } from "../../shared/productStorageRules.js";
 
 interface CategoryRow {
   productCatId: number;
   productCat: string;
+  productCode: string;
   isMain: number;
   isBottled: number;
 }
 
 interface BalanceRow {
   salesPointId: number;
-  storageLocationId: number;
+  storageLocationId: number | null;
   productId: number;
   productCatId: number;
   condition: string;
@@ -48,7 +50,7 @@ type CategoryLayout = "location_detail" | "bottled" | "kernel_split" | "sales_po
 function loadCategories(): CategoryRow[] {
   return getDatabase()
     .prepare(
-      `SELECT productCatId, productCat,
+      `SELECT productCatId, productCat, COALESCE(productCode, '') AS productCode,
               COALESCE(isMain, 0) AS isMain,
               COALESCE(isBottled, 0) AS isBottled
        FROM ProductCat
@@ -108,6 +110,9 @@ function isPalmKernelCategory(category: CategoryRow): boolean {
 }
 
 function resolveCategoryLayout(category: CategoryRow): CategoryLayout {
+  if (productOmitsStorageLocation(category.productCode)) {
+    return "sales_point_qty";
+  }
   if (category.isBottled === 1) {
     return "bottled";
   }
@@ -200,8 +205,7 @@ function remarksAtLocation(
     ),
   ].map((name) => name.toUpperCase());
 
-  // Invoice / display sellability: stock condition AND derived location sellability
-  // (mill-owned locations under an inactive mill → Unsellable overlay).
+  // Invoice / display sellability: stock condition AND active location.
   const hasSellable =
     locationIsSellable &&
     atLocation.some((row) => row.condition === "SELLABLE");
@@ -334,13 +338,14 @@ function buildBottledSection(
     storageLocations
       .filter(
         (location) =>
-          location.salesPointId != null && location.effectivelySellable,
+          location.effectivelySellable,
       )
       .map((location) => location.id),
   );
   const sellableBalances = balances.filter(
     (row) =>
       row.condition === "SELLABLE" &&
+      row.storageLocationId != null &&
       sellableLocationIds.has(row.storageLocationId) &&
       bottledProducts.some((p) => p.productId === row.productId),
   );

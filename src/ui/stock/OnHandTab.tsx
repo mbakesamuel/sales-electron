@@ -1,6 +1,5 @@
 import { useMemo, useState } from "preact/hooks";
 import type { SalesPointOption, StockBalanceRow } from "../../shared/stock.types.ts";
-import { trimQty } from "./stockUtils.ts";
 
 interface OnHandTabProps {
   salesPoints: SalesPointOption[];
@@ -19,6 +18,16 @@ interface GroupedRow {
   qty: number;
   sellableQty: number;
   unsellableQty: number;
+}
+
+function formatOnHandQty(value: number): string {
+  if (!Number.isFinite(value)) {
+    return "0";
+  }
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 3,
+  });
 }
 
 export function OnHandTab({ salesPoints, scopedSalesPointId, rows }: OnHandTabProps) {
@@ -85,7 +94,7 @@ export function OnHandTab({ salesPoints, scopedSalesPointId, rows }: OnHandTabPr
       <div class="stock-filters">
         {scopedSalesPointId == null ? (
           <label class="stock-field">
-            <span>Sales point</span>
+            <span>Collection point</span>
             <select
               value={salesPointId}
               onChange={(event) =>
@@ -106,7 +115,7 @@ export function OnHandTab({ salesPoints, scopedSalesPointId, rows }: OnHandTabPr
           <input
             value={search}
             onInput={(event) => setSearch((event.currentTarget as HTMLInputElement).value)}
-            placeholder="Product or sales point"
+            placeholder="Product or collection point"
           />
         </label>
       </div>
@@ -115,10 +124,10 @@ export function OnHandTab({ salesPoints, scopedSalesPointId, rows }: OnHandTabPr
         <table class="stock-table">
           <thead>
             <tr>
-              <th>Sales point</th>
-              <th>Location</th>
+              <th>Collection point</th>
+              <th>Storage</th>
               <th>Product</th>
-              <th class="stock-num">On hand</th>
+              <th class="stock-num">Balance Qty</th>
               <th>UOM</th>
             </tr>
           </thead>
@@ -146,12 +155,12 @@ export function OnHandTab({ salesPoints, scopedSalesPointId, rows }: OnHandTabPr
                   </td>
                   <td>{r.productName}</td>
                   <td class="stock-num stock-strong">
-                    <div>{trimQty(r.qty.toFixed(3))}</div>
+                    <div>{formatOnHandQty(r.qty)}</div>
                     {r.unsellableQty > 0 ? (
                       <div class="stock-subtext stock-hint-warn">
-                        {trimQty(r.unsellableQty.toFixed(3))} unsellable
+                        {formatOnHandQty(r.unsellableQty)} unsellable
                         {r.sellableQty > 0
-                          ? ` · ${trimQty(r.sellableQty.toFixed(3))} sellable`
+                          ? ` · ${formatOnHandQty(r.sellableQty)} sellable`
                           : " · not available for POS sales"}
                       </div>
                     ) : null}

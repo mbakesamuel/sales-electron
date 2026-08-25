@@ -1,5 +1,6 @@
 import type Database from "better-sqlite3";
 import type { StockCondition, StockMovementKind } from "../../shared/stock.types.js";
+import { parseQty } from "./decimal.js";
 import { signedDeltaForKind } from "./post.js";
 
 const QTY_EPS = 0.000001;
@@ -7,9 +8,19 @@ const QTY_EPS = 0.000001;
 export interface StockBalanceAsOfRow {
   salesPointId: number;
   productId: number;
-  storageLocationId: number;
+  storageLocationId: number | null;
   condition: StockCondition;
   qty: number;
+}
+
+function balanceKey(
+  salesPointId: number,
+  productId: number,
+  storageLocationId: number | null,
+  condition: StockCondition,
+): string {
+  const loc = storageLocationId == null ? "null" : String(storageLocationId);
+  return `${salesPointId}:${productId}:${loc}:${condition}`;
 }
 
 /**
@@ -30,7 +41,7 @@ export function loadStockBalancesAsOf(
     .all(asOf) as Array<{
     salesPointId: number;
     productId: number;
-    storageLocationId: number;
+    storageLocationId: number | null;
     condition: string;
     kind: string;
     qty: string;
@@ -40,7 +51,7 @@ export function loadStockBalancesAsOf(
 
   for (const row of rows) {
     const condition = (row.condition === "UNSELLABLE" ? "UNSELLABLE" : "SELLABLE") as StockCondition;
-    const key = `${row.salesPointId}:${row.productId}:${row.storageLocationId}:${condition}`;
+    const key = balanceKey(row.salesPointId, row.productId, row.storageLocationId, condition);
     const signed = signedDeltaForKind(row.kind as StockMovementKind, row.qty);
     const existing = totals.get(key);
     if (existing) {
@@ -64,11 +75,18 @@ export function getSellableBalanceAsOf(
   db: Database.Database,
   salesPointId: number,
   productId: number,
-  storageLocationId: number,
+  storageLocationId: number | null,
   asOfDateIso: string,
   excludeSaleId?: string | null,
 ): number {
   const asOf = asOfDateIso.slice(0, 10);
+  const locationClause =
+    storageLocationId == null
+      ? "storageLocationId IS NULL"
+      : "storageLocationId = ?";
+  const locationParams =
+    storageLocationId == null ? [] : [storageLocationId];
+
   const rows = (
     excludeSaleId
       ? db
@@ -77,23 +95,23 @@ export function getSellableBalanceAsOf(
              FROM StockMovement
              WHERE salesPointId = ?
                AND productId = ?
-               AND storageLocationId = ?
+               AND ${locationClause}
                AND condition = 'SELLABLE'
                AND substr(occurredAt, 1, 10) <= ?
                AND NOT (sourceKind = 'SALE' AND sourceId = ?)`,
           )
-          .all(salesPointId, productId, storageLocationId, asOf, excludeSaleId)
+          .all(salesPointId, productId, ...locationParams, asOf, excludeSaleId)
       : db
           .prepare(
             `SELECT kind, qty
              FROM StockMovement
              WHERE salesPointId = ?
                AND productId = ?
-               AND storageLocationId = ?
+               AND ${locationClause}
                AND condition = 'SELLABLE'
                AND substr(occurredAt, 1, 10) <= ?`,
           )
-          .all(salesPointId, productId, storageLocationId, asOf)
+          .all(salesPointId, productId, ...locationParams, asOf)
   ) as Array<{ kind: string; qty: string }>;
 
   let total = 0;
@@ -101,4 +119,60 @@ export function getSellableBalanceAsOf(
     total += signedDeltaForKind(row.kind as StockMovementKind, row.qty);
   }
   return total;
+}
+
+/** Live sellable qty from StockBalance (what posting can actually deplete). */
+export function getLiveSellableBalance(
+  db: Database.Database,
+  salesPointId: number,
+  productId: number,
+  storageLocationId: number | null,
+): number {
+  const row = (
+    storageLocationId == null
+      ? db.prepare(
+          `SELECT qty FROM StockBalance
+           WHERE salesPointId = ? AND productId = ? AND storageLocationId IS NULL
+             AND condition = 'SELLABLE'`,
+        )
+      : db.prepare(
+          `SELECT qty FROM StockBalance
+           WHERE salesPointId = ? AND productId = ? AND storageLocationId = ?
+             AND condition = 'SELLABLE'`,
+        )
+  ).get(
+    ...(storageLocationId == null
+      ? [salesPointId, productId]
+      : [salesPointId, productId, storageLocationId]),
+  ) as { qty: string } | undefined;
+
+  return row ? parseQty(row.qty) : 0;
+}
+
+/**
+ * Qty that can leave source on a backdated transfer/sale check:
+ * min(historical as-of sellable, live sellable). Prevents claiming stock that
+ * already left in a later movement while still respecting period history.
+ */
+export function getTransferableSellableBalanceAsOf(
+  db: Database.Database,
+  salesPointId: number,
+  productId: number,
+  storageLocationId: number | null,
+  asOfDateIso: string,
+): number {
+  const asOfQty = getSellableBalanceAsOf(
+    db,
+    salesPointId,
+    productId,
+    storageLocationId,
+    asOfDateIso,
+  );
+  const liveQty = getLiveSellableBalance(
+    db,
+    salesPointId,
+    productId,
+    storageLocationId,
+  );
+  return Math.min(asOfQty, Math.max(0, liveQty));
 }

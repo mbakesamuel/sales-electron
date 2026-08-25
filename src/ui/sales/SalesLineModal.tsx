@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { getElectronApi } from "../auth/client.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
+import { productOmitsStorageLocation } from "../../shared/productStorageRules.ts";
 import {
   locationCoversQty,
   pickLocationForQty,
@@ -29,6 +30,8 @@ interface SalesLineModalProps {
   useRegisteredCustomer: boolean;
   customerId: string;
   transactionDate: string;
+  /** When true, Loose Palm Oil lines only list sales tank locations. */
+  loosePalmOilRequireSalesTank?: boolean;
   mode: "add" | "edit";
   onClose: () => void;
   onSave: (line: SalesLineDraft) => void;
@@ -56,6 +59,7 @@ export function SalesLineModal({
   useRegisteredCustomer,
   customerId,
   transactionDate,
+  loosePalmOilRequireSalesTank = true,
   mode,
   onClose,
   onSave,
@@ -72,9 +76,21 @@ export function SalesLineModal({
   const openedProductIdRef = useRef(line.productId);
 
   const title = mode === "add" ? "Add item" : "Edit item";
+  const selectedProduct = products.find(
+    (product) => String(product.productId) === draft.productId,
+  );
+  const omitsStorage = productOmitsStorageLocation(
+    selectedProduct?.productCatCode,
+  );
+  const isLoosePalmOil = Boolean(selectedProduct?.isMain);
+  const needsStorageLocation = !isBottleMode && !omitsStorage;
   const subtitle = isBottleMode
     ? "Enter the bottled product and number of units."
-    : "Enter the loose product, location, and weight.";
+    : omitsStorage
+      ? "Enter the product and weight (no storage location)."
+      : isLoosePalmOil && loosePalmOilRequireSalesTank
+        ? "Enter the loose product, sales tank, and weight."
+        : "Enter the loose product, location, and weight.";
 
   const allowAutoUnitPrice =
     !isSpecialDisposition &&
@@ -164,10 +180,15 @@ export function SalesLineModal({
   ]);
 
   useEffect(() => {
-    if (isBottleMode) {
+    if (!needsStorageLocation) {
       setBalanceLocations([]);
       setLocationsLoading(false);
       setLocationsError(null);
+      setDraft((current) =>
+        current.storageLocationId
+          ? { ...current, storageLocationId: "" }
+          : current,
+      );
       return;
     }
 
@@ -237,14 +258,18 @@ export function SalesLineModal({
     };
   }, [
     draft.productId,
-    isBottleMode,
+    needsStorageLocation,
     preferredStorageLocationId,
     salesPointId,
     transactionDate,
   ]);
 
   useEffect(() => {
-    if (isBottleMode || locationsLoading || balanceLocations.length === 0) {
+    if (
+      !needsStorageLocation ||
+      locationsLoading ||
+      balanceLocations.length === 0
+    ) {
       return;
     }
 
@@ -269,7 +294,7 @@ export function SalesLineModal({
   }, [
     balanceLocations,
     draft.qtyKg,
-    isBottleMode,
+    needsStorageLocation,
     locationsLoading,
     preferredStorageLocationId,
   ]);
@@ -297,9 +322,45 @@ export function SalesLineModal({
       return;
     }
 
-    if (!isBottleMode && !draft.storageLocationId) {
-      setError("Select a storage location.");
-      return;
+    if (needsStorageLocation) {
+      const productLabel = selectedProduct?.productName ?? "this product";
+      if (!salesPointId) {
+        setError("Select a collection point on the invoice first.");
+        return;
+      }
+      if (!locationsLoading && balanceLocations.length === 0) {
+        setError(
+          `No stock for ${productLabel} at this collection point. Receive stock first, or choose another product.`,
+        );
+        return;
+      }
+      if (!draft.storageLocationId) {
+        setError(
+          balanceLocations.length > 0
+            ? `Not enough stock for ${productLabel} at this collection point for the quantity entered. Reduce the quantity, or receive more stock.`
+            : "Select a storage location with available stock.",
+        );
+        return;
+      }
+      if (
+        !locationCoversQty(
+          balanceLocations,
+          draft.storageLocationId,
+          quantity,
+        )
+      ) {
+        const location = balanceLocations.find(
+          (row) => String(row.id) === draft.storageLocationId,
+        );
+        const locationName = location?.name ?? "the selected location";
+        const availableLabel = location
+          ? formatLocationQty(location.qty)
+          : "0";
+        setError(
+          `Not enough stock for ${productLabel} at ${locationName}. Only ${availableLabel} kg available.`,
+        );
+        return;
+      }
     }
 
     if (!isSpecialDisposition && unitPrice < 0) {
@@ -312,18 +373,26 @@ export function SalesLineModal({
       return;
     }
 
-    onSave(draft);
+    onSave(
+      omitsStorage ? { ...draft, storageLocationId: "" } : draft,
+    );
   }
 
   const locationHint = !draft.productId
     ? "Select a product first."
-    : locationsLoading
-      ? "Loading locations with stock…"
-      : locationsError
-        ? locationsError
-        : balanceLocations.length === 0
-          ? "No locations with stock for this product."
-          : null;
+    : !salesPointId
+      ? "Select a collection point on the invoice first."
+      : locationsLoading
+        ? "Loading locations with stock…"
+        : locationsError
+          ? locationsError
+          : balanceLocations.length === 0
+            ? `No stock for ${
+                selectedProduct?.productName ?? "this product"
+              } at this collection point on the invoice date. Receive stock first, or choose another product.`
+            : isLoosePalmOil && loosePalmOilRequireSalesTank
+              ? "Sales tank locations only."
+              : null;
 
   return (
     <FormDialog
@@ -360,7 +429,7 @@ export function SalesLineModal({
           </div>
         </div>
 
-        {!isBottleMode ? (
+        {needsStorageLocation ? (
           <div class="form-dialog-row">
             <label class="form-dialog-label" for="sales-line-location">
               Storage location

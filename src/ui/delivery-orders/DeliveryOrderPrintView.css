@@ -151,23 +151,38 @@
   padding-left: 18px;
 }
 
-.do-print-signatures {
+.do-print-footer {
   margin-top: 40px;
   padding-top: 8px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+}
+
+.do-print-qr {
+  flex: 0 0 auto;
+}
+
+.do-print-signatures {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .do-print-signatures .report-footer {
   margin-top: 0;
-  width: min(280px, 42%);
 }
 
 .do-print-signatures .report-footer-signature {
-  margin-left: auto;
+  margin-left: 0;
   margin-right: 0;
-  width: 100%;
-  text-align: right;
+  width: 240px;
+  text-align: center;
+}
+
+.do-print-signatures .report-footer-space {
+  height: 56px;
+  border-bottom: 1px solid #111827;
 }
 
 .do-print-signature {
@@ -266,7 +281,11 @@
   }
 
   body.do-print-mode .do-print-signatures .report-footer-signature {
-    text-align: right;
+    text-align: center;
+  }
+
+  body.do-print-mode .do-print-signatures .report-footer-space {
+    border-bottom-color: #000;
   }
 
   body.do-print-mode .do-print-info-heading,
@@ -277,8 +296,8 @@
     print-color-adjust: exact;
   }
 
-  body.do-print-mode .report-header-meta,
-  body.do-print-mode .report-header-meta *,
+  body.do-print-mode .do-print-qr,
+  body.do-print-mode .do-print-qr *,
   body.do-print-mode .qr-code {
     visibility: visible !important;
     -webkit-print-color-adjust: exact;

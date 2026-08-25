@@ -17,9 +17,11 @@ interface SalesLineModalProps {
     useRegisteredCustomer: boolean;
     customerId: string;
     transactionDate: string;
+    /** When true, Loose Palm Oil lines only list sales tank locations. */
+    loosePalmOilRequireSalesTank?: boolean;
     mode: "add" | "edit";
     onClose: () => void;
     onSave: (line: SalesLineDraft) => void;
 }
-export declare function SalesLineModal({ line, products, salesPointId, preferredStorageLocationId, isBottleMode, isSpecialDisposition, useRegisteredCustomer, customerId, transactionDate, mode, onClose, onSave, }: SalesLineModalProps): import("preact").JSX.Element;
+export declare function SalesLineModal({ line, products, salesPointId, preferredStorageLocationId, isBottleMode, isSpecialDisposition, useRegisteredCustomer, customerId, transactionDate, loosePalmOilRequireSalesTank, mode, onClose, onSave, }: SalesLineModalProps): import("preact").JSX.Element;
 export {};

@@ -22,12 +22,13 @@
 }
 
 .scr-btn-secondary {
-  background: var(--bg-elevated);
-  color: var(--text-h);
-  border-color: var(--border-strong);
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent-hover);
 }
 
-.scr-btn:hover {
+.scr-btn:hover,
+.scr-btn-secondary:hover {
   background: var(--accent-hover);
 }
 
@@ -41,11 +42,11 @@
 }
 
 .scr-document {
-  background: var(--bg-elevated);
+  background: #ffffff;
   border: 1px solid #d1d5db;
   border-radius: 10px;
   padding: 20px 24px 28px;
-  color: var(--text-h);
+  color: #111827;
   font-family: "Arial Narrow", Arial, sans-serif;
   font-size: 12px;
   text-transform: uppercase;
@@ -123,7 +124,7 @@
 .scr-row-total td {
   font-weight: 700;
   border-top: 2px solid #111827;
-  background: var(--bg-soft);
+  background: #f3f4f6;
 }
 
 .scr-row-indent td:first-child {
@@ -448,7 +449,7 @@
   flex-direction: column;
   gap: 0.25rem;
   font-size: 12px;
-  color: var(--text-muted, #6b7280);
+  color: #6b7280;
 }
 
 .dsr-filter input,
@@ -456,13 +457,13 @@
   box-sizing: border-box;
   height: 2.25rem;
   min-width: 10rem;
-  border: 1px solid var(--border-strong, #d4d4d8);
+  border: 1px solid #d4d4d8;
   border-radius: 8px;
   padding: 0 10px;
   font: inherit;
   line-height: 1.25;
-  background: var(--bg-elevated, #fff);
-  color: var(--text-h, #111827);
+  background: #ffffff;
+  color: #111827;
 }
 
 .dsr-sales-point-meta {

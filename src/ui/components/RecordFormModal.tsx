@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
-import { getAuthenticatedDb } from "../auth/db.ts";
-
-import { formatRoleLabel, USER_ROLES } from "../../shared/roles.ts";
+import { getAuthenticatedDb, getAuthToken } from "../auth/db.ts";
+import { getElectronApi } from "../auth/client.ts";
+import type { RoleDefinition } from "../../shared/permissions.types.ts";
+import { formatRoleLabel, SYSTEM_USER_ROLES } from "../../shared/roles.ts";
 import {
   normalizeTaxRateDecimal,
   TAX_RATE_KIND_LABELS,
@@ -222,6 +223,7 @@ export function RecordFormModal({
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lookupOptions, setLookupOptions] = useState<Record<string, LookupOption[]>>({});
+  const [userRoles, setUserRoles] = useState<RoleDefinition[]>([]);
 
   const title = `${mode === "create" ? "Add" : "Edit"} ${table}`;
   const rowKey = useMemo(() => buildRowKey(schema, row), [schema, row]);
@@ -230,6 +232,33 @@ export function RecordFormModal({
     setValues(buildInitialValues(schema, mode, table, row));
     setError(null);
   }, [schema, mode, rowKey, table]);
+
+  useEffect(() => {
+    if (table !== "User") {
+      return;
+    }
+    let cancelled = false;
+    async function loadRoles() {
+      try {
+        const token = getAuthToken();
+        if (!token) {
+          return;
+        }
+        const result = await getElectronApi().permissions.listRoles(token);
+        if (!cancelled && Array.isArray(result)) {
+          setUserRoles(result);
+        }
+      } catch {
+        if (!cancelled) {
+          setUserRoles([]);
+        }
+      }
+    }
+    void loadRoles();
+    return () => {
+      cancelled = true;
+    };
+  }, [table]);
 
   const editableColumns = getEditableColumns(schema, mode, table);
 
@@ -397,7 +426,14 @@ export function RecordFormModal({
           }
 
           if (table === "User" && column.name === "role" && !readOnly) {
-            const currentValue = String(values[column.name] ?? USER_ROLES[0]);
+            const roleOptions =
+              userRoles.length > 0
+                ? userRoles
+                : SYSTEM_USER_ROLES.map((id) => ({
+                    id,
+                    label: formatRoleLabel(id),
+                  }));
+            const currentValue = String(values[column.name] ?? roleOptions[0]?.id ?? "STORE_KEEPER");
 
             return (
               <div key={column.name} class="form-dialog-row">
@@ -418,9 +454,9 @@ export function RecordFormModal({
                       )
                     }
                   >
-                    {USER_ROLES.map((role) => (
-                      <option key={role} value={role}>
-                        {formatRoleLabel(role)}
+                    {roleOptions.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.label}
                       </option>
                     ))}
                   </select>

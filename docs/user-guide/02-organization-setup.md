@@ -8,6 +8,15 @@ Screens under **General Parameters** configure the company once (or when the org
 
 Keep the printed company name accurate; reports read these values when they generate.
 
+### Bottle Oil sales options
+
+On **App settings**, under **Bottle Oil sales**:
+
+- **Use registered customers** — Off by default. Bottle Oil invoices hide the per-invoice “Registered customer” checkbox and use an **invoice customer name** only (VAT-exempt walk-in style). When **on**, Bottle Oil invoices **require** a customer from the directory (still no per-invoice checkbox — the company setting is the switch). Special dispositions stay invoice-name only.
+- **Allow Ration disposition** — Off by default. When off, Bottle Oil sales hides the **Ration** option and rejects new Ration invoices. When on, clerks can mark Bottle Oil invoices as Ration. **Public relation** is always available.
+
+Save with **Save Bottle Oil options**. Clerks must reopen Bottle Oil sales (or refresh the screen) after you change these settings.
+
 ## Report settings
 
 **Report settings** controls display options shared by several stock and delivery reports, notably:

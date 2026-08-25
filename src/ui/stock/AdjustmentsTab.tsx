@@ -8,6 +8,7 @@ import type {
   ProductOption,
   SalesPointOption,
   StockBalanceRow,
+  StockProductFilter,
   StorageLocationOption,
 } from "../../shared/stock.types.ts";
 import { ConfirmDialog, DocDialog, ReviewKeyValue, ReviewLineTable, StatusBadge } from "./StockDialogs.tsx";
@@ -33,6 +34,7 @@ interface AdjustmentsTabProps {
   canCancel: boolean;
   canDraft: boolean;
   userId: string;
+  productFilter: StockProductFilter;
   onOk: (text: string) => void;
   onErr: (text: string) => void;
 }
@@ -44,7 +46,16 @@ function lineModeFromDetail(detail: AdjustmentDetail): "ADJUST" | "RECLASSIFY" {
 }
 
 export function AdjustmentsTab(props: AdjustmentsTabProps) {
-  const { rows, salesPoints, storageLocations, products, onHand, scopedSalesPointId, userId } = props;
+  const {
+    rows,
+    salesPoints,
+    storageLocations,
+    products,
+    onHand,
+    scopedSalesPointId,
+    userId,
+    productFilter,
+  } = props;
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [salesPointId, setSalesPointId] = useState<string>(
@@ -169,6 +180,7 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
     try {
       const res = await getElectronApi().stock.saveAdjustment({
         userId,
+        productFilter,
         id: editingId,
         salesPointId: Number.parseInt(salesPointId, 10),
         reason,
@@ -208,7 +220,11 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
   async function onPost(id: string) {
     setBusy(true);
     try {
-      const res = await getElectronApi().stock.postAdjustment({ userId, adjustmentId: id });
+      const res = await getElectronApi().stock.postAdjustment({
+        userId,
+        productFilter,
+        adjustmentId: id,
+      });
       if ("error" in res) {
         props.onErr(res.error);
         return;
@@ -228,7 +244,11 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
     setPendingCancel(null);
     setBusy(true);
     try {
-      const res = await getElectronApi().stock.cancelAdjustment({ userId, adjustmentId: id });
+      const res = await getElectronApi().stock.cancelAdjustment({
+        userId,
+        productFilter,
+        adjustmentId: id,
+      });
       if ("error" in res) {
         props.onErr(res.error);
         return;
@@ -350,7 +370,7 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
             <tr>
               <th>Adjustment #</th>
               <th>Date</th>
-              <th>Sales point</th>
+              <th>Collection point</th>
               <th>Reason</th>
               <th class="stock-num">Lines</th>
               <th>Status</th>
@@ -453,7 +473,7 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
             </div>
 
             <div class="stock-review-grid">
-              <ReviewKeyValue label="Sales point">{reviewDetail.salesPointName}</ReviewKeyValue>
+              <ReviewKeyValue label="Collection point">{reviewDetail.salesPointName}</ReviewKeyValue>
               <ReviewKeyValue label="Date">{formatDate(reviewDetail.occurredAtIso)}</ReviewKeyValue>
               <ReviewKeyValue label="Reason">
                 {reviewDetail.reason}
@@ -528,7 +548,7 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
           <form onSubmit={onSave} class="stock-form">
             {scopedSalesPointId == null ? (
               <label class="stock-form-row">
-                <span class="stock-form-label">Sales point</span>
+                <span class="stock-form-label">Collection point</span>
                 <select
                   class="stock-form-control"
                   value={salesPointId}

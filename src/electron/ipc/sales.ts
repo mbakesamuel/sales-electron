@@ -8,6 +8,8 @@ import type {
   SalesListFilters,
   SalesListResult,
   SalesStorageLocationBalanceOption,
+  SalesValidateManyResult,
+  SalesValidationQueuePage,
   SaveSaleResult,
   SaleMutationResult,
   SalePrintPayload,
@@ -26,17 +28,25 @@ import {
   getSalesFormOptions,
   listPendingSales,
   listSales,
+  listSalesValidationQueue,
   listStorageLocationsWithBalance,
   loadSaleByInvoiceNo,
   previewSaleUnitPrice,
+  validateManySales,
   validateSale,
 } from "../sales/service.js";
 import { loadTaxRatesAsOf } from "../tax/resolveRates.js";
 
 export function registerSalesHandlers(): void {
-  ipcMain.handle("sales:getFormOptions", (): SalesFormOptions => {
-    return getSalesFormOptions();
-  });
+  ipcMain.handle(
+    "sales:getFormOptions",
+    (_event, userId: string): SalesFormOptions => {
+      if (typeof userId !== "string" || !userId.trim()) {
+        throw new Error("Login required.");
+      }
+      return getSalesFormOptions(userId);
+    },
+  );
 
   ipcMain.handle(
     "sales:getTaxRatesAsOf",
@@ -57,6 +67,29 @@ export function registerSalesHandlers(): void {
   ipcMain.handle("sales:listPendingSales", (): PendingSaleRow[] => {
     return listPendingSales();
   });
+
+  ipcMain.handle(
+    "sales:listValidationQueue",
+    (_event, userId: string): SalesValidationQueuePage => {
+      if (typeof userId !== "string" || !userId.trim()) {
+        throw new Error("Login required.");
+      }
+      return listSalesValidationQueue(userId);
+    },
+  );
+
+  ipcMain.handle(
+    "sales:validateMany",
+    (
+      _event,
+      payload: { userId: string; saleIds: string[] },
+    ): SalesValidateManyResult => {
+      if (!payload?.userId) {
+        return { ok: false, error: "Login required." };
+      }
+      return validateManySales(payload.saleIds ?? [], payload.userId);
+    },
+  );
 
   ipcMain.handle(
     "sales:loadSaleByInvoiceNo",

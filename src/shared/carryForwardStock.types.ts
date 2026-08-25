@@ -1,19 +1,27 @@
 export interface CarryForwardStockRow {
   salesPointId: number;
   salesPointName: string;
-  storageLocationId: number;
+  /** Null for PKCP/PKP (collection-point-level balance). */
+  storageLocationId: number | null;
   storageLocationName: string;
   productId: number;
   productName: string;
   uom: string;
-  /** Current on-hand (SELLABLE) at this location. */
+  /** Current on-hand (SELLABLE) at this location or collection point. */
   currentQty: number;
   lastAdjustmentNo: string | null;
   lastOccurredAt: string | null;
 }
 
 export interface CarryForwardStockFormOptions {
-  products: Array<{ productId: number; productName: string; uom: string }>;
+  products: Array<{
+    productId: number;
+    productName: string;
+    uom: string;
+    isBottled: boolean;
+    productCatCode: string;
+    omitsStorageLocation: boolean;
+  }>;
   salesPoints: Array<{ id: number; name: string }>;
   storageLocations: Array<{
     id: number;
@@ -24,7 +32,9 @@ export interface CarryForwardStockFormOptions {
 }
 
 export interface UpsertCarryForwardStockBatchLine {
-  storageLocationId: number;
+  /** Omit or null for PKCP/PKP products. */
+  storageLocationId?: number | null;
+  productId: number;
   /** Desired on-hand qty (SELLABLE). Omit / NaN lines are skipped. */
   onHandQty: number;
 }
@@ -32,7 +42,6 @@ export interface UpsertCarryForwardStockBatchLine {
 export interface UpsertCarryForwardStockBatchInput {
   userId: string;
   salesPointId: number;
-  productId: number;
   /** Business date (YYYY-MM-DD) within the open financial month. */
   occurredAt: string;
   notes?: string | null;
@@ -44,6 +53,6 @@ export type CarryForwardStockBatchResult =
   | { ok: false; error: string };
 
 export interface CarryForwardStockOnHandRow {
-  storageLocationId: number;
+  storageLocationId: number | null;
   qty: number;
 }

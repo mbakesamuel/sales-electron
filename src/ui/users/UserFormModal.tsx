@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
+import type { RoleDefinition } from "../../shared/permissions.types.ts";
 import { getElectronApi } from "../auth/client.ts";
-import { getAuthenticatedDb } from "../auth/db.ts";
-import {
-  formatRoleLabel,
-  USER_ROLES,
-  type UserRole,
-} from "../../shared/roles.ts";
+import { getAuthenticatedDb, getAuthToken } from "../auth/db.ts";
+import { formatRoleLabel } from "../../shared/roles.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
 import { buildRowKey } from "../utils/formRowKey.ts";
 import "../components/FormDialog.css";
@@ -25,7 +22,7 @@ interface UserFormModalProps {
 interface FormData {
   name: string;
   username: string;
-  role: UserRole;
+  role: string;
   isActive: boolean;
   password: string;
   commercialServiceId: string;
@@ -37,7 +34,7 @@ function initForm(mode: "create" | "edit", row?: Record<string, unknown>): FormD
     return {
       name: "",
       username: "",
-      role: "SALES_CLERK",
+      role: "STORE_KEEPER",
       isActive: true,
       password: "",
       commercialServiceId: "",
@@ -45,15 +42,10 @@ function initForm(mode: "create" | "edit", row?: Record<string, unknown>): FormD
     };
   }
 
-  const role = String(row.role ?? "SALES_CLERK");
-  const normalizedRole = USER_ROLES.includes(role as UserRole)
-    ? (role as UserRole)
-    : "SALES_CLERK";
-
   return {
     name: row.name != null ? String(row.name) : "",
     username: row.username != null ? String(row.username) : "",
-    role: normalizedRole,
+    role: String(row.role ?? "STORE_KEEPER"),
     isActive: row.isActive === 1 || row.isActive === true,
     password: "",
     commercialServiceId:
@@ -71,6 +63,7 @@ export function UserFormModal({
   const [form, setForm] = useState<FormData>(() => initForm(mode, row));
   const [services, setServices] = useState<LookupOption[]>([]);
   const [salesPoints, setSalesPoints] = useState<LookupOption[]>([]);
+  const [roles, setRoles] = useState<RoleDefinition[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const rowKey = useMemo(() => buildRowKey(row, ["id"]), [row]);
@@ -90,9 +83,13 @@ export function UserFormModal({
     async function loadLookups() {
       try {
         const api = getElectronApi();
-        const [serviceResult, salesPointResult] = await Promise.all([
+        const token = getAuthToken();
+        const [serviceResult, salesPointResult, rolesResult] = await Promise.all([
           api.db.queryTable({ table: "CommercialService", limit: 200 }),
           api.db.queryTable({ table: "SalesPoint", limit: 200 }),
+          token
+            ? api.permissions.listRoles(token)
+            : Promise.resolve([] as RoleDefinition[]),
         ]);
 
         if (cancelled) {
@@ -126,17 +123,20 @@ export function UserFormModal({
                 pointRow.isActive === 1 ||
                 pointRow.isActive === true ||
                 pointRow.isActive == null;
-              const name = String(pointRow.name ?? `Sales point ${pointRow.id}`);
+              const name = String(pointRow.name ?? `Collection point ${pointRow.id}`);
               return {
                 id: String(pointRow.id ?? ""),
                 label: isActive ? name : `${name} (inactive)`,
               };
             }),
         );
+
+        setRoles(Array.isArray(rolesResult) ? rolesResult : []);
       } catch {
         if (!cancelled) {
           setServices([]);
           setSalesPoints([]);
+          setRoles([]);
         }
       }
     }
@@ -226,6 +226,10 @@ export function UserFormModal({
   }
 
   const title = mode === "create" ? "Add User" : "Edit User";
+  const roleOptions =
+    roles.length > 0
+      ? roles
+      : [{ id: form.role || "STORE_KEEPER", label: formatRoleLabel(form.role || "STORE_KEEPER") }];
 
   return (
     <FormDialog
@@ -313,15 +317,12 @@ export function UserFormModal({
               value={form.role}
               disabled={isSubmitting}
               onChange={(event) =>
-                updateField(
-                  "role",
-                  (event.currentTarget as HTMLSelectElement).value as UserRole,
-                )
+                updateField("role", (event.currentTarget as HTMLSelectElement).value)
               }
             >
-              {USER_ROLES.map((role) => (
-                <option key={role} value={role}>
-                  {formatRoleLabel(role)}
+              {roleOptions.map((role) => (
+                <option key={role.id} value={role.id}>
+                  {"label" in role ? role.label : formatRoleLabel(role.id)}
                 </option>
               ))}
             </select>
@@ -357,7 +358,7 @@ export function UserFormModal({
 
         <div class="form-dialog-row">
           <label class="form-dialog-label" for="user-sales-point">
-            Sales point
+            Collection point
           </label>
           <div class="form-dialog-control">
             <select

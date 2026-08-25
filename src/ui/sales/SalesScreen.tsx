@@ -1,8 +1,11 @@
 import { useState } from "preact/hooks";
 import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts";
 import {
-  canWriteRouteFromSnapshot,
-} from "../../shared/permissionUtils.ts";
+  canAccessSalesModuleForVariant,
+  isSalesModuleReadOnlyForVariant,
+  saleProductModeForVariant,
+  type SalesModuleVariant,
+} from "../../shared/salesModule.ts";
 import type { AuthUser } from "../auth/session.ts";
 import { SalesClient } from "./SalesClient.tsx";
 import { SalesList } from "./SalesList.tsx";
@@ -11,15 +14,38 @@ interface SalesScreenProps {
   user: AuthUser;
   permissions: RolePermissionsSnapshot;
   readOnly?: boolean;
+  variant?: SalesModuleVariant;
 }
 
 type SalesView = "pos" | "list";
 
-export function SalesScreen({ user, permissions, readOnly = false }: SalesScreenProps) {
+export function SalesScreen({
+  user,
+  permissions,
+  readOnly = false,
+  variant = "loose",
+}: SalesScreenProps) {
+  const canAccess = canAccessSalesModuleForVariant(permissions, variant);
   const canUsePos =
-    canWriteRouteFromSnapshot(permissions, "sales") && !readOnly;
+    canAccess &&
+    !isSalesModuleReadOnlyForVariant(permissions, variant) &&
+    !readOnly;
   const [view, setView] = useState<SalesView>(canUsePos ? "pos" : "list");
   const [lookupInvoiceNo, setLookupInvoiceNo] = useState("");
+
+  if (!canAccess) {
+    return (
+      <p class="home-access-denied">
+        You do not have permission to view{" "}
+        {variant === "bottled" ? "Bottle Oil sales" : "sales invoices"}.
+      </p>
+    );
+  }
+
+  const posTabLabel =
+    variant === "bottled" ? "Bottle Oil sales" : "Sales screen";
+  const listTitle =
+    variant === "bottled" ? "Bottle Oil invoices" : "Sales invoices";
 
   function openInvoice(invoiceNo: string) {
     setLookupInvoiceNo(invoiceNo);
@@ -35,7 +61,7 @@ export function SalesScreen({ user, permissions, readOnly = false }: SalesScreen
             class={`sales-tab${view === "pos" ? " is-active" : ""}`}
             onClick={() => setView("pos")}
           >
-            Sales screen
+            {posTabLabel}
           </button>
         ) : null}
         <button
@@ -52,11 +78,15 @@ export function SalesScreen({ user, permissions, readOnly = false }: SalesScreen
           key={lookupInvoiceNo || "new"}
           user={user}
           permissions={permissions}
+          variant={variant}
           initialInvoiceNo={lookupInvoiceNo}
           onOpenList={() => setView("list")}
         />
       ) : (
         <SalesList
+          variant={variant}
+          listTitle={listTitle}
+          productMode={saleProductModeForVariant(variant)}
           onOpenInvoice={openInvoice}
           onOpenPos={
             canUsePos

@@ -259,7 +259,7 @@ export function upsertCarryForwardCommitment(
   }
 
   if (!Number.isFinite(input.customerId) || !Number.isFinite(input.salesPointId)) {
-    return { ok: false, error: "Customer and sales point are required." };
+    return { ok: false, error: "Customer and collection point are required." };
   }
 
   if (!Number.isFinite(input.productId)) {
@@ -278,7 +278,7 @@ export function upsertCarryForwardCommitment(
     .prepare(`SELECT id FROM SalesPoint WHERE id = ?`)
     .get(input.salesPointId) as { id: number } | undefined;
   if (!salesPoint) {
-    return { ok: false, error: "Sales point not found." };
+    return { ok: false, error: "Collection point not found." };
   }
 
   const product = db
@@ -540,7 +540,7 @@ export function upsertCarryForwardBatch(
   }
 
   if (!Number.isFinite(input.salesPointId) || !Number.isFinite(input.productId)) {
-    return { ok: false, error: "Sales point and product are required." };
+    return { ok: false, error: "Collection point and product are required." };
   }
 
   const prepared: Array<{ customerId: number; outstandingQty: number }> = [];

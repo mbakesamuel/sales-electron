@@ -11,7 +11,10 @@ import type {
   DeliveryOrderTaxPreview,
   PendingDeliveryOrderRow,
 } from "./types.ts";
-import { isValidBookletSerial } from "../../shared/bookletSerial.ts";
+import {
+  isValidBookletSerial,
+  validateBookletSerial,
+} from "../../shared/bookletSerial.ts";
 import { DeliveryOrderPrintView } from "./DeliveryOrderPrintView.tsx";
 import "../sales/sales.css";
 
@@ -94,10 +97,12 @@ export function DeliveryOrdersClient({
   const [printOpen, setPrintOpen] = useState(false);
 
   const [orderId, setOrderId] = useState<number | null>(null);
-  const [deliveryOrderNo, setDeliveryOrderNo] = useState("");
+  const [deliveryOrderNo, setDeliveryOrderNo] = useState(initialLookupNo);
+  const [confirmedDeliveryOrderNo, setConfirmedDeliveryOrderNo] = useState<
+    string | null
+  >(null);
   const [docStatus, setDocStatus] = useState<string | null>(null);
   const [validatedByName, setValidatedByName] = useState("");
-  const [lookupNo, setLookupNo] = useState(initialLookupNo);
   const [customerId, setCustomerId] = useState("");
   const [dateIssued, setDateIssued] = useState(todayIsoDate());
   const [postingPeriod, setPostingPeriod] = useState<OpenPostingPeriod | null>(
@@ -120,6 +125,13 @@ export function DeliveryOrdersClient({
   const [allowAutoUnitPrice, setAllowAutoUnitPrice] = useState(true);
 
   const isReadOnly = docStatus === "VALIDATED" || docStatus === "REJECTED";
+  const orderReady =
+    orderId != null ||
+    (confirmedDeliveryOrderNo !== null &&
+      confirmedDeliveryOrderNo === deliveryOrderNo.trim() &&
+      isValidBookletSerial(deliveryOrderNo));
+  const isAwaitingOrder = !orderId && !orderReady;
+  const isFormEditable = !isReadOnly && orderReady;
   const canValidate = canPerformActionFromSnapshot(
     permissions,
     "validate_delivery_orders",
@@ -352,9 +364,9 @@ export function DeliveryOrdersClient({
 
     setOrderId(null);
     setDeliveryOrderNo("");
+    setConfirmedDeliveryOrderNo(null);
     setDocStatus(null);
     setValidatedByName("");
-    setLookupNo("");
     setCustomerId("");
     setDateIssued(todayIsoDate());
     setOrderRef("");
@@ -367,8 +379,12 @@ export function DeliveryOrdersClient({
     setPrintOpen(false);
   }
 
-  async function loadOrder(rawNo?: string) {
-    const no = (rawNo ?? lookupNo).trim();
+  async function loadOrder(
+    rawNo?: string,
+    loadOptions?: { notFoundMode?: "error" | "silent" },
+  ) {
+    const notFoundMode = loadOptions?.notFoundMode ?? "error";
+    const no = (rawNo ?? deliveryOrderNo).trim();
     if (!no) {
       return;
     }
@@ -379,15 +395,22 @@ export function DeliveryOrdersClient({
     try {
       const data = await getElectronApi().deliveryOrders.loadByNo(no);
       if (!data) {
-        setBanner({ type: "error", text: "Delivery order not found." });
+        if (notFoundMode === "error") {
+          setBanner({ type: "error", text: "Delivery order not found." });
+        } else {
+          setOrderId(null);
+          setDocStatus(null);
+          setValidatedByName("");
+          setConfirmedDeliveryOrderNo(no);
+        }
         return;
       }
 
       setOrderId(data.id);
       setDeliveryOrderNo(data.deliveryOrderNo);
+      setConfirmedDeliveryOrderNo(data.deliveryOrderNo);
       setDocStatus(data.status);
       setValidatedByName(data.validatedByName ?? "");
-      setLookupNo(data.deliveryOrderNo);
       setCustomerId(String(data.customerId));
       setDateIssued(data.dateIssued);
       setOrderRef(data.orderRef ?? "");
@@ -427,6 +450,20 @@ export function DeliveryOrdersClient({
     } finally {
       setBusy(null);
     }
+  }
+
+  async function tryLoadOrderOnEnter() {
+    if (busy !== null || orderId || !deliveryOrderNo.trim()) {
+      return;
+    }
+
+    const validation = validateBookletSerial(deliveryOrderNo);
+    if (validation.ok === false) {
+      setBanner({ type: "error", text: validation.error });
+      return;
+    }
+
+    await loadOrder(undefined, { notFoundMode: "silent" });
   }
 
   async function saveOrder() {
@@ -482,7 +519,7 @@ export function DeliveryOrdersClient({
 
       setOrderId(result.id);
       setDeliveryOrderNo(result.deliveryOrderNo);
-      setLookupNo(result.deliveryOrderNo);
+      setConfirmedDeliveryOrderNo(result.deliveryOrderNo);
       setDocStatus("PENDING");
       setBanner({
         type: "ok",
@@ -592,10 +629,9 @@ export function DeliveryOrdersClient({
 
   const canSave =
     busy === null &&
-    !isReadOnly &&
+    isFormEditable &&
     customerId.trim() &&
     salesPointId.trim() &&
-    (orderId != null || isValidBookletSerial(deliveryOrderNo)) &&
     !taxPreviewError &&
     taxPreview != null &&
     lines.some(
@@ -614,7 +650,7 @@ export function DeliveryOrdersClient({
             <li>Add at least one product.</li>
           ) : null}
           {options.salesPoints.length === 0 ? (
-            <li>Add at least one sales point.</li>
+            <li>Add at least one collection point.</li>
           ) : null}
         </ul>
       </div>
@@ -622,153 +658,134 @@ export function DeliveryOrdersClient({
   }
 
   return (
-    <div class="sales-client">
+    <div class="sales-client sales-client-compact">
       {banner ? (
         <div class={`sales-banner sales-banner-${banner.type}`}>
           {banner.text}
         </div>
       ) : null}
 
-      <div class="sales-panel">
-        <div class="sales-panel-header">
+      <section class="sales-panel">
+        <div class="sales-invoice-header">
           <div>
-            <h3>Open existing order</h3>
+            <h2>Order details</h2>
             <p class="sales-muted">
-              Enter the delivery order number to load the full document.
+              Status{" "}
+              {docStatus ? (
+                <span class={statusClass(docStatus)}>{docStatus}</span>
+              ) : (
+                "—"
+              )}
+              {validatedByName ? ` · validated by ${validatedByName}` : ""}
             </p>
           </div>
-          <div class="sales-header-actions">
-            <button
-              type="button"
-              class="sales-btn-primary"
-              onClick={onOpenList}
-            >
-              View all DOs
-            </button>
-            {canValidate ? (
-              <button
-                type="button"
-                class="sales-btn-primary"
-                onClick={onOpenQueue}
-              >
-                Validation queue
-              </button>
-            ) : null}
-          </div>
-        </div>
-
-        <div class="sales-lookup-row">
-          <label class="sales-field sales-field-grow">
-            <span>Delivery order no.</span>
-            <div class="sales-lookup-input-wrap">
-              <input
-                type="text"
-                value={lookupNo}
-                disabled={busy !== null}
-                placeholder="12345"
-                onInput={(event) =>
-                  setLookupNo((event.currentTarget as HTMLInputElement).value)
-                }
-              />
+          <div class="sales-invoice-header-end">
+            <div class="sales-invoice-header-controls">
+              {orderId ? (
+                <div class="sales-invoice-no">{deliveryOrderNo}</div>
+              ) : (
+                <label class="sales-field sales-invoice-no-field">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="\\d*"
+                    value={deliveryOrderNo}
+                    placeholder="DO no."
+                    disabled={busy !== null}
+                    onInput={(event) =>
+                      setDeliveryOrderNo(
+                        (event.currentTarget as HTMLInputElement).value,
+                      )
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void tryLoadOrderOnEnter();
+                      }
+                    }}
+                  />
+                </label>
+              )}
               {canValidate && pendingDos.length > 0 ? (
                 <button
                   type="button"
-                  class="sales-pending-toggle"
+                  class="sales-btn-secondary"
+                  disabled={busy !== null}
                   onClick={() => setPendingOpen((open) => !open)}
                 >
                   {pendingDos.length} pending {pendingOpen ? "▴" : "▾"}
                 </button>
               ) : null}
+              <div class="sales-invoice-header-actions">
+                <button
+                  type="button"
+                  class="sales-btn-secondary"
+                  onClick={onOpenList}
+                >
+                  View all DOs
+                </button>
+                {canValidate ? (
+                  <button
+                    type="button"
+                    class="sales-btn-secondary"
+                    onClick={onOpenQueue}
+                  >
+                    Validation queue
+                  </button>
+                ) : null}
+                {orderId ? (
+                  <button
+                    type="button"
+                    class="sales-btn-secondary"
+                    disabled={busy !== null}
+                    onClick={resetNew}
+                  >
+                    New order
+                  </button>
+                ) : null}
+              </div>
             </div>
-            {pendingOpen && pendingDos.length > 0 ? (
-              <ul class="sales-pending-list">
-                {pendingDos.map((pending) => (
-                  <li key={pending.deliveryOrderNo}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLookupNo(pending.deliveryOrderNo);
-                        setPendingOpen(false);
-                        void loadOrder(pending.deliveryOrderNo);
-                      }}
-                    >
-                      <strong>{pending.deliveryOrderNo}</strong>
-                      <span>
-                        {pending.customerName} ·{" "}
-                        {formatDisplayDate(pending.dateIssued)}
-                        {pending.totalLabel ? ` · ${pending.totalLabel}` : ""}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </label>
-
-          <button
-            type="button"
-            class="sales-btn-primary"
-            disabled={busy !== null || !lookupNo.trim()}
-            onClick={() => void loadOrder()}
-          >
-            {busy === "load" ? "Loading…" : "Load order"}
-          </button>
-          <button
-            type="button"
-            class="sales-btn-primary"
-            disabled={busy !== null}
-            onClick={resetNew}
-          >
-            New blank order
-          </button>
-        </div>
-      </div>
-
-      <div class="sales-panel">
-        <div class="sales-section-header">
-          <div>
-            <h3>1 · Header</h3>
-            {deliveryOrderNo ? (
-              <p class="sales-muted">
-                <span class={statusClass(docStatus ?? "PENDING")}>
-                  {docStatus ?? "DRAFT"}
-                </span>
-                {" · "}
-                <strong>{deliveryOrderNo}</strong>
-                {validatedByName ? ` · Validated by ${validatedByName}` : ""}
+            {isAwaitingOrder ? (
+              <p class="sales-hint sales-invoice-serial-hint">
+                Enter DO no. and press Enter to continue.
               </p>
-            ) : (
-              <p class="sales-muted">Create a new delivery order draft.</p>
-            )}
+            ) : null}
           </div>
         </div>
 
-        <div class="sales-invoice-form">
-          <div class="sales-invoice-grid sales-invoice-grid-2">
-            {orderId == null ? (
-              <label class="sales-field sales-field-span-full">
-                <span>Booklet serial no.</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="\\d*"
-                  value={deliveryOrderNo}
-                  disabled={isReadOnly}
-                  placeholder="12345"
-                  onInput={(event) =>
-                    setDeliveryOrderNo(
-                      (event.currentTarget as HTMLInputElement).value,
-                    )
-                  }
-                />
-              </label>
-            ) : null}
+        {pendingOpen && pendingDos.length > 0 ? (
+          <ul class="sales-pending-list do-pending-list">
+            {pendingDos.map((pending) => (
+              <li key={pending.deliveryOrderNo}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeliveryOrderNo(pending.deliveryOrderNo);
+                    setPendingOpen(false);
+                    void loadOrder(pending.deliveryOrderNo);
+                  }}
+                >
+                  <strong>{pending.deliveryOrderNo}</strong>
+                  <span>
+                    {pending.customerName} ·{" "}
+                    {formatDisplayDate(pending.dateIssued)}
+                    {pending.totalLabel ? ` · ${pending.totalLabel}` : ""}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
 
-            <label class="sales-field">
+        <div
+          class={`sales-invoice-form${isAwaitingOrder ? " sales-form-locked" : ""}`}
+        >
+          <div class="sales-invoice-grid">
+            <label class="sales-field sales-field-span-2">
               <span>Customer</span>
               <select
                 value={customerId}
-                disabled={isReadOnly}
+                disabled={!isFormEditable}
                 onChange={(event) => {
                   setAllowAutoUnitPrice(true);
                   setCustomerId(
@@ -785,14 +802,14 @@ export function DeliveryOrdersClient({
               </select>
             </label>
 
-            <label class="sales-field">
+            <label class="sales-field sales-field-span-2">
               <span>Date issued</span>
               <input
                 type="date"
                 value={dateIssued}
                 min={postingPeriod?.startDate}
                 max={postingPeriod?.endDate}
-                disabled={isReadOnly || !postingPeriod}
+                disabled={!isFormEditable || !postingPeriod}
                 onInput={(event) => {
                   setAllowAutoUnitPrice(true);
                   setDateIssued(
@@ -800,24 +817,14 @@ export function DeliveryOrdersClient({
                   );
                 }}
               />
-              {!postingPeriod ? (
-                <span class="sales-muted sales-checkbox-hint">
-                  Open a financial month before posting.
-                </span>
-              ) : (
-                <span class="sales-muted sales-checkbox-hint">
-                  Open month: {postingPeriod.monthName}{" "}
-                  {postingPeriod.financialYear}
-                </span>
-              )}
             </label>
 
             <label class="sales-field">
-              <span>Customer reference (optional)</span>
+              <span>Ref.no. (optional)</span>
               <input
                 type="text"
                 value={orderRef}
-                disabled={isReadOnly}
+                disabled={!isFormEditable}
                 placeholder="PO / contract ref"
                 onInput={(event) =>
                   setOrderRef((event.currentTarget as HTMLInputElement).value)
@@ -829,14 +836,14 @@ export function DeliveryOrdersClient({
               <span>Collection point</span>
               <select
                 value={salesPointId}
-                disabled={isReadOnly}
+                disabled={!isFormEditable}
                 onChange={(event) =>
                   setSalesPointId(
                     (event.currentTarget as HTMLSelectElement).value,
                   )
                 }
               >
-                <option value="">Select sales point</option>
+                <option value="">Select collection point</option>
                 {options.salesPoints.map((point) => (
                   <option key={point.id} value={String(point.id)}>
                     {point.name}
@@ -858,20 +865,22 @@ export function DeliveryOrdersClient({
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div class="sales-panel">
+      <section
+        class={`sales-panel sales-items-panel${isAwaitingOrder ? " sales-panel-locked" : ""}`}
+      >
         <div class="sales-section-header">
           <div>
-            <h3>2 · Line items</h3>
-            <p class="sales-muted">
-              Unit prices come from product pricing schedules.
-            </p>
+            <h3>
+              Items · {lines.length} line{lines.length === 1 ? "" : "s"} ·{" "}
+              {formatAmount(totalsPreview.net)} XAF net
+            </h3>
           </div>
-          {!isReadOnly ? (
+          {isFormEditable ? (
             <button
               type="button"
-              class="sales-btn-primary"
+              class="sales-btn-secondary"
               onClick={() => {
                 setAllowAutoUnitPrice(true);
                 setLines((current) => [...current, emptyLine()]);
@@ -897,7 +906,7 @@ export function DeliveryOrdersClient({
                   <span>Product</span>
                   <select
                     value={line.productId}
-                    disabled={isReadOnly}
+                    disabled={!isFormEditable}
                     onChange={(event) => {
                       setAllowAutoUnitPrice(true);
                       const productId = (
@@ -929,7 +938,7 @@ export function DeliveryOrdersClient({
                       type="text"
                       inputMode="numeric"
                       value={line.orderQty}
-                      disabled={isReadOnly}
+                      disabled={!isFormEditable}
                       onInput={(event) =>
                         setLines((current) =>
                           current.map((item, itemIndex) =>
@@ -957,7 +966,7 @@ export function DeliveryOrdersClient({
                     <input
                       type="text"
                       value={line.orderUnit}
-                      disabled={isReadOnly}
+                      disabled={!isFormEditable}
                       onInput={(event) =>
                         setLines((current) =>
                           current.map((item, itemIndex) =>
@@ -985,7 +994,7 @@ export function DeliveryOrdersClient({
                           : ""
                       }
                       readOnly
-                      disabled={isReadOnly}
+                      disabled={!isFormEditable}
                     />
                     {linePriceErrors[index] ? (
                       <span class="sales-hint sales-hint-warn">
@@ -1005,7 +1014,7 @@ export function DeliveryOrdersClient({
                   </label>
                 </div>
 
-                {!isReadOnly && lines.length > 1 ? (
+                {isFormEditable && lines.length > 1 ? (
                   <button
                     type="button"
                     class="sales-btn-link"
@@ -1036,18 +1045,22 @@ export function DeliveryOrdersClient({
             <strong>Total: {formatAmount(totalsPreview.total)} XAF</strong>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div class="sales-panel sales-payments-panel">
+      <section
+        class={`sales-panel sales-payments-panel${isAwaitingOrder ? " sales-panel-locked" : ""}`}
+      >
         <div class="sales-section-header">
           <div>
-            <h3>3 · Payments</h3>
-            <p class="sales-muted">Optional advance or instalment payments.</p>
+            <h3>
+              Payments · {payments.length} payment
+              {payments.length === 1 ? "" : "s"}
+            </h3>
           </div>
-          {!isReadOnly ? (
+          {isFormEditable ? (
             <button
               type="button"
-              class="sales-btn-primary"
+              class="sales-btn-secondary"
               onClick={() =>
                 setPayments((current) => [...current, emptyPayment()])
               }
@@ -1079,7 +1092,7 @@ export function DeliveryOrdersClient({
                       <span>Method</span>
                       <select
                         value={payment.paymentMethodId}
-                        disabled={isReadOnly}
+                        disabled={!isFormEditable}
                         onChange={(event) =>
                           setPayments((current) =>
                             current.map((item, itemIndex) =>
@@ -1114,7 +1127,7 @@ export function DeliveryOrdersClient({
                         value={payment.paymentDate}
                         min={postingPeriod?.startDate}
                         max={postingPeriod?.endDate}
-                        disabled={isReadOnly || !postingPeriod}
+                        disabled={!isFormEditable || !postingPeriod}
                         onInput={(event) =>
                           setPayments((current) =>
                             current.map((item, itemIndex) =>
@@ -1139,7 +1152,7 @@ export function DeliveryOrdersClient({
                           <input
                             type="text"
                             value={payment.chequeNo}
-                            disabled={isReadOnly}
+                            disabled={!isFormEditable}
                             onInput={(event) =>
                               setPayments((current) =>
                                 current.map((item, itemIndex) =>
@@ -1161,7 +1174,7 @@ export function DeliveryOrdersClient({
                           <input
                             type="text"
                             value={payment.bank}
-                            disabled={isReadOnly}
+                            disabled={!isFormEditable}
                             onInput={(event) =>
                               setPayments((current) =>
                                 current.map((item, itemIndex) =>
@@ -1185,7 +1198,7 @@ export function DeliveryOrdersClient({
                         <input
                           type="text"
                           value={payment.bank}
-                          disabled={isReadOnly}
+                          disabled={!isFormEditable}
                           onInput={(event) =>
                             setPayments((current) =>
                               current.map((item, itemIndex) =>
@@ -1208,7 +1221,7 @@ export function DeliveryOrdersClient({
                         <input
                           type="text"
                           value={payment.cashReceiptNo}
-                          disabled={isReadOnly}
+                          disabled={!isFormEditable}
                           onInput={(event) =>
                             setPayments((current) =>
                               current.map((item, itemIndex) =>
@@ -1228,10 +1241,10 @@ export function DeliveryOrdersClient({
                     )}
                   </div>
 
-                  {!isReadOnly ? (
+                  {isFormEditable ? (
                     <button
                       type="button"
-                      class="sales-btn-primary sales-payment-remove"
+                      class="sales-btn-secondary sales-payment-remove"
                       onClick={() =>
                         setPayments((current) =>
                           current.filter((_, itemIndex) => itemIndex !== index),
@@ -1246,10 +1259,10 @@ export function DeliveryOrdersClient({
             })}
           </div>
         )}
-      </div>
+      </section>
 
-      <div class="sales-actions-row">
-        {!isReadOnly ? (
+      <div class="sales-actions">
+        {isFormEditable ? (
           <button
             type="button"
             class="sales-btn-primary"
@@ -1267,7 +1280,7 @@ export function DeliveryOrdersClient({
         {orderId != null ? (
           <button
             type="button"
-            class="sales-btn-primary"
+            class="sales-btn-secondary"
             disabled={busy !== null}
             onClick={() => setPrintOpen(true)}
           >
@@ -1278,7 +1291,7 @@ export function DeliveryOrdersClient({
         {orderId != null && docStatus === "PENDING" && canValidate ? (
           <button
             type="button"
-            class="sales-btn-primary"
+            class="sales-btn-secondary"
             disabled={busy !== null}
             onClick={() => void validateOrder()}
           >

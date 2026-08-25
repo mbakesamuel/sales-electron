@@ -65,6 +65,15 @@ function getTableColumns(database: Database.Database, table: string): Set<string
   );
 }
 
+function tableExists(database: Database.Database, table: string): boolean {
+  const row = database
+    .prepare(
+      `SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1`,
+    )
+    .get(table);
+  return row != null;
+}
+
 function applySalesPointSimplifyMigration(database: Database.Database): void {
   recoverSalesPointTable(database);
 
@@ -281,10 +290,12 @@ const LEGACY_ROLE_MAP: Record<string, string> = {
   ADMIN: "ADMIN",
   DIRECTOR: "MANAGER",
   MANAGER: "MANAGER",
-  OFFICER: "SALES_CLERK",
+  OFFICER: "STORE_KEEPER",
   SENIOR_SUPERVISOR: "SENIOR_SALES_SUPERVISOR",
   SUPERVISOR: "SENIOR_SALES_SUPERVISOR",
-  CLERK: "SALES_CLERK",
+  CLERK: "STORE_KEEPER",
+  SALES_CLERK: "STORE_KEEPER",
+  STATISTICS_SUPERVISOR: "STATISTICS_CLERK",
 };
 
 function rolesSchemaIsCurrent(database: Database.Database): boolean {
@@ -332,13 +343,13 @@ function applySimplifiedRolesMigration(database: Database.Database): void {
 
   database.prepare(`
     UPDATE User
-    SET role = 'SALES_CLERK'
+    SET role = 'STORE_KEEPER'
     WHERE role NOT IN (
       'ADMIN',
       'MANAGER',
       'SENIOR_SALES_SUPERVISOR',
-      'STATISTICS_SUPERVISOR',
-      'SALES_CLERK'
+      'STATISTICS_CLERK',
+      'STORE_KEEPER'
     )
   `).run();
 
@@ -372,7 +383,7 @@ function applySimplifiedRolesMigration(database: Database.Database): void {
       CREATE TABLE User__new (
         id TEXT PRIMARY KEY NOT NULL,
         name TEXT NOT NULL,
-        role TEXT NOT NULL DEFAULT 'SALES_CLERK' CHECK (role IN ('ADMIN','MANAGER','SENIOR_SALES_SUPERVISOR','STATISTICS_SUPERVISOR','SALES_CLERK')),
+        role TEXT NOT NULL DEFAULT 'STORE_KEEPER' CHECK (role IN ('ADMIN','MANAGER','SENIOR_SALES_SUPERVISOR','STATISTICS_CLERK','STORE_KEEPER')),
         isActive INTEGER NOT NULL DEFAULT 1 CHECK (isActive IN (0, 1)),
         username TEXT NOT NULL UNIQUE,
         passwordPlain TEXT,
@@ -449,14 +460,14 @@ function permissionsSchemaIsCurrent(database: Database.Database): boolean {
 function applyRolePermissionsMigration(database: Database.Database): void {
   database.exec(`
     CREATE TABLE IF NOT EXISTS RoleRoutePermission (
-      role TEXT NOT NULL CHECK (role IN ('ADMIN','MANAGER','SENIOR_SALES_SUPERVISOR','STATISTICS_SUPERVISOR','SALES_CLERK')),
+      role TEXT NOT NULL CHECK (role IN ('ADMIN','MANAGER','SENIOR_SALES_SUPERVISOR','STATISTICS_CLERK','STORE_KEEPER')),
       routeId TEXT NOT NULL,
       access TEXT NOT NULL DEFAULT 'NONE' CHECK (access IN ('NONE', 'READ', 'WRITE')),
       PRIMARY KEY (role, routeId)
     );
 
     CREATE TABLE IF NOT EXISTS RoleActionPermission (
-      role TEXT NOT NULL CHECK (role IN ('ADMIN','MANAGER','SENIOR_SALES_SUPERVISOR','STATISTICS_SUPERVISOR','SALES_CLERK')),
+      role TEXT NOT NULL CHECK (role IN ('ADMIN','MANAGER','SENIOR_SALES_SUPERVISOR','STATISTICS_CLERK','STORE_KEEPER')),
       actionKey TEXT NOT NULL,
       allowed INTEGER NOT NULL DEFAULT 0 CHECK (allowed IN (0, 1)),
       PRIMARY KEY (role, actionKey)
@@ -716,6 +727,145 @@ function userSchemaIsCurrent(database: Database.Database): boolean {
   return names.join(",") === USER_TABLE_COLUMN_ORDER.join(",");
 }
 
+function manageableRolesSchemaIsCurrent(database: Database.Database): boolean {
+  const roleTable = database
+    .prepare(
+      `SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'Role' LIMIT 1`,
+    )
+    .get();
+  if (!roleTable) {
+    return false;
+  }
+
+  const userSql = database
+    .prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'User'`)
+    .get() as { sql: string } | undefined;
+  const routeSql = database
+    .prepare(
+      `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'RoleRoutePermission'`,
+    )
+    .get() as { sql: string } | undefined;
+
+  const userOk = Boolean(userSql?.sql) && !userSql!.sql.includes("CHECK (role IN");
+  const routeOk =
+    Boolean(routeSql?.sql) && !routeSql!.sql.includes("CHECK (role IN");
+  return userOk && routeOk;
+}
+
+function applyManageableRolesMigration(database: Database.Database): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS Role (
+      id TEXT PRIMARY KEY NOT NULL,
+      label TEXT NOT NULL,
+      isSystem INTEGER NOT NULL DEFAULT 0 CHECK (isSystem IN (0, 1)),
+      sortOrder INTEGER NOT NULL DEFAULT 0,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+      updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
+  const seedRole = database.prepare(`
+    INSERT OR IGNORE INTO Role (id, label, isSystem, sortOrder, createdAt, updatedAt)
+    VALUES (?, ?, 1, ?, datetime('now'), datetime('now'))
+  `);
+  const systemRoles: Array<[string, string, number]> = [
+    ["ADMIN", "Admin", 10],
+    ["MANAGER", "Manager", 20],
+    ["SENIOR_SALES_SUPERVISOR", "Senior sales supervisor", 30],
+    ["STATISTICS_CLERK", "Statistics clerk", 40],
+    ["STORE_KEEPER", "Store Keeper", 50],
+  ];
+  for (const [id, label, sortOrder] of systemRoles) {
+    seedRole.run(id, label, sortOrder);
+  }
+
+  const userRoles = database
+    .prepare(`SELECT DISTINCT role FROM User`)
+    .all() as Array<{ role: string }>;
+  const insertCustom = database.prepare(`
+    INSERT OR IGNORE INTO Role (id, label, isSystem, sortOrder, createdAt, updatedAt)
+    VALUES (?, ?, 0, ?, datetime('now'), datetime('now'))
+  `);
+  let customSort = 100;
+  for (const row of userRoles) {
+    const roleId = String(row.role ?? "").trim();
+    if (!roleId) {
+      continue;
+    }
+    const exists = database.prepare(`SELECT id FROM Role WHERE id = ?`).get(roleId);
+    if (!exists) {
+      insertCustom.run(roleId, roleId.replace(/_/g, " "), customSort);
+      customSort += 10;
+    }
+  }
+
+  database.pragma("foreign_keys = OFF");
+
+  database.exec(`
+    DROP TABLE IF EXISTS RoleRoutePermission__new;
+    CREATE TABLE RoleRoutePermission__new (
+      role TEXT NOT NULL REFERENCES Role(id) ON DELETE CASCADE,
+      routeId TEXT NOT NULL,
+      access TEXT NOT NULL DEFAULT 'NONE' CHECK (access IN ('NONE', 'READ', 'WRITE')),
+      PRIMARY KEY (role, routeId)
+    );
+    INSERT INTO RoleRoutePermission__new (role, routeId, access)
+    SELECT role, routeId, access FROM RoleRoutePermission;
+    DROP TABLE RoleRoutePermission;
+    ALTER TABLE RoleRoutePermission__new RENAME TO RoleRoutePermission;
+
+    DROP TABLE IF EXISTS RoleActionPermission__new;
+    CREATE TABLE RoleActionPermission__new (
+      role TEXT NOT NULL REFERENCES Role(id) ON DELETE CASCADE,
+      actionKey TEXT NOT NULL,
+      allowed INTEGER NOT NULL DEFAULT 0 CHECK (allowed IN (0, 1)),
+      PRIMARY KEY (role, actionKey)
+    );
+    INSERT INTO RoleActionPermission__new (role, actionKey, allowed)
+    SELECT role, actionKey, allowed FROM RoleActionPermission;
+    DROP TABLE RoleActionPermission;
+    ALTER TABLE RoleActionPermission__new RENAME TO RoleActionPermission;
+  `);
+
+  const userColumns = getTableColumns(database, "User");
+  const mustChangeSelect = userColumns.has("mustChangePassword")
+    ? "COALESCE(mustChangePassword, 0)"
+    : "0";
+
+  database.exec(`
+    DROP TABLE IF EXISTS User__new;
+    CREATE TABLE User__new (
+      id TEXT PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'STORE_KEEPER' REFERENCES Role(id),
+      isActive INTEGER NOT NULL DEFAULT 1 CHECK (isActive IN (0, 1)),
+      username TEXT NOT NULL UNIQUE,
+      passwordPlain TEXT,
+      salesPointId INTEGER REFERENCES SalesPoint(id),
+      passwordHash TEXT,
+      mustChangePassword INTEGER NOT NULL DEFAULT 0 CHECK (mustChangePassword IN (0, 1)),
+      commercialServiceId TEXT REFERENCES CommercialService(id),
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+      updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    INSERT INTO User__new (
+      id, name, role, isActive, username, passwordPlain, salesPointId,
+      passwordHash, mustChangePassword, commercialServiceId, createdAt, updatedAt
+    )
+    SELECT
+      id, name, role, isActive, username, passwordPlain, salesPointId,
+      passwordHash, ${mustChangeSelect}, commercialServiceId, createdAt, updatedAt
+    FROM User;
+
+    DROP TABLE User;
+    ALTER TABLE User__new RENAME TO User;
+    CREATE INDEX IF NOT EXISTS User_commercialService_idx ON User (commercialServiceId);
+  `);
+
+  database.pragma("foreign_keys = ON");
+}
+
 /** True when ProductSalesBudget is already keyed by productCatId (fresh 001_init or migrated). */
 function budgetByProductCatIsCurrent(database: Database.Database): boolean {
   const budgetCols = getTableColumns(database, "ProductSalesBudget");
@@ -753,7 +903,138 @@ function userHasMustChangePassword(database: Database.Database): boolean {
 }
 
 function millHasIsActive(database: Database.Database): boolean {
-  return getTableColumns(database, "Mill").has("isActive");
+  return tableExists(database, "Mill") && getTableColumns(database, "Mill").has("isActive");
+}
+
+function millLayerPresent(database: Database.Database): boolean {
+  if (tableExists(database, "Mill")) {
+    return true;
+  }
+  return (
+    (tableExists(database, "SalesPoint") &&
+      getTableColumns(database, "SalesPoint").has("millId")) ||
+    (tableExists(database, "StorageLocation") &&
+      getTableColumns(database, "StorageLocation").has("millId"))
+  );
+}
+
+function deleteRowsForMillOwnedLocations(
+  database: Database.Database,
+  table: string,
+  column: string,
+): void {
+  if (!tableExists(database, table) || !getTableColumns(database, table).has(column)) {
+    return;
+  }
+  database
+    .prepare(
+      `DELETE FROM ${table}
+       WHERE ${column} IN (SELECT id FROM StorageLocation WHERE millId IS NOT NULL)`,
+    )
+    .run();
+}
+
+function applyDropMillLayerMigration(database: Database.Database): void {
+  if (!millLayerPresent(database)) {
+    return;
+  }
+
+  database.pragma("foreign_keys = OFF");
+
+  if (getTableColumns(database, "StorageLocation").has("millId")) {
+    if (
+      tableExists(database, "SaleLine") &&
+      getTableColumns(database, "SaleLine").has("storageLocationId")
+    ) {
+      database.exec(`
+        UPDATE SaleLine
+        SET storageLocationId = NULL
+        WHERE storageLocationId IN (
+          SELECT id FROM StorageLocation WHERE millId IS NOT NULL
+        )
+      `);
+    }
+
+    deleteRowsForMillOwnedLocations(database, "StockBalance", "storageLocationId");
+    deleteRowsForMillOwnedLocations(database, "StockMovement", "storageLocationId");
+    deleteRowsForMillOwnedLocations(database, "StockReceiptLine", "storageLocationId");
+    deleteRowsForMillOwnedLocations(database, "StockAdjustmentLine", "storageLocationId");
+    deleteRowsForMillOwnedLocations(database, "StockTransferLine", "fromStorageLocationId");
+    deleteRowsForMillOwnedLocations(database, "StockTransferLine", "toStorageLocationId");
+
+    database.exec(`DELETE FROM StorageLocation WHERE millId IS NOT NULL`);
+  }
+
+  if (getTableColumns(database, "SalesPoint").has("millId")) {
+    const hasIsActive = getTableColumns(database, "SalesPoint").has("isActive");
+    database.exec(`
+      DROP TABLE IF EXISTS SalesPoint__new;
+      CREATE TABLE SalesPoint__new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        ${hasIsActive ? "isActive INTEGER NOT NULL DEFAULT 1 CHECK (isActive IN (0, 1))," : ""}
+        createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+        updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+      INSERT INTO SalesPoint__new (
+        id, name, ${hasIsActive ? "isActive, " : ""}createdAt, updatedAt
+      )
+      SELECT
+        id,
+        name,
+        ${hasIsActive ? "COALESCE(isActive, 1)," : ""}
+        COALESCE(createdAt, datetime('now')),
+        COALESCE(updatedAt, datetime('now'))
+      FROM SalesPoint;
+
+      DROP TABLE SalesPoint;
+      ALTER TABLE SalesPoint__new RENAME TO SalesPoint;
+      ${hasIsActive ? "CREATE INDEX IF NOT EXISTS SalesPoint_isActive_idx ON SalesPoint (isActive);" : ""}
+    `);
+  }
+
+  if (getTableColumns(database, "StorageLocation").has("millId")) {
+    const hasIsActive = getTableColumns(database, "StorageLocation").has("isActive");
+    database.exec(`
+      DROP TABLE IF EXISTS StorageLocation__new;
+      CREATE TABLE StorageLocation__new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        salesPointId INTEGER NOT NULL REFERENCES SalesPoint(id) ON DELETE CASCADE,
+        locationId INTEGER NOT NULL REFERENCES Location(id) ON DELETE RESTRICT,
+        createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+        updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+        isDefault INTEGER NOT NULL DEFAULT 0 CHECK (isDefault IN (0, 1)),
+        ${hasIsActive ? "isActive INTEGER NOT NULL DEFAULT 1 CHECK (isActive IN (0, 1))," : ""}
+        UNIQUE (salesPointId, locationId)
+      );
+
+      INSERT INTO StorageLocation__new (
+        id, salesPointId, locationId, createdAt, updatedAt, isDefault${hasIsActive ? ", isActive" : ""}
+      )
+      SELECT
+        id,
+        salesPointId,
+        locationId,
+        COALESCE(createdAt, datetime('now')),
+        COALESCE(updatedAt, datetime('now')),
+        isDefault${hasIsActive ? ", COALESCE(isActive, 1)" : ""}
+      FROM StorageLocation
+      WHERE salesPointId IS NOT NULL;
+
+      DROP TABLE StorageLocation;
+      ALTER TABLE StorageLocation__new RENAME TO StorageLocation;
+      CREATE INDEX IF NOT EXISTS StorageLocation_salesPoint_idx ON StorageLocation (salesPointId);
+      CREATE INDEX IF NOT EXISTS StorageLocation_location_idx ON StorageLocation (locationId);
+      ${hasIsActive ? "CREATE INDEX IF NOT EXISTS StorageLocation_isActive_idx ON StorageLocation (isActive);" : ""}
+    `);
+  }
+
+  database.exec(`DROP TABLE IF EXISTS Mill`);
+  if (tableExists(database, "RoleRoutePermission")) {
+    database.exec(`DELETE FROM RoleRoutePermission WHERE routeId = 'mills'`);
+  }
+  database.pragma("foreign_keys = ON");
 }
 
 function salesPointHasIsActive(database: Database.Database): boolean {
@@ -766,6 +1047,14 @@ function locationHasIsActive(database: Database.Database): boolean {
 
 function storageLocationHasIsActive(database: Database.Database): boolean {
   return getTableColumns(database, "StorageLocation").has("isActive");
+}
+
+function storageLocationHasIsSalesTank(database: Database.Database): boolean {
+  return getTableColumns(database, "StorageLocation").has("isSalesTank");
+}
+
+function salesPointHasAttachedToMill(database: Database.Database): boolean {
+  return getTableColumns(database, "SalesPoint").has("attachedToMill");
 }
 
 function storageLocationHasIsSellable(database: Database.Database): boolean {
@@ -936,7 +1225,7 @@ function applyUserDropServiceFactoryMigration(database: Database.Database): void
     CREATE TABLE User__new (
       id TEXT PRIMARY KEY NOT NULL,
       name TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'SALES_CLERK' CHECK (role IN ('ADMIN','MANAGER','SENIOR_SALES_SUPERVISOR','STATISTICS_SUPERVISOR','SALES_CLERK')),
+      role TEXT NOT NULL DEFAULT 'STORE_KEEPER' CHECK (role IN ('ADMIN','MANAGER','SENIOR_SALES_SUPERVISOR','STATISTICS_CLERK','STORE_KEEPER')),
       isActive INTEGER NOT NULL DEFAULT 1 CHECK (isActive IN (0, 1)),
       username TEXT NOT NULL UNIQUE,
       passwordPlain TEXT,
@@ -1173,7 +1462,10 @@ function runMigrations(database: Database.Database): void {
       continue;
     }
 
-    if (fileName === "052_mill_is_active.sql" && millHasIsActive(database)) {
+    if (
+      fileName === "052_mill_is_active.sql" &&
+      (!tableExists(database, "Mill") || millHasIsActive(database))
+    ) {
       database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
       continue;
     }
@@ -1185,7 +1477,7 @@ function runMigrations(database: Database.Database): void {
 
     if (
       fileName === "054_storage_location_mill_owner.sql" &&
-      storageLocationHasMillOwner(database)
+      (!tableExists(database, "Mill") || storageLocationHasMillOwner(database))
     ) {
       database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
       continue;
@@ -1233,6 +1525,44 @@ function runMigrations(database: Database.Database): void {
 
     if (fileName === "059_drop_storage_location_is_sellable.sql") {
       applyDropStorageLocationIsSellableMigration(database);
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (fileName === "060_drop_mill.sql" && !millLayerPresent(database)) {
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (fileName === "060_drop_mill.sql") {
+      applyDropMillLayerMigration(database);
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (
+      fileName === "061_storage_location_is_sales_tank.sql" &&
+      storageLocationHasIsSalesTank(database)
+    ) {
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (
+      fileName === "066_sales_point_attached_to_mill.sql" &&
+      salesPointHasAttachedToMill(database)
+    ) {
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (fileName === "062_manageable_roles.sql" && manageableRolesSchemaIsCurrent(database)) {
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (fileName === "062_manageable_roles.sql") {
+      applyManageableRolesMigration(database);
       database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
       continue;
     }

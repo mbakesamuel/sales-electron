@@ -13,7 +13,7 @@ Customer type text (code/name) is used on the **Sales/delivery report** to class
 
 Keep types named consistently so weekly/monthly delivery reports group sales correctly.
 
-Invoice-only / walk-in flows (no registered customer) are available on sales for certain dispositions; see [Sales invoices](04-sales-invoices.md).
+Invoice-only / walk-in flows (no registered customer) are available on sales for certain dispositions, and by default on **Bottle Oil sales** (unless App settings enables registered customers there); see [Sales invoices](04-sales-invoices.md).
 
 ### Add / edit customer
 

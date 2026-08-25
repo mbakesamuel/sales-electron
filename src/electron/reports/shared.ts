@@ -13,12 +13,10 @@ export interface SalesPointRow {
 
 export interface StorageLocationRow {
   id: number;
-  salesPointId: number | null;
-  millId: number | null;
+  salesPointId: number;
   name: string;
   isActive: boolean;
-  millIsActive: boolean | null;
-  /** Derived: SP locations active → true; mill-owned → Mill.isActive. */
+  /** Derived from location isActive. */
   effectivelySellable: boolean;
 }
 
@@ -56,44 +54,21 @@ export function loadSalesPoints(): SalesPointRow[] {
 export function loadStorageLocations(): StorageLocationRow[] {
   return getDatabase()
     .prepare(
-      `SELECT sl.id, sl.salesPointId, sl.millId, l.locationName AS name,
-              COALESCE(sl.isActive, 1) AS isActive,
-              m.isActive AS millIsActive
+      `SELECT sl.id, sl.salesPointId, l.locationName AS name,
+              COALESCE(sl.isActive, 1) AS isActive
        FROM StorageLocation sl
        INNER JOIN Location l ON l.id = sl.locationId
-       LEFT JOIN Mill m ON m.id = sl.millId
-       ORDER BY COALESCE(sl.salesPointId, sl.millId) ASC, l.locationName ASC`,
+       ORDER BY sl.salesPointId ASC, l.locationName ASC`,
     )
     .all()
     .map((row) => {
-      const salesPointId =
-        (row as { salesPointId: number | null }).salesPointId != null
-          ? Number((row as { salesPointId: number }).salesPointId)
-          : null;
-      const millId =
-        (row as { millId: number | null }).millId != null
-          ? Number((row as { millId: number }).millId)
-          : null;
       const isActive = (row as { isActive: number }).isActive === 1;
-      const millIsActiveRaw = (row as { millIsActive: number | null }).millIsActive;
-      const millIsActive =
-        millId == null
-          ? null
-          : millIsActiveRaw === 1 || millIsActiveRaw == null
-            ? true
-            : false;
       return {
         id: (row as { id: number }).id,
-        salesPointId,
-        millId,
+        salesPointId: Number((row as { salesPointId: number }).salesPointId),
         name: (row as { name: string }).name,
         isActive,
-        millIsActive,
-        effectivelySellable: isStorageLocationEffectivelySellable({
-          millId,
-          millIsActive,
-          isActive,
-        }),
+        effectivelySellable: isStorageLocationEffectivelySellable({ isActive }),
       };
     });
 }

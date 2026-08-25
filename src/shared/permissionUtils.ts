@@ -1,6 +1,6 @@
 import type { PermissionActionKey, RolePermissionsSnapshot } from "./permissions.types.ts";
 import type { RouteAccess } from "./roles.ts";
-import { canAccessStockModule } from "./stockModule.js";
+import { canAccessBottledStockModule, canAccessStockModule } from "./stockModule.js";
 
 export function getRouteAccessFromSnapshot(
   snapshot: RolePermissionsSnapshot,
@@ -30,16 +30,51 @@ export function canPerformActionFromSnapshot(
   return snapshot.actions[actionKey] ?? false;
 }
 
+/** Sidebar label: bottled-only keepers see "Stock" for bottled-stock. */
+export function stockNavLabelForRoute(
+  snapshot: RolePermissionsSnapshot,
+  routeId: string,
+  defaultLabel: string,
+): string {
+  if (routeId !== "bottled-stock") {
+    return defaultLabel;
+  }
+  const hasBulk = canAccessStockModule(snapshot);
+  const hasBottled = canAccessBottledStockModule(snapshot);
+  if (hasBottled && !hasBulk) {
+    return "Stock";
+  }
+  return defaultLabel;
+}
+
 export function filterSectionsForPermissions<
   TSection extends {
-    routes: readonly { id: string }[];
-    groups?: readonly { id: string; label: string; routes: readonly { id: string }[] }[];
+    routes: readonly { id: string; label?: string }[];
+    groups?: readonly {
+      id: string;
+      label: string;
+      routes: readonly { id: string; label?: string }[];
+    }[];
   },
 >(sections: readonly TSection[], snapshot: RolePermissionsSnapshot): TSection[] {
   function canAccessRoute(routeId: string): boolean {
-    return routeId === "stock"
-      ? canAccessStockModule(snapshot)
-      : canAccessRouteFromSnapshot(snapshot, routeId);
+    if (routeId === "stock") {
+      return canAccessStockModule(snapshot);
+    }
+    if (routeId === "bottled-stock") {
+      return canAccessBottledStockModule(snapshot);
+    }
+    return canAccessRouteFromSnapshot(snapshot, routeId);
+  }
+
+  function withNavLabel<T extends { id: string; label?: string }>(route: T): T {
+    if (!("label" in route) || route.label == null) {
+      return route;
+    }
+    return {
+      ...route,
+      label: stockNavLabelForRoute(snapshot, route.id, route.label),
+    };
   }
 
   return sections
@@ -48,7 +83,9 @@ export function filterSectionsForPermissions<
         const groups = section.groups
           .map((group) => ({
             ...group,
-            routes: group.routes.filter((route) => canAccessRoute(route.id)),
+            routes: group.routes
+              .filter((route) => canAccessRoute(route.id))
+              .map((route) => withNavLabel(route)),
           }))
           .filter((group) => group.routes.length > 0);
         return {
@@ -60,7 +97,9 @@ export function filterSectionsForPermissions<
 
       return {
         ...section,
-        routes: section.routes.filter((route) => canAccessRoute(route.id)),
+        routes: section.routes
+          .filter((route) => canAccessRoute(route.id))
+          .map((route) => withNavLabel(route)),
       };
     })
     .filter((section) => section.routes.length > 0);

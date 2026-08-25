@@ -1,0 +1,2 @@
+-- Applied programmatically in db/index.ts (applyManageableRolesMigration).
+-- Introduces Role catalog; removes fixed CHECK constraints on User.role and permission tables.

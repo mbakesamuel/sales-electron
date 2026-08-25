@@ -1,0 +1,2 @@
+-- Applied programmatically in db/index.ts (applyDropMillLayerMigration).
+-- Removes Mill, SalesPoint.millId, and mill-owned storage locations.

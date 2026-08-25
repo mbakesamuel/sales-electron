@@ -1,6 +1,7 @@
 import type { RolePermissionsSnapshot } from "./permissions.types.js";
 import type { RouteAccess } from "./roles.js";
 
+/** Legacy per-tab / table routes (still in catalog for matrix compatibility). */
 export const STOCK_MODULE_ROUTE_IDS = [
   "stock-balance",
   "stock-movements",
@@ -12,15 +13,16 @@ export const STOCK_MODULE_ROUTE_IDS = [
   "stock-adjustment-lines",
 ] as const;
 
-export type StockTabId = "balance" | "movements" | "receipts" | "transfers" | "adjustments";
+/** Single gate for the bulk (non-bottled) stock management environment. */
+export const STOCK_MODULE_ROUTE_ID = "stock";
 
-const STOCK_TAB_ROUTE_IDS: Record<StockTabId, readonly string[]> = {
-  balance: ["stock-balance"],
-  movements: ["stock-movements"],
-  receipts: ["stock-receipts", "stock-receipt-lines"],
-  transfers: ["stock-transfers", "stock-transfer-lines"],
-  adjustments: ["stock-adjustments", "stock-adjustment-lines"],
-};
+/** Single gate for the bottled stock management environment. */
+export const BOTTLED_STOCK_ROUTE_ID = "bottled-stock";
+
+export type StockProductFilter = "bulk" | "bottled";
+export type StockModuleVariant = StockProductFilter;
+
+export type StockTabId = "balance" | "movements" | "receipts" | "transfers" | "adjustments";
 
 export const STOCK_TAB_DEFINITIONS: ReadonlyArray<{
   id: StockTabId;
@@ -34,7 +36,7 @@ export const STOCK_TAB_DEFINITIONS: ReadonlyArray<{
     id: "balance",
     label: "Balance",
     headerTable: "StockBalance",
-    description: "Current stock levels by sales point, product, location, and condition.",
+    description: "Current stock levels by collection point, product, location, and condition.",
   },
   {
     id: "movements",
@@ -55,7 +57,7 @@ export const STOCK_TAB_DEFINITIONS: ReadonlyArray<{
     label: "Transfers",
     headerTable: "StockTransfer",
     lineTable: "StockTransferLine",
-    description: "Transfers between sales points and storage locations.",
+    description: "Transfers between collection points and storage locations.",
     lineDescription: "Line items on stock transfers.",
   },
   {
@@ -76,47 +78,110 @@ function canAccessRoute(snapshot: RolePermissionsSnapshot, routeId: string): boo
   return getRouteAccess(snapshot, routeId) !== "none";
 }
 
-function canWriteRoute(snapshot: RolePermissionsSnapshot, routeId: string): boolean {
-  return getRouteAccess(snapshot, routeId) === "write";
-}
-
-function maxRouteAccess(levels: RouteAccess[]): RouteAccess {
-  if (levels.includes("write")) {
-    return "write";
-  }
-  if (levels.includes("read")) {
-    return "read";
-  }
-  return "none";
-}
-
 export function canAccessStockModule(snapshot: RolePermissionsSnapshot): boolean {
-  return STOCK_MODULE_ROUTE_IDS.some((routeId) => canAccessRoute(snapshot, routeId));
+  return canAccessRoute(snapshot, STOCK_MODULE_ROUTE_ID);
 }
 
 export function getStockModuleAccess(snapshot: RolePermissionsSnapshot): RouteAccess {
-  return maxRouteAccess(
-    STOCK_MODULE_ROUTE_IDS.map((routeId) => getRouteAccess(snapshot, routeId)),
-  );
+  return getRouteAccess(snapshot, STOCK_MODULE_ROUTE_ID);
+}
+
+export function canAccessBottledStockModule(snapshot: RolePermissionsSnapshot): boolean {
+  return canAccessRoute(snapshot, BOTTLED_STOCK_ROUTE_ID);
+}
+
+export function getBottledStockModuleAccess(snapshot: RolePermissionsSnapshot): RouteAccess {
+  return getRouteAccess(snapshot, BOTTLED_STOCK_ROUTE_ID);
 }
 
 export function canAccessStockTab(
   snapshot: RolePermissionsSnapshot,
-  tabId: StockTabId,
+  _tabId: StockTabId,
 ): boolean {
-  return STOCK_TAB_ROUTE_IDS[tabId].some((routeId) => canAccessRoute(snapshot, routeId));
+  return canAccessStockModule(snapshot);
 }
 
 export function isStockTabReadOnly(
   snapshot: RolePermissionsSnapshot,
+  _tabId: StockTabId,
+): boolean {
+  return getStockModuleAccess(snapshot) !== "write";
+}
+
+/** Bulk and bottled environments are each gated by a single module route. */
+export function canAccessStockTabForVariant(
+  snapshot: RolePermissionsSnapshot,
+  variant: StockModuleVariant,
   tabId: StockTabId,
 ): boolean {
-  const routeIds = STOCK_TAB_ROUTE_IDS[tabId];
-  return !routeIds.some((routeId) => canWriteRoute(snapshot, routeId));
+  if (variant === "bottled") {
+    return canAccessBottledStockModule(snapshot);
+  }
+  return canAccessStockTab(snapshot, tabId);
+}
+
+export function isStockTabReadOnlyForVariant(
+  snapshot: RolePermissionsSnapshot,
+  variant: StockModuleVariant,
+  tabId: StockTabId,
+): boolean {
+  if (variant === "bottled") {
+    return getBottledStockModuleAccess(snapshot) !== "write";
+  }
+  return isStockTabReadOnly(snapshot, tabId);
 }
 
 export function getVisibleStockTabs(snapshot: RolePermissionsSnapshot): StockTabId[] {
   return STOCK_TAB_DEFINITIONS.filter((tab) => canAccessStockTab(snapshot, tab.id)).map(
     (tab) => tab.id,
+  );
+}
+
+export function getVisibleStockTabsForVariant(
+  snapshot: RolePermissionsSnapshot,
+  variant: StockModuleVariant,
+): StockTabId[] {
+  return STOCK_TAB_DEFINITIONS.filter((tab) =>
+    canAccessStockTabForVariant(snapshot, variant, tab.id),
+  ).map((tab) => tab.id);
+}
+
+export function normalizeStockProductFilter(value: unknown): StockProductFilter {
+  return value === "bottled" ? "bottled" : "bulk";
+}
+
+/** Bottled-only users (e.g. Store Keeper) use bottled stock; everyone else defaults to bulk. */
+export function resolveStockProductFilterFromAccess(
+  bulkAccess: RouteAccess,
+  bottledAccess: RouteAccess,
+  requested?: StockProductFilter | null,
+): StockProductFilter {
+  const hasBulk = bulkAccess !== "none";
+  const hasBottled = bottledAccess !== "none";
+
+  // Bottled-primary users (e.g. Store Keeper): any bottled access without bulk write.
+  if (hasBottled && bulkAccess !== "write") {
+    return "bottled";
+  }
+  if (hasBulk && hasBottled) {
+    return normalizeStockProductFilter(requested);
+  }
+  if (hasBulk) {
+    return "bulk";
+  }
+  if (hasBottled) {
+    return "bottled";
+  }
+  return "bulk";
+}
+
+export function resolveStockProductFilterFromSnapshot(
+  snapshot: RolePermissionsSnapshot,
+  requested?: StockProductFilter | null,
+): StockProductFilter {
+  return resolveStockProductFilterFromAccess(
+    getStockModuleAccess(snapshot),
+    getBottledStockModuleAccess(snapshot),
+    requested,
   );
 }

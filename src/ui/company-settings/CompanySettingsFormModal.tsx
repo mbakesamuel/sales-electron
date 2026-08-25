@@ -2,8 +2,7 @@ import { useState } from "preact/hooks";
 import { normalizeVatRateDecimal } from "../../shared/taxRules.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
-import { applyUiTheme, loadAndApplyCompanyTheme } from "../theme/applyUiTheme.ts";
-import type { ThemePreset } from "./CompanySettingsScreen.tsx";
+import { normalizeUiThemePreset } from "../theme/applyUiTheme.ts";
 import "./CompanySettingsScreen.css";
 
 export const MONTHS = [
@@ -21,17 +20,9 @@ export const MONTHS = [
   "December",
 ] as const;
 
-export const THEME_PRESETS: ThemePreset[] = ["agro", "dark"];
-
-export const THEME_LABELS: Record<ThemePreset, string> = {
-  agro: "Agro",
-  dark: "Dark",
-};
-
-export const THEME_COLORS: Record<ThemePreset, string> = {
-  agro: "#c5a017",
-  dark: "#1a2418",
-};
+export { UI_THEME_PRESETS as THEME_PRESETS } from "../theme/applyUiTheme.ts";
+export { UI_THEME_LABELS as THEME_LABELS } from "../theme/applyUiTheme.ts";
+export { UI_THEME_COLORS as THEME_COLORS } from "../theme/applyUiTheme.ts";
 
 interface CompanySettingsFormModalProps {
   mode: "create" | "edit";
@@ -46,7 +37,6 @@ interface FormState {
   vatRate: string;
   fiscalYearStartMonth: number;
   logoUrl: string;
-  uiThemePreset: ThemePreset;
 }
 
 /** Store as decimal (0.1925); show as percent (19.25) in the form. */
@@ -75,7 +65,6 @@ function initialForm(
       vatRate: "19.25",
       fiscalYearStartMonth: 1,
       logoUrl: "",
-      uiThemePreset: "agro",
     };
   }
 
@@ -85,9 +74,6 @@ function initialForm(
     vatRate: vatDecimalToPercentInput(row.vatRate as string | number | null),
     fiscalYearStartMonth: Number(row.fiscalYearStartMonth ?? 1),
     logoUrl: String(row.logoUrl ?? ""),
-    uiThemePreset: THEME_PRESETS.includes(row.uiThemePreset as ThemePreset)
-      ? (row.uiThemePreset as ThemePreset)
-      : "agro",
   };
 }
 
@@ -133,7 +119,9 @@ export function CompanySettingsFormModal({
       department: form.department.trim(),
       fiscalYearStartMonth: form.fiscalYearStartMonth,
       logoUrl: form.logoUrl.trim() || null,
-      uiThemePreset: form.uiThemePreset,
+      uiThemePreset: normalizeUiThemePreset(
+        mode === "edit" ? row?.uiThemePreset : "agro",
+      ),
     };
 
     if (mode === "create") {
@@ -158,9 +146,6 @@ export function CompanySettingsFormModal({
       }
 
       onSaved();
-      if (mode === "create" || String(row?.id) === "default") {
-        applyUiTheme(form.uiThemePreset);
-      }
       onClose();
     } catch (error) {
       setSubmitError(
@@ -172,7 +157,7 @@ export function CompanySettingsFormModal({
   }
 
   function handleClose() {
-    void loadAndApplyCompanyTheme().finally(() => onClose());
+    onClose();
   }
 
   const inputClass = "company-settings-input";
@@ -280,35 +265,6 @@ export function CompanySettingsFormModal({
             }
           />
         </label>
-
-        <fieldset class="company-settings-theme-fieldset">
-          <legend>App theme</legend>
-          <p class="company-settings-theme-hint">
-            Applies across the whole app (login and home).
-          </p>
-          <div class="company-settings-theme-grid">
-            {THEME_PRESETS.map((preset) => (
-              <button
-                key={preset}
-                type="button"
-                class={`company-settings-theme-option${
-                  form.uiThemePreset === preset ? " is-selected" : ""
-                }`}
-                disabled={isSubmitting}
-                onClick={() => {
-                  update("uiThemePreset", preset);
-                  applyUiTheme(preset);
-                }}
-              >
-                <span
-                  class="company-settings-theme-dot"
-                  style={{ background: THEME_COLORS[preset] }}
-                />
-                {THEME_LABELS[preset]}
-              </button>
-            ))}
-          </div>
-        </fieldset>
 
         {submitError ? (
           <p class="form-dialog-error">{submitError}</p>

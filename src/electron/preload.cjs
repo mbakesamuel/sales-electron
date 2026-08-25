@@ -19,13 +19,20 @@ contextBridge.exposeInMainWorld("api", {
     getSnapshot: (token) => ipcRenderer.invoke("permissions:getSnapshot", token),
     getMatrix: (token) => ipcRenderer.invoke("permissions:getMatrix", token),
     saveMatrix: (input) => ipcRenderer.invoke("permissions:saveMatrix", input),
+    listRoles: (token) => ipcRenderer.invoke("permissions:listRoles", token),
+    createRole: (input) => ipcRenderer.invoke("permissions:createRole", input),
+    updateRole: (input) => ipcRenderer.invoke("permissions:updateRole", input),
+    deleteRole: (input) => ipcRenderer.invoke("permissions:deleteRole", input),
   },
   sales: {
-    getFormOptions: () => ipcRenderer.invoke("sales:getFormOptions"),
+    getFormOptions: (userId) => ipcRenderer.invoke("sales:getFormOptions", userId),
     getTaxRatesAsOf: (asOfDate) =>
       ipcRenderer.invoke("sales:getTaxRatesAsOf", asOfDate),
     listSales: (filters) => ipcRenderer.invoke("sales:listSales", filters),
     listPendingSales: () => ipcRenderer.invoke("sales:listPendingSales"),
+    listValidationQueue: (userId) =>
+      ipcRenderer.invoke("sales:listValidationQueue", userId),
+    validateMany: (payload) => ipcRenderer.invoke("sales:validateMany", payload),
     loadSaleByInvoiceNo: (invoiceNo) =>
       ipcRenderer.invoke("sales:loadSaleByInvoiceNo", invoiceNo),
     createSale: (input) => ipcRenderer.invoke("sales:createSale", input),
@@ -162,7 +169,10 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("financialYears:getOpenPostingPeriod", authToken),
   },
   stock: {
-    getBootstrap: (userId) => ipcRenderer.invoke("stock:getBootstrap", userId),
+    getBootstrap: (userId, productFilter) =>
+      ipcRenderer.invoke("stock:getBootstrap", userId, productFilter),
+    listOnHandAsOf: (userId, payload) =>
+      ipcRenderer.invoke("stock:listOnHandAsOf", userId, payload),
     getBinCard: (userId, query) =>
       ipcRenderer.invoke("stock:getBinCard", userId, query),
     saveReceipt: (input) => ipcRenderer.invoke("stock:saveReceipt", input),
@@ -172,6 +182,10 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("stock:findReceiptByNumber", payload),
     loadReceiptForReview: (payload) =>
       ipcRenderer.invoke("stock:loadReceiptForReview", payload),
+    loadReceiptPrintById: (payload) =>
+      ipcRenderer.invoke("stock:loadReceiptPrintById", payload),
+    loadTransferPrintById: (payload) =>
+      ipcRenderer.invoke("stock:loadTransferPrintById", payload),
     saveTransfer: (input) => ipcRenderer.invoke("stock:saveTransfer", input),
     dispatchTransfer: (payload) => ipcRenderer.invoke("stock:dispatchTransfer", payload),
     postInternalTransfer: (payload) =>
@@ -189,6 +203,9 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("stock:findAdjustmentByNumber", payload),
     loadAdjustmentForReview: (payload) =>
       ipcRenderer.invoke("stock:loadAdjustmentForReview", payload),
+    listValidationQueue: (userId) =>
+      ipcRenderer.invoke("stock:listValidationQueue", userId),
+    validateMany: (payload) => ipcRenderer.invoke("stock:validateMany", payload),
   },
   dialog: {
     confirm: (message) => ipcRenderer.sendSync("dialog:confirm", message),

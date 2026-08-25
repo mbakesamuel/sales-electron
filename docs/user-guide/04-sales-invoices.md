@@ -1,25 +1,28 @@
 # Sales invoices
 
-Screen: **Sales → Sales Invoice**.
+Screens: **Sales → Sales Invoice** (loose / bulk) and **Sales → Bottle Oil sales** (bottled products).
 
-Use this screen to create, look up, print, and (with permission) validate or delete sales.
+Use these screens to create, look up, print, and (with permission) validate or delete sales.
 
-The Sales area has two tabs: **Sales screen** (create / edit) and **Invoice list**.
+Each area has two tabs: **Sales screen** (create / edit) and **Invoice list**.
 
 ## Modes and dispositions
 
-- **Loose vs bottle** — At sales points that support bottled product mode, you can switch between loose (kg) and bottle (units) lines. Bottle mode hides delivery-order picking.
-- **Sale disposition** — Normal commercial sales vs special cases such as **Ration** or **Public relation**. Special dispositions change customer/payment requirements (often invoice-name only, no DO, no payments).
+- **Loose (Sales Invoice)** — Lines in kg; deduct from a **sales tank**. Delivery-order picking is available for normal dispositions with a registered customer.
+- **Bottle Oil sales** — Separate screen for bottled products (units). Deducts from **Bottle Oil Store** (not a sales tank). No delivery-order picking. The per-invoice **Registered customer** checkbox is **never shown**; customer mode follows **App settings → Bottle Oil sales → Use registered customers** (off = invoice name only; on = directory customer required). **Ration** is available only when **Allow Ration disposition** is on in App settings (off by default). See [Organization setup](02-organization-setup.md).
+- **Sale disposition** — Normal commercial sales vs special cases such as **Ration** or **Public relation**. Special dispositions change customer/payment requirements (often invoice-name only, no DO, no payments) on both screens. On Bottle Oil, Ration may be hidden by company setting; Public relation remains available.
 
 ## Creating a normal sale
 
 1. Enter the **Booklet serial no.** from the paper booklet (required before save).
-2. Select **registered customer** and **sales point**.
+2. Select **customer** and **sales point**:
+   - **Loose** — Use the **Registered customer** checkbox when selling to a directory account; uncheck for an invoice name only.
+   - **Bottle Oil** — Invoice name only by default, or a directory customer when the company setting is on (no checkbox).
 3. Set the transaction date (must fall in the open posting period).
-4. Optionally link a **delivery order** (see below).
-5. Add product lines (qty, price, storage location).
+4. Optionally link a **delivery order** (loose / normal / registered customer only — see below).
+5. Add product lines (qty, price, storage location where required).
 6. Enter payments so paid total matches the invoice total (for normal dispositions).
-7. Save. The sale is typically **pending** until validated.
+7. Save. The sale is typically **pending** until validated (unless your role has direct validate — see below).
 
 Vehicle number is required for loose/normal sales that need it.
 
@@ -66,6 +69,7 @@ The invoice stores the delivery order number so later sales against the same DO 
 ## Validate and delete
 
 - **Validate** — Requires the `validate_sales` action permission. Re-checks stock **as of the invoice date** (see above), then deducts live inventory. Validated sales appear on delivery/stock-style reports that filter on validated status.
+- **Direct validate (create + validate in one step)** — Users with the `direct_validate_sales` action (default: **ADMIN** and **MANAGER**) see **Validate invoice** and **Save as pending** when creating a new invoice. **Validate invoice** creates the sale and validates it in one step (stock is deducted immediately). **Save as pending** keeps the two-step workflow. Supervisors with `validate_sales` but not `direct_validate_sales` still validate pending invoices opened from the list or after a clerk saves.
 - **Delete** — Available according to status and permissions; prefer correcting before validation when possible.
 
 ## Invoice list
@@ -74,6 +78,9 @@ Screen tab: **Invoice list**. Default filter is the **open posting month** (`dat
 
 ## Print
 
-Use the invoice print flow from the sales screen after save. Company header comes from app settings. The printout includes a **QR code** (top right) encoding the invoice number, date, customer, net/gross totals, and taxpayer ID when present — scan it to verify those fields against the printed invoice.
+Use the print flow from the sales screen after save. Company header comes from app settings. The printout includes a **QR code** encoding the invoice/receipt number, date, customer, net/gross totals, and taxpayer ID when present — scan it to verify those fields against the printed document.
+
+- **Loose sales** — Prints a **sales invoice** (line items, taxes, payments, totals).
+- **Bottle Oil sales** — Prints a **cash receipt**: same company header and QR, with receipt wording (“Received from … the sum of … in settlement of … For and on behalf of …”) instead of the invoice line table.
 
 Next: [Delivery orders](05-delivery-orders.md). Developer detail for Pick DO: [Domain modules](../developer-guide/05-domain-modules.md).

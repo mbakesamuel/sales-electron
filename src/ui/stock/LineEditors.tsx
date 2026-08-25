@@ -4,7 +4,7 @@ import type {
   StockCondition,
   StorageLocationOption,
 } from "../../shared/stock.types.ts";
-import { trimQty } from "./stockUtils.ts";
+import { receiptLocationOptionsForProduct, trimQty } from "./stockUtils.ts";
 
 export type ReceiptLineDraft = {
   productId: string;
@@ -33,6 +33,8 @@ interface ReceiptLineEditorProps {
   onChange: (next: ReceiptLineDraft[]) => void;
   locationOptions: StorageLocationOption[];
   defaultLocationId: string;
+  onHand: StockBalanceRow[];
+  salesPointId: string;
 }
 
 export function ReceiptLineEditor({
@@ -41,7 +43,42 @@ export function ReceiptLineEditor({
   onChange,
   locationOptions,
   defaultLocationId: defLoc,
+  onHand,
+  salesPointId,
 }: ReceiptLineEditorProps) {
+  function locationsForLine(productId: string, currentLocationId: string): StorageLocationOption[] {
+    const eligible = receiptLocationOptionsForProduct(
+      locationOptions,
+      onHand,
+      salesPointId,
+      productId,
+    );
+    if (!currentLocationId) {
+      return eligible;
+    }
+    if (eligible.some((loc) => String(loc.id) === currentLocationId)) {
+      return eligible;
+    }
+    const current = locationOptions.find((loc) => String(loc.id) === currentLocationId);
+    return current ? [...eligible, current] : eligible;
+  }
+
+  function locationAfterProductChange(productId: string, currentLocationId: string): string {
+    const eligible = receiptLocationOptionsForProduct(
+      locationOptions,
+      onHand,
+      salesPointId,
+      productId,
+    );
+    if (currentLocationId && eligible.some((loc) => String(loc.id) === currentLocationId)) {
+      return currentLocationId;
+    }
+    if (defLoc && eligible.some((loc) => String(loc.id) === defLoc)) {
+      return defLoc;
+    }
+    return "";
+  }
+
   function update(idx: number, patch: Partial<ReceiptLineDraft>) {
     onChange(lines.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
   }
@@ -70,14 +107,19 @@ export function ReceiptLineEditor({
         {lines.map((l, idx) => {
           const product = products.find((p) => String(p.productId) === l.productId);
           const uom = product?.uom ?? "";
+          const lineLocations = locationsForLine(l.productId, l.storageLocationId);
           return (
             <div key={idx} class="stock-line-row stock-line-row-receipt">
               <select
                 class="stock-line-select"
                 value={l.productId}
-                onChange={(event) =>
-                  update(idx, { productId: (event.currentTarget as HTMLSelectElement).value })
-                }
+                onChange={(event) => {
+                  const productId = (event.currentTarget as HTMLSelectElement).value;
+                  update(idx, {
+                    productId,
+                    storageLocationId: locationAfterProductChange(productId, l.storageLocationId),
+                  });
+                }}
                 aria-label="Product"
               >
                 <option value="">Select product…</option>
@@ -99,7 +141,7 @@ export function ReceiptLineEditor({
                 required
               >
                 <option value="">Location…</option>
-                {locationOptions.map((loc) => (
+                {lineLocations.map((loc) => (
                   <option key={loc.id} value={loc.id}>
                     {loc.name}
                     {loc.isDefault ? " (default)" : ""}
@@ -133,7 +175,7 @@ export function ReceiptLineEditor({
       </div>
       {locationOptions.length === 0 ? (
         <p class="stock-hint stock-hint-warn">
-          Add storage locations for this sales point under Storage locations.
+          Add storage locations for this collection point under Storage locations.
         </p>
       ) : null}
     </div>
@@ -151,7 +193,8 @@ function transferAvailableQty(
     (r) =>
       String(r.salesPointId) === fromSalesPointId &&
       String(r.storageLocationId) === fromStorageLocationId &&
-      String(r.productId) === productId,
+      String(r.productId) === productId &&
+      r.condition === "SELLABLE",
   );
   return row?.qty ?? "0";
 }
@@ -364,10 +407,14 @@ interface TransferLineEditorProps {
   mode: "inter" | "intra";
   fromSalesPointId: string;
   onHand: StockBalanceRow[];
+  /** YYYY-MM-DD — shown in available-qty hint when set. */
+  asOfDate?: string;
   fromLocationOptions: StorageLocationOption[];
   toLocationOptions: StorageLocationOption[];
   defaultFromLocationId: string;
   defaultToLocationId: string;
+  /** Inter-point direct post: require destination location on create. */
+  requireDestinationLocation?: boolean;
 }
 
 export function TransferLineEditor({
@@ -377,17 +424,21 @@ export function TransferLineEditor({
   mode,
   fromSalesPointId,
   onHand,
+  asOfDate,
   fromLocationOptions,
   toLocationOptions,
   defaultFromLocationId: defFrom,
   defaultToLocationId: defTo,
+  requireDestinationLocation = false,
 }: TransferLineEditorProps) {
+  const showDestinationLocation = mode === "intra" || requireDestinationLocation;
+
   function update(idx: number, patch: Partial<TransferLineDraft>) {
     onChange(lines.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
   }
 
   function blankLine(): TransferLineDraft {
-    return mode === "intra"
+    return showDestinationLocation
       ? { productId: "", qty: "", fromStorageLocationId: defFrom, toStorageLocationId: defTo }
       : { productId: "", qty: "", fromStorageLocationId: defFrom };
   }
@@ -429,7 +480,7 @@ export function TransferLineEditor({
           const availableNum = Number.parseFloat(availableStr);
           const qtyNum = Number.parseFloat(l.qty);
           const sameLocation =
-            mode === "intra" &&
+            showDestinationLocation &&
             Boolean(l.fromStorageLocationId) &&
             Boolean(l.toStorageLocationId) &&
             l.fromStorageLocationId === l.toStorageLocationId;
@@ -448,7 +499,7 @@ export function TransferLineEditor({
             <div key={idx} class="stock-line-block">
               <div
                 class={`stock-line-row stock-line-row-transfer${
-                  mode === "intra" ? " stock-line-row-transfer-intra" : ""
+                  showDestinationLocation ? " stock-line-row-transfer-intra" : ""
                 }`}
               >
                 <select
@@ -475,7 +526,7 @@ export function TransferLineEditor({
                   <option value="">
                     {fromSalesPointId
                       ? "Select product with stock…"
-                      : "Select From sales point first…"}
+                      : "Select From collection point first…"}
                   </option>
                   {stockOptions.map((opt) => (
                     <option key={opt.key} value={opt.key}>
@@ -501,7 +552,7 @@ export function TransferLineEditor({
                     </option>
                   ))}
                 </select>
-                {mode === "intra" ? (
+                {showDestinationLocation ? (
                   <select
                     class={`stock-line-select${sameLocation ? " stock-line-input-error" : ""}`}
                     value={l.toStorageLocationId ?? ""}
@@ -548,8 +599,13 @@ export function TransferLineEditor({
                     overAvailable || sameLocation ? " stock-hint-warn" : ""
                   }`}
                 >
-                  Available at source: {trimQty(availableStr)} {uom}
-                  {overAvailable ? " — exceeds available stock" : ""}
+                  Transferable
+                  {asOfDate ? ` as of ${asOfDate}` : " at source"}:{" "}
+                  {trimQty(availableStr)} {uom}
+                  {asOfDate
+                    ? " (lower of that date and current on-hand)"
+                    : ""}
+                  {overAvailable ? " — exceeds transferable stock" : ""}
                   {sameLocation ? " — from and to locations must differ" : ""}
                 </p>
               ) : null}
@@ -698,7 +754,7 @@ export function AdjustmentLineEditor({
                   <option value="">
                     {salesPointId
                       ? "Select product with stock…"
-                      : "Select sales point first…"}
+                      : "Select collection point first…"}
                   </option>
                   {stockOptions.map((opt) => (
                     <option key={opt.key} value={opt.key}>

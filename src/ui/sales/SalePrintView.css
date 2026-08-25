@@ -27,6 +27,7 @@
 }
 
 .sale-print-document {
+  background: #ffffff;
   color: #111827;
   font-family: "Arial Narrow", Arial, sans-serif;
 }
@@ -125,7 +126,7 @@
   color: #6b7280;
 }
 
-.sale-print-bottom {
+.sale-print-summary {
   display: grid;
   grid-template-columns: 1fr minmax(240px, 320px);
   gap: 24px;
@@ -182,23 +183,72 @@
   margin: 0;
 }
 
-.sale-print-signatures {
+.sale-print-footer {
   margin-top: 40px;
   padding-top: 8px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+}
+
+.sale-print-qr {
+  flex: 0 0 auto;
+}
+
+.sale-print-signatures {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .sale-print-signatures .report-footer {
   margin-top: 0;
-  width: min(280px, 42%);
 }
 
 .sale-print-signatures .report-footer-signature {
-  margin-left: auto;
+  margin-left: 0;
   margin-right: 0;
-  width: 100%;
-  text-align: right;
+  width: 240px;
+  text-align: center;
+}
+
+.sale-print-signatures .report-footer-space {
+  height: 56px;
+  border-bottom: 1px solid #111827;
+}
+
+.sale-print-receipt-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 32px;
+  margin-bottom: 28px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #111827;
+  font-size: 13px;
+}
+
+.sale-print-receipt-meta p {
+  margin: 0;
+}
+
+.sale-print-receipt-prose {
+  margin: 36px 0 48px;
+  font-size: 15px;
+  line-height: 1.7;
+  text-align: justify;
+}
+
+.sale-print-receipt-prose p {
+  margin: 0;
+}
+
+.sale-print-receipt-amount {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.sale-print-cash-receipt .sale-print-footer {
+  margin-top: 64px;
 }
 
 @media print {
@@ -260,7 +310,11 @@
   }
 
   body.sale-print-mode .sale-print-signatures .report-footer-signature {
-    text-align: right;
+    text-align: center;
+  }
+
+  body.sale-print-mode .sale-print-signatures .report-footer-space {
+    border-bottom-color: #000;
   }
 
   body.sale-print-mode .sale-print-info-heading,
@@ -271,8 +325,8 @@
     print-color-adjust: exact;
   }
 
-  body.sale-print-mode .report-header-meta,
-  body.sale-print-mode .report-header-meta *,
+  body.sale-print-mode .sale-print-qr,
+  body.sale-print-mode .sale-print-qr *,
   body.sale-print-mode .qr-code {
     visibility: visible !important;
     -webkit-print-color-adjust: exact;

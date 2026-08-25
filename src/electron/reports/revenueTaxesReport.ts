@@ -227,9 +227,9 @@ export function getRevenueTaxesReport(
   );
   const salesPointLabel =
     selectedSalesPointId == null
-      ? "All sales points"
+      ? "All collection points"
       : (salesPointOptions.find((point) => point.id === selectedSalesPointId)
-          ?.name ?? "Unknown sales point");
+          ?.name ?? "Unknown collection point");
 
   const rows = loadSaleMoneyRows(fromIso, toIso, selectedSalesPointId);
   const totals = emptyTotals();

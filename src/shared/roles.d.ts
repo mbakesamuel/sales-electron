@@ -1,6 +1,21 @@
-export declare const USER_ROLES: readonly ["ADMIN", "MANAGER", "SENIOR_SALES_SUPERVISOR", "STATISTICS_SUPERVISOR", "SALES_CLERK"];
-export type UserRole = (typeof USER_ROLES)[number];
+/** Built-in roles seeded on install. Custom roles may be added from the UI. */
+export declare const SYSTEM_USER_ROLES: readonly ["ADMIN", "MANAGER", "SENIOR_SALES_SUPERVISOR", "STATISTICS_CLERK", "STORE_KEEPER"];
+/** @deprecated Prefer SYSTEM_USER_ROLES; kept for defaults seeding compatibility. */
+export declare const USER_ROLES: readonly ["ADMIN", "MANAGER", "SENIOR_SALES_SUPERVISOR", "STATISTICS_CLERK", "STORE_KEEPER"];
+export type SystemUserRole = (typeof SYSTEM_USER_ROLES)[number];
+/** @deprecated Use string role ids from the Role table. */
+export type UserRole = SystemUserRole;
 export type RouteAccess = "none" | "read" | "write";
-export declare const ROLE_LABELS: Record<UserRole, string>;
-export declare function formatRoleLabel(role: string): string;
-export declare function normalizeUserRole(role: string): UserRole | null;
+/** Custom role id for bottled-stock / collection-point operators. */
+export declare const STORE_KEEPER_ROLE_ID = "STORE_KEEPER";
+export declare function isStoreKeeperRole(role: string): boolean;
+export declare const SYSTEM_ROLE_LABELS: Record<SystemUserRole, string>;
+/** @deprecated Prefer SYSTEM_ROLE_LABELS or Role.label from the database. */
+export declare const ROLE_LABELS: Record<"ADMIN" | "MANAGER" | "SENIOR_SALES_SUPERVISOR" | "STATISTICS_CLERK" | "STORE_KEEPER", string>;
+export declare function isSystemUserRole(role: string): role is SystemUserRole;
+export declare function formatRoleLabel(role: string, labels?: Record<string, string>): string;
+/** Normalize to a system role id, or null if not a built-in role. */
+export declare function normalizeUserRole(role: string): SystemUserRole | null;
+/** Build a stable role id from a display label (e.g. "Store Keeper" → "STORE_KEEPER"). */
+export declare function roleIdFromLabel(label: string): string;
+export declare function isValidRoleId(id: string): boolean;
