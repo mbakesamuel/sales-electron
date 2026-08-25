@@ -35,6 +35,7 @@ import { SalesValidationScreen } from "../sales/SalesValidationScreen.tsx";
 import { DeliveryOrdersScreen } from "../delivery-orders/DeliveryOrdersScreen.tsx";
 import { DeliveryOrderTrackingScreen } from "../delivery-orders/DeliveryOrderTrackingScreen.tsx";
 import { DeliveryOrderTransferScreen } from "../delivery-orders/DeliveryOrderTransferScreen.tsx";
+import { ConsignmentNotesScreen } from "../vehconsignment-note/ConsignmentNotesScreen.tsx";
 import { CarryForwardCommitmentsScreen } from "../commitments/CarryForwardCommitmentsScreen.tsx";
 import { CarryForwardStockScreen } from "../stock/CarryForwardStockScreen.tsx";
 import { StockScreen } from "../stock/StockScreen.tsx";
@@ -195,6 +196,12 @@ function RouteContent({
         onOpenInDeliveryOrdering={onOpenDeliveryOrder}
         onOpenTracking={onOpenDeliveryOrderTracking}
       />
+    );
+  }
+
+  if (route.id === "vehicle-consignment-notes") {
+    return (
+      <ConsignmentNotesScreen user={user} permissions={permissions} />
     );
   }
 
@@ -561,6 +568,7 @@ export function HomeScreen({
     "delivery-orders",
     "delivery-order-tracking",
     "delivery-order-transfer",
+    "vehicle-consignment-notes",
   ]);
 
   return (

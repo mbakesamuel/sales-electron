@@ -233,7 +233,8 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         id: "sales",
         label: "Sales Invoicing",
         table: "Sale",
-        description: "Create and manage loose-product sales invoices (POS screen).",
+        description:
+          "Create and manage loose-product sales invoices (POS screen).",
       },
       {
         id: "bottle-oil-sales",
@@ -246,6 +247,13 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         label: "Sales validation",
         table: "Sale",
         description: "Review and validate pending sales invoices.",
+      },
+      {
+        id: "vehicle-consignment-notes",
+        label: "Consignment notes",
+        table: "VehicleConsignmentNote",
+        description:
+          "Prepare and validate vehicle consignment notes for validated sales.",
       },
     ],
   },
@@ -403,7 +411,8 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         id: "role-permissions",
         label: "Role permissions",
         table: "",
-        description: "Configure module access and special actions for each role.",
+        description:
+          "Configure module access and special actions for each role.",
       },
     ],
   },

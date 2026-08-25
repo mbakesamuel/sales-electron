@@ -158,6 +158,7 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
     validate_delivery_orders: true,
     cancel_validated_delivery_order: false,
     transfer_delivery_order_balance: true,
+    validate_vehicle_consignment_notes: true,
     manage_permissions: false,
     ...stockDocumentActions,
   };
@@ -186,6 +187,7 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
     validate_delivery_orders: false,
     cancel_validated_delivery_order: false,
     transfer_delivery_order_balance: false,
+    validate_vehicle_consignment_notes: false,
     manage_permissions: false,
     ...stockDocumentNone,
   };

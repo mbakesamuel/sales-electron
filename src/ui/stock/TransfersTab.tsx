@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import type { OpenPostingPeriod } from "../../shared/financialYears.types.ts";
@@ -99,6 +99,7 @@ export function TransfersTab(props: TransfersTabProps) {
     transferReceiveUsesDocumentDate,
   } = props;
   const storeKeeperTransferMode = isStoreKeeperRole(userRole);
+  const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [formMode, setFormMode] = useState<FormTransferMode>("inter");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -644,6 +645,30 @@ export function TransfersTab(props: TransfersTabProps) {
     }
   }
 
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) {
+      return rows;
+    }
+    return rows.filter((r) => {
+      const blob = [
+        r.transferNo,
+        r.fromSalesPointName,
+        r.toSalesPointName,
+        r.locationSummary ?? "",
+        r.productSummary ?? "",
+        STOCK_DOC_STATUS_LABELS[r.status],
+        TRANSFER_MODE_LABELS[r.transferMode],
+        r.createdByName,
+        r.dispatchedByName ?? "",
+        r.receivedByName ?? "",
+      ]
+        .join(" ")
+        .toLowerCase();
+      return blob.includes(q);
+    });
+  }, [rows, search]);
+
   return (
     <section class="stock-section">
       <div class="stock-section-header">
@@ -698,6 +723,19 @@ export function TransfersTab(props: TransfersTabProps) {
         </div>
       </div>
 
+      <div class="stock-filters">
+        <label class="stock-field stock-field-grow">
+          <span>Search</span>
+          <input
+            value={search}
+            onInput={(event) =>
+              setSearch((event.currentTarget as HTMLInputElement).value)
+            }
+            placeholder="Transfer #, product, collection point, or status"
+          />
+        </label>
+      </div>
+
       <div class="stock-table-wrap">
         <table class="stock-table">
           <thead>
@@ -727,8 +765,14 @@ export function TransfersTab(props: TransfersTabProps) {
                   ) : null}
                 </td>
               </tr>
+            ) : filteredRows.length === 0 ? (
+              <tr>
+                <td colSpan={9} class="stock-empty-cell">
+                  No transfers match your search.
+                </td>
+              </tr>
             ) : (
-              rows.map((r) => {
+              filteredRows.map((r) => {
                 const intra = isIntraRow(r);
                 const isSourceUser =
                   scopedSalesPointId == null ||
@@ -832,6 +876,12 @@ export function TransfersTab(props: TransfersTabProps) {
           </tbody>
         </table>
       </div>
+      {filteredRows.length > 0 ? (
+        <p class="stock-hint">
+          Showing {filteredRows.length} transfer
+          {filteredRows.length === 1 ? "" : "s"}.
+        </p>
+      ) : null}
 
       {open ? (
         <DocDialog

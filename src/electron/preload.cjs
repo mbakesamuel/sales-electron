@@ -49,6 +49,19 @@ contextBridge.exposeInMainWorld("api", {
     listStorageLocationsWithBalance: (payload) =>
       ipcRenderer.invoke("sales:listStorageLocationsWithBalance", payload),
   },
+  vehicleConsignmentNotes: {
+    loadSaleByInvoice: (invoiceNo) =>
+      ipcRenderer.invoke("vehicleConsignmentNotes:loadSaleByInvoice", invoiceNo),
+    loadByVcnNo: (vcnNo) =>
+      ipcRenderer.invoke("vehicleConsignmentNotes:loadByVcnNo", vcnNo),
+    save: (input) => ipcRenderer.invoke("vehicleConsignmentNotes:save", input),
+    delete: (payload) =>
+      ipcRenderer.invoke("vehicleConsignmentNotes:delete", payload),
+    validate: (payload) =>
+      ipcRenderer.invoke("vehicleConsignmentNotes:validate", payload),
+    loadPrintById: (noteId) =>
+      ipcRenderer.invoke("vehicleConsignmentNotes:loadPrintById", noteId),
+  },
   deliveryOrders: {
     getFormOptions: () => ipcRenderer.invoke("deliveryOrders:getFormOptions"),
     loadByNo: (deliveryOrderNo) =>

@@ -6,7 +6,7 @@ import { getElectronApi } from "../auth/client.ts";
 import { QrCode } from "../components/QrCode.tsx";
 import { ReportHeader } from "../reports/ReportHeader.tsx";
 import { ReportFooter } from "../reports/ReportFooter.tsx";
-import { buildCashReceiptSettlementPhrase } from "./cashReceiptText.ts";
+import { buildCashReceiptSettlementPhrase, formatAmountInFrancsWords } from "./cashReceiptText.ts";
 import type { SalePrintPayload } from "./types.ts";
 import "./SalePrintView.css";
 
@@ -167,29 +167,66 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
         <article class="sale-print-document sale-print-cash-receipt">
           <ReportHeader
             companyName={payload.companyName}
-            department={payload.department}
+            department="Bota Limbe, South West Region"
             serviceName={payload.serviceName}
-            title="CASH RECEIPT"
-          />
+            title={`Cash Receipt No ${sale.invoiceNo}`}  
+            />
 
           <section class="sale-print-receipt-meta">
-            <p>
-              <span class="sale-print-label">Receipt No:</span>{" "}
+           {/*  <p>
+              <span class="sale-print-label">Cash Receipt No:</span>{" "}
               <strong>{sale.invoiceNo}</strong>
-            </p>
+            </p> */}
             <p>
               <span class="sale-print-label">Date:</span>{" "}
               {formatDisplayDate(sale.dateIssuedIso)}
             </p>
           </section>
 
+          <section class="sale-print-receipt-amount-row">
+            <span class="sale-print-label">Amount:</span>
+            <div class="sale-print-receipt-amount-box">{amountLabel}</div>
+          </section>
+
           <section class="sale-print-receipt-prose">
             <p>
-              Received from <strong>{sale.customerName}</strong> the sum of{" "}
-              <strong class="sale-print-receipt-amount">{amountLabel}</strong>{" "}
-              in settlement of <strong>{settlement}</strong>. For and on behalf
+              Received from <strong>{sale.customerName}</strong>
+              <br />
+              The sum of{" "}
+              <strong class="sale-print-receipt-amount">
+                {formatAmountInFrancsWords(sale.grossAmount)}
+              </strong>
+              <br />
+              in settlement of <strong>{settlement}</strong>. 
+              <br />
+              For and on behalf
               of <strong>{payload.companyName}</strong>.
             </p>
+          </section>
+
+          <section class="sale-print-receipt-receiver">
+            <div class="sale-print-receipt-receiver-fields">
+              <div class="sale-print-receipt-receiver-row">
+                <span class="sale-print-receipt-receiver-label">
+                  Signature of Receiver:
+                </span>
+                <span class="sale-print-receipt-receiver-line" />
+              </div>
+              <div class="sale-print-receipt-receiver-row">
+                <span class="sale-print-receipt-receiver-label">Full Name:</span>
+                <span class="sale-print-receipt-receiver-line" />
+              </div>
+              <div class="sale-print-receipt-receiver-row">
+                <span class="sale-print-receipt-receiver-label">
+                  Designation:
+                </span>
+                <span class="sale-print-receipt-receiver-line" />
+              </div>
+              <div class="sale-print-receipt-receiver-row">
+                <span class="sale-print-receipt-receiver-label">Unit:</span>
+                <span class="sale-print-receipt-receiver-line" />
+              </div>
+            </div>
           </section>
 
           <section class="sale-print-footer">
@@ -200,12 +237,12 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
                 alt="Cash receipt verification QR code"
               />
             </div>
-            <div class="sale-print-signatures">
+           {/*  <div class="sale-print-signatures">
               <ReportFooter
                 name={payload.signatoryName}
                 label={payload.signatoryTitle}
               />
-            </div>
+            </div> */}
           </section>
         </article>
       </PrintChrome>

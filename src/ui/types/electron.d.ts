@@ -3,6 +3,13 @@ import type { SalesApi } from "../sales/types.ts";
 import type { DeliveryOrdersApi } from "../delivery-orders/types.ts";
 import type { StockApi } from "../stock/types.ts";
 import type {
+  ConsignmentMutationResult,
+  ConsignmentPrintPayload,
+  LoadedConsignmentFormView,
+  SaveConsignmentNoteInput,
+  SaveConsignmentNoteResult,
+} from "../../shared/vehicleConsignmentNotes.types.ts";
+import type {
   FinancialMonthRow,
   FinancialPeriodStatus,
   FinancialYearRow,
@@ -259,11 +266,24 @@ interface FinancialYearsApi {
   getOpenPostingPeriod(authToken: string): Promise<OpenPostingPeriod | null>;
 }
 
+interface VehicleConsignmentNotesApi {
+  loadSaleByInvoice(invoiceNo: string): Promise<LoadedConsignmentFormView | null>;
+  loadByVcnNo(vcnNo: string): Promise<LoadedConsignmentFormView | null>;
+  save(input: SaveConsignmentNoteInput): Promise<SaveConsignmentNoteResult>;
+  delete(payload: { id: string; userId: string }): Promise<ConsignmentMutationResult>;
+  validate(payload: {
+    id: string;
+    userId: string;
+  }): Promise<ConsignmentMutationResult>;
+  loadPrintById(noteId: string): Promise<ConsignmentPrintPayload | null>;
+}
+
 export interface ElectronAppApi {
   db: DatabaseApi;
   auth: AuthApi;
   permissions: PermissionsApi;
   sales: SalesApi;
+  vehicleConsignmentNotes: VehicleConsignmentNotesApi;
   deliveryOrders: DeliveryOrdersApi;
   carryForward: {
     getFormOptions(): Promise<import("../../shared/carryForward.types.ts").CarryForwardFormOptions>;

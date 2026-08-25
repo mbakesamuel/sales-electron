@@ -1,0 +1,94 @@
+@import "../sales/SalePrintView.css";
+
+.vcn-bordereau-document {
+  padding: 8px 4px 24px;
+  font-size: 0.92rem;
+}
+
+.vcn-bordereau-serial {
+  margin: 0;
+  text-align: right;
+  font-size: 0.95rem;
+}
+
+.vcn-bordereau-meta {
+  margin: 16px 0;
+}
+
+.vcn-bordereau-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 24px;
+  margin-bottom: 6px;
+}
+
+.vcn-bordereau-label {
+  font-weight: 600;
+}
+
+.vcn-bordereau-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 0.88rem;
+}
+
+.vcn-bordereau-table th,
+.vcn-bordereau-table td {
+  border: 1px solid #333;
+  padding: 6px 8px;
+  vertical-align: top;
+}
+
+.vcn-bordereau-table th {
+  font-weight: 600;
+  text-align: left;
+}
+
+.vcn-bordereau-in-words {
+  margin: 12px 0 20px;
+  font-size: 0.9rem;
+}
+
+.vcn-bordereau-signatories {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin: 20px 0;
+}
+
+.vcn-bordereau-sign-col h3 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.vcn-bordereau-sign-col p {
+  margin: 0 0 8px;
+}
+
+.vcn-bordereau-signature-line {
+  margin: 18px 0 12px !important;
+  border-bottom: 1px solid #333;
+  min-height: 28px;
+}
+
+.vcn-bordereau-footer {
+  margin-top: 16px;
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+@media (max-width: 520px) {
+  .vcn-bordereau-signatories {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  .vcn-bordereau-table th,
+  .vcn-bordereau-table td {
+    border-color: #000;
+  }
+}

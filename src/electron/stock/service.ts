@@ -943,23 +943,31 @@ function loadTransfers(
   return rows.map((row) => {
     const lines = db
       .prepare(
-        `SELECT tl.qty
+        `SELECT tl.qty, p.productName
          FROM StockTransferLine tl
          JOIN Product p ON p.productId = tl.productId
          LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
          WHERE tl.transferId = ?
            AND ${productFilterSql("pc")}`,
       )
-      .all(String(row.id), bottledFlag) as Array<{ qty: string }>;
+      .all(String(row.id), bottledFlag) as Array<{ qty: string; productName: string }>;
     const fromSalesPointId = row.fromSalesPointId as number;
     const toSalesPointId = row.toSalesPointId as number;
     const transferMode = resolveTransferMode(fromSalesPointId, toSalesPointId);
     const transferId = String(row.id);
+    const productNames = [
+      ...new Set(
+        lines
+          .map((line) => String(line.productName ?? "").trim())
+          .filter((name) => name.length > 0),
+      ),
+    ];
     return {
       id: transferId,
       transferNo: String(row.transferNo),
       transferMode,
       locationSummary: transferLocationSummary(db, transferId, transferMode),
+      productSummary: productNames.length > 0 ? productNames.join(", ") : null,
       fromSalesPointId,
       fromSalesPointName: row.fromSalesPointName as string,
       toSalesPointId,
@@ -1165,12 +1173,20 @@ export function loadTransferDetail(id: string, userId: string): TransferDetail |
   const fromSalesPointId = row.fromSalesPointId as number;
   const toSalesPointId = row.toSalesPointId as number;
   const transferMode = resolveTransferMode(fromSalesPointId, toSalesPointId);
+  const productNames = [
+    ...new Set(
+      lines
+        .map((line) => String(line.productName ?? "").trim())
+        .filter((name) => name.length > 0),
+    ),
+  ];
 
   return {
     id: String(row.id),
     transferNo: String(row.transferNo),
     transferMode,
     locationSummary: transferLocationSummary(db, id, transferMode),
+    productSummary: productNames.length > 0 ? productNames.join(", ") : null,
     fromSalesPointId,
     fromSalesPointName: row.fromSalesPointName as string,
     toSalesPointId,

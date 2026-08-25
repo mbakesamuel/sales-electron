@@ -1,0 +1,149 @@
+@import "../sales/SalePrintView.css";
+
+.vcn-print-document {
+  padding: 8px 4px 24px;
+}
+
+.vcn-print-header {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.vcn-print-header h1 {
+  margin: 8px 0 4px;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.vcn-print-company {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.vcn-print-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 16px;
+  margin: 8px 0 0;
+  font-size: 0.9rem;
+}
+
+.vcn-print-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+  margin: 0 0 18px;
+  font-size: 0.95rem;
+}
+
+.vcn-print-span-2 {
+  grid-column: 1 / -1;
+}
+
+.vcn-print-validated {
+  margin-top: 16px;
+  font-size: 0.9rem;
+}
+
+.vcn-open-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.vcn-open-row input {
+  flex: 1 1 10rem;
+  min-width: 10rem;
+}
+
+.vcn-readonly {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-soft);
+}
+
+.vcn-qty-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0 18px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.vcn-panel-title {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.sales-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text-h);
+  font: inherit;
+  resize: vertical;
+}
+
+.sales-field textarea:disabled {
+  opacity: 0.7;
+  background: var(--bg-soft);
+}
+
+.vcn-parties {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 20px;
+  width: 100%;
+  min-width: 0;
+}
+
+.vcn-party-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.vcn-party-col .sales-field {
+  width: 100%;
+}
+
+.vcn-products-preview {
+  margin: 14px 0 18px;
+}
+
+.vcn-products-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.vcn-products-preview-table th,
+.vcn-products-preview-table td {
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.vcn-products-preview-table th {
+  background: var(--bg-soft);
+  font-weight: 600;
+}
+
+@media (max-width: 520px) {
+  .vcn-parties {
+    grid-template-columns: 1fr;
+  }
+}

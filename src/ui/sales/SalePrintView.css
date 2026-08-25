@@ -217,9 +217,30 @@
   border-bottom: 1px solid #111827;
 }
 
+.sale-print-receipt-amount-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.sale-print-receipt-amount-box {
+  border: 1px solid #111827;
+  padding: 8px 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  border-radius: 8px;
+  font-size: 28px;
+}
+
 .sale-print-receipt-meta {
   display: flex;
   flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  width: 100%;
   gap: 8px 32px;
   margin-bottom: 28px;
   padding-bottom: 12px;
@@ -233,13 +254,46 @@
 
 .sale-print-receipt-prose {
   margin: 36px 0 48px;
-  font-size: 15px;
+  font-size: 18px;
   line-height: 1.7;
   text-align: justify;
 }
 
 .sale-print-receipt-prose p {
   margin: 0;
+}
+
+.sale-print-receipt-receiver {
+  display: flex;
+  justify-content: flex-end;
+  margin: 40px 0 24px;
+}
+
+.sale-print-receipt-receiver-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(420px, 100%);
+  font-size: 16px;
+}
+
+.sale-print-receipt-receiver-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+}
+
+.sale-print-receipt-receiver-label {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.sale-print-receipt-receiver-line {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-bottom: 1px solid #111827;
+  height: 1em;
 }
 
 .sale-print-receipt-amount {

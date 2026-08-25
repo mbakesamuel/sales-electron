@@ -1,0 +1,112 @@
+@import "../sales/SalePrintView.css";
+
+.vcn-products-document {
+  padding: 8px 4px 24px;
+  font-size: 0.95rem;
+}
+
+.vcn-products-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.vcn-products-company {
+  font-weight: 700;
+  font-size: 1rem;
+  text-transform: uppercase;
+}
+
+.vcn-products-header h1 {
+  margin: 8px 0 4px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.vcn-products-subtitle {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.vcn-products-meta {
+  margin-bottom: 16px;
+}
+
+.vcn-products-meta-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+  margin-bottom: 6px;
+}
+
+.vcn-products-table-title {
+  margin: 12px 0 6px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.vcn-products-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+  font-size: 0.88rem;
+}
+
+.vcn-products-table th,
+.vcn-products-table td {
+  border: 1px solid #333;
+  padding: 6px 8px;
+}
+
+.vcn-products-table th {
+  font-weight: 700;
+  text-align: left;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+}
+
+.vcn-products-total-row td {
+  font-weight: 600;
+}
+
+.vcn-products-signatories {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin: 20px 0;
+}
+
+.vcn-products-sign-col p {
+  margin: 0 0 8px;
+}
+
+.vcn-products-signature-line {
+  margin: 20px 0 12px !important;
+  border-bottom: 1px solid #333;
+  min-height: 28px;
+}
+
+.vcn-products-footer {
+  margin-top: 16px;
+  font-size: 0.82rem;
+}
+
+.vcn-products-footer p {
+  margin: 0 0 6px;
+}
+
+@media (max-width: 520px) {
+  .vcn-products-meta-row,
+  .vcn-products-signatories {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  .vcn-products-table th,
+  .vcn-products-table td {
+    border-color: #000;
+  }
+}

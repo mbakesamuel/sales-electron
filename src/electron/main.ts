@@ -9,6 +9,7 @@ import { registerAuthHandlers } from "./ipc/auth.js";
 import { registerDatabaseHandlers } from "./ipc/database.js";
 import { registerPermissionsHandlers } from "./ipc/permissions.js";
 import { registerSalesHandlers } from "./ipc/sales.js";
+import { registerVehicleConsignmentNotesHandlers } from "./ipc/vehicleConsignmentNotes.js";
 import { registerReportsHandlers } from "./ipc/reports.js";
 import { registerDashboardHandlers } from "./ipc/dashboard.js";
 import { registerStockHandlers } from "./ipc/stock.js";
@@ -106,6 +107,7 @@ app.whenReady().then(() => {
   registerAuthHandlers();
   registerSalesHandlers();
   registerDeliveryOrdersHandlers();
+  registerVehicleConsignmentNotesHandlers();
   registerCarryForwardHandlers();
   registerCarryForwardStockHandlers();
   registerStockHandlers();

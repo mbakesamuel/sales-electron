@@ -69,6 +69,7 @@ export const PERMISSION_UI_GROUPS: readonly PermissionUiGroup[] = [
       "validate_delivery_orders",
       "cancel_validated_delivery_order",
       "transfer_delivery_order_balance",
+      "validate_vehicle_consignment_notes",
     ],
   },
   {

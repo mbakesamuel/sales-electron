@@ -580,6 +580,21 @@ CREATE TABLE IF NOT EXISTS DeliveryOrderPaymentDetails (
 );
 CREATE INDEX IF NOT EXISTS DeliveryOrderPaymentDetails_order_idx ON DeliveryOrderPaymentDetails (deliveryOrderId);
 
+CREATE TABLE IF NOT EXISTS ConsignmentDetails (
+  id TEXT PRIMARY KEY NOT NULL,
+  saleId TEXT NOT NULL REFERENCES Sale(id) ON DELETE CASCADE,
+  consignerName TEXT NOT NULL,
+  consignerDesignation TEXT NOT NULL,
+  dateOfConsignment TEXT NOT NULL,
+  receiverName TEXT NOT NULL,
+  receiverNicNo TEXT,
+  receiverNicPlaceOfIssue TEXT,
+  receivedDate TEXT,
+  createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+  updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS ConsignmentDetails_sale_idx ON ConsignmentDetails (saleId);
+
 CREATE TABLE IF NOT EXISTS VehicleConsignmentNote (
   id TEXT PRIMARY KEY NOT NULL,
   consignmentNoteNo TEXT NOT NULL UNIQUE,
@@ -587,19 +602,13 @@ CREATE TABLE IF NOT EXISTS VehicleConsignmentNote (
   destination TEXT NOT NULL,
   dateOfLifting TEXT NOT NULL,
   vehicleNumber TEXT NOT NULL,
-  consignerName TEXT NOT NULL,
-  dateOfConsignment TEXT NOT NULL,
-  receiverName TEXT NOT NULL,
-  receiverNicNo TEXT NOT NULL,
-  receiverNicPlaceOfIssue TEXT NOT NULL,
-  receivedDate TEXT,
+  consignmentDetailsId TEXT NOT NULL UNIQUE REFERENCES ConsignmentDetails(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','VALIDATED','REJECTED')),
   validatedAt TEXT,
   validatedByUserId TEXT REFERENCES User(id),
   createdByUserId TEXT NOT NULL REFERENCES User(id),
   createdAt TEXT NOT NULL DEFAULT (datetime('now')),
-  updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
-  consignerDesignation TEXT NOT NULL
+  updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS VehicleConsignmentNote_sale_idx ON VehicleConsignmentNote (saleId);
 CREATE INDEX IF NOT EXISTS VehicleConsignmentNote_no_idx ON VehicleConsignmentNote (consignmentNoteNo);

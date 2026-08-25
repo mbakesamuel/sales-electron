@@ -135,6 +135,8 @@ export interface TransferListRow {
   transferNo: string;
   transferMode: import("./stockTransferMode.ts").TransferMode;
   locationSummary: string | null;
+  /** Deduped product names on matching lines, for list search. */
+  productSummary: string | null;
   fromSalesPointId: number;
   fromSalesPointName: string;
   toSalesPointId: number;
