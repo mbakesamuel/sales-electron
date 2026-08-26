@@ -36,6 +36,7 @@ import { DeliveryOrdersScreen } from "../delivery-orders/DeliveryOrdersScreen.ts
 import { DeliveryOrderTrackingScreen } from "../delivery-orders/DeliveryOrderTrackingScreen.tsx";
 import { DeliveryOrderTransferScreen } from "../delivery-orders/DeliveryOrderTransferScreen.tsx";
 import { ConsignmentNotesScreen } from "../vehconsignment-note/ConsignmentNotesScreen.tsx";
+import { ConsignmentValidationScreen } from "../vehconsignment-note/ConsignmentValidationScreen.tsx";
 import { CarryForwardCommitmentsScreen } from "../commitments/CarryForwardCommitmentsScreen.tsx";
 import { CarryForwardStockScreen } from "../stock/CarryForwardStockScreen.tsx";
 import { StockScreen } from "../stock/StockScreen.tsx";
@@ -203,6 +204,22 @@ function RouteContent({
     return (
       <ConsignmentNotesScreen user={user} permissions={permissions} />
     );
+  }
+
+  if (route.id === "vehicle-consignment-validation") {
+    if (
+      !canPerformActionFromSnapshot(
+        permissions,
+        "validate_vehicle_consignment_notes",
+      )
+    ) {
+      return (
+        <p class="home-access-denied">
+          You do not have permission to validate consignment notes.
+        </p>
+      );
+    }
+    return <ConsignmentValidationScreen user={user} />;
   }
 
   if (route.id === "carry-forward-commitments") {
@@ -523,6 +540,7 @@ export function HomeScreen({
     "bottled-stock",
     "stock-validation",
     "sales-validation",
+    "vehicle-consignment-validation",
     "stock-commitment-report",
     "stock-report",
     "commitment-report",
@@ -569,6 +587,7 @@ export function HomeScreen({
     "delivery-order-tracking",
     "delivery-order-transfer",
     "vehicle-consignment-notes",
+    "vehicle-consignment-validation",
   ]);
 
   return (
@@ -696,6 +715,7 @@ export function HomeScreen({
                 activeRouteId === "bottled-stock" ||
                 activeRouteId === "stock-validation" ||
                 activeRouteId === "sales-validation" ||
+                activeRouteId === "vehicle-consignment-validation" ||
                 activeRouteId === "bottle-oil-sales"
               ? " home-main--stock"
               : activeRouteId === "roles" || activeRouteId === "role-permissions"
@@ -731,7 +751,7 @@ export function HomeScreen({
 
         {activeRouteId === DEFAULT_ROUTE_ID ? (
           <section class="home-content">
-            <DashboardScreen />
+            <DashboardScreen onNavigate={selectRoute} />
           </section>
         ) : (
           <section class="home-content">

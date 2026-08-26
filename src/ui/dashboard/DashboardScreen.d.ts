@@ -1,2 +1,6 @@
 import "./DashboardScreen.css";
-export declare function DashboardScreen(): import("preact").JSX.Element;
+interface DashboardScreenProps {
+    onNavigate?: (routeId: string) => void;
+}
+export declare function DashboardScreen({ onNavigate }: DashboardScreenProps): import("preact").JSX.Element;
+export {};

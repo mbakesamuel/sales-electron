@@ -7,8 +7,8 @@ export function registerDashboardHandlers(): void {
   ipcMain.handle(
     "dashboard:getSummary",
     (_event, authToken: string): DashboardSummary => {
-      requireAuthUser(authToken);
-      return getDashboardSummary();
+      const user = requireAuthUser(authToken);
+      return getDashboardSummary(user.role, user.id);
     },
   );
 }

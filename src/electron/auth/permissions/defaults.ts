@@ -1,13 +1,13 @@
 import type { PermissionActionKey } from "../../../shared/permissions.types.js";
 import { ROUTE_IDS } from "../../../shared/routeCatalog.js";
 import type { RouteAccess } from "../../../shared/roles.js";
-import { USER_ROLES } from "../../../shared/roles.js";
+import { JNR_SALES_SUP_ROLE_ID, USER_ROLES } from "../../../shared/roles.js";
 
 type RouteMatrix = Record<string, RouteAccess>;
 type ActionMatrix = Record<PermissionActionKey, boolean>;
 
 const ROUTE_GROUPS = {
-  operations: ["sales", "bottle-oil-sales", "sales-validation", "delivery-orders", "delivery-order-tracking", "delivery-order-transfer", "carry-forward-commitments", "vehicle-consignment-notes"],
+  operations: ["sales", "bottle-oil-sales", "sales-validation", "delivery-orders", "delivery-order-tracking", "delivery-order-transfer", "carry-forward-commitments", "vehicle-consignment-notes", "vehicle-consignment-validation"],
   customerOps: ["customers"],
   productConfig: [
     "products",
@@ -124,6 +124,12 @@ function buildDefaultRouteMatrix(): Record<string, RouteMatrix> {
       "bottle-oil-stock-sales-report",
       "bottled-weekly-issues-report",
     ]),
+    [JNR_SALES_SUP_ROLE_ID]: buildRouteAccess([
+      ...ROUTE_GROUPS.operations,
+      ...ROUTE_GROUPS.customerOps,
+      ...ROUTE_GROUPS.inventoryRead,
+      ...ROUTE_GROUPS.inventoryWrite,
+    ]),
   };
 }
 
@@ -198,6 +204,7 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
     SENIOR_SALES_SUPERVISOR: seniorSupervisor,
     STATISTICS_CLERK: none,
     STORE_KEEPER: none,
+    [JNR_SALES_SUP_ROLE_ID]: seniorSupervisor,
   };
 }
 

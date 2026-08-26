@@ -47,6 +47,9 @@ type PaymentDraft = {
   amount: string;
   chequeNo?: string;
   bank?: string;
+  traiteNo?: string;
+  traiteIssuedOn?: string;
+  traiteMaturityOn?: string;
 };
 
 function parseDec(value: string): number {
@@ -84,9 +87,51 @@ function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function defaultPaymentMethodId(methods: SalesPaymentMethodOption[]): string {
+function cashOnlyPaymentMethods(
+  methods: SalesPaymentMethodOption[],
+): SalesPaymentMethodOption[] {
+  const cash = methods.filter(
+    (method) =>
+      method.code.toUpperCase() === "CASH" ||
+      method.name.trim().toUpperCase() === "CASH",
+  );
+  return cash.length > 0 ? cash : methods;
+}
+
+function nonCashPaymentMethods(
+  methods: SalesPaymentMethodOption[],
+): SalesPaymentMethodOption[] {
+  const nonCash = methods.filter(
+    (method) =>
+      method.code.toUpperCase() !== "CASH" &&
+      method.name.trim().toUpperCase() !== "CASH",
+  );
+  return nonCash.length > 0 ? nonCash : methods;
+}
+
+function defaultPaymentMethodId(
+  methods: SalesPaymentMethodOption[],
+  preferCash = true,
+): string {
+  if (preferCash) {
+    return (
+      methods.find(
+        (method) =>
+          method.code.toUpperCase() === "CASH" ||
+          method.name.trim().toUpperCase() === "CASH",
+      )?.id ??
+      methods[0]?.id ??
+      ""
+    );
+  }
   return (
-    methods.find((method) => method.code === "CASH")?.id ?? methods[0]?.id ?? ""
+    methods.find(
+      (method) =>
+        method.code.toUpperCase() !== "CASH" &&
+        method.name.trim().toUpperCase() !== "CASH",
+    )?.id ??
+    methods[0]?.id ??
+    ""
   );
 }
 
@@ -95,6 +140,39 @@ function paymentsMissingMethod(payments: PaymentDraft[]): boolean {
     (payment) =>
       parseDec(payment.amount) > 0 && !payment.paymentMethodId.trim(),
   );
+}
+
+function paymentsMissingTraiteDetails(
+  payments: PaymentDraft[],
+  methods: SalesPaymentMethodOption[],
+): boolean {
+  return payments.some((payment) => {
+    if (parseDec(payment.amount) <= 0) {
+      return false;
+    }
+    const method = methods.find((item) => item.id === payment.paymentMethodId);
+    if (method?.kind !== "TRAITE") {
+      return false;
+    }
+    return (
+      !String(payment.traiteNo ?? "").trim() ||
+      !String(payment.traiteIssuedOn ?? "").trim() ||
+      !String(payment.traiteMaturityOn ?? "").trim()
+    );
+  });
+}
+
+function emptyPaymentExtras(): Pick<
+  PaymentDraft,
+  "chequeNo" | "bank" | "traiteNo" | "traiteIssuedOn" | "traiteMaturityOn"
+> {
+  return {
+    chequeNo: "",
+    bank: "",
+    traiteNo: "",
+    traiteIssuedOn: "",
+    traiteMaturityOn: "",
+  };
 }
 
 function statusClass(status: LoadedSaleView["status"]): string {
@@ -270,7 +348,7 @@ export function SalesClient({
   const [taxRates, setTaxRates] = useState<TaxRatesBag>(FALLBACK_TAX_RATES);
   const [lines, setLines] = useState<SalesLineDraft[]>([]);
   const [payments, setPayments] = useState<PaymentDraft[]>([
-    { paymentMethodId: "", amount: "0" },
+    { paymentMethodId: "", amount: "0", ...emptyPaymentExtras() },
   ]);
 
   const [availableDos, setAvailableDos] = useState<AvailableDeliveryOrderRow[]>(
@@ -301,6 +379,13 @@ export function SalesClient({
     : isSpecialDisposition
       ? (options?.looseProducts ?? []).filter((product) => product.isMain)
       : (options?.looseProducts ?? []);
+  const paymentMethodOptions = useMemo(() => {
+    const methods = options?.paymentMethods ?? [];
+    return isBottleMode
+      ? cashOnlyPaymentMethods(methods)
+      : nonCashPaymentMethods(methods);
+  }, [options?.paymentMethods, isBottleMode]);
+  const lockPaymentAmount = true;
   const salesPointLocations = locationsForSalesPoint(salesPointId);
   const catalogProducts = useMemo(
     () => [
@@ -413,6 +498,61 @@ export function SalesClient({
     });
   }, [totals.gross, isFormEditable, isSpecialDisposition]);
 
+  // Bottle Oil: always keep a single Cash payment line (Cash must remain visible/selected).
+  useEffect(() => {
+    if (!options || !isBottleMode || isSpecialDisposition) {
+      return;
+    }
+    const cashMethods = cashOnlyPaymentMethods(options.paymentMethods);
+    const cashId = defaultPaymentMethodId(cashMethods, true);
+    if (!cashId) {
+      return;
+    }
+    setPayments((current) => {
+      if (
+        current.length === 1 &&
+        current[0]?.paymentMethodId === cashId
+      ) {
+        return current;
+      }
+      return [
+        {
+          paymentMethodId: cashId,
+          amount: String(totals.gross),
+          ...emptyPaymentExtras(),
+        },
+      ];
+    });
+  }, [options, isBottleMode, isSpecialDisposition, totals.gross]);
+
+  // Loose sales: drop Cash if it was selected (Cash is hidden from the list).
+  useEffect(() => {
+    if (!options || !isFormEditable || isBottleMode || isSpecialDisposition) {
+      return;
+    }
+    const allowed = new Set(
+      nonCashPaymentMethods(options.paymentMethods).map((method) => method.id),
+    );
+    setPayments((current) => {
+      let changed = false;
+      const next = current.map((payment) => {
+        if (
+          payment.paymentMethodId &&
+          !allowed.has(payment.paymentMethodId)
+        ) {
+          changed = true;
+          return {
+            ...payment,
+            paymentMethodId: "",
+            ...emptyPaymentExtras(),
+          };
+        }
+        return payment;
+      });
+      return changed ? next : current;
+    });
+  }, [options, isFormEditable, isBottleMode, isSpecialDisposition]);
+
   useEffect(() => {
     async function bootstrap() {
       try {
@@ -431,7 +571,7 @@ export function SalesClient({
         setInvoiceCustomerName("");
         setSalesPointId("");
         setLines([]);
-        setPayments([{ paymentMethodId: "", amount: "0" }]);
+        setPayments([{ paymentMethodId: "", amount: "0", ...emptyPaymentExtras() }]);
       } catch (error) {
         setLoadError(
           error instanceof Error
@@ -653,7 +793,7 @@ export function SalesClient({
     setVehicleNumber("");
     setTransactionDate(todayIsoDate());
     setLines([]);
-    setPayments([{ paymentMethodId: "", amount: "0" }]);
+    setPayments([{ paymentMethodId: "", amount: "0", ...emptyPaymentExtras() }]);
     setDoLinePrefill(null);
     setDoPickerOpen(false);
     setLineModal(null);
@@ -761,13 +901,20 @@ export function SalesClient({
             amount: payment.amount,
             chequeNo: payment.chequeNo ?? "",
             bank: payment.bank ?? "",
+            traiteNo: payment.traiteNo ?? "",
+            traiteIssuedOn: payment.traiteIssuedOn ?? "",
+            traiteMaturityOn: payment.traiteMaturityOn ?? "",
           }))
         : [
             {
               paymentMethodId: defaultPaymentMethodId(
-                options?.paymentMethods ?? [],
+                isBottleMode
+                  ? cashOnlyPaymentMethods(options?.paymentMethods ?? [])
+                  : nonCashPaymentMethods(options?.paymentMethods ?? []),
+                isBottleMode,
               ),
               amount: "0",
+              ...emptyPaymentExtras(),
             },
           ],
     );
@@ -990,6 +1137,17 @@ export function SalesClient({
       return;
     }
 
+    if (
+      !isSpecialDisposition &&
+      paymentsMissingTraiteDetails(payments, options.paymentMethods)
+    ) {
+      setBanner({
+        type: "error",
+        text: "Enter trait no #, issued date, and maturity date for traite payments.",
+      });
+      return;
+    }
+
     setBusy(validateImmediately ? "validate" : "save");
     setBanner(null);
 
@@ -1042,6 +1200,9 @@ export function SalesClient({
                 amount: payment.amount,
                 chequeNo: payment.chequeNo,
                 bank: payment.bank,
+                traiteNo: payment.traiteNo,
+                traiteIssuedOn: payment.traiteIssuedOn,
+                traiteMaturityOn: payment.traiteMaturityOn,
               })),
       });
 
@@ -1774,14 +1935,14 @@ export function SalesClient({
                 XAF paid
               </h3>
             </div>
-            {isFormEditable ? (
+            {isFormEditable && !isBottleMode ? (
               <button
                 type="button"
                 class="sales-btn-secondary"
                 onClick={() =>
                   setPayments((current) => [
                     ...current,
-                    { paymentMethodId: "", amount: "0" },
+                    { paymentMethodId: "", amount: "0", ...emptyPaymentExtras() },
                   ])
                 }
               >
@@ -1792,21 +1953,31 @@ export function SalesClient({
 
           <div class="sales-payments-form">
             {payments.map((payment, index) => {
-              const method = options.paymentMethods.find(
-                (item) => item.id === payment.paymentMethodId,
-              );
+              const method =
+                paymentMethodOptions.find(
+                  (item) => item.id === payment.paymentMethodId,
+                ) ??
+                options.paymentMethods.find(
+                  (item) => item.id === payment.paymentMethodId,
+                );
               const isCheque = method?.kind === "CHEQUE";
+              const isTraite = method?.kind === "TRAITE";
               const isBankTransfer = method?.kind === "BANK_TRANSFER";
-              const bankEnabled = isCheque || isBankTransfer;
+              const bankEnabled = isCheque || isBankTransfer || isTraite;
+              const gridClass = isTraite
+                ? "sales-payment-grid sales-payment-grid--cols-6"
+                : "sales-payment-grid sales-payment-grid--cols-4";
 
               return (
                 <div class="sales-payment-row" key={index}>
-                  <div class="sales-payment-grid">
+                  <div class={gridClass}>
                     <label class="sales-field">
                       <span>Method</span>
-                      {isReadOnly ? (
+                      {isReadOnly || isBottleMode ? (
                         <div class="sales-payment-value">
-                          {method?.name ?? payment.paymentMethodId}
+                          {method?.name ??
+                            (isBottleMode ? "Cash" : payment.paymentMethodId) ??
+                            "—"}
                         </div>
                       ) : (
                         <select
@@ -1821,8 +1992,7 @@ export function SalesClient({
                                       paymentMethodId: (
                                         event.currentTarget as HTMLSelectElement
                                       ).value,
-                                      chequeNo: "",
-                                      bank: "",
+                                      ...emptyPaymentExtras(),
                                     }
                                   : item,
                               ),
@@ -1830,7 +2000,7 @@ export function SalesClient({
                           }
                         >
                           <option value="">Select payment method</option>
-                          {options.paymentMethods.map((item) => (
+                          {paymentMethodOptions.map((item) => (
                             <option key={item.id} value={item.id}>
                               {item.name}
                             </option>
@@ -1850,56 +2020,132 @@ export function SalesClient({
                           type="text"
                           inputMode="numeric"
                           value={formatAmountInput(payment.amount)}
-                          disabled={!isFormEditable}
-                          onInput={(event) =>
-                            setPayments((current) =>
-                              current.map((item, i) =>
-                                i === index
-                                  ? {
-                                      ...item,
-                                      amount: parseAmountInput(
-                                        (
-                                          event.currentTarget as HTMLInputElement
-                                        ).value,
-                                      ),
-                                    }
-                                  : item,
-                              ),
-                            )
-                          }
+                          disabled={!isFormEditable || lockPaymentAmount}
                         />
                       )}
                     </label>
 
-                    <label class="sales-field">
-                      <span>Cheque #</span>
-                      {isReadOnly ? (
-                        <div class="sales-payment-value">
-                          {payment.chequeNo ?? "—"}
-                        </div>
-                      ) : (
-                        <input
-                          type="text"
-                          value={payment.chequeNo ?? ""}
-                          disabled={!isFormEditable || !isCheque}
-                          placeholder={isCheque ? "Cheque number" : "—"}
-                          onInput={(event) =>
-                            setPayments((current) =>
-                              current.map((item, i) =>
-                                i === index
-                                  ? {
-                                      ...item,
-                                      chequeNo: (
-                                        event.currentTarget as HTMLInputElement
-                                      ).value,
-                                    }
-                                  : item,
-                              ),
-                            )
-                          }
-                        />
-                      )}
-                    </label>
+                    {isTraite ? (
+                      <>
+                        <label class="sales-field">
+                          <span>Trait no #</span>
+                          {isReadOnly ? (
+                            <div class="sales-payment-value">
+                              {payment.traiteNo ?? "—"}
+                            </div>
+                          ) : (
+                            <input
+                              type="text"
+                              value={payment.traiteNo ?? ""}
+                              disabled={!isFormEditable}
+                              placeholder="Trait number"
+                              onInput={(event) =>
+                                setPayments((current) =>
+                                  current.map((item, i) =>
+                                    i === index
+                                      ? {
+                                          ...item,
+                                          traiteNo: (
+                                            event.currentTarget as HTMLInputElement
+                                          ).value,
+                                        }
+                                      : item,
+                                  ),
+                                )
+                              }
+                            />
+                          )}
+                        </label>
+
+                        <label class="sales-field">
+                          <span>Issued on</span>
+                          {isReadOnly ? (
+                            <div class="sales-payment-value">
+                              {payment.traiteIssuedOn ?? "—"}
+                            </div>
+                          ) : (
+                            <input
+                              type="date"
+                              value={payment.traiteIssuedOn ?? ""}
+                              disabled={!isFormEditable}
+                              onInput={(event) =>
+                                setPayments((current) =>
+                                  current.map((item, i) =>
+                                    i === index
+                                      ? {
+                                          ...item,
+                                          traiteIssuedOn: (
+                                            event.currentTarget as HTMLInputElement
+                                          ).value,
+                                        }
+                                      : item,
+                                  ),
+                                )
+                              }
+                            />
+                          )}
+                        </label>
+
+                        <label class="sales-field">
+                          <span>Maturity on</span>
+                          {isReadOnly ? (
+                            <div class="sales-payment-value">
+                              {payment.traiteMaturityOn ?? "—"}
+                            </div>
+                          ) : (
+                            <input
+                              type="date"
+                              value={payment.traiteMaturityOn ?? ""}
+                              disabled={!isFormEditable}
+                              onInput={(event) =>
+                                setPayments((current) =>
+                                  current.map((item, i) =>
+                                    i === index
+                                      ? {
+                                          ...item,
+                                          traiteMaturityOn: (
+                                            event.currentTarget as HTMLInputElement
+                                          ).value,
+                                        }
+                                      : item,
+                                  ),
+                                )
+                              }
+                            />
+                          )}
+                        </label>
+                      </>
+                    ) : (
+                      <label class="sales-field">
+                        <span>Cheque #</span>
+                        {isReadOnly ? (
+                          <div class="sales-payment-value">
+                            {payment.chequeNo ?? "—"}
+                          </div>
+                        ) : (
+                          <input
+                            type="text"
+                            value={payment.chequeNo ?? ""}
+                            disabled={!isFormEditable || !isCheque}
+                            placeholder={isCheque ? "Cheque number" : "—"}
+                            onInput={(event) =>
+                              setPayments((current) =>
+                                current.map((item, i) =>
+                                  i === index
+                                    ? {
+                                        ...item,
+                                        chequeNo: (
+                                          event.currentTarget as HTMLInputElement
+                                        ).value,
+                                      }
+                                    : item,
+                                ),
+                              )
+                            }
+                          />
+                        )}
+                      </label>
+                    )}
 
                     <label class="sales-field">
                       <span>Bank</span>
@@ -1932,7 +2178,7 @@ export function SalesClient({
                     </label>
                   </div>
 
-                  {isFormEditable ? (
+                  {isFormEditable && !isBottleMode ? (
                     <button
                       type="button"
                       class="sales-btn-secondary sales-payment-remove"

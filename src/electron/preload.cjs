@@ -61,6 +61,10 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("vehicleConsignmentNotes:validate", payload),
     loadPrintById: (noteId) =>
       ipcRenderer.invoke("vehicleConsignmentNotes:loadPrintById", noteId),
+    listValidationQueue: (userId) =>
+      ipcRenderer.invoke("vehicleConsignmentNotes:listValidationQueue", userId),
+    validateMany: (payload) =>
+      ipcRenderer.invoke("vehicleConsignmentNotes:validateMany", payload),
   },
   deliveryOrders: {
     getFormOptions: () => ipcRenderer.invoke("deliveryOrders:getFormOptions"),

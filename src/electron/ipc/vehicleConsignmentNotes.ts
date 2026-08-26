@@ -2,6 +2,8 @@ import { ipcMain } from "electron";
 import type {
   ConsignmentMutationResult,
   ConsignmentPrintPayload,
+  ConsignmentValidateManyResult,
+  ConsignmentValidationQueuePage,
   LoadedConsignmentFormView,
   SaveConsignmentNoteInput,
   SaveConsignmentNoteResult,
@@ -9,10 +11,12 @@ import type {
 import {
   deleteConsignmentNote,
   getConsignmentPrintPayload,
+  listConsignmentValidationQueue,
   loadConsignmentByVcnNo,
   loadSaleForConsignmentByInvoice,
   saveConsignmentNote,
   validateConsignmentNote,
+  validateManyConsignmentNotes,
 } from "../vehicleConsignmentNotes/service.js";
 
 export function registerVehicleConsignmentNotesHandlers(): void {
@@ -85,6 +89,29 @@ export function registerVehicleConsignmentNotesHandlers(): void {
         return null;
       }
       return getConsignmentPrintPayload(noteId);
+    },
+  );
+
+  ipcMain.handle(
+    "vehicleConsignmentNotes:listValidationQueue",
+    (_event, userId: string): ConsignmentValidationQueuePage => {
+      if (typeof userId !== "string") {
+        throw new Error("Login required.");
+      }
+      return listConsignmentValidationQueue(userId);
+    },
+  );
+
+  ipcMain.handle(
+    "vehicleConsignmentNotes:validateMany",
+    (
+      _event,
+      payload: { userId: string; noteIds: string[] },
+    ): ConsignmentValidateManyResult => {
+      if (!payload?.userId) {
+        return { ok: false, error: "Login required." };
+      }
+      return validateManyConsignmentNotes(payload);
     },
   );
 }

@@ -249,6 +249,12 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         description: "Review and validate pending sales invoices.",
       },
       {
+        id: "vehicle-consignment-validation",
+        label: "Consignment validation",
+        table: "VehicleConsignmentNote",
+        description: "Review and validate pending vehicle consignment notes.",
+      },
+      {
         id: "vehicle-consignment-notes",
         label: "Consignment notes",
         table: "VehicleConsignmentNote",

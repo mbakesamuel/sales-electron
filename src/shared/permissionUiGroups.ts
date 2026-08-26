@@ -64,6 +64,7 @@ export const PERMISSION_UI_GROUPS: readonly PermissionUiGroup[] = [
       "delivery-order-tracking",
       "delivery-order-transfer",
       "vehicle-consignment-notes",
+      "vehicle-consignment-validation",
     ],
     actionKeys: [
       "validate_delivery_orders",

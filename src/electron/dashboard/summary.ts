@@ -1,7 +1,14 @@
-import type { DashboardSummary } from "../../shared/dashboard.types.js";
+import type {
+  BottleOilDashboardSummary,
+  CommercialDashboardSummary,
+  DashboardSummary,
+  SupervisorDashboardSummary,
+} from "../../shared/dashboard.types.js";
+import { isStoreKeeperRole, isSupervisorOverviewRole } from "../../shared/roles.js";
 import { getDatabase } from "../db/index.js";
 import { getOpenPostingPeriod } from "../financialYears/service.js";
 import { parseAmount } from "../sales/money.js";
+import { listStockValidationQueue } from "../stock/validationQueue.js";
 
 const MONTH_LABELS = [
   "Jan",
@@ -18,6 +25,8 @@ const MONTH_LABELS = [
   "Dec",
 ] as const;
 
+const BOTTLE_MODE_SQL = `COALESCE(s.saleProductMode, 'LOOSE') = 'BOTTLE'`;
+
 function pad2(value: number): string {
   return String(value).padStart(2, "0");
 }
@@ -31,7 +40,261 @@ function minIso(a: string, b: string): string {
   return a <= b ? a : b;
 }
 
-function loadRevenueByDay(fromIso: string, toIso: string): DashboardSummary["revenueByDay"] {
+function emptyCommercial(asAtIso: string): CommercialDashboardSummary {
+  return {
+    variant: "commercial",
+    hasOpenPeriod: false,
+    openMonth: null,
+    openYear: null,
+    asAtIso,
+    revenueByDay: [],
+    revenueByCategory: [],
+    doVsSalesByMonth: [],
+  };
+}
+
+function emptySupervisor(asAtIso: string): SupervisorDashboardSummary {
+  return {
+    variant: "supervisor",
+    hasOpenPeriod: false,
+    openMonth: null,
+    openYear: null,
+    asAtIso,
+    queueTiles: [],
+    revenueByDay: [],
+    revenueByProduct: [],
+    looseStockOnHand: [],
+    bottleStockOnHand: [],
+    looseSellableTotalKg: 0,
+    bottleSellableTotalUnits: 0,
+  };
+}
+
+function loadRevenueByProductAllModes(
+  fromIso: string,
+  toIso: string,
+): SupervisorDashboardSummary["revenueByProduct"] {
+  const rows = getDatabase()
+    .prepare(
+      `SELECT p.productId AS productId,
+              p.productName AS label,
+              COALESCE(SUM(CAST(sl.lineNet AS REAL)), 0) AS amount
+       FROM Sale s
+       INNER JOIN SaleLine sl ON sl.saleId = s.id
+       INNER JOIN Product p ON p.productId = sl.productId
+       WHERE s.status = 'VALIDATED'
+         AND substr(s.dateIssued, 1, 10) >= ?
+         AND substr(s.dateIssued, 1, 10) <= ?
+       GROUP BY p.productId, p.productName
+       HAVING COALESCE(SUM(CAST(sl.lineNet AS REAL)), 0) > 0.0001
+       ORDER BY amount DESC
+       LIMIT 12`,
+    )
+    .all(fromIso, toIso) as Array<{
+    productId: number;
+    label: string;
+    amount: number;
+  }>;
+
+  return rows.map((row) => ({
+    productId: Number(row.productId),
+    label: String(row.label),
+    amount: Number.isFinite(row.amount) ? row.amount : parseAmount(String(row.amount)),
+  }));
+}
+
+function loadStockOnHandByBottled(isBottled: 0 | 1): {
+  rows: SupervisorDashboardSummary["looseStockOnHand"];
+  sellableTotal: number;
+} {
+  const rows = getDatabase()
+    .prepare(
+      `SELECT p.productName,
+              CAST(sb.qty AS REAL) AS qty,
+              COALESCE(NULLIF(TRIM(p.uom), ''), ?) AS uom,
+              sp.name AS salesPointName,
+              COALESCE(l.locationName, '—') AS storageLocationName,
+              sb.condition
+       FROM StockBalance sb
+       JOIN SalesPoint sp ON sp.id = sb.salesPointId
+       LEFT JOIN StorageLocation sl ON sl.id = sb.storageLocationId
+       LEFT JOIN Location l ON l.id = sl.locationId
+       JOIN Product p ON p.productId = sb.productId
+       LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
+       WHERE COALESCE(pc.isBottled, 0) = ?
+         AND CAST(sb.qty AS REAL) > 0.0001
+       ORDER BY
+         CASE WHEN sb.condition = 'SELLABLE' THEN 0 ELSE 1 END,
+         CAST(sb.qty AS REAL) DESC,
+         p.productName ASC
+       LIMIT 40`,
+    )
+    .all(isBottled === 1 ? "Unit" : "kg", isBottled) as Array<{
+    productName: string;
+    qty: number;
+    uom: string;
+    salesPointName: string;
+    storageLocationName: string;
+    condition: string;
+  }>;
+
+  const mapped = rows.map((row) => ({
+    productName: String(row.productName),
+    qty: Number.isFinite(row.qty) ? row.qty : parseAmount(String(row.qty)),
+    uom: String(row.uom || (isBottled === 1 ? "Unit" : "kg")),
+    salesPointName: String(row.salesPointName),
+    storageLocationName: String(row.storageLocationName),
+    condition:
+      row.condition === "UNSELLABLE"
+        ? ("UNSELLABLE" as const)
+        : ("SELLABLE" as const),
+  }));
+
+  const sellableTotal = mapped
+    .filter((row) => row.condition === "SELLABLE")
+    .reduce((sum, row) => sum + row.qty, 0);
+
+  return { rows: mapped, sellableTotal };
+}
+
+function getScopedSalesPointId(userId: string): number | null {
+  const row = getDatabase()
+    .prepare(`SELECT salesPointId, isActive FROM User WHERE id = ?`)
+    .get(userId) as { salesPointId: number | null; isActive: number } | undefined;
+  if (!row?.isActive) {
+    return null;
+  }
+  return row.salesPointId;
+}
+
+function countPendingSales(userId: string): number {
+  const scoped = getScopedSalesPointId(userId);
+  const scopeSql =
+    scoped == null ? "" : " AND s.salesPointId = @scopedSalesPointId";
+  const params = { scopedSalesPointId: scoped ?? -1 };
+  const row = getDatabase()
+    .prepare(
+      `SELECT COUNT(*) AS count FROM Sale s WHERE s.status = 'PENDING'${scopeSql}`,
+    )
+    .get(params) as { count: number };
+  return Number(row?.count ?? 0);
+}
+
+function countPendingConsignmentNotes(userId: string): number {
+  const scoped = getScopedSalesPointId(userId);
+  const scopeSql =
+    scoped == null ? "" : " AND s.salesPointId = @scopedSalesPointId";
+  const params = { scopedSalesPointId: scoped ?? -1 };
+  const row = getDatabase()
+    .prepare(
+      `SELECT COUNT(*) AS count
+       FROM VehicleConsignmentNote n
+       INNER JOIN Sale s ON s.id = n.saleId
+       WHERE n.status = 'PENDING'${scopeSql}`,
+    )
+    .get(params) as { count: number };
+  return Number(row?.count ?? 0);
+}
+
+function countPendingStockDocuments(userId: string): number {
+  try {
+    return listStockValidationQueue(userId).totalPending;
+  } catch {
+    return 0;
+  }
+}
+
+function buildSupervisorQueueTiles(userId: string): SupervisorDashboardSummary["queueTiles"] {
+  return [
+    {
+      id: "pendingSales",
+      label: "Pending sales",
+      count: countPendingSales(userId),
+      routeId: "sales-validation",
+    },
+    {
+      id: "pendingStock",
+      label: "Pending stock",
+      count: countPendingStockDocuments(userId),
+      routeId: "stock-validation",
+    },
+    {
+      id: "pendingConsignment",
+      label: "Pending consignment",
+      count: countPendingConsignmentNotes(userId),
+      routeId: "vehicle-consignment-validation",
+    },
+  ];
+}
+
+function getSupervisorDashboardSummary(userId: string): SupervisorDashboardSummary {
+  const asAtIso = localTodayIso();
+  const period = getOpenPostingPeriod();
+  const looseStock = loadStockOnHandByBottled(0);
+  const bottleStock = loadStockOnHandByBottled(1);
+  const queueTiles = buildSupervisorQueueTiles(userId);
+
+  if (!period) {
+    return {
+      ...emptySupervisor(asAtIso),
+      queueTiles,
+      looseStockOnHand: looseStock.rows,
+      bottleStockOnHand: bottleStock.rows,
+      looseSellableTotalKg: looseStock.sellableTotal,
+      bottleSellableTotalUnits: bottleStock.sellableTotal,
+    };
+  }
+
+  const monthEnd = minIso(period.endDate, asAtIso);
+
+  return {
+    variant: "supervisor",
+    hasOpenPeriod: true,
+    openMonth: {
+      year: period.financialYear,
+      month: period.calendarMonth,
+      startDate: period.startDate,
+      endDate: monthEnd,
+      label: `${period.monthName} ${period.financialYear}`,
+    },
+    openYear: period.financialYear,
+    asAtIso,
+    queueTiles,
+    revenueByDay: loadRevenueByDay(period.startDate, monthEnd, false),
+    revenueByProduct: loadRevenueByProductAllModes(period.startDate, monthEnd),
+    looseStockOnHand: looseStock.rows,
+    bottleStockOnHand: bottleStock.rows,
+    looseSellableTotalKg: looseStock.sellableTotal,
+    bottleSellableTotalUnits: bottleStock.sellableTotal,
+  };
+}
+
+function emptyBottleOil(asAtIso: string): BottleOilDashboardSummary {
+  return {
+    variant: "bottleOil",
+    hasOpenPeriod: false,
+    openMonth: null,
+    openYear: null,
+    asAtIso,
+    revenueByDay: [],
+    revenueByProduct: [],
+    salesQtyByMonth: [],
+    invoiceCounts: {
+      pending: 0,
+      validatedOpenMonth: 0,
+      rejectedOpenMonth: 0,
+    },
+    stockOnHand: [],
+    sellableUnitsTotal: 0,
+  };
+}
+
+function loadRevenueByDay(
+  fromIso: string,
+  toIso: string,
+  bottleOnly: boolean,
+): CommercialDashboardSummary["revenueByDay"] {
+  const modeClause = bottleOnly ? `AND ${BOTTLE_MODE_SQL}` : "";
   const rows = getDatabase()
     .prepare(
       `SELECT substr(s.dateIssued, 1, 10) AS dateIso,
@@ -40,6 +303,7 @@ function loadRevenueByDay(fromIso: string, toIso: string): DashboardSummary["rev
        WHERE s.status = 'VALIDATED'
          AND substr(s.dateIssued, 1, 10) >= ?
          AND substr(s.dateIssued, 1, 10) <= ?
+         ${modeClause}
        GROUP BY substr(s.dateIssued, 1, 10)
        ORDER BY dateIso ASC`,
     )
@@ -54,7 +318,7 @@ function loadRevenueByDay(fromIso: string, toIso: string): DashboardSummary["rev
 function loadRevenueByCategory(
   fromIso: string,
   toIso: string,
-): DashboardSummary["revenueByCategory"] {
+): CommercialDashboardSummary["revenueByCategory"] {
   const rows = getDatabase()
     .prepare(
       `SELECT p.productCatId AS categoryId,
@@ -84,6 +348,40 @@ function loadRevenueByCategory(
   }));
 }
 
+function loadRevenueByProduct(
+  fromIso: string,
+  toIso: string,
+): BottleOilDashboardSummary["revenueByProduct"] {
+  const rows = getDatabase()
+    .prepare(
+      `SELECT p.productId AS productId,
+              p.productName AS label,
+              COALESCE(SUM(CAST(sl.lineNet AS REAL)), 0) AS amount
+       FROM Sale s
+       INNER JOIN SaleLine sl ON sl.saleId = s.id
+       INNER JOIN Product p ON p.productId = sl.productId
+       WHERE s.status = 'VALIDATED'
+         AND ${BOTTLE_MODE_SQL}
+         AND substr(s.dateIssued, 1, 10) >= ?
+         AND substr(s.dateIssued, 1, 10) <= ?
+       GROUP BY p.productId, p.productName
+       HAVING COALESCE(SUM(CAST(sl.lineNet AS REAL)), 0) > 0.0001
+       ORDER BY amount DESC
+       LIMIT 12`,
+    )
+    .all(fromIso, toIso) as Array<{
+    productId: number;
+    label: string;
+    amount: number;
+  }>;
+
+  return rows.map((row) => ({
+    productId: Number(row.productId),
+    label: String(row.label),
+    amount: Number.isFinite(row.amount) ? row.amount : parseAmount(String(row.amount)),
+  }));
+}
+
 function loadDoQtyByMonth(
   year: number,
   fromIso: string,
@@ -108,7 +406,6 @@ function loadDoQtyByMonth(
       map.set(row.month, Number.isFinite(row.qty) ? row.qty : 0);
     }
   }
-  // Keep year unused but available for clarity / future filters.
   void year;
   return map;
 }
@@ -136,20 +433,132 @@ function loadSalesQtyByMonth(fromIso: string, toIso: string): Map<number, number
   return map;
 }
 
-export function getDashboardSummary(_userId?: string | null): DashboardSummary {
+function loadBottleSalesQtyByMonth(
+  fromIso: string,
+  toIso: string,
+): Map<number, number> {
+  const rows = getDatabase()
+    .prepare(
+      `SELECT CAST(strftime('%m', substr(s.dateIssued, 1, 10)) AS INTEGER) AS month,
+              COALESCE(SUM(CAST(COALESCE(sl.qtyUnits, sl.qtyKg) AS REAL)), 0) AS qty
+       FROM Sale s
+       INNER JOIN SaleLine sl ON sl.saleId = s.id
+       WHERE s.status = 'VALIDATED'
+         AND ${BOTTLE_MODE_SQL}
+         AND substr(s.dateIssued, 1, 10) >= ?
+         AND substr(s.dateIssued, 1, 10) <= ?
+       GROUP BY month`,
+    )
+    .all(fromIso, toIso) as Array<{ month: number; qty: number }>;
+
+  const map = new Map<number, number>();
+  for (const row of rows) {
+    if (row.month >= 1 && row.month <= 12) {
+      map.set(row.month, Number.isFinite(row.qty) ? row.qty : 0);
+    }
+  }
+  return map;
+}
+
+function loadBottleInvoiceCounts(
+  fromIso: string,
+  toIso: string,
+): BottleOilDashboardSummary["invoiceCounts"] {
+  const db = getDatabase();
+  const pendingRow = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM Sale s
+       WHERE s.status = 'PENDING' AND ${BOTTLE_MODE_SQL}`,
+    )
+    .get() as { n: number };
+
+  const validatedRow = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM Sale s
+       WHERE s.status = 'VALIDATED'
+         AND ${BOTTLE_MODE_SQL}
+         AND substr(s.dateIssued, 1, 10) >= ?
+         AND substr(s.dateIssued, 1, 10) <= ?`,
+    )
+    .get(fromIso, toIso) as { n: number };
+
+  const rejectedRow = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM Sale s
+       WHERE s.status = 'REJECTED'
+         AND ${BOTTLE_MODE_SQL}
+         AND substr(s.dateIssued, 1, 10) >= ?
+         AND substr(s.dateIssued, 1, 10) <= ?`,
+    )
+    .get(fromIso, toIso) as { n: number };
+
+  return {
+    pending: Number(pendingRow?.n ?? 0),
+    validatedOpenMonth: Number(validatedRow?.n ?? 0),
+    rejectedOpenMonth: Number(rejectedRow?.n ?? 0),
+  };
+}
+
+function loadBottledStockOnHand(): {
+  rows: BottleOilDashboardSummary["stockOnHand"];
+  sellableUnitsTotal: number;
+} {
+  const rows = getDatabase()
+    .prepare(
+      `SELECT p.productName,
+              CAST(sb.qty AS REAL) AS qty,
+              COALESCE(NULLIF(TRIM(p.uom), ''), 'Unit') AS uom,
+              sp.name AS salesPointName,
+              COALESCE(l.locationName, '—') AS storageLocationName,
+              sb.condition
+       FROM StockBalance sb
+       JOIN SalesPoint sp ON sp.id = sb.salesPointId
+       LEFT JOIN StorageLocation sl ON sl.id = sb.storageLocationId
+       LEFT JOIN Location l ON l.id = sl.locationId
+       JOIN Product p ON p.productId = sb.productId
+       LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
+       WHERE COALESCE(pc.isBottled, 0) = 1
+         AND CAST(sb.qty AS REAL) > 0.0001
+       ORDER BY
+         CASE WHEN sb.condition = 'SELLABLE' THEN 0 ELSE 1 END,
+         CAST(sb.qty AS REAL) DESC,
+         p.productName ASC
+       LIMIT 40`,
+    )
+    .all() as Array<{
+    productName: string;
+    qty: number;
+    uom: string;
+    salesPointName: string;
+    storageLocationName: string;
+    condition: string;
+  }>;
+
+  const mapped = rows.map((row) => ({
+    productName: String(row.productName),
+    qty: Number.isFinite(row.qty) ? row.qty : parseAmount(String(row.qty)),
+    uom: String(row.uom || "Unit"),
+    salesPointName: String(row.salesPointName),
+    storageLocationName: String(row.storageLocationName),
+    condition:
+      row.condition === "UNSELLABLE"
+        ? ("UNSELLABLE" as const)
+        : ("SELLABLE" as const),
+  }));
+
+  const sellableUnitsTotal = mapped
+    .filter((row) => row.condition === "SELLABLE")
+    .reduce((sum, row) => sum + row.qty, 0);
+
+  return { rows: mapped, sellableUnitsTotal };
+}
+
+function getCommercialDashboardSummary(): CommercialDashboardSummary {
   const asAtIso = localTodayIso();
   const period = getOpenPostingPeriod();
 
   if (!period) {
-    return {
-      hasOpenPeriod: false,
-      openMonth: null,
-      openYear: null,
-      asAtIso,
-      revenueByDay: [],
-      revenueByCategory: [],
-      doVsSalesByMonth: [],
-    };
+    return emptyCommercial(asAtIso);
   }
 
   const monthEnd = minIso(period.endDate, asAtIso);
@@ -162,7 +571,7 @@ export function getDashboardSummary(_userId?: string | null): DashboardSummary {
 
   const doByMonth = loadDoQtyByMonth(period.financialYear, yearStart, yearEnd);
   const salesByMonth = loadSalesQtyByMonth(yearStart, yearEnd);
-  const doVsSalesByMonth: DashboardSummary["doVsSalesByMonth"] = [];
+  const doVsSalesByMonth: CommercialDashboardSummary["doVsSalesByMonth"] = [];
   for (let month = 1; month <= lastMonth; month += 1) {
     doVsSalesByMonth.push({
       month,
@@ -173,6 +582,7 @@ export function getDashboardSummary(_userId?: string | null): DashboardSummary {
   }
 
   return {
+    variant: "commercial",
     hasOpenPeriod: true,
     openMonth: {
       year: period.financialYear,
@@ -183,8 +593,74 @@ export function getDashboardSummary(_userId?: string | null): DashboardSummary {
     },
     openYear: period.financialYear,
     asAtIso,
-    revenueByDay: loadRevenueByDay(period.startDate, monthEnd),
+    revenueByDay: loadRevenueByDay(period.startDate, monthEnd, false),
     revenueByCategory: loadRevenueByCategory(period.startDate, monthEnd),
     doVsSalesByMonth,
   };
+}
+
+function getBottleOilDashboardSummary(): BottleOilDashboardSummary {
+  const asAtIso = localTodayIso();
+  const period = getOpenPostingPeriod();
+  const stock = loadBottledStockOnHand();
+
+  if (!period) {
+    return {
+      ...emptyBottleOil(asAtIso),
+      stockOnHand: stock.rows,
+      sellableUnitsTotal: stock.sellableUnitsTotal,
+      invoiceCounts: loadBottleInvoiceCounts("1900-01-01", asAtIso),
+    };
+  }
+
+  const monthEnd = minIso(period.endDate, asAtIso);
+  const yearStart = `${period.financialYear}-01-01`;
+  const yearEnd = minIso(`${period.financialYear}-12-31`, asAtIso);
+  const lastMonth =
+    asAtIso.slice(0, 4) === String(period.financialYear)
+      ? Number.parseInt(asAtIso.slice(5, 7), 10)
+      : period.calendarMonth;
+
+  const qtyByMonth = loadBottleSalesQtyByMonth(yearStart, yearEnd);
+  const salesQtyByMonth: BottleOilDashboardSummary["salesQtyByMonth"] = [];
+  for (let month = 1; month <= lastMonth; month += 1) {
+    salesQtyByMonth.push({
+      month,
+      label: MONTH_LABELS[month - 1] ?? String(month),
+      qtyUnits: qtyByMonth.get(month) ?? 0,
+    });
+  }
+
+  return {
+    variant: "bottleOil",
+    hasOpenPeriod: true,
+    openMonth: {
+      year: period.financialYear,
+      month: period.calendarMonth,
+      startDate: period.startDate,
+      endDate: monthEnd,
+      label: `${period.monthName} ${period.financialYear}`,
+    },
+    openYear: period.financialYear,
+    asAtIso,
+    revenueByDay: loadRevenueByDay(period.startDate, monthEnd, true),
+    revenueByProduct: loadRevenueByProduct(period.startDate, monthEnd),
+    salesQtyByMonth,
+    invoiceCounts: loadBottleInvoiceCounts(period.startDate, monthEnd),
+    stockOnHand: stock.rows,
+    sellableUnitsTotal: stock.sellableUnitsTotal,
+  };
+}
+
+export function getDashboardSummary(
+  role?: string | null,
+  userId?: string | null,
+): DashboardSummary {
+  if (role && isStoreKeeperRole(role)) {
+    return getBottleOilDashboardSummary();
+  }
+  if (role && isSupervisorOverviewRole(role) && userId) {
+    return getSupervisorDashboardSummary(userId);
+  }
+  return getCommercialDashboardSummary();
 }

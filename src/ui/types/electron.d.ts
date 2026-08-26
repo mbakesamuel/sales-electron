@@ -276,6 +276,17 @@ interface VehicleConsignmentNotesApi {
     userId: string;
   }): Promise<ConsignmentMutationResult>;
   loadPrintById(noteId: string): Promise<ConsignmentPrintPayload | null>;
+  listValidationQueue(
+    userId: string,
+  ): Promise<
+    import("../../shared/vehicleConsignmentNotes.types.ts").ConsignmentValidationQueuePage
+  >;
+  validateMany(payload: {
+    userId: string;
+    noteIds: string[];
+  }): Promise<
+    import("../../shared/vehicleConsignmentNotes.types.ts").ConsignmentValidateManyResult
+  >;
 }
 
 export interface ElectronAppApi {

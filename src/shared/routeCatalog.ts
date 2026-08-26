@@ -97,6 +97,12 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
     sectionId: "delivery",
     table: "VehicleConsignmentNote",
   },
+  {
+    id: "vehicle-consignment-validation",
+    label: "Consignment validation",
+    sectionId: "delivery",
+    table: "VehicleConsignmentNote",
+  },
   { id: "stock-balance", label: "Stock balance", sectionId: "inventory", table: "StockBalance" },
   {
     id: "stock",

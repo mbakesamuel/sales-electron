@@ -6,6 +6,8 @@ import type {
   ConsignmentPrintPayload,
   ConsignmentSaleLine,
   ConsignmentSaleSnapshot,
+  ConsignmentValidateManyResult,
+  ConsignmentValidationQueuePage,
   LoadedConsignmentFormView,
   SaveConsignmentNoteInput,
   SaveConsignmentNoteResult,
@@ -531,6 +533,134 @@ export function validateConsignmentNote(
     .run(nowIso(), userId, nowIso(), noteId);
 
   return { ok: true };
+}
+
+const VALIDATION_QUEUE_LIMIT = 200;
+
+export function listConsignmentValidationQueue(
+  userId: string,
+): ConsignmentValidationQueuePage {
+  const auth = requireUserRole(userId);
+  if (!auth.ok) {
+    throw new Error(auth.error);
+  }
+  if (!canPerformAction(auth.role, "validate_vehicle_consignment_notes")) {
+    throw new Error("You do not have permission to validate consignment notes.");
+  }
+
+  const user = getDatabase()
+    .prepare(`SELECT salesPointId, isActive FROM User WHERE id = ?`)
+    .get(userId) as { salesPointId: number | null; isActive: number } | undefined;
+  if (!user?.isActive) {
+    throw new Error("Login required.");
+  }
+
+  const scoped = user.salesPointId;
+  const scopeSql =
+    scoped == null ? "" : " AND s.salesPointId = @scopedSalesPointId";
+  const params = { scopedSalesPointId: scoped ?? -1 };
+
+  const totalPending = (
+    getDatabase()
+      .prepare(
+        `SELECT COUNT(*) AS count
+         FROM VehicleConsignmentNote n
+         INNER JOIN Sale s ON s.id = n.saleId
+         WHERE n.status = 'PENDING'${scopeSql}`,
+      )
+      .get(params) as { count: number }
+  ).count;
+
+  const rows = getDatabase()
+    .prepare(
+      `SELECT n.id,
+              n.consignmentNoteNo,
+              n.destination,
+              d.dateOfConsignment,
+              s.invoiceNo,
+              s.customerNameSnapshot,
+              s.saleDisposition,
+              sp.name AS salesPointName,
+              COALESCE(u.name, '—') AS createdByName
+       FROM VehicleConsignmentNote n
+       INNER JOIN ConsignmentDetails d ON d.id = n.consignmentDetailsId
+       INNER JOIN Sale s ON s.id = n.saleId
+       LEFT JOIN SalesPoint sp ON sp.id = s.salesPointId
+       LEFT JOIN User u ON u.id = n.createdByUserId
+       WHERE n.status = 'PENDING'${scopeSql}
+       ORDER BY d.dateOfConsignment ASC, n.consignmentNoteNo ASC
+       LIMIT ${VALIDATION_QUEUE_LIMIT}`,
+    )
+    .all(params) as Array<{
+    id: string;
+    consignmentNoteNo: string;
+    destination: string;
+    dateOfConsignment: string;
+    invoiceNo: string;
+    customerNameSnapshot: string;
+    saleDisposition: string | null;
+    salesPointName: string | null;
+    createdByName: string;
+  }>;
+
+  return {
+    totalPending,
+    rows: rows.map((row) => ({
+      id: String(row.id),
+      consignmentNoteNo: String(row.consignmentNoteNo),
+      invoiceNo: String(row.invoiceNo),
+      customerName: String(row.customerNameSnapshot),
+      salesPointName: row.salesPointName ? String(row.salesPointName) : null,
+      destination: String(row.destination),
+      saleDisposition:
+        row.saleDisposition === "NORMAL" ||
+        row.saleDisposition === "RATION" ||
+        row.saleDisposition === "PUBLIC_RELATION"
+          ? row.saleDisposition
+          : null,
+      dateOfConsignment: String(row.dateOfConsignment).slice(0, 10),
+      createdByName: String(row.createdByName),
+    })),
+  };
+}
+
+export function validateManyConsignmentNotes(payload: {
+  userId: string;
+  noteIds: string[];
+}): ConsignmentValidateManyResult {
+  const uniqueIds = [
+    ...new Set(
+      payload.noteIds.filter((id) => typeof id === "string" && id.trim()),
+    ),
+  ];
+  if (uniqueIds.length === 0) {
+    return { ok: false, error: "Select at least one consignment note." };
+  }
+
+  let validated = 0;
+  const errors: Array<{
+    id: string;
+    consignmentNoteNo?: string;
+    error: string;
+  }> = [];
+
+  for (const id of uniqueIds) {
+    const result = validateConsignmentNote(id, payload.userId);
+    if (result.ok) {
+      validated += 1;
+    } else {
+      const noteNo = getDatabase()
+        .prepare(`SELECT consignmentNoteNo FROM VehicleConsignmentNote WHERE id = ?`)
+        .get(id) as { consignmentNoteNo: string } | undefined;
+      errors.push({
+        id,
+        consignmentNoteNo: noteNo?.consignmentNoteNo,
+        error: result.error,
+      });
+    }
+  }
+
+  return { ok: true, validated, errors };
 }
 
 export function getConsignmentPrintPayload(

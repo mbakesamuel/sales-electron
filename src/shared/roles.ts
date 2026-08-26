@@ -19,8 +19,19 @@ export type RouteAccess = "none" | "read" | "write";
 /** Custom role id for bottled-stock / collection-point operators. */
 export const STORE_KEEPER_ROLE_ID = "STORE_KEEPER";
 
+/** Custom role id for junior sales supervisors (manageable role). */
+export const JNR_SALES_SUP_ROLE_ID = "JNR_SALES_SUP";
+
+export const SENIOR_SALES_SUPERVISOR_ROLE_ID = "SENIOR_SALES_SUPERVISOR";
+
 export function isStoreKeeperRole(role: string): boolean {
   return role === STORE_KEEPER_ROLE_ID;
+}
+
+export function isSupervisorOverviewRole(role: string): boolean {
+  return (
+    role === SENIOR_SALES_SUPERVISOR_ROLE_ID || role === JNR_SALES_SUP_ROLE_ID
+  );
 }
 
 export const SYSTEM_ROLE_LABELS: Record<SystemUserRole, string> = {

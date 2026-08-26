@@ -881,6 +881,10 @@
   --sales-payment-cols: 4;
 }
 
+.sales-payment-grid--cols-6 {
+  --sales-payment-cols: 6;
+}
+
 .sales-payment-grid .sales-field {
   display: flex;
   flex-direction: column;

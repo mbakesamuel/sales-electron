@@ -86,3 +86,28 @@ export interface ConsignmentPrintPayload {
   department: string | null;
   liftedQtyInWords: string | null;
 }
+
+export interface ConsignmentValidationQueueRow {
+  id: string;
+  consignmentNoteNo: string;
+  invoiceNo: string;
+  customerName: string;
+  salesPointName: string | null;
+  destination: string;
+  saleDisposition: SaleDisposition | null;
+  dateOfConsignment: string;
+  createdByName: string;
+}
+
+export interface ConsignmentValidationQueuePage {
+  totalPending: number;
+  rows: ConsignmentValidationQueueRow[];
+}
+
+export type ConsignmentValidateManyResult =
+  | {
+      ok: true;
+      validated: number;
+      errors: Array<{ id: string; consignmentNoteNo?: string; error: string }>;
+    }
+  | { ok: false; error: string };

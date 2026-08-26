@@ -68,6 +68,7 @@ export const ROUTE_ICONS: Record<string, LucideIcon> = {
   "delivery-order-transfer": ArrowLeftRight,
   "carry-forward-commitments": ClipboardList,
   "vehicle-consignment-notes": FileSpreadsheet,
+  "vehicle-consignment-validation": FileCheck2,
   stock: Warehouse,
   "bottled-stock": Warehouse,
   "stock-validation": FileCheck2,

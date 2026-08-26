@@ -1,0 +1,42 @@
+Short answer: Reinstall / overwrite the app binary only. Leave %APPDATA%\sales-electron\ alone. On next launch, new schema migrations run automatically against the existing sales.db.
+
+Why data survives an update
+What	Where	Touched by installer?
+App code (Electron + UI)
+Program Files\… (or chosen install dir)
+Yes — replaced
+Production database
+%APPDATA%\sales-electron\sales.db
+No
+The package name is sales-electron, so userData stays at:
+
+%APPDATA%\sales-electron\sales.db
+That folder is outside the install directory. NSIS updates replace the program files; they do not wipe AppData when you keep the same appId / product name.
+
+On startup, initDatabase() opens that DB and runMigrations applies only migration files not yet recorded in schema_migrations. Existing rows are not wiped.
+
+Practical update process today
+This project does not ship auto-update (electron-updater is not wired). Current flow:
+
+Bump "version" in package.json (e.g. 1.0.0 → 1.1.0).
+Build the installer: npm run dist:win →
+release/Sales Management Application-Setup-{version}-win-x64.exe
+On the user PC:
+Prefer: quit the app, then run the new Setup (same options / overwrite).
+Or: uninstall without deleting user data (if the uninstaller asks), then install the new build.
+Launch once — migrations for anything new (e.g. 085_…, VCN layout code) apply; sales/stock stay.
+Do not run db:reset, delete sales.db, or copy a fresh DB over production.
+
+Optional but wise before major releases: copy %APPDATA%\sales-electron\ (with the app closed, or use a proper SQLite backup) so you can roll back if a migration fails.
+
+Rules so updates stay safe
+Same appId (com.sales-electron.app) and package name (sales-electron) — changing these can create a new empty userData folder and look like “lost data”.
+Ship schema changes as numbered migrations under src/electron/db/migrations/, never by replacing sales.db.
+Prefer additive migrations (new tables/columns); destructive ones need a tested upgrade path.
+Keep productName / installer naming stable unless you intentionally migrate paths.
+Later improvement (not built yet)
+For less manual work you could add electron-updater (or a shared network folder of installers) so the app downloads and installs a new NSIS build. Data would still stay in AppData the same way — auto-update only replaces the app package.
+
+There is also a draft plan for in-app backup/restore of sales.db; that would make pre-update backups easier but isn’t required for a normal code update.
+
+Bottom line: Ship a new Setup with a bumped version, install over the existing app, never touch %APPDATA%\sales-electron\. Migrations handle schema; business data stays put.

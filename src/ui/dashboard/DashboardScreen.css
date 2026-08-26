@@ -9,6 +9,324 @@
   overflow: hidden;
 }
 
+/* Fit Bottle Oil overview in one viewport (no page scroll). */
+.dash-root--bottle {
+  overflow: hidden;
+  gap: 0.4rem;
+  padding: 0.45rem 0.7rem 0.5rem;
+}
+
+.dash-root--bottle .dash-title {
+  font-size: 1rem;
+}
+
+.dash-root--bottle .dash-subtitle {
+  margin-top: 0.05rem;
+  font-size: 0.7rem;
+}
+
+.dash-root--bottle .dash-refresh {
+  padding: 0.22rem 0.55rem;
+  font-size: 0.75rem;
+}
+
+.dash-root--bottle .dash-tiles {
+  gap: 0.4rem;
+}
+
+.dash-root--bottle .dash-tile {
+  padding: 0.4rem 0.55rem;
+  border-radius: 6px;
+}
+
+.dash-root--bottle .dash-tile-label {
+  font-size: 0.65rem;
+}
+
+.dash-root--bottle .dash-tile-value {
+  margin-top: 0.1rem;
+  font-size: 1.15rem;
+}
+
+.dash-root--bottle .dash-tile-meta {
+  display: none;
+}
+
+.dash-root--bottle .dash-section {
+  padding: 0.35rem 0.5rem 0.4rem;
+}
+
+.dash-root--bottle .dash-section-title {
+  font-size: 0.72rem;
+}
+
+.dash-root--bottle .dash-section-meta {
+  display: none;
+}
+
+.dash-root--bottle .dash-stock-table {
+  font-size: 0.72rem;
+}
+
+.dash-root--bottle .dash-stock-table th,
+.dash-root--bottle .dash-stock-table td {
+  padding: 0.22rem 0.3rem;
+}
+
+.dash-root--bottle .dash-section-stock {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Fit toolbar + tiles + charts + stock in one viewport (no page scroll). */
+.dash-root--supervisor {
+  overflow: hidden;
+  gap: 0.4rem;
+  padding: 0.45rem 0.7rem 0.5rem;
+}
+
+.dash-root--supervisor .dash-title {
+  font-size: 1rem;
+}
+
+.dash-root--supervisor .dash-subtitle {
+  margin-top: 0.05rem;
+  font-size: 0.7rem;
+}
+
+.dash-root--supervisor .dash-refresh {
+  padding: 0.22rem 0.55rem;
+  font-size: 0.75rem;
+}
+
+.dash-root--supervisor .dash-tiles {
+  gap: 0.4rem;
+}
+
+.dash-root--supervisor .dash-tile,
+.dash-root--supervisor .dash-tile-btn {
+  padding: 0.4rem 0.55rem;
+  border-radius: 6px;
+}
+
+.dash-root--supervisor .dash-tile-label {
+  font-size: 0.65rem;
+}
+
+.dash-root--supervisor .dash-tile-value {
+  margin-top: 0.1rem;
+  font-size: 1.15rem;
+}
+
+.dash-root--supervisor .dash-tile-meta {
+  display: none;
+}
+
+.dash-root--supervisor .dash-section {
+  padding: 0.35rem 0.5rem 0.4rem;
+}
+
+.dash-root--supervisor .dash-section-title {
+  font-size: 0.72rem;
+}
+
+.dash-root--supervisor .dash-section-meta {
+  display: none;
+}
+
+.dash-root--supervisor .dash-stock-table {
+  font-size: 0.72rem;
+}
+
+.dash-root--supervisor .dash-stock-table th,
+.dash-root--supervisor .dash-stock-table td {
+  padding: 0.22rem 0.3rem;
+}
+
+.dash-tile-btn {
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  font: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dash-tile-btn:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.dash-stock-split {
+  position: relative;
+  z-index: 1;
+  flex: 0 1 10.5rem;
+  min-height: 7.5rem;
+  max-height: 11rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+  width: 100%;
+  max-width: 100%;
+}
+
+.dash-stock-split > * {
+  min-width: 0;
+  max-width: 100%;
+  min-height: 0;
+  max-height: none;
+  height: 100%;
+}
+
+.dash-tiles {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  width: 100%;
+  max-width: 100%;
+}
+
+.dash-tile {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.65rem 0.75rem;
+}
+
+.dash-tile-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.dash-tile-value {
+  margin-top: 0.25rem;
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--text-h);
+  line-height: 1.15;
+}
+
+.dash-tile-meta {
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.dash-sections--bottle {
+  flex: 0 0 auto;
+  grid-template-columns: 1fr;
+  grid-template-rows: none;
+  min-height: 0;
+  gap: 0.4rem;
+}
+
+.dash-sections.dash-sections--bottle {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: none;
+  min-height: 0;
+  gap: 0.4rem;
+}
+
+.dash-section--bottle-revenue {
+  min-height: 0;
+}
+
+.dash-section--bottle-revenue .dash-chart {
+  flex: 0 0 9.5rem;
+  height: 9.5rem;
+  min-height: 9.5rem;
+  max-height: 9.5rem;
+  overflow: hidden;
+}
+
+.dash-bottle-chart-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+  align-items: stretch;
+  width: 100%;
+  max-width: 100%;
+  min-height: 0;
+}
+
+.dash-bottle-chart-row .dash-section {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.dash-bottle-chart-row .dash-chart {
+  flex: 0 0 11rem;
+  height: 11rem;
+  min-height: 11rem;
+  max-height: 11rem;
+  overflow: hidden;
+}
+
+@media (max-width: 1100px) {
+  .dash-root--bottle {
+    overflow: auto;
+  }
+
+  .dash-bottle-chart-row {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .dash-bottle-chart-row .dash-chart {
+    flex-basis: 9.5rem;
+    height: 9.5rem;
+    min-height: 9.5rem;
+    max-height: 9.5rem;
+  }
+}
+
+.dash-section-stock {
+  flex: 0 0 auto;
+  min-height: 10rem;
+  max-height: 18rem;
+}
+
+.dash-stock-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.dash-stock-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.dash-stock-table th,
+.dash-stock-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.35rem 0.4rem;
+  text-align: left;
+}
+
+.dash-stock-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-elevated);
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+.dash-num {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+}
+
 .dash-toolbar {
   flex-shrink: 0;
   display: flex;
@@ -59,6 +377,111 @@
   display: grid;
   grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.55rem;
+}
+
+/*
+ * Charts stay a fixed band; stock tables flex to fill remaining viewport.
+ */
+.dash-sections.dash-sections--supervisor {
+  flex: 0 0 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: auto;
+  align-items: stretch;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  position: relative;
+  z-index: 0;
+  gap: 0.4rem;
+}
+
+.dash-sections.dash-sections--supervisor .dash-section {
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.dash-sections.dash-sections--supervisor .dash-chart {
+  position: relative;
+  flex: 0 0 15rem;
+  width: 100%;
+  max-width: 100%;
+  height: 15rem;
+  min-height: 15rem;
+  max-height: 15rem;
+  overflow: hidden;
+}
+
+.dash-sections.dash-sections--supervisor .dash-chart canvas {
+  max-height: none !important;
+}
+
+.dash-root--supervisor .dash-stock-split {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+
+.dash-root--supervisor .dash-section-stock {
+  min-height: 0;
+  max-height: none;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 1100px) {
+  .dash-root--supervisor {
+    overflow: auto;
+  }
+
+  .dash-sections.dash-sections--supervisor {
+    flex: 0 0 auto;
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    max-height: none;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .dash-sections.dash-sections--supervisor .dash-section {
+    min-height: 0;
+  }
+
+  .dash-sections.dash-sections--supervisor .dash-chart {
+    flex: 0 0 12.5rem;
+    height: 12.5rem;
+    min-height: 12.5rem;
+    max-height: 12.5rem;
+  }
+
+  .dash-root--supervisor .dash-stock-split {
+    flex: 1 1 auto;
+    min-height: 8rem;
+    max-height: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .dash-stock-split {
+    grid-template-columns: 1fr;
+  }
+
+  .dash-tiles {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .dash-sections.dash-sections--supervisor .dash-chart {
+    flex-basis: 11rem;
+    height: 11rem;
+    min-height: 11rem;
+    max-height: 11rem;
+  }
 }
 
 .dash-section {

@@ -8,7 +8,11 @@ export type UserRole = SystemUserRole;
 export type RouteAccess = "none" | "read" | "write";
 /** Custom role id for bottled-stock / collection-point operators. */
 export declare const STORE_KEEPER_ROLE_ID = "STORE_KEEPER";
+/** Custom role id for junior sales supervisors (manageable role). */
+export declare const JNR_SALES_SUP_ROLE_ID = "JNR_SALES_SUP";
+export declare const SENIOR_SALES_SUPERVISOR_ROLE_ID = "SENIOR_SALES_SUPERVISOR";
 export declare function isStoreKeeperRole(role: string): boolean;
+export declare function isSupervisorOverviewRole(role: string): boolean;
 export declare const SYSTEM_ROLE_LABELS: Record<SystemUserRole, string>;
 /** @deprecated Prefer SYSTEM_ROLE_LABELS or Role.label from the database. */
 export declare const ROLE_LABELS: Record<"ADMIN" | "MANAGER" | "SENIOR_SALES_SUPERVISOR" | "STATISTICS_CLERK" | "STORE_KEEPER", string>;
