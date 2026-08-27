@@ -16,7 +16,7 @@ Before day-to-day sales, an administrator (or manager with access) should confir
 2. **Financial months** — Open the current calendar month (**General Parameters → Financial months**). Posting into a closed month is blocked.
 3. **Company / app settings** — Company name and report header fields (**App settings**).
 4. **Sales points and storage** — At least one sales point with storage locations (including sellable locations for POS).
-5. **Payment methods** — At least one active payment method for normal sales.
+5. **Payment methods** — Cash for Bottle Oil; at least one non-cash method (cheque / traite / bank transfer) for loose sales.
 6. **Products and prices** — Products in the right categories, with unit price schedules where needed.
 7. **Customers** — Customer accounts with customer types (types drive loose-oil report rows such as Industries / Wholesale / Retail).
 8. **Users and permissions** — Roles assigned so clerks can sell but only authorized roles can validate.

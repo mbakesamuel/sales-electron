@@ -236,12 +236,8 @@ function getLineQuantity(line: SalesLineDraft, isBottleMode: boolean): string {
 function getLineUnitPrice(
   line: SalesLineDraft,
   isBottleMode: boolean,
-  isSpecialDisposition: boolean,
+  _isSpecialDisposition: boolean,
 ): string {
-  if (isSpecialDisposition) {
-    return "0";
-  }
-
   return isBottleMode ? line.unitPricePerUnit : line.unitPricePerKg;
 }
 
@@ -250,10 +246,6 @@ function getLineSubtotal(
   isBottleMode: boolean,
   isSpecialDisposition: boolean,
 ): number {
-  if (isSpecialDisposition) {
-    return 0;
-  }
-
   return Math.round(
     parseDec(getLineQuantity(line, isBottleMode)) *
       parseDec(getLineUnitPrice(line, isBottleMode, isSpecialDisposition)),
@@ -422,10 +414,6 @@ export function SalesClient({
   const salesTaxRate = taxProfile?.salesTaxRate ?? 0;
 
   const totals = useMemo(() => {
-    if (isSpecialDisposition) {
-      return { net: 0, vat: 0, salesTax: 0, gross: 0, paid: 0 };
-    }
-
     if (isBottleMode) {
       const gross = Math.round(
         lines.reduce(
@@ -454,14 +442,7 @@ export function SalesClient({
       payments.reduce((sum, payment) => sum + parseDec(payment.amount), 0),
     );
     return { net, vat, salesTax, gross, paid };
-  }, [
-    lines,
-    payments,
-    vatRate,
-    salesTaxRate,
-    isBottleMode,
-    isSpecialDisposition,
-  ]);
+  }, [lines, payments, vatRate, salesTaxRate, isBottleMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -483,7 +464,7 @@ export function SalesClient({
   }, [transactionDate]);
 
   useEffect(() => {
-    if (!isFormEditable || isSpecialDisposition) {
+    if (!isFormEditable) {
       return;
     }
 
@@ -496,11 +477,11 @@ export function SalesClient({
       next[0] = { ...next[0], amount: String(totals.gross) };
       return next;
     });
-  }, [totals.gross, isFormEditable, isSpecialDisposition]);
+  }, [totals.gross, isFormEditable]);
 
   // Bottle Oil: always keep a single Cash payment line (Cash must remain visible/selected).
   useEffect(() => {
-    if (!options || !isBottleMode || isSpecialDisposition) {
+    if (!options || !isBottleMode) {
       return;
     }
     const cashMethods = cashOnlyPaymentMethods(options.paymentMethods);
@@ -523,11 +504,11 @@ export function SalesClient({
         },
       ];
     });
-  }, [options, isBottleMode, isSpecialDisposition, totals.gross]);
+  }, [options, isBottleMode, totals.gross]);
 
   // Loose sales: drop Cash if it was selected (Cash is hidden from the list).
   useEffect(() => {
-    if (!options || !isFormEditable || isBottleMode || isSpecialDisposition) {
+    if (!options || !isFormEditable || isBottleMode) {
       return;
     }
     const allowed = new Set(
@@ -551,7 +532,7 @@ export function SalesClient({
       });
       return changed ? next : current;
     });
-  }, [options, isFormEditable, isBottleMode, isSpecialDisposition]);
+  }, [options, isFormEditable, isBottleMode]);
 
   useEffect(() => {
     async function bootstrap() {
@@ -663,13 +644,13 @@ export function SalesClient({
       return;
     }
 
-    const lpoIds = new Set(
+    const allowedIds = new Set(
       options.looseProducts
         .filter((product) => product.isMain)
         .map((product) => String(product.productId)),
     );
     setLines((current) => {
-      const next = current.filter((line) => lpoIds.has(line.productId));
+      const next = current.filter((line) => allowedIds.has(line.productId));
       return next.length === current.length ? current : next;
     });
   }, [options, isFormEditable, isBottleVariant, saleDisposition]);
@@ -1132,15 +1113,12 @@ export function SalesClient({
       return;
     }
 
-    if (!isSpecialDisposition && paymentsMissingMethod(payments)) {
+    if (paymentsMissingMethod(payments)) {
       setBanner({ type: "error", text: "Select a payment method." });
       return;
     }
 
-    if (
-      !isSpecialDisposition &&
-      paymentsMissingTraiteDetails(payments, options.paymentMethods)
-    ) {
+    if (paymentsMissingTraiteDetails(payments, options.paymentMethods)) {
       setBanner({
         type: "error",
         text: "Enter trait no #, issued date, and maturity date for traite payments.",
@@ -1191,19 +1169,17 @@ export function SalesClient({
             ? Number.parseInt(line.storageLocationId, 10)
             : null,
         })),
-        payments: isSpecialDisposition
-          ? []
-          : payments
-              .filter((payment) => parseDec(payment.amount) > 0)
-              .map((payment) => ({
-                paymentMethodId: payment.paymentMethodId,
-                amount: payment.amount,
-                chequeNo: payment.chequeNo,
-                bank: payment.bank,
-                traiteNo: payment.traiteNo,
-                traiteIssuedOn: payment.traiteIssuedOn,
-                traiteMaturityOn: payment.traiteMaturityOn,
-              })),
+        payments: payments
+          .filter((payment) => parseDec(payment.amount) > 0)
+          .map((payment) => ({
+            paymentMethodId: payment.paymentMethodId,
+            amount: payment.amount,
+            chequeNo: payment.chequeNo,
+            bank: payment.bank,
+            traiteNo: payment.traiteNo,
+            traiteIssuedOn: payment.traiteIssuedOn,
+            traiteMaturityOn: payment.traiteMaturityOn,
+          })),
       });
 
       if (result.ok === false) {
@@ -1330,7 +1306,7 @@ export function SalesClient({
   const vehicleRequired = !isBottleMode && !isSpecialDisposition;
   const showDeliveryOrders =
     !isBottleMode && !isSpecialDisposition && useRegisteredCustomer;
-  const showPayments = !isSpecialDisposition;
+  const showPayments = true;
   const hasCustomer = isSpecialDisposition
     ? invoiceCustomerName.trim().length > 0
     : useRegisteredCustomer
@@ -1342,8 +1318,8 @@ export function SalesClient({
     hasCustomer &&
     isValidBookletSerial(invoiceNo) &&
     (!vehicleRequired || vehicleNumber.trim()) &&
-    (isSpecialDisposition ||
-      (totals.paid === totals.gross && !paymentsMissingMethod(payments)));
+    totals.paid === totals.gross &&
+    !paymentsMissingMethod(payments);
   const canDirectValidate = isBottleVariant
     ? options.canDirectValidateBottled
     : options.canDirectValidateLoose;
@@ -1915,11 +1891,7 @@ export function SalesClient({
               </div>
               <p class="sales-hint">No credit sales: paid must equal total.</p>
             </>
-          ) : (
-            <p class="sales-hint">
-              Ration and public relation sales have zero amounts.
-            </p>
-          )}
+          ) : null}
         </section> */}
       </section>
 

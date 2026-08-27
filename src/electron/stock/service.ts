@@ -28,6 +28,11 @@ import {
   type TransferMode,
 } from "../../shared/stockTransferMode.js";
 import {
+  bypassesTransferInitiateScope,
+  canInitiateStockTransfers,
+  canReceiveStockTransfers,
+} from "../../shared/roles.js";
+import {
   assertAction,
   assertRouteWrite,
   canAccessRoute,
@@ -67,10 +72,14 @@ import {
 import {
   BOTTLED_STOCK_ROUTE_ID,
   STOCK_MODULE_ROUTE_ID,
+  inferDocumentProductFilter,
+  isAllProductFilter,
   normalizeStockProductFilter,
-  resolveStockProductFilterFromAccess,
+  resolveStockProductFilterFromSnapshot,
+  type DocumentStockProductFilter,
   type StockProductFilter,
 } from "../../shared/stockModule.js";
+import { loadRolePermissionsSnapshot } from "../auth/permissions/service.js";
 
 function nowIso(): string {
   return new Date().toISOString().slice(0, 19).replace("T", " ");
@@ -158,6 +167,36 @@ function assertSalesPointScope(
   }
 }
 
+function assertTransferInitiateSalesPointScope(
+  actor: { role: string; salesPointId: number | null },
+  salesPointId: number,
+): void {
+  if (bypassesTransferInitiateScope(actor.role)) {
+    return;
+  }
+  assertSalesPointScope(actor, salesPointId);
+}
+
+function assertCanInitiateStockTransfer(actor: { role: string }): void {
+  if (!canInitiateStockTransfers(actor.role)) {
+    throw new Error(
+      "Store Keepers can only receive incoming transfers at their collection point.",
+    );
+  }
+}
+
+function assertCanPostOrReceiveStockTransfer(actor: { role: string }): void {
+  if (
+    !canPerformAction(actor.role, "post_stock_transfers") &&
+    !canPerformAction(actor.role, "receive_stock_transfers")
+  ) {
+    throw new Error("You do not have permission to receive stock transfers.");
+  }
+  if (!canReceiveStockTransfers(actor.role)) {
+    throw new Error("You do not have permission to receive stock transfers.");
+  }
+}
+
 function uomForBottled(isBottled: boolean, uom: string | null): string {
   if (uom?.trim()) {
     return uom.trim();
@@ -169,37 +208,114 @@ function resolveStockProductFilterForRole(
   role: string,
   requested?: StockProductFilter | null,
 ): StockProductFilter {
-  return resolveStockProductFilterFromAccess(
-    getRouteAccess(role, STOCK_MODULE_ROUTE_ID),
-    getRouteAccess(role, BOTTLED_STOCK_ROUTE_ID),
+  return resolveStockProductFilterFromSnapshot(
+    loadRolePermissionsSnapshot(role),
     requested,
   );
 }
 
+function canWriteStockOrBottled(role: string): boolean {
+  return (
+    canWriteRoute(role, STOCK_MODULE_ROUTE_ID) ||
+    canWriteRoute(role, BOTTLED_STOCK_ROUTE_ID)
+  );
+}
+
+/** Main Stock Write covers all products; Bottled Stock Write covers bottled-only keepers. */
 function assertStockModuleWrite(
   role: string,
   productFilter: StockProductFilter,
   _bulkRouteId: string,
 ): void {
   if (productFilter === "bottled") {
+    if (canWriteStockOrBottled(role)) {
+      return;
+    }
     assertRouteWrite(role, BOTTLED_STOCK_ROUTE_ID);
     return;
   }
   assertRouteWrite(role, STOCK_MODULE_ROUTE_ID);
 }
 
-function bottledFlagForFilter(productFilter: StockProductFilter): number {
+function bottledFlagForFilter(productFilter: DocumentStockProductFilter): number {
   return productFilter === "bottled" ? 1 : 0;
+}
+
+function uiFilterUsesBottledConstraint(productFilter: StockProductFilter): boolean {
+  return !isAllProductFilter(productFilter);
 }
 
 function productFilterSql(aliasPc = "pc"): string {
   return `COALESCE(${aliasPc}.isBottled, 0) = ?`;
 }
 
+function uiBottledFilterParts(
+  productFilter: StockProductFilter,
+  aliasPc = "pc",
+): { clause: string; params: number[] } {
+  if (isAllProductFilter(productFilter)) {
+    return { clause: "1=1", params: [] };
+  }
+  return {
+    clause: productFilterSql(aliasPc),
+    params: [productFilter === "bottled" ? 1 : 0],
+  };
+}
+
+function documentFilterForLines(
+  db: import("better-sqlite3").Database,
+  uiFilter: StockProductFilter,
+  productIds: number[],
+): DocumentStockProductFilter {
+  if (productIds.length === 0) {
+    return uiFilter === "bottled" ? "bottled" : "bulk";
+  }
+  return resolveDocumentFilterForMutation(db, uiFilter, productIds);
+}
+
+function productIsBottledFlagsForIds(
+  db: import("better-sqlite3").Database,
+  productIds: number[],
+): number[] {
+  const stmt = db.prepare(
+    `SELECT COALESCE(pc.isBottled, 0) AS isBottled
+     FROM Product p
+     LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
+     WHERE p.productId = ?`,
+  );
+  return productIds.map((productId) => {
+    const row = stmt.get(productId) as { isBottled: number } | undefined;
+    if (!row) {
+      throw new Error(`Product ${productId} was not found.`);
+    }
+    return row.isBottled;
+  });
+}
+
+function resolveDocumentFilterForMutation(
+  db: import("better-sqlite3").Database,
+  uiFilter: StockProductFilter,
+  productIds: number[],
+): DocumentStockProductFilter {
+  if (uiFilter === "bulk" || uiFilter === "bottled") {
+    return uiFilter;
+  }
+  return inferDocumentProductFilter(productIsBottledFlagsForIds(db, productIds));
+}
+
+function resolveMutationProductFilter(
+  db: import("better-sqlite3").Database,
+  uiFilterInput: StockProductFilter | null | undefined,
+  productIds: number[],
+): DocumentStockProductFilter {
+  const uiFilter = normalizeStockProductFilter(uiFilterInput);
+  return resolveDocumentFilterForMutation(db, uiFilter, productIds);
+}
+
 function assertProductsMatchStockFilter(
   db: import("better-sqlite3").Database,
   productIds: number[],
-  productFilter: StockProductFilter,
+  productFilter: DocumentStockProductFilter,
 ): void {
   assertProductsAllowStorageLocation(db, productIds);
   const expected = bottledFlagForFilter(productFilter);
@@ -219,8 +335,8 @@ function assertProductsMatchStockFilter(
     if (row.isBottled !== expected) {
       throw new Error(
         productFilter === "bottled"
-          ? `"${row.productName}" is not a bottled product. Use Bottled Stock for bottle oil.`
-          : `"${row.productName}" is a bottled product. Manage it in Bottled Stock.`,
+          ? `"${row.productName}" is not a bottled product.`
+          : `"${row.productName}" is a bottled product. Enable Bottled products on this document.`,
       );
     }
   }
@@ -229,7 +345,7 @@ function assertProductsMatchStockFilter(
 function resolveWriteCaps(role: string, productFilter: StockProductFilter) {
   const moduleWrite =
     productFilter === "bottled"
-      ? canWriteRoute(role, BOTTLED_STOCK_ROUTE_ID)
+      ? canWriteStockOrBottled(role)
       : canWriteRoute(role, STOCK_MODULE_ROUTE_ID);
   return {
     canWriteReceipts: moduleWrite,
@@ -294,6 +410,7 @@ export function getStockBootstrap(
 
   if (productFilter === "bottled") {
     if (
+      !canAccessRoute(role, STOCK_MODULE_ROUTE_ID) &&
       !canAccessRoute(role, BOTTLED_STOCK_ROUTE_ID) &&
       !canAccessRoute(role, "stock-bin-card")
     ) {
@@ -309,9 +426,22 @@ export function getStockBootstrap(
   const canPostReceipts =
     caps.canWriteReceipts && canPerformAction(role, "post_stock_receipts");
   const canDraftTransfers =
-    caps.canWriteTransfers && canPerformAction(role, "draft_stock_transfers");
+    caps.canWriteTransfers &&
+    canPerformAction(role, "draft_stock_transfers") &&
+    canInitiateStockTransfers(role);
   const canPostTransfers =
-    caps.canWriteTransfers && canPerformAction(role, "post_stock_transfers");
+    caps.canWriteTransfers &&
+    canPerformAction(role, "post_stock_transfers") &&
+    canInitiateStockTransfers(role);
+  const canReceiveTransfers =
+    productFilter === "bottled" &&
+    caps.canWriteTransfers &&
+    (canPerformAction(role, "post_stock_transfers") ||
+      canPerformAction(role, "receive_stock_transfers")) &&
+    canReceiveStockTransfers(role);
+  const canInitiateTransfers = canDraftTransfers || canPostTransfers;
+  const canDispatchTransfers = canPostTransfers;
+  const canCancelTransfers = canPostTransfers;
   const canDraftAdjustments =
     caps.canWriteAdjustments && canPerformAction(role, "draft_stock_adjustments");
   const canPostAdjustments =
@@ -320,7 +450,9 @@ export function getStockBootstrap(
   const canDirectPostReceipts =
     caps.canWriteReceipts && canPerformAction(role, "direct_post_stock_receipts");
   const canDirectPostTransfers =
-    caps.canWriteTransfers && canPerformAction(role, "direct_post_stock_transfers");
+    caps.canWriteTransfers &&
+    canPerformAction(role, "direct_post_stock_transfers") &&
+    canInitiateStockTransfers(role);
 
   const salesPoints = db
     .prepare(
@@ -353,7 +485,7 @@ export function getStockBootstrap(
       isSalesTank: (row as { isSalesTank: number }).isSalesTank === 1,
     }));
 
-  const bottledFlag = bottledFlagForFilter(productFilter);
+  const productFilterParts = uiBottledFilterParts(productFilter);
   function mapProductRow(row: {
     productId: number;
     productName: string;
@@ -374,15 +506,15 @@ export function getStockBootstrap(
       `SELECT p.productId, p.productName, p.uom, COALESCE(pc.isBottled, 0) AS isBottled
        FROM Product p
        LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
-       WHERE ${productFilterSql("pc")}
+       WHERE ${productFilterParts.clause}
          AND ${storageOmitProductCatSql("pc")}
        ORDER BY p.productName ASC`,
     )
-    .all(bottledFlag)
+    .all(...productFilterParts.params)
     .map((row) => mapProductRow(row as Parameters<typeof mapProductRow>[0]));
 
   const receiptProducts =
-    productFilter === "bulk"
+    productFilter === "bulk" || productFilter === "all"
       ? db
           .prepare(
             `SELECT p.productId, p.productName, p.uom, COALESCE(pc.isBottled, 0) AS isBottled
@@ -400,11 +532,14 @@ export function getStockBootstrap(
   return {
     productFilter,
     canManageReceipts: canPostReceipts,
-    canDispatchTransfers: canPostTransfers,
-    canReceiveTransfers: canPostTransfers,
+    canInitiateTransfers,
+    canDispatchTransfers,
+    canReceiveTransfers,
+    canCancelTransfers,
     canPostAdjustments,
     canReclassifyStock: canPostAdjustments,
-    canCancelDocuments: canPostReceipts || canPostTransfers || canPostAdjustments,
+    canCancelDocuments:
+      canPostReceipts || canCancelTransfers || canPostAdjustments,
     canDraftReceipts,
     canDraftTransfers,
     canDraftAdjustments,
@@ -434,7 +569,7 @@ function loadOnHand(
   productFilter: StockProductFilter,
 ) {
   const db = getDatabase();
-  const bottledFlag = bottledFlagForFilter(productFilter);
+  const filterParts = uiBottledFilterParts(productFilter);
   const rows = scopedSalesPointId
     ? (db
         .prepare(
@@ -448,10 +583,10 @@ function loadOnHand(
            JOIN Product p ON p.productId = sb.productId
            LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
            WHERE sb.salesPointId = ?
-             AND ${productFilterSql("pc")}
+             AND ${filterParts.clause}
            ORDER BY sp.name ASC, COALESCE(l.locationName, '') ASC, p.productName ASC`,
         )
-        .all(scopedSalesPointId, bottledFlag) as Array<Record<string, unknown>>)
+        .all(scopedSalesPointId, ...filterParts.params) as Array<Record<string, unknown>>)
     : (db
         .prepare(
           `SELECT sb.salesPointId, sp.name AS salesPointName, sb.storageLocationId,
@@ -463,10 +598,10 @@ function loadOnHand(
            LEFT JOIN Location l ON l.id = sl.locationId
            JOIN Product p ON p.productId = sb.productId
            LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
-           WHERE ${productFilterSql("pc")}
+           WHERE ${filterParts.clause}
            ORDER BY sp.name ASC, COALESCE(l.locationName, '') ASC, p.productName ASC`,
         )
-        .all(bottledFlag) as Array<Record<string, unknown>>);
+        .all(...filterParts.params) as Array<Record<string, unknown>>);
 
   return rows.map((row) => ({
     salesPointId: row.salesPointId as number,
@@ -496,7 +631,10 @@ export function listOnHandAsOf(
   const actor = getActor(userId);
   const productFilter = normalizeStockProductFilter(input.productFilter);
   if (productFilter === "bottled") {
-    if (!canAccessRoute(actor.role, BOTTLED_STOCK_ROUTE_ID)) {
+    if (
+      !canAccessRoute(actor.role, STOCK_MODULE_ROUTE_ID) &&
+      !canAccessRoute(actor.role, BOTTLED_STOCK_ROUTE_ID)
+    ) {
       throw new Error("Not allowed to view stock balances.");
     }
   } else if (
@@ -519,10 +657,11 @@ export function listOnHandAsOf(
       ? Number(input.salesPointId)
       : null;
   if (requested != null) {
-    assertSalesPointScope(actor, requested);
+    assertTransferInitiateSalesPointScope(actor, requested);
   }
   const filterSalesPointId = requested ?? scoped;
-  const bottledFlag = bottledFlagForFilter(productFilter);
+  const filterByBottled = uiFilterUsesBottledConstraint(productFilter);
+  const bottledFlag = productFilter === "bottled" ? 1 : 0;
 
   const db = getDatabase();
   const balances = loadStockBalancesAsOf(db, asOf).filter((row) => {
@@ -554,7 +693,7 @@ export function listOnHandAsOf(
     const product = productStmt.get(bal.productId) as
       | { productName: string; uom: string | null; isBottled: number }
       | undefined;
-    if ((product?.isBottled ?? 0) !== bottledFlag) {
+    if (filterByBottled && (product?.isBottled ?? 0) !== bottledFlag) {
       continue;
     }
     // Transfer form uses this list: never offer more than current on-hand for
@@ -608,7 +747,7 @@ function loadMovements(
   productFilter: StockProductFilter,
 ): StockMovementRow[] {
   const db = getDatabase();
-  const bottledFlag = bottledFlagForFilter(productFilter);
+  const filterParts = uiBottledFilterParts(productFilter);
   const rows = scopedSalesPointId
     ? (db
         .prepare(
@@ -625,11 +764,11 @@ function loadMovements(
            LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
            JOIN User u ON u.id = sm.userId
            WHERE sm.salesPointId = ?
-             AND ${productFilterSql("pc")}
+             AND ${filterParts.clause}
            ORDER BY sm.occurredAt DESC, sm.createdAt DESC
            LIMIT 200`,
         )
-        .all(scopedSalesPointId, bottledFlag) as Array<Record<string, unknown>>)
+        .all(scopedSalesPointId, ...filterParts.params) as Array<Record<string, unknown>>)
     : (db
         .prepare(
           `SELECT sm.id, sm.occurredAt, sm.salesPointId, sp.name AS salesPointName,
@@ -644,11 +783,11 @@ function loadMovements(
            JOIN Product p ON p.productId = sm.productId
            LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
            JOIN User u ON u.id = sm.userId
-           WHERE ${productFilterSql("pc")}
+           WHERE ${filterParts.clause}
            ORDER BY sm.occurredAt DESC, sm.createdAt DESC
            LIMIT 200`,
         )
-        .all(bottledFlag) as Array<Record<string, unknown>>);
+        .all(...filterParts.params) as Array<Record<string, unknown>>);
 
   const docNoByKey = new Map<string, string>();
   const carryForwardByKey = new Map<string, boolean>();
@@ -721,7 +860,7 @@ function loadReceipts(
   const db = getDatabase();
   // Stock (bulk) screen owns all receipts (bottled + other). Bottled variant has no receipts tab.
   const filterByProduct = productFilter === "bottled";
-  const bottledFlag = bottledFlagForFilter(productFilter);
+  const bottledFlag = 1;
   const productExists = `EXISTS (
     SELECT 1 FROM StockReceiptLine rl
     JOIN Product rp ON rp.productId = rl.productId
@@ -894,15 +1033,40 @@ function loadTransfers(
   productFilter: StockProductFilter,
 ): TransferListRow[] {
   const db = getDatabase();
-  const bottledFlag = bottledFlagForFilter(productFilter);
+  const filterByProduct = uiFilterUsesBottledConstraint(productFilter);
+  const bottledFlag = productFilter === "bottled" ? 1 : 0;
   const productExists = `EXISTS (
     SELECT 1 FROM StockTransferLine tl
     JOIN Product tp ON tp.productId = tl.productId
     LEFT JOIN ProductCat tpc ON tpc.productCatId = tp.productCatId
     WHERE tl.transferId = t.id AND COALESCE(tpc.isBottled, 0) = ?
   )`;
-  const rows = scopedSalesPointId
-    ? (db
+
+  const rows = (() => {
+    if (scopedSalesPointId) {
+      if (filterByProduct) {
+        return db
+          .prepare(
+            `SELECT t.id, t.transferNo, t.fromSalesPointId, fsp.name AS fromSalesPointName,
+                    t.toSalesPointId, tsp.name AS toSalesPointName, t.dispatchedAt, t.receivedAt,
+                    t.status, t.createdAt, cu.name AS createdByName, du.name AS dispatchedByName,
+                    ru.name AS receivedByName
+             FROM StockTransfer t
+             JOIN SalesPoint fsp ON fsp.id = t.fromSalesPointId
+             JOIN SalesPoint tsp ON tsp.id = t.toSalesPointId
+             JOIN User cu ON cu.id = t.createdByUserId
+             LEFT JOIN User du ON du.id = t.dispatchedByUserId
+             LEFT JOIN User ru ON ru.id = t.receivedByUserId
+             WHERE (t.fromSalesPointId = ? OR t.toSalesPointId = ?)
+               AND ${productExists}
+             ORDER BY t.createdAt DESC
+             LIMIT 100`,
+          )
+          .all(scopedSalesPointId, scopedSalesPointId, bottledFlag) as Array<
+          Record<string, unknown>
+        >;
+      }
+      return db
         .prepare(
           `SELECT t.id, t.transferNo, t.fromSalesPointId, fsp.name AS fromSalesPointName,
                   t.toSalesPointId, tsp.name AS toSalesPointName, t.dispatchedAt, t.receivedAt,
@@ -915,14 +1079,13 @@ function loadTransfers(
            LEFT JOIN User du ON du.id = t.dispatchedByUserId
            LEFT JOIN User ru ON ru.id = t.receivedByUserId
            WHERE (t.fromSalesPointId = ? OR t.toSalesPointId = ?)
-             AND ${productExists}
            ORDER BY t.createdAt DESC
            LIMIT 100`,
         )
-        .all(scopedSalesPointId, scopedSalesPointId, bottledFlag) as Array<
-        Record<string, unknown>
-      >)
-    : (db
+        .all(scopedSalesPointId, scopedSalesPointId) as Array<Record<string, unknown>>;
+    }
+    if (filterByProduct) {
+      return db
         .prepare(
           `SELECT t.id, t.transferNo, t.fromSalesPointId, fsp.name AS fromSalesPointName,
                   t.toSalesPointId, tsp.name AS toSalesPointName, t.dispatchedAt, t.receivedAt,
@@ -938,19 +1101,46 @@ function loadTransfers(
            ORDER BY t.createdAt DESC
            LIMIT 100`,
         )
-        .all(bottledFlag) as Array<Record<string, unknown>>);
+        .all(bottledFlag) as Array<Record<string, unknown>>;
+    }
+    return db
+      .prepare(
+        `SELECT t.id, t.transferNo, t.fromSalesPointId, fsp.name AS fromSalesPointName,
+                t.toSalesPointId, tsp.name AS toSalesPointName, t.dispatchedAt, t.receivedAt,
+                t.status, t.createdAt, cu.name AS createdByName, du.name AS dispatchedByName,
+                ru.name AS receivedByName
+         FROM StockTransfer t
+         JOIN SalesPoint fsp ON fsp.id = t.fromSalesPointId
+         JOIN SalesPoint tsp ON tsp.id = t.toSalesPointId
+         JOIN User cu ON cu.id = t.createdByUserId
+         LEFT JOIN User du ON du.id = t.dispatchedByUserId
+         LEFT JOIN User ru ON ru.id = t.receivedByUserId
+         ORDER BY t.createdAt DESC
+         LIMIT 100`,
+      )
+      .all() as Array<Record<string, unknown>>;
+  })();
 
   return rows.map((row) => {
-    const lines = db
-      .prepare(
-        `SELECT tl.qty, p.productName
-         FROM StockTransferLine tl
-         JOIN Product p ON p.productId = tl.productId
-         LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
-         WHERE tl.transferId = ?
-           AND ${productFilterSql("pc")}`,
-      )
-      .all(String(row.id), bottledFlag) as Array<{ qty: string; productName: string }>;
+    const lines = filterByProduct
+      ? (db
+          .prepare(
+            `SELECT tl.qty, p.productName
+             FROM StockTransferLine tl
+             JOIN Product p ON p.productId = tl.productId
+             LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
+             WHERE tl.transferId = ?
+               AND ${productFilterSql("pc")}`,
+          )
+          .all(String(row.id), bottledFlag) as Array<{ qty: string; productName: string }>)
+      : (db
+          .prepare(
+            `SELECT tl.qty, p.productName
+             FROM StockTransferLine tl
+             JOIN Product p ON p.productId = tl.productId
+             WHERE tl.transferId = ?`,
+          )
+          .all(String(row.id)) as Array<{ qty: string; productName: string }>);
     const fromSalesPointId = row.fromSalesPointId as number;
     const toSalesPointId = row.toSalesPointId as number;
     const transferMode = resolveTransferMode(fromSalesPointId, toSalesPointId);
@@ -990,15 +1180,35 @@ function loadAdjustments(
   productFilter: StockProductFilter,
 ): AdjustmentListRow[] {
   const db = getDatabase();
-  const bottledFlag = bottledFlagForFilter(productFilter);
+  const filterByProduct = uiFilterUsesBottledConstraint(productFilter);
+  const bottledFlag = productFilter === "bottled" ? 1 : 0;
   const productExists = `EXISTS (
     SELECT 1 FROM StockAdjustmentLine al
     JOIN Product ap ON ap.productId = al.productId
     LEFT JOIN ProductCat apc ON apc.productCatId = ap.productCatId
     WHERE al.adjustmentId = a.id AND COALESCE(apc.isBottled, 0) = ?
   )`;
-  const rows = scopedSalesPointId
-    ? (db
+  const rows = (() => {
+    if (scopedSalesPointId) {
+      if (filterByProduct) {
+        return db
+          .prepare(
+            `SELECT a.id, a.adjustmentNo, a.salesPointId, sp.name AS salesPointName,
+                    a.occurredAt, a.reason, a.status, COALESCE(a.sourceKind, 'NORMAL') AS sourceKind,
+                    a.postedAt, a.createdAt,
+                    cu.name AS createdByName, pu.name AS postedByName
+             FROM StockAdjustment a
+             JOIN SalesPoint sp ON sp.id = a.salesPointId
+             JOIN User cu ON cu.id = a.createdByUserId
+             LEFT JOIN User pu ON pu.id = a.postedByUserId
+             WHERE a.salesPointId = ?
+               AND ${productExists}
+             ORDER BY a.occurredAt DESC, a.createdAt DESC
+             LIMIT 100`,
+          )
+          .all(scopedSalesPointId, bottledFlag) as Array<Record<string, unknown>>;
+      }
+      return db
         .prepare(
           `SELECT a.id, a.adjustmentNo, a.salesPointId, sp.name AS salesPointName,
                   a.occurredAt, a.reason, a.status, COALESCE(a.sourceKind, 'NORMAL') AS sourceKind,
@@ -1009,12 +1219,13 @@ function loadAdjustments(
            JOIN User cu ON cu.id = a.createdByUserId
            LEFT JOIN User pu ON pu.id = a.postedByUserId
            WHERE a.salesPointId = ?
-             AND ${productExists}
            ORDER BY a.occurredAt DESC, a.createdAt DESC
            LIMIT 100`,
         )
-        .all(scopedSalesPointId, bottledFlag) as Array<Record<string, unknown>>)
-    : (db
+        .all(scopedSalesPointId) as Array<Record<string, unknown>>;
+    }
+    if (filterByProduct) {
+      return db
         .prepare(
           `SELECT a.id, a.adjustmentNo, a.salesPointId, sp.name AS salesPointName,
                   a.occurredAt, a.reason, a.status, COALESCE(a.sourceKind, 'NORMAL') AS sourceKind,
@@ -1028,7 +1239,23 @@ function loadAdjustments(
            ORDER BY a.occurredAt DESC, a.createdAt DESC
            LIMIT 100`,
         )
-        .all(bottledFlag) as Array<Record<string, unknown>>);
+        .all(bottledFlag) as Array<Record<string, unknown>>;
+    }
+    return db
+      .prepare(
+        `SELECT a.id, a.adjustmentNo, a.salesPointId, sp.name AS salesPointName,
+                a.occurredAt, a.reason, a.status, COALESCE(a.sourceKind, 'NORMAL') AS sourceKind,
+                a.postedAt, a.createdAt,
+                cu.name AS createdByName, pu.name AS postedByName
+         FROM StockAdjustment a
+         JOIN SalesPoint sp ON sp.id = a.salesPointId
+         JOIN User cu ON cu.id = a.createdByUserId
+         LEFT JOIN User pu ON pu.id = a.postedByUserId
+         ORDER BY a.occurredAt DESC, a.createdAt DESC
+         LIMIT 100`,
+      )
+      .all() as Array<Record<string, unknown>>;
+  })();
 
   return rows.map((row) => {
     const lineCount = (
@@ -1220,7 +1447,7 @@ function finalizeReceiptPost(
   db: Database.Database,
   userId: string,
   receiptId: string,
-  productFilter: StockProductFilter,
+  uiProductFilter: StockProductFilter,
 ): void {
   const existing = db
     .prepare(`SELECT * FROM StockReceipt WHERE id = ?`)
@@ -1244,7 +1471,11 @@ function finalizeReceiptPost(
   assertProductsMatchStockFilter(
     db,
     lines.map((line) => line.productId as number),
-    productFilter,
+    documentFilterForLines(
+      db,
+      uiProductFilter,
+      lines.map((line) => line.productId as number),
+    ),
   );
 
   for (const line of lines) {
@@ -1278,7 +1509,7 @@ function finalizeInternalTransferPost(
   db: Database.Database,
   userId: string,
   transferId: string,
-  productFilter: StockProductFilter,
+  uiProductFilter: StockProductFilter,
 ): void {
   const existing = db
     .prepare(`SELECT * FROM StockTransfer WHERE id = ?`)
@@ -1309,7 +1540,11 @@ function finalizeInternalTransferPost(
   assertProductsMatchStockFilter(
     db,
     lines.map((line) => line.productId as number),
-    productFilter,
+    documentFilterForLines(
+      db,
+      uiProductFilter,
+      lines.map((line) => line.productId as number),
+    ),
   );
 
   for (const line of lines) {
@@ -1366,7 +1601,7 @@ function finalizeTransferDispatch(
   db: Database.Database,
   userId: string,
   transferId: string,
-  productFilter: StockProductFilter,
+  uiProductFilter: StockProductFilter,
 ): void {
   const existing = db
     .prepare(`SELECT * FROM StockTransfer WHERE id = ?`)
@@ -1398,7 +1633,11 @@ function finalizeTransferDispatch(
   assertProductsMatchStockFilter(
     db,
     lines.map((line) => line.productId as number),
-    productFilter,
+    documentFilterForLines(
+      db,
+      uiProductFilter,
+      lines.map((line) => line.productId as number),
+    ),
   );
 
   const dispatchedAt = existing.dispatchedAt
@@ -1439,7 +1678,7 @@ function finalizeTransferReceiveFromStoredLines(
   db: Database.Database,
   userId: string,
   transferId: string,
-  productFilter: StockProductFilter,
+  uiProductFilter: StockProductFilter,
 ): void {
   const existing = db
     .prepare(`SELECT * FROM StockTransfer WHERE id = ?`)
@@ -1472,7 +1711,11 @@ function finalizeTransferReceiveFromStoredLines(
   assertProductsMatchStockFilter(
     db,
     lines.map((line) => line.productId as number),
-    productFilter,
+    documentFilterForLines(
+      db,
+      uiProductFilter,
+      lines.map((line) => line.productId as number),
+    ),
   );
 
   for (const line of lines) {
@@ -1515,7 +1758,7 @@ function finalizeTransferReceiveFromStoredLines(
 export function saveReceipt(input: SaveReceiptInput): StockMutationResult {
   try {
     const actor = getActor(input.userId);
-    const productFilter = normalizeStockProductFilter(input.productFilter);
+    const uiProductFilter = normalizeStockProductFilter(input.productFilter);
     const postImmediately = Boolean(input.postImmediately);
     // Receipts are owned by the Stock screen (bulk); require stock write for bottled or other.
     assertRouteWrite(actor.role, STOCK_MODULE_ROUTE_ID);
@@ -1566,7 +1809,11 @@ export function saveReceipt(input: SaveReceiptInput): StockMutationResult {
     assertProductsMatchStockFilter(
       db,
       lines.map((line) => line.productId),
-      productFilter,
+      resolveMutationProductFilter(
+        db,
+        uiProductFilter,
+        lines.map((line) => line.productId),
+      ),
     );
 
     const tx = db.transaction(() => {
@@ -1655,7 +1902,7 @@ export function saveReceipt(input: SaveReceiptInput): StockMutationResult {
       }
 
       if (postImmediately) {
-        finalizeReceiptPost(db, input.userId, id, productFilter);
+        finalizeReceiptPost(db, input.userId, id, uiProductFilter);
       }
 
       return { id, receiptNo };
@@ -1715,9 +1962,10 @@ export function cancelReceipt(
 export function saveTransfer(input: SaveTransferInput): StockMutationResult {
   try {
     const actor = getActor(input.userId);
-    const productFilter = normalizeStockProductFilter(input.productFilter);
+    const uiProductFilter = normalizeStockProductFilter(input.productFilter);
     const postImmediately = Boolean(input.postImmediately);
-    assertStockModuleWrite(actor.role, productFilter, "stock-transfers");
+    assertStockModuleWrite(actor.role, uiProductFilter, "stock-transfers");
+    assertCanInitiateStockTransfer(actor);
     if (postImmediately) {
       if (input.id) {
         return {
@@ -1729,7 +1977,7 @@ export function saveTransfer(input: SaveTransferInput): StockMutationResult {
     } else {
       assertAction(actor.role, "draft_stock_transfers");
     }
-    assertSalesPointScope(actor, input.fromSalesPointId);
+    assertTransferInitiateSalesPointScope(actor, input.fromSalesPointId);
 
     const isIntra = isIntraSalesPointTransfer(
       input.fromSalesPointId,
@@ -1739,7 +1987,7 @@ export function saveTransfer(input: SaveTransferInput): StockMutationResult {
       return { ok: false, error: "Source and destination must differ." };
     }
     if (postImmediately && !isIntra) {
-      assertSalesPointScope(actor, input.toSalesPointId);
+      assertTransferInitiateSalesPointScope(actor, input.toSalesPointId);
     }
     if (input.lines.length === 0) {
       return { ok: false, error: "Add at least one line." };
@@ -1776,7 +2024,11 @@ export function saveTransfer(input: SaveTransferInput): StockMutationResult {
     assertProductsMatchStockFilter(
       db,
       lines.map((line) => line.productId),
-      productFilter,
+      resolveMutationProductFilter(
+        db,
+        uiProductFilter,
+        lines.map((line) => line.productId),
+      ),
     );
 
     const tx = db.transaction(() => {
@@ -1827,7 +2079,7 @@ export function saveTransfer(input: SaveTransferInput): StockMutationResult {
         if (!existing) {
           throw new Error("Transfer not found.");
         }
-        assertSalesPointScope(actor, existing.fromSalesPointId);
+        assertTransferInitiateSalesPointScope(actor, existing.fromSalesPointId);
         if (existing.status !== "DRAFT") {
           throw new Error("Only draft transfers can be edited.");
         }
@@ -1928,10 +2180,10 @@ export function saveTransfer(input: SaveTransferInput): StockMutationResult {
 
       if (postImmediately) {
         if (isIntra) {
-          finalizeInternalTransferPost(db, input.userId, id, productFilter);
+          finalizeInternalTransferPost(db, input.userId, id, uiProductFilter);
         } else {
-          finalizeTransferDispatch(db, input.userId, id, productFilter);
-          finalizeTransferReceiveFromStoredLines(db, input.userId, id, productFilter);
+          finalizeTransferDispatch(db, input.userId, id, uiProductFilter);
+          finalizeTransferReceiveFromStoredLines(db, input.userId, id, uiProductFilter);
         }
       }
 
@@ -1959,6 +2211,7 @@ export function postInternalTransfer(
     const actor = getActor(userId);
     const productFilter = normalizeStockProductFilter(productFilterInput);
     assertStockModuleWrite(actor.role, productFilter, "stock-transfers");
+    assertCanInitiateStockTransfer(actor);
     assertAction(actor.role, "post_stock_transfers");
     const db = getDatabase();
 
@@ -1968,7 +2221,7 @@ export function postInternalTransfer(
     if (!existing) {
       return { ok: false, error: "Transfer not found." };
     }
-    assertSalesPointScope(actor, existing.fromSalesPointId);
+    assertTransferInitiateSalesPointScope(actor, existing.fromSalesPointId);
 
     const tx = db.transaction(() => {
       finalizeInternalTransferPost(db, userId, transferId, productFilter);
@@ -1990,6 +2243,7 @@ export function dispatchTransfer(
     const actor = getActor(userId);
     const productFilter = normalizeStockProductFilter(productFilterInput);
     assertStockModuleWrite(actor.role, productFilter, "stock-transfers");
+    assertCanInitiateStockTransfer(actor);
     assertAction(actor.role, "post_stock_transfers");
     const db = getDatabase();
 
@@ -1999,7 +2253,7 @@ export function dispatchTransfer(
     if (!existing) {
       return { ok: false, error: "Transfer not found." };
     }
-    assertSalesPointScope(actor, existing.fromSalesPointId);
+    assertTransferInitiateSalesPointScope(actor, existing.fromSalesPointId);
 
     const tx = db.transaction(() => {
       finalizeTransferDispatch(db, userId, transferId, productFilter);
@@ -2015,9 +2269,14 @@ export function dispatchTransfer(
 export function receiveTransfer(input: ReceiveTransferInput): StockGenericResult {
   try {
     const actor = getActor(input.userId);
-    const productFilter = normalizeStockProductFilter(input.productFilter);
-    assertStockModuleWrite(actor.role, productFilter, "stock-transfers");
-    assertAction(actor.role, "post_stock_transfers");
+    const uiProductFilter = normalizeStockProductFilter(input.productFilter);
+    if (uiProductFilter !== "bottled") {
+      throw new Error(
+        "Incoming transfers can only be received from Bottled Stock.",
+      );
+    }
+    assertStockModuleWrite(actor.role, uiProductFilter, "stock-transfers");
+    assertCanPostOrReceiveStockTransfer(actor);
     const db = getDatabase();
 
     const tx = db.transaction(() => {
@@ -2052,7 +2311,11 @@ export function receiveTransfer(input: ReceiveTransferInput): StockGenericResult
       assertProductsMatchStockFilter(
         db,
         lines.map((line) => line.productId as number),
-        productFilter,
+        documentFilterForLines(
+          db,
+          uiProductFilter,
+          lines.map((line) => line.productId as number),
+        ),
       );
 
       const lineById = new Map(lines.map((line) => [String(line.id), line]));
@@ -2124,8 +2387,8 @@ export function cancelTransfer(
 export function saveAdjustment(input: SaveAdjustmentInput): StockMutationResult {
   try {
     const actor = getActor(input.userId);
-    const productFilter = normalizeStockProductFilter(input.productFilter);
-    assertStockModuleWrite(actor.role, productFilter, "stock-adjustments");
+    const uiProductFilter = normalizeStockProductFilter(input.productFilter);
+    assertStockModuleWrite(actor.role, uiProductFilter, "stock-adjustments");
     assertAction(actor.role, "draft_stock_adjustments");
     assertSalesPointScope(actor, input.salesPointId);
 
@@ -2161,7 +2424,11 @@ export function saveAdjustment(input: SaveAdjustmentInput): StockMutationResult 
     assertProductsMatchStockFilter(
       db,
       lines.map((line) => line.productId),
-      productFilter,
+      resolveMutationProductFilter(
+        db,
+        uiProductFilter,
+        lines.map((line) => line.productId),
+      ),
     );
 
     const tx = db.transaction(() => {
@@ -2282,7 +2549,11 @@ export function postAdjustment(
       assertProductsMatchStockFilter(
         db,
         lines.map((line) => line.productId as number),
-        productFilter,
+        documentFilterForLines(
+          db,
+          productFilter,
+          lines.map((line) => line.productId as number),
+        ),
       );
 
       const isCarryForward = String(existing.sourceKind ?? "NORMAL") === "CARRY_FORWARD";
@@ -2403,7 +2674,11 @@ function cancelStockDocument(
           .all(documentId) as Array<{ productId: number }>;
         const lineProductIds = productRows.map((row) => row.productId);
         if (lineProductIds.length > 0) {
-          assertProductsMatchStockFilter(db, lineProductIds, productFilter);
+          assertProductsMatchStockFilter(
+            db,
+            lineProductIds,
+            documentFilterForLines(db, productFilter, lineProductIds),
+          );
         }
         if (existing.status === "DRAFT") {
           assertAction(actor.role, draftAction);
@@ -2428,20 +2703,22 @@ function cancelStockDocument(
       }
 
       if (kind === "TRANSFER") {
+        assertCanInitiateStockTransfer(actor);
         const existing = db
           .prepare(`SELECT id, status, fromSalesPointId FROM StockTransfer WHERE id = ?`)
           .get(documentId) as { id: string; status: string; fromSalesPointId: number } | undefined;
         if (!existing) {
           throw new Error("Transfer not found.");
         }
-        assertSalesPointScope(actor, existing.fromSalesPointId);
+        assertTransferInitiateSalesPointScope(actor, existing.fromSalesPointId);
         const productRows = db
           .prepare(`SELECT productId FROM StockTransferLine WHERE transferId = ?`)
           .all(documentId) as Array<{ productId: number }>;
+        const lineProductIds = productRows.map((row) => row.productId);
         assertProductsMatchStockFilter(
           db,
-          productRows.map((row) => row.productId),
-          productFilter,
+          lineProductIds,
+          documentFilterForLines(db, productFilter, lineProductIds),
         );
         if (existing.status === "DRAFT") {
           assertAction(actor.role, draftAction);
@@ -2475,10 +2752,11 @@ function cancelStockDocument(
       const productRows = db
         .prepare(`SELECT productId FROM StockAdjustmentLine WHERE adjustmentId = ?`)
         .all(documentId) as Array<{ productId: number }>;
+      const adjustmentProductIds = productRows.map((row) => row.productId);
       assertProductsMatchStockFilter(
         db,
-        productRows.map((row) => row.productId),
-        productFilter,
+        adjustmentProductIds,
+        documentFilterForLines(db, productFilter, adjustmentProductIds),
       );
       if (existing.status === "DRAFT") {
         assertAction(actor.role, draftAction);

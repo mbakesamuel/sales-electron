@@ -24,8 +24,37 @@ export const JNR_SALES_SUP_ROLE_ID = "JNR_SALES_SUP";
 
 export const SENIOR_SALES_SUPERVISOR_ROLE_ID = "SENIOR_SALES_SUPERVISOR";
 
+export const STATISTICS_CLERK_ROLE_ID = "STATISTICS_CLERK";
+
 export function isStoreKeeperRole(role: string): boolean {
   return role === STORE_KEEPER_ROLE_ID;
+}
+
+export function isStatisticsClerkRole(role: string): boolean {
+  return role === STATISTICS_CLERK_ROLE_ID;
+}
+
+/** Roles that may draft, dispatch, and post location moves. */
+export function canInitiateStockTransfers(role: string): boolean {
+  return (
+    role === STATISTICS_CLERK_ROLE_ID ||
+    role === SENIOR_SALES_SUPERVISOR_ROLE_ID ||
+    role === JNR_SALES_SUP_ROLE_ID ||
+    role === "MANAGER" ||
+    role === "ADMIN"
+  );
+}
+
+/** Roles that may receive dispatched inter-site transfers (Bottled Stock screen only). */
+export function canReceiveStockTransfers(role: string): boolean {
+  return role === STORE_KEEPER_ROLE_ID || role === "ADMIN";
+}
+
+/** Company-wide transfer operators bypass collection-point scope on initiate. */
+export function bypassesTransferInitiateScope(role: string): boolean {
+  return (
+    role === STATISTICS_CLERK_ROLE_ID || role === "MANAGER" || role === "ADMIN"
+  );
 }
 
 export function isSupervisorOverviewRole(role: string): boolean {

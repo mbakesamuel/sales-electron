@@ -139,14 +139,71 @@
 }
 
 .bincard-embedded {
+  flex: 1;
+  min-height: 0;
   gap: 12px;
 }
 
 .bincard-embedded .stock-section {
   padding: 0;
+  flex: 1;
+  min-height: 0;
+}
+
+.bincard-embedded .bincard-filters,
+.bincard-embedded .stock-error,
+.bincard-embedded .bincard-warning,
+.bincard-embedded .stock-section-header,
+.bincard-embedded .stock-muted {
+  flex-shrink: 0;
 }
 
 .bincard-empty {
   margin: 12px 0;
   color: var(--text-muted);
+}
+
+.bincard-balance-summary {
+  flex-shrink: 0;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.bincard-embedded .stock-section > .bincard-ledger-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.bincard-ledger-scroll {
+  scrollbar-gutter: stable;
+  scroll-padding-bottom: 2px;
+}
+
+.bincard-ledger-table {
+  table-layout: fixed;
+}
+
+.bincard-ledger-table .bincard-col-date {
+  width: 7rem;
+}
+
+.bincard-ledger-table .bincard-col-ref {
+  width: 9rem;
+}
+
+.bincard-ledger-table .bincard-col-num {
+  width: 5.5rem;
+}
+
+.bincard-ledger-footer td {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  background: var(--bg-soft);
+  border-top: 1px solid var(--border);
+  border-bottom: none;
+}
+
+.bincard-ledger-footer tr:hover td {
+  background: var(--bg-soft);
 }

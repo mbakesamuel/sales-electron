@@ -10,7 +10,7 @@ Each area has two tabs: **Sales screen** (create / edit) and **Invoice list**.
 
 - **Loose (Sales Invoice)** — Lines in kg; deduct from a **sales tank**. Delivery-order picking is available for normal dispositions with a registered customer.
 - **Bottle Oil sales** — Separate screen for bottled products (units). Deducts from **Bottle Oil Store** (not a sales tank). No delivery-order picking. The per-invoice **Registered customer** checkbox is **never shown**; customer mode follows **App settings → Bottle Oil sales → Use registered customers** (off = invoice name only; on = directory customer required). **Ration** is available only when **Allow Ration disposition** is on in App settings (off by default). See [Organization setup](02-organization-setup.md).
-- **Sale disposition** — Normal commercial sales vs special cases such as **Ration** or **Public relation**. Special dispositions change customer/payment requirements (often invoice-name only, no DO, no payments) on both screens. On Bottle Oil, Ration may be hidden by company setting; Public relation remains available.
+- **Sale disposition** — Normal commercial sales vs special cases such as **Ration** or **Public relation**. Special dispositions use an **invoice name only** (no directory customer) and no delivery-order linking. **Payments and line amounts work like normal sales** (Bottle Cash; loose non-cash). On loose Sales Invoice, **Ration** is limited to the **LPO** product category; **Public relation** uses Loose Palm Oil products. On Bottle Oil, Ration may be hidden by company setting; Public relation remains available.
 
 ## Creating a normal sale
 
@@ -21,12 +21,32 @@ Each area has two tabs: **Sales screen** (create / edit) and **Invoice list**.
 3. Set the transaction date (must fall in the open posting period).
 4. Optionally link a **delivery order** (loose / normal / registered customer only — see below).
 5. Add product lines (qty, price, storage location where required).
-6. Enter payments so paid total matches the invoice total (for normal dispositions).
+6. Enter payments so paid total matches the invoice total — see **Payments** below.
 7. Save. The sale is typically **pending** until validated (unless your role has direct validate — see below).
 
 Vehicle number is required for loose/normal sales that need it.
 
-### Booklet serial number
+## Payments
+
+The paid total must equal the invoice total for all dispositions (including **Ration** and **Public relation**). Payment amount is **locked** to the invoice gross (auto-filled); you choose the method and any method-specific fields.
+
+| Mode | Allowed methods | Notes |
+|------|-----------------|-------|
+| **Bottle Oil sales** | **Cash only** | Method shows as read-only **Cash**. One payment line covering the full amount. |
+| **Loose (Sales Invoice)** | Cheque, Traite, Bank Transfer (and other non-cash methods) | **Cash is hidden**. Choose method from the dropdown. |
+
+### Traite (loose)
+
+When the payment method kind is **Traite**, enter:
+
+- **Trait no #**
+- **Issued on** (date)
+- **Maturity on** (date)
+- **Bank** (when required for that method)
+
+Cheque methods still use **Cheque #** and **Bank**. Bank transfer uses its reference / bank fields as configured.
+
+## Booklet serial number
 
 New invoices require a **Booklet serial no.** typed from the physical booklet:
 
@@ -36,7 +56,7 @@ New invoices require a **Booklet serial no.** typed from the physical booklet:
 - Immutable after save — you cannot change the serial on an existing invoice.
 - Older invoices that still use legacy `INV-…` numbers remain loadable for lookup and printing.
 
-### Stock as of invoice date
+## Stock as of invoice date
 
 On create and validate, the app checks **sellable stock as of the invoice date** (`dateIssued`) at the sales point and storage location — not only today’s live balance. Receipts, carry-forward stock, transfers, and prior sales through that date count; stock that arrived *after* the invoice date does not. Backdating an invoice before stock was on hand is blocked (even if you validate later, after a receipt).
 
@@ -82,5 +102,16 @@ Use the print flow from the sales screen after save. Company header comes from a
 
 - **Loose sales** — Prints a **sales invoice** (line items, taxes, payments, totals).
 - **Bottle Oil sales** — Prints a **cash receipt**: same company header and QR, with receipt wording (“Received from … the sum of … in settlement of … For and on behalf of …”) instead of the invoice line table.
+
+## Vehicle consignment notes
+
+Under **Sales**:
+
+| Screen | Purpose |
+|--------|---------|
+| **Consignment notes** | Prepare vehicle consignment notes linked to validated sales (lookup by invoice / VCN number, save, print). Allowed for **loose** sales and Bottle Oil **Ration** / **Public relation**; not for **normal** Bottle Oil cash sales. |
+| **Consignment validation** | Queue of **pending** consignment notes for supervisors to review and validate (including bulk validate). |
+
+Validation requires the `validate_vehicle_consignment_notes` action (default: ADMIN, MANAGER, SENIOR_SALES_SUPERVISOR; also grantable to custom roles such as junior supervisors). Pending notes appear on the **supervisor Overview** as a queue tile when that role uses the supervisor dashboard.
 
 Next: [Delivery orders](05-delivery-orders.md). Developer detail for Pick DO: [Domain modules](../developer-guide/05-domain-modules.md).

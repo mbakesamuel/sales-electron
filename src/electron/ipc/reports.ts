@@ -13,6 +13,7 @@ import type {
   IndustryProductMonthlySalesReport,
   BottledPalmOilSalesReturnReport,
   OtherProductSalesDeliveriesReport,
+  MonthlyBottledOilReport,
   RevenueTaxesPeriod,
   RevenueTaxesReport,
   ReportSignatoryRow,
@@ -30,6 +31,7 @@ import { getMonthlyPalmOilSalesReport } from "../reports/monthlyPalmOilSalesRepo
 import { getIndustryProductMonthlySalesReport } from "../reports/industryProductMonthlySalesReport.js";
 import { getBottledPalmOilSalesReturnReport } from "../reports/bottledPalmOilSalesReturnReport.js";
 import { getOtherProductSalesDeliveriesReport } from "../reports/otherProductSalesDeliveriesReport.js";
+import { getMonthlyBottledOilReport } from "../reports/monthlyBottledOilReport.js";
 import { getRevenueTaxesReport } from "../reports/revenueTaxesReport.js";
 import { getBottleOilStockSalesReport } from "../reports/bottleOilStockSalesReport.js";
 import { getBottledWeeklyIssuesReport } from "../reports/bottledWeeklyIssuesReport.js";
@@ -200,6 +202,14 @@ export function registerReportsHandlers(): void {
     (_event, authToken: string): OtherProductSalesDeliveriesReport => {
       const user = requireAuthUser(authToken);
       return getOtherProductSalesDeliveriesReport(user.id);
+    },
+  );
+
+  ipcMain.handle(
+    "reports:getMonthlyBottledOil",
+    (_event, authToken: string): MonthlyBottledOilReport => {
+      const user = requireAuthUser(authToken);
+      return getMonthlyBottledOilReport(user.id);
     },
   );
 

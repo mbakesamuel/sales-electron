@@ -174,7 +174,7 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         label: "Stock",
         table: "StockBalance",
         description:
-          "Manage bulk (non-bottled) stock balance, movements, receipts, transfers, and adjustments.",
+          "Manage loose and bottled stock balance, movements, receipts, transfers, and adjustments.",
       },
       {
         id: "bottled-stock",
@@ -182,6 +182,13 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         table: "StockBalance",
         description:
           "Bin card ledger, transfers, and adjustments for bottled products.",
+      },
+      {
+        id: "receive-transfers",
+        label: "Receive transfers",
+        table: "StockTransfer",
+        description:
+          "Review and receive dispatched bottled transfers at your collection point.",
       },
       {
         id: "stock-validation",
@@ -376,6 +383,13 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         table: "Sale",
         description:
           "Open-month bottled B/F, receptions, cash/PR issues, and balance by pack (qty, kg, value without taxes).",
+      },
+      {
+        id: "monthly-bottled-oil-report",
+        label: "BPO Issued to GM's PR",
+        table: "Sale",
+        description:
+          "Open-month Bottle Oil Ration and Public relation sales by invoice (packs, amount, receiver, VCN no.).",
       },
       {
         id: "other-product-sales-deliveries-report",

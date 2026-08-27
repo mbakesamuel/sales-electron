@@ -45,6 +45,19 @@ function formatQty(value: number): string {
   });
 }
 
+function BinCardColGroup() {
+  return (
+    <colgroup>
+      <col class="bincard-col-date" />
+      <col class="bincard-col-ref" />
+      <col />
+      <col class="bincard-col-num" />
+      <col class="bincard-col-num" />
+      <col class="bincard-col-num" />
+    </colgroup>
+  );
+}
+
 function buildQuery(input: {
   productId: string;
   salesPointId: string;
@@ -389,14 +402,15 @@ export function BinCardScreen({
                   {report.uom}
                 </p>
               </div>
-              <div class="stock-hint">
+              <div class="stock-hint bincard-balance-summary">
                 Opening {formatQty(report.openingBalance)} · Closing{" "}
                 {formatQty(report.closingBalance)}
               </div>
             </div>
 
-            <div class="stock-table-wrap">
-              <table class="stock-table">
+            <div class="stock-table-wrap bincard-ledger-scroll">
+              <table class="stock-table bincard-ledger-table">
+                <BinCardColGroup />
                 <thead>
                   <tr>
                     <th>Date</th>
@@ -445,6 +459,8 @@ export function BinCardScreen({
                       <td class="stock-num">{formatQty(line.balance)}</td>
                     </tr>
                   ))}
+                </tbody>
+                <tfoot class="bincard-ledger-footer">
                   <tr>
                     <td class="stock-nowrap">{formatDate(report.toIso)}</td>
                     <td>—</td>
@@ -455,7 +471,7 @@ export function BinCardScreen({
                       {formatQty(report.closingBalance)}
                     </td>
                   </tr>
-                </tbody>
+                </tfoot>
               </table>
             </div>
           </>

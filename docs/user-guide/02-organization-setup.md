@@ -53,9 +53,17 @@ Sales invoices and stock postings always need a coherent sales point + storage l
 
 ## Payment methods
 
-Define the payment methods accepted on sales and delivery orders (cash, bank, cheque fields, etc.). At least one method is required before the sales screen allows normal paid invoices.
+Define the payment methods accepted on sales and delivery orders (cash, bank, cheque, traite, etc.). At least one method is required before the sales screen allows normal paid invoices.
 
-Kinds include **cash**, **cheque**, **bank transfer**, and other configured types. Bank-transfer methods capture reference fields as defined on the payment-method form.
+| Kind | Typical use on sales |
+|------|----------------------|
+| **Cash** (`SIMPLE`, code/name **CASH**) | **Bottle Oil** normal sales — Cash only (required). Hidden on loose invoices. |
+| **Cheque** | Loose sales — cheque number + bank. |
+| **Traite** | Loose sales — trait no #, issued on, maturity on, bank. |
+| **Bank transfer** | Loose sales — bank / reference fields. |
+| **Credit** | As configured for your site. |
+
+Ensure a **Cash** method exists for Bottle Oil. For loose commercial sales, configure at least one non-cash method (cheque, traite, or bank transfer).
 
 ## Tax regimes and tax rates
 

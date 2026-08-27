@@ -141,6 +141,8 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("reports:getBottledPalmOilSalesReturn", authToken),
     getOtherProductSalesDeliveries: (authToken) =>
       ipcRenderer.invoke("reports:getOtherProductSalesDeliveries", authToken),
+    getMonthlyBottledOil: (authToken) =>
+      ipcRenderer.invoke("reports:getMonthlyBottledOil", authToken),
     getRevenueTaxes: (authToken, period, salesPointId) =>
       ipcRenderer.invoke("reports:getRevenueTaxes", authToken, period, salesPointId),
     getSalesBudgetMonthlyCrosstab: (authToken, reportYear) =>
@@ -222,6 +224,8 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("stock:loadAdjustmentForReview", payload),
     listValidationQueue: (userId) =>
       ipcRenderer.invoke("stock:listValidationQueue", userId),
+    listReceiveQueue: (userId) =>
+      ipcRenderer.invoke("stock:listReceiveQueue", userId),
     validateMany: (payload) => ipcRenderer.invoke("stock:validateMany", payload),
   },
   dialog: {

@@ -11,7 +11,15 @@ export declare const STORE_KEEPER_ROLE_ID = "STORE_KEEPER";
 /** Custom role id for junior sales supervisors (manageable role). */
 export declare const JNR_SALES_SUP_ROLE_ID = "JNR_SALES_SUP";
 export declare const SENIOR_SALES_SUPERVISOR_ROLE_ID = "SENIOR_SALES_SUPERVISOR";
+export declare const STATISTICS_CLERK_ROLE_ID = "STATISTICS_CLERK";
 export declare function isStoreKeeperRole(role: string): boolean;
+export declare function isStatisticsClerkRole(role: string): boolean;
+/** Roles that may draft, dispatch, and post location moves. */
+export declare function canInitiateStockTransfers(role: string): boolean;
+/** Roles that may receive dispatched inter-site transfers (Bottled Stock screen only). */
+export declare function canReceiveStockTransfers(role: string): boolean;
+/** Company-wide transfer operators bypass collection-point scope on initiate. */
+export declare function bypassesTransferInitiateScope(role: string): boolean;
 export declare function isSupervisorOverviewRole(role: string): boolean;
 export declare const SYSTEM_ROLE_LABELS: Record<SystemUserRole, string>;
 /** @deprecated Prefer SYSTEM_ROLE_LABELS or Role.label from the database. */

@@ -40,6 +40,8 @@ export function getAuthenticatedReports() {
       api.getBottledPalmOilSalesReturn(requireAuthToken()),
     getOtherProductSalesDeliveries: () =>
       api.getOtherProductSalesDeliveries(requireAuthToken()),
+    getMonthlyBottledOil: () =>
+      api.getMonthlyBottledOil(requireAuthToken()),
     getRevenueTaxes: (
       period?: import("../../shared/reports.types.ts").RevenueTaxesPeriod,
       salesPointId?: number | null,

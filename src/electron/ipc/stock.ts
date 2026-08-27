@@ -16,6 +16,7 @@ import type {
   StockValidateManyResult,
   StockValidationItem,
   StockValidationQueuePage,
+  StockReceiveQueuePage,
 } from "../../shared/stock.types.js";
 import { normalizeStockProductFilter } from "../../shared/stockModule.js";
 import {
@@ -43,6 +44,7 @@ import {
   listStockValidationQueue,
   validateStockDocuments,
 } from "../stock/validationQueue.js";
+import { listReceiveQueue } from "../stock/receiveQueue.js";
 import { getBinCard } from "../stock/binCard.js";
 import { loadReceiptPrintById } from "../stock/receiptPrint.js";
 import { loadTransferPrintById } from "../stock/transferPrint.js";
@@ -63,7 +65,7 @@ export function registerStockHandlers(): void {
       if (typeof userId !== "string" || !userId.trim()) {
         throw new Error("Login required.");
       }
-      return getStockBootstrap(userId, normalizeStockProductFilter(productFilter));
+      return getStockBootstrap(userId, productFilter ?? null);
     },
   );
 
@@ -321,6 +323,13 @@ export function registerStockHandlers(): void {
         return { ok: false, error: "Invalid adjustment." };
       }
       return loadAdjustmentForReview(payload.userId, payload.adjustmentId);
+    },
+  );
+
+  ipcMain.handle(
+    "stock:listReceiveQueue",
+    (_event, userId: string): StockReceiveQueuePage => {
+      return listReceiveQueue(userId);
     },
   );
 

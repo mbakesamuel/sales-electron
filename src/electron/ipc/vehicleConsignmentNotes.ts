@@ -5,6 +5,7 @@ import type {
   ConsignmentValidateManyResult,
   ConsignmentValidationQueuePage,
   LoadedConsignmentFormView,
+  LoadSaleForConsignmentResult,
   SaveConsignmentNoteInput,
   SaveConsignmentNoteResult,
 } from "../../shared/vehicleConsignmentNotes.types.js";
@@ -22,9 +23,9 @@ import {
 export function registerVehicleConsignmentNotesHandlers(): void {
   ipcMain.handle(
     "vehicleConsignmentNotes:loadSaleByInvoice",
-    (_event, invoiceNo: string): LoadedConsignmentFormView | null => {
+    (_event, invoiceNo: string): LoadSaleForConsignmentResult => {
       if (typeof invoiceNo !== "string") {
-        return null;
+        return { ok: false, error: "No sale matches that invoice number." };
       }
       return loadSaleForConsignmentByInvoice(invoiceNo);
     },

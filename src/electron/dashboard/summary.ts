@@ -286,7 +286,24 @@ function emptyBottleOil(asAtIso: string): BottleOilDashboardSummary {
     },
     stockOnHand: [],
     sellableUnitsTotal: 0,
+    pendingReceives: 0,
   };
+}
+
+function countPendingReceives(userId: string): number {
+  const scoped = getScopedSalesPointId(userId);
+  if (scoped == null) {
+    return 0;
+  }
+  const row = getDatabase()
+    .prepare(
+      `SELECT COUNT(*) AS count
+       FROM StockTransfer
+       WHERE status = 'DISPATCHED'
+         AND toSalesPointId = ?`,
+    )
+    .get(scoped) as { count: number };
+  return Number(row?.count ?? 0);
 }
 
 function loadRevenueByDay(
@@ -599,10 +616,11 @@ function getCommercialDashboardSummary(): CommercialDashboardSummary {
   };
 }
 
-function getBottleOilDashboardSummary(): BottleOilDashboardSummary {
+function getBottleOilDashboardSummary(userId: string): BottleOilDashboardSummary {
   const asAtIso = localTodayIso();
   const period = getOpenPostingPeriod();
   const stock = loadBottledStockOnHand();
+  const pendingReceives = countPendingReceives(userId);
 
   if (!period) {
     return {
@@ -610,6 +628,7 @@ function getBottleOilDashboardSummary(): BottleOilDashboardSummary {
       stockOnHand: stock.rows,
       sellableUnitsTotal: stock.sellableUnitsTotal,
       invoiceCounts: loadBottleInvoiceCounts("1900-01-01", asAtIso),
+      pendingReceives,
     };
   }
 
@@ -649,6 +668,7 @@ function getBottleOilDashboardSummary(): BottleOilDashboardSummary {
     invoiceCounts: loadBottleInvoiceCounts(period.startDate, monthEnd),
     stockOnHand: stock.rows,
     sellableUnitsTotal: stock.sellableUnitsTotal,
+    pendingReceives,
   };
 }
 
@@ -657,7 +677,10 @@ export function getDashboardSummary(
   userId?: string | null,
 ): DashboardSummary {
   if (role && isStoreKeeperRole(role)) {
-    return getBottleOilDashboardSummary();
+    if (!userId) {
+      return emptyBottleOil(localTodayIso());
+    }
+    return getBottleOilDashboardSummary(userId);
   }
   if (role && isSupervisorOverviewRole(role) && userId) {
     return getSupervisorDashboardSummary(userId);

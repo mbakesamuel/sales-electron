@@ -1,4 +1,4 @@
-import type { SaleDisposition } from "./sales.types.js";
+import type { SaleDisposition, SaleProductMode } from "./sales.types.js";
 
 export type ConsignmentNoteStatus = "PENDING" | "VALIDATED" | "REJECTED";
 
@@ -19,6 +19,7 @@ export interface ConsignmentSaleSnapshot {
   id: string;
   invoiceNo: string;
   status: ConsignmentNoteStatus;
+  saleProductMode: SaleProductMode | null;
   saleDisposition: SaleDisposition | null;
   salesPointName: string | null;
   customerName: string;
@@ -72,6 +73,10 @@ export interface SaveConsignmentNoteInput {
 
 export type SaveConsignmentNoteResult =
   | { ok: true; id: string; consignmentNoteNo: string }
+  | { ok: false; error: string };
+
+export type LoadSaleForConsignmentResult =
+  | { ok: true; data: LoadedConsignmentFormView }
   | { ok: false; error: string };
 
 export type ConsignmentMutationResult =

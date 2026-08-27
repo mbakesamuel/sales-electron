@@ -41,6 +41,7 @@ import { CarryForwardCommitmentsScreen } from "../commitments/CarryForwardCommit
 import { CarryForwardStockScreen } from "../stock/CarryForwardStockScreen.tsx";
 import { StockScreen } from "../stock/StockScreen.tsx";
 import { StockValidationScreen } from "../stock/StockValidationScreen.tsx";
+import { ReceiveTransfersScreen } from "../stock/ReceiveTransfersScreen.tsx";
 import { SalesBudgetScreen } from "../sales-budget/SalesBudgetScreen.tsx";
 import {
   canAccessBottledStockModule,
@@ -273,6 +274,19 @@ function RouteContent({
       );
     }
     return <StockValidationScreen user={user} />;
+  }
+
+  if (route.id === "receive-transfers") {
+    if (
+      !canPerformActionFromSnapshot(permissions, "receive_stock_transfers")
+    ) {
+      return (
+        <p class="home-access-denied">
+          You do not have permission to receive stock transfers.
+        </p>
+      );
+    }
+    return <ReceiveTransfersScreen user={user} />;
   }
 
   if (opensInReportWindow(route.id)) {
@@ -539,6 +553,7 @@ export function HomeScreen({
     "stock",
     "bottled-stock",
     "stock-validation",
+    "receive-transfers",
     "sales-validation",
     "vehicle-consignment-validation",
     "stock-commitment-report",
@@ -557,6 +572,7 @@ export function HomeScreen({
     "revenue-taxes-report",
     "industry-product-monthly-sales-report",
     "bottled-palm-oil-sales-return-report",
+    "monthly-bottled-oil-report",
     "other-product-sales-deliveries-report",
     "sales-budget-monthly-crosstab",
     "sales-budget-weekly-crosstab",
@@ -714,6 +730,7 @@ export function HomeScreen({
             : activeRouteId === "stock" ||
                 activeRouteId === "bottled-stock" ||
                 activeRouteId === "stock-validation" ||
+                activeRouteId === "receive-transfers" ||
                 activeRouteId === "sales-validation" ||
                 activeRouteId === "vehicle-consignment-validation" ||
                 activeRouteId === "bottle-oil-sales"

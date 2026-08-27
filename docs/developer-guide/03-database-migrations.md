@@ -12,7 +12,7 @@
 | Path | Role |
 |------|------|
 | `src/electron/db/migrations/001_init.sql` | Baseline schema for new databases |
-| `src/electron/db/migrations/00N_*.sql` | Incremental migrations (latest: **051**) |
+| `src/electron/db/migrations/00N_*.sql` | Incremental migrations (latest: **087**) |
 | `scripts/generate-schema-sql.mjs` | Schema generation helper |
 | `db:seed` / seed migrations | Demo/admin seed data |
 
@@ -42,6 +42,13 @@ Recent notable migrations:
 | `049_bottled_palm_oil_sales_return_permissions.sql` | Bottled palm oil sales return report |
 | `050_other_product_sales_deliveries_permissions.sql` | Other product sales and deliveries report |
 | `051_stock_bin_card_permissions.sql` | Bin card + bin card report routes |
+| `072_rename_sales_clerk_to_store_keeper.sql` | Store Keeper role rename |
+| `078_bottle_oil_registered_customers.sql` | Bottle Oil registered-customer company flag |
+| `079_bottle_oil_allow_ration.sql` | Bottle Oil allow-Ration company flag |
+| `084_validate_vehicle_consignment_notes.sql` | VCN validate action + route seeds |
+| `085_consignment_details.sql` | Consignment note detail columns |
+| `086_supervisor_overview.sql` | `vehicle-consignment-validation` route for supervisors (`JNR_SALES_SUP` included) |
+| `087_monthly_bottled_oil_report_permissions.sql` | Bottled Oil monthly report route |
 
 When adding a migration:
 
@@ -60,7 +67,8 @@ When adding a migration:
 | Catalog | `Product`, `ProductCat`, `ProductUnitPriceSchedule`, budgets/phase tables |
 | Customers | `Customer`, `CustomerTypeDefinition` (`exemptFromSalesTax`) |
 | Delivery | `DeliveryOrder` (`sourceKind`), `DeliveryOrderDetails`, `DeliveryOrderPaymentDetails` |
-| Sales | `Sale`, `SaleLine`, `SaleAppliedTax`, `Payment` (sale payments; distinct from DO payment details) |
+| Sales | `Sale`, `SaleLine`, `SaleAppliedTax`, `Payment` (sale payments; cheque/traite/bank fields on `Payment`) |
+| Consignment | `VehicleConsignmentNote` (+ detail columns from `085`) |
 | Stock | `StockBalance`, `StockMovement`, receipts/transfers/adjustments (+ lines, `sourceKind` on adjustments) |
 
 Do not dump full SQL into docs — read migrations for authoritative DDL.

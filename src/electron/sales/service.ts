@@ -1028,7 +1028,10 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
     return { ok: false, error: productError };
   }
 
-  if (!isBottleMode && isSpecialDisposition) {
+  if (
+    !isBottleMode &&
+    (saleDisposition === "RATION" || saleDisposition === "PUBLIC_RELATION")
+  ) {
     for (const line of activeLines) {
       if (!productIsLoosePalmOilById(db, line.productId)) {
         return {
@@ -1133,21 +1136,6 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
   let vatTotal = 0;
   let salesTaxTotal = 0;
   const computedLines = activeLines.map((line) => {
-    if (isSpecialDisposition) {
-      return {
-        ...line,
-        qtyKg: isBottleMode
-          ? roundMoney(parseAmount(line.qtyUnits ?? line.qtyKg))
-          : roundMoney(parseAmount(line.qtyKg)),
-        qtyUnits: isBottleMode ? roundMoney(parseAmount(line.qtyUnits ?? line.qtyKg)) : null,
-        unitPricePerKg: "0",
-        unitPricePerUnit: isBottleMode ? "0" : null,
-        lineNet: "0.00",
-        lineVat: "0.00",
-        lineGross: "0.00",
-      };
-    }
-
     if (isBottleMode) {
       const qty = parseAmount(line.qtyUnits ?? line.qtyKg);
       const unitPrice = parseAmount(line.unitPricePerUnit ?? line.unitPricePerKg);
@@ -1198,24 +1186,20 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
     ? invoiceNet
     : invoiceNet + invoiceVat + invoiceSalesTax;
 
-  const paidTotal = isSpecialDisposition
-    ? 0
-    : Math.round(
-        input.payments.reduce((sum, payment) => sum + parseAmount(payment.amount), 0),
-      );
+  const paidTotal = Math.round(
+    input.payments.reduce((sum, payment) => sum + parseAmount(payment.amount), 0),
+  );
 
-  if (!isSpecialDisposition && paidTotal !== invoiceGross) {
+  if (paidTotal !== invoiceGross) {
     return {
       ok: false,
       error: "Paid amount must equal invoice total (no credit sales).",
     };
   }
 
-  if (!isSpecialDisposition) {
-    const paymentMethodError = validateSalePaymentMethods(input.payments);
-    if (paymentMethodError) {
-      return { ok: false, error: paymentMethodError };
-    }
+  const paymentMethodError = validateSalePaymentMethods(input.payments);
+  if (paymentMethodError) {
+    return { ok: false, error: paymentMethodError };
   }
 
   const serialResult = validateBookletSerial(input.invoiceNo);
@@ -1357,26 +1341,24 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
       );
     }
 
-    if (!isSpecialDisposition) {
-      for (const payment of input.payments) {
-        if (parseAmount(payment.amount) <= 0) {
-          continue;
-        }
-
-        insertPayment.run(
-          newPaymentId(),
-          saleId,
-          roundMoney(parseAmount(payment.amount)),
-          payment.chequeNo?.trim() || null,
-          timestamp,
-          timestamp,
-          payment.bank?.trim() || null,
-          payment.traiteNo?.trim() || null,
-          payment.traiteIssuedOn || null,
-          payment.traiteMaturityOn || null,
-          payment.paymentMethodId,
-        );
+    for (const payment of input.payments) {
+      if (parseAmount(payment.amount) <= 0) {
+        continue;
       }
+
+      insertPayment.run(
+        newPaymentId(),
+        saleId,
+        roundMoney(parseAmount(payment.amount)),
+        payment.chequeNo?.trim() || null,
+        timestamp,
+        timestamp,
+        payment.bank?.trim() || null,
+        payment.traiteNo?.trim() || null,
+        payment.traiteIssuedOn || null,
+        payment.traiteMaturityOn || null,
+        payment.paymentMethodId,
+      );
     }
 
     if (vatApplies && invoiceVat > 0) {

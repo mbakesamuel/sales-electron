@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, screen } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getRouteLabel } from "../../shared/routeCatalog.js";
@@ -6,6 +6,10 @@ import { REPORT_WINDOW_ROUTE_IDS } from "../../shared/reportWindow.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEV_SERVER_URL = "http://localhost:5173";
+
+/** Match main window create defaults in main.ts when no main window exists. */
+const FALLBACK_WINDOW_SIZE = { width: 1800, height: 800 };
+const MAIN_INSET_PX = 48;
 
 export interface ReportWindowBootstrap {
   reportId: string;
@@ -27,14 +31,60 @@ function preloadPath(): string {
   return path.join(__dirname, "..", "preload.cjs");
 }
 
-async function loadReportWindowUrl(win: BrowserWindow, reportId: string): Promise<void> {
+function isTrackedReportWindow(win: BrowserWindow): boolean {
+  for (const reportWin of openReportWindows.values()) {
+    if (reportWin === win) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Size every report window near the main app window (small inset). */
+function sizeNearMainApp(): { width: number; height: number } {
+  const focused = BrowserWindow.getFocusedWindow();
+  const main =
+    focused && !focused.isDestroyed() && !isTrackedReportWindow(focused)
+      ? focused
+      : BrowserWindow.getAllWindows().find(
+          (win) => !win.isDestroyed() && !isTrackedReportWindow(win),
+        );
+
+  const bounds = main?.getBounds() ?? {
+    x: 0,
+    y: 0,
+    width: FALLBACK_WINDOW_SIZE.width,
+    height: FALLBACK_WINDOW_SIZE.height,
+  };
+
+  const workArea = screen.getDisplayMatching(bounds).workAreaSize;
+
+  const width = Math.min(
+    workArea.width,
+    Math.max(FALLBACK_WINDOW_SIZE.width, bounds.width - MAIN_INSET_PX),
+  );
+  const height = Math.min(
+    workArea.height,
+    Math.max(FALLBACK_WINDOW_SIZE.height, bounds.height - MAIN_INSET_PX),
+  );
+
+  return { width, height };
+}
+
+async function loadReportWindowUrl(
+  win: BrowserWindow,
+  reportId: string,
+): Promise<void> {
   const hash = reportWindowHash(reportId);
   if (!app.isPackaged) {
     await win.loadURL(`${DEV_SERVER_URL}/${hash}`);
   } else {
-    await win.loadFile(path.join(app.getAppPath(), "dist-react", "index.html"), {
-      hash: `/report-window/${reportId}`,
-    });
+    await win.loadFile(
+      path.join(app.getAppPath(), "dist-react", "index.html"),
+      {
+        hash: `/report-window/${reportId}`,
+      },
+    );
   }
 }
 
@@ -42,7 +92,10 @@ function rememberBootstrap(payload: ReportWindowBootstrap): void {
   pendingBootstraps.set(payload.reportId, payload);
 }
 
-function sendBootstrap(win: BrowserWindow, payload: ReportWindowBootstrap): void {
+function sendBootstrap(
+  win: BrowserWindow,
+  payload: ReportWindowBootstrap,
+): void {
   rememberBootstrap(payload);
   if (win.isDestroyed()) {
     return;
@@ -66,7 +119,10 @@ export async function openOrFocusReportWindow(
   query?: unknown,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!REPORT_WINDOW_ROUTE_IDS.has(reportId)) {
-    return { ok: false, error: `Report window is not enabled for "${reportId}".` };
+    return {
+      ok: false,
+      error: `Report window is not enabled for "${reportId}".`,
+    };
   }
 
   const payload: ReportWindowBootstrap = {
@@ -85,15 +141,11 @@ export async function openOrFocusReportWindow(
     return { ok: true };
   }
 
-  // A4 portrait ≈ 210×297mm; use that shape for ledger-style reports.
-  const portraitReport =
-    reportId === "stock-bin-card-report"
-      ? { width: 820, height: 1120 }
-      : { width: 1000, height: 800 };
+  const windowSize = sizeNearMainApp();
 
   const win = new BrowserWindow({
-    width: portraitReport.width,
-    height: portraitReport.height,
+    width: windowSize.width,
+    height: windowSize.height,
     title: getRouteLabel(reportId),
     webPreferences: {
       preload: preloadPath(),
@@ -137,7 +189,10 @@ export async function openOrFocusReportWindow(
     }
     return {
       ok: false,
-      error: error instanceof Error ? error.message : "Failed to open report window.",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to open report window.",
     };
   }
 

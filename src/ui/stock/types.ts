@@ -13,6 +13,7 @@ import type {
   StockValidateManyResult,
   StockValidationItem,
   StockValidationQueuePage,
+  StockReceiveQueuePage,
 } from "../../shared/stock.types.ts";
 
 type DocFilterPayload = {
@@ -110,6 +111,7 @@ export interface StockApi {
     | { ok: false; error: string }
   >;
   listValidationQueue(userId: string): Promise<StockValidationQueuePage>;
+  listReceiveQueue(userId: string): Promise<StockReceiveQueuePage>;
   validateMany(payload: {
     userId: string;
     items: StockValidationItem[];

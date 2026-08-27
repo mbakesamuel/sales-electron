@@ -12,11 +12,12 @@ Default route access is defined per role (admins can change the matrix):
 
 | Role | Typical access |
 |------|----------------|
-| **ADMIN** | All routes write; manage permissions. |
-| **MANAGER** | Most routes write (not user admin); validate sales/DOs; can cancel validated DOs. |
-| **SENIOR_SALES_SUPERVISOR** | Operations, customers, inventory read/write; can validate sales/DOs. |
-| **STATISTICS_CLERK** | Broad **read** on operations, budgets, inventory, financial/tax screens by default; admins can grant **write** on specific routes. No validate actions by default. |
-| **STORE_KEEPER** | Bottled stock, transfers, and selected reports; cannot validate by default. |
+| **ADMIN** | All routes write; manage permissions. Commercial Overview. |
+| **MANAGER** | Most routes write (not user admin); validate sales/DOs/consignments; can cancel validated DOs. Commercial Overview. |
+| **SENIOR_SALES_SUPERVISOR** | Operations, customers, inventory read/write; validate sales/DOs/consignments. **Supervisor Overview** (queues + stock). |
+| **JNR_SALES_SUP** (junior sales supervisor) | Custom/manageable role (may already exist in production DBs). Shares **Supervisor Overview** with senior supervisors when granted matching routes; consignment validation route seeded in migration `086`. |
+| **STATISTICS_CLERK** | Broad **read** on operations, budgets, reports, and financial/tax screens; **write** on **Stock** and **Bottled Stock** for company-wide transfers (bulk + bottled). Primary transfer operator — draft, dispatch, and location moves across all collection points. No validate actions by default. Commercial Overview. |
+| **STORE_KEEPER** | Bottled stock and Bottle Oil sales at their assigned collection point; **receive only** for incoming stock transfers (cannot draft or dispatch). Selected reports; **Bottle Oil Overview**. Cannot validate by default. |
 
 ## Route access vs actions
 
@@ -30,9 +31,20 @@ Default route access is defined per role (admins can change the matrix):
 | `validate_delivery_orders` | Validate delivery orders (including the **Validation queue** tab under Delivery Order). |
 | `cancel_validated_delivery_order` | Cancel an already validated DO. |
 | `transfer_delivery_order_balance` | Move remaining DO kg to another sales point (**Transfer DO balance** screen). |
+| `validate_vehicle_consignment_notes` | Validate vehicle consignment notes (**Consignment validation** queue). |
 | `manage_permissions` | Edit the permission matrix (**Role permissions**). |
 
-Opening **Sales Invoice** does not by itself allow validation — the action flag must be on. The Delivery Order **Validation queue** tab appears only when `validate_delivery_orders` is granted.
+Opening **Sales Invoice** does not by itself allow validation — the action flag must be on. The Delivery Order **Validation queue** tab appears only when `validate_delivery_orders` is granted. **Consignment validation** needs route access plus `validate_vehicle_consignment_notes`.
+
+### Sales / consignment routes
+
+| Route | Screen |
+|-------|--------|
+| `sales` | Loose Sales Invoice |
+| `bottle-oil-sales` | Bottle Oil sales |
+| `sales-validation` | Pending sales validation queue |
+| `vehicle-consignment-notes` | Prepare / print consignment notes |
+| `vehicle-consignment-validation` | Pending consignment validation queue |
 
 ### Delivery order routes
 
@@ -66,14 +78,17 @@ These boolean actions appear on **Role permissions** next to Validate sales / Va
 |--------|--------|
 | Draft stock receipts | New receipt, edit/delete drafts |
 | Post stock receipts | Post and cancel posted receipts |
-| Draft stock transfers | New transfer, edit/delete drafts |
-| Post / dispatch / receive stock transfers | Post location moves, dispatch, receive, cancel posted |
+| Draft stock transfers | New transfer, edit/delete drafts (Statistics clerk / supervisors) |
+| Post / dispatch stock transfers | Post location moves, dispatch inter-site transfers, cancel posted (Statistics clerk / supervisors) |
+| Receive incoming stock transfers | Receive dispatched transfers at destination collection point (Store Keeper and initiators) |
 | Draft stock adjustments | New adjustment, edit/delete drafts |
 | Post stock adjustments | Post (including reclassify) and cancel posted |
 | Post stock receipts directly (skip draft review) | Create and post a new receipt in one step |
 | Post stock transfers directly (skip draft review) | Create and finalize a new transfer in one step |
 
-Example: give a clerk **write** on `stock-receipts` and **Draft stock receipts** only so they can prepare vouchers; grant **Post stock receipts** to supervisors who approve them. For sales, clerks save **pending** invoices; **Direct validate sales** lets managers validate at entry without a separate step.
+Example: **Statistics clerk** drafts and dispatches transfers company-wide; **Store Keeper** at the destination collection point receives the stock into a storage location. Supervisors and managers can also initiate transfers when needed.
+
+Users with write access to both **Stock** and **Bottled Stock** (for example Statistics clerk) see a unified Stock screen that lists loose and bottled products together. Transfer, receipt, and adjustment documents still contain either loose or bottled lines only—not both on one document. Store Keepers continue to use **Bottled Stock** for bottled products only.
 
 ## Role permissions screen
 

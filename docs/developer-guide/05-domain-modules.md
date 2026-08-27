@@ -43,6 +43,17 @@ Form options expose both flags; `createSale` enforces them. The Sales UI never s
 
 Operator description: [Sales invoices](../user-guide/04-sales-invoices.md).
 
+### Payment UI rules (POS)
+
+Enforced in `SalesClient.tsx` (not separate IPC):
+
+| Variant | Methods shown | Amount |
+|---------|---------------|--------|
+| `bottled` | Cash only (`code`/`name` = `CASH`) | Locked to invoice gross; single line |
+| `loose` | Non-cash methods only | Locked to invoice gross |
+
+Traite payments (`kind === "TRAITE"`) require `traiteNo`, `traiteIssuedOn`, `traiteMaturityOn` (plus bank when enabled). Persist on `Payment` via existing sale create payload fields in `src/electron/sales/service.ts`.
+
 ## Delivery orders
 
 | Piece | Path |
@@ -89,6 +100,19 @@ Reduces source DO `orderQty`, creates validated destination DO `DT-{year}-{seq}`
 | Print payload | `src/electron/deliveryOrders/print.ts` |
 | IPC | `deliveryOrders:getPrintById` |
 | UI | `src/ui/delivery-orders/DeliveryOrderPrintView.tsx` |
+
+## Vehicle consignment notes
+
+| Piece | Path |
+|-------|------|
+| Service | `src/electron/vehicleConsignmentNotes/service.ts` |
+| IPC | `src/electron/ipc/vehicleConsignmentNotes.ts` |
+| Types | `src/shared/vehicleConsignmentNotes.types.ts` |
+| UI | `src/ui/vehconsignment-note/` (`ConsignmentNotesClient`, `ConsignmentValidationScreen`, print views) |
+| Routes | `vehicle-consignment-notes`, `vehicle-consignment-validation` |
+| Action | `validate_vehicle_consignment_notes` |
+
+Validation queue: `listValidationQueue` / `validateMany`. Route seed for supervisor roles: migration `086_supervisor_overview.sql`. Action seed: `084_validate_vehicle_consignment_notes.sql`. Details columns: `085_consignment_details.sql`.
 
 ## Carry-forward commitments
 
@@ -146,8 +170,18 @@ Customer types may set `exemptFromSalesTax` (migration `036`). Sales for those t
 | Piece | Path |
 |-------|------|
 | Summary builder | `src/electron/dashboard/summary.ts` |
+| Types | `src/shared/dashboard.types.ts` (`commercial` \| `bottleOil` \| `supervisor`) |
 | IPC | `src/electron/ipc/dashboard.ts` |
-| UI | `src/ui/dashboard/` (Overview route) |
+| UI | `src/ui/dashboard/` (Overview route; compact CSS for bottle/supervisor) |
+| Role helpers | `isStoreKeeperRole` / `isSupervisorOverviewRole` in `src/shared/roles.ts` |
+
+`getSummary` picks a variant from the authenticated user’s role:
+
+| Variant | Roles | Payload highlights |
+|---------|-------|--------------------|
+| `commercial` | Default | Revenue by day, by category, DO vs sales by month |
+| `bottleOil` | `STORE_KEEPER` | Bottle Oil revenue/product/qty charts, invoice counts, bottled stock |
+| `supervisor` | `SENIOR_SALES_SUPERVISOR`, `JNR_SALES_SUP` | Queue tiles (sales / stock / consignment), revenue by product, loose + bottle stock |
 
 Authenticated helper: `getAuthenticatedDashboard()` in the UI auth layer.
 

@@ -768,3 +768,40 @@ export interface OtherProductSalesDeliveriesReport {
     grandTotal: OtherProductSalesDeliveriesRow;
     comments: string | null;
 }
+/** Pack columns for monthly bottled oil Ration/PR listing (sample layout). */
+export type MonthlyBottledOilPackId = "jug20" | "carton5" | "carton15";
+export interface MonthlyBottledOilPackColumn {
+    id: MonthlyBottledOilPackId;
+    label: string;
+}
+export interface MonthlyBottledOilReportRow {
+    saleId: string;
+    dateIssued: string;
+    customerName: string;
+    address: string;
+    qty20L: number;
+    qty3x5L: number;
+    qty15L: number;
+    receivedBy: string;
+    amount: number;
+    vehConsignmentNo: string;
+}
+export interface MonthlyBottledOilReportTotals {
+    qty20L: number;
+    qty3x5L: number;
+    qty15L: number;
+    amount: number;
+}
+export interface MonthlyBottledOilReport {
+    settings: ReportCompanySettings;
+    asAtIso: string;
+    monthStartIso: string;
+    monthName: string;
+    financialYear: number;
+    reportTitle: string;
+    generatedAtIso: string;
+    packColumns: MonthlyBottledOilPackColumn[];
+    rows: MonthlyBottledOilReportRow[];
+    totals: MonthlyBottledOilReportTotals;
+    comments: string | null;
+}

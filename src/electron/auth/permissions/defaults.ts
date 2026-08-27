@@ -52,6 +52,7 @@ const ROUTE_GROUPS = {
     "revenue-taxes-report",
     "industry-product-monthly-sales-report",
     "bottled-palm-oil-sales-return-report",
+    "monthly-bottled-oil-report",
     "other-product-sales-deliveries-report",
   ],
   organization: [
@@ -99,24 +100,30 @@ function buildDefaultRouteMatrix(): Record<string, RouteMatrix> {
       ...ROUTE_GROUPS.inventoryRead,
       ...ROUTE_GROUPS.inventoryWrite,
     ]),
-    STATISTICS_CLERK: buildRouteAccess(
-      [
-        ...ROUTE_GROUPS.operations,
-        "sales-budgets",
-        "budget-phase-profiles",
-        "sales-budget",
-        "sales-budget-monthly-crosstab",
-        "sales-budget-weekly-crosstab",
-        ...ROUTE_GROUPS.inventoryRead,
-        "financial-year-periods",
-        "financial-months",
-        "tax-rate-schedules",
-        "tax-regimes",
-      ],
-      "read",
-    ),
+    STATISTICS_CLERK: (() => {
+      const matrix = buildRouteAccess(
+        [
+          ...ROUTE_GROUPS.operations,
+          "sales-budgets",
+          "budget-phase-profiles",
+          "sales-budget",
+          "sales-budget-monthly-crosstab",
+          "sales-budget-weekly-crosstab",
+          ...ROUTE_GROUPS.inventoryRead,
+          "financial-year-periods",
+          "financial-months",
+          "tax-rate-schedules",
+          "tax-regimes",
+        ],
+        "read",
+      );
+      matrix["stock"] = "write";
+      matrix["bottled-stock"] = "write";
+      return matrix;
+    })(),
     STORE_KEEPER: buildRouteAccess([
       "bottled-stock",
+      "receive-transfers",
       "bottle-oil-sales",
       "stock-commitment-report",
       "stock-report",
@@ -139,6 +146,8 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
     post_stock_receipts: true,
     draft_stock_transfers: true,
     post_stock_transfers: true,
+    // Receive is Store Keeper / Bottled Stock only (see canReceiveStockTransfers).
+    receive_stock_transfers: false,
     draft_stock_adjustments: true,
     post_stock_adjustments: true,
     direct_post_stock_receipts: true,
@@ -151,6 +160,7 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
     post_stock_receipts: false,
     draft_stock_transfers: false,
     post_stock_transfers: false,
+    receive_stock_transfers: false,
     draft_stock_adjustments: false,
     post_stock_adjustments: false,
     direct_post_stock_receipts: false,
@@ -179,6 +189,7 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
   const admin: ActionMatrix = {
     ...manager,
     manage_permissions: true,
+    receive_stock_transfers: true,
   };
 
   const seniorSupervisor: ActionMatrix = {
@@ -198,12 +209,24 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
     ...stockDocumentNone,
   };
 
+  const statisticsClerkTransferOperator: ActionMatrix = {
+    ...none,
+    draft_stock_transfers: true,
+    post_stock_transfers: true,
+    receive_stock_transfers: false,
+  };
+
+  const storeKeeperReceiveOnly: ActionMatrix = {
+    ...none,
+    receive_stock_transfers: true,
+  };
+
   return {
     ADMIN: admin,
     MANAGER: manager,
     SENIOR_SALES_SUPERVISOR: seniorSupervisor,
-    STATISTICS_CLERK: none,
-    STORE_KEEPER: none,
+    STATISTICS_CLERK: statisticsClerkTransferOperator,
+    STORE_KEEPER: storeKeeperReceiveOnly,
     [JNR_SALES_SUP_ROLE_ID]: seniorSupervisor,
   };
 }

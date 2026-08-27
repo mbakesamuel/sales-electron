@@ -15,6 +15,7 @@ import { MonthlyDeliveriesByDestinationScreen } from "./MonthlyDeliveriesByDesti
 import { MonthlyPalmOilSalesScreen } from "./MonthlyPalmOilSalesScreen.tsx";
 import { IndustryProductMonthlySalesScreen } from "./IndustryProductMonthlySalesScreen.tsx";
 import { BottledPalmOilSalesReturnScreen } from "./BottledPalmOilSalesReturnScreen.tsx";
+import { MonthlyBottledOilReportScreen } from "./MonthlyBottledOilReportScreen.tsx";
 import { OtherProductSalesDeliveriesScreen } from "./OtherProductSalesDeliveriesScreen.tsx";
 import { RevenueTaxesReportScreen } from "./RevenueTaxesReportScreen.tsx";
 import { SalesBudgetMonthlyCrosstabScreen } from "./SalesBudgetMonthlyCrosstabScreen.tsx";
@@ -62,6 +63,8 @@ export function ReportBody({
       return <IndustryProductMonthlySalesScreen windowMode={windowMode} />;
     case "bottled-palm-oil-sales-return-report":
       return <BottledPalmOilSalesReturnScreen windowMode={windowMode} />;
+    case "monthly-bottled-oil-report":
+      return <MonthlyBottledOilReportScreen windowMode={windowMode} />;
     case "other-product-sales-deliveries-report":
       return <OtherProductSalesDeliveriesScreen windowMode={windowMode} />;
     case "stock-bin-card-report":

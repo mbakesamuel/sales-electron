@@ -480,7 +480,7 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
               Refresh
             </button>
           </div>
-          <BottleOilTiles summary={summary} />
+          <BottleOilTiles summary={summary} onNavigate={onNavigate} />
           <BottleOilStockTable summary={summary} />
           <p class="dash-status">
             Open a financial year and month to see Bottle Oil sales charts.
@@ -511,6 +511,7 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
         loading={loading}
         error={error}
         onRefresh={() => setReloadKey((value) => value + 1)}
+        onNavigate={onNavigate}
         lineCanvasRef={lineCanvasRef}
         pieCanvasRef={pieCanvasRef}
         barCanvasRef={barCanvasRef}
@@ -545,9 +546,34 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
   );
 }
 
-function BottleOilTiles({ summary }: { summary: BottleOilDashboardSummary }) {
+function BottleOilTiles({
+  summary,
+  onNavigate,
+}: {
+  summary: BottleOilDashboardSummary;
+  onNavigate?: (routeId: string) => void;
+}) {
+  const pendingReceiveContent = (
+    <>
+      <div class="dash-tile-label">Pending receive</div>
+      <div class="dash-tile-value">{summary.pendingReceives}</div>
+      <div class="dash-tile-meta">Transfers awaiting receive</div>
+    </>
+  );
+
   return (
     <div class="dash-tiles">
+      {onNavigate ? (
+        <button
+          type="button"
+          class="dash-tile dash-tile-btn"
+          onClick={() => onNavigate("receive-transfers")}
+        >
+          {pendingReceiveContent}
+        </button>
+      ) : (
+        <div class="dash-tile">{pendingReceiveContent}</div>
+      )}
       <div class="dash-tile">
         <div class="dash-tile-label">Pending invoices</div>
         <div class="dash-tile-value">{summary.invoiceCounts.pending}</div>
@@ -794,6 +820,7 @@ function BottleOilDashboardView({
   loading,
   error,
   onRefresh,
+  onNavigate,
   lineCanvasRef,
   pieCanvasRef,
   barCanvasRef,
@@ -802,6 +829,7 @@ function BottleOilDashboardView({
   loading: boolean;
   error: string | null;
   onRefresh: () => void;
+  onNavigate?: (routeId: string) => void;
   lineCanvasRef: { current: HTMLCanvasElement | null };
   pieCanvasRef: { current: HTMLCanvasElement | null };
   barCanvasRef: { current: HTMLCanvasElement | null };
@@ -830,7 +858,7 @@ function BottleOilDashboardView({
 
       {error ? <p class="dash-status dash-status-error">{error}</p> : null}
 
-      <BottleOilTiles summary={summary} />
+      <BottleOilTiles summary={summary} onNavigate={onNavigate} />
 
       <div class="dash-sections dash-sections--bottle">
         <section class="dash-section dash-section--bottle-revenue">

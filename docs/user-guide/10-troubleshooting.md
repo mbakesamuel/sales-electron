@@ -5,6 +5,8 @@
 - Confirm **financial year** and **financial month** are **open**.
 - Check the document **date** falls inside the open month.
 - For sales: payment total must match invoice total (normal dispositions); vehicle number may be required.
+- **Bottle Oil** needs an active **Cash** payment method (code or name `CASH`). Loose sales hide Cash — use cheque, traite, or bank transfer.
+- For **traite** payments on loose sales: enter trait no #, issued date, and maturity date (and bank when shown).
 - For new sales and DOs: enter a **Booklet serial no.** (digits only, at most 20). Blank, letters, or punctuation are rejected.
 - If save says the serial is already used, check the booklet — another invoice or DO already has that number.
 - Ensure products, payment methods, and storage locations exist.
@@ -52,6 +54,11 @@
 
 - Your role’s **route access** may be `none` or `read`.
 - Validation buttons need **action** permissions, not only route write access. Ask an admin to adjust **Role permissions**.
+- **Consignment validation** needs route `vehicle-consignment-validation` plus action `validate_vehicle_consignment_notes`. After migration `086`, restart the app once so the route is seeded.
+
+## Overview looks wrong for my role
+
+- Store Keepers see the Bottle Oil dashboard; senior/junior sales supervisors see the supervisor queues dashboard; other commercial roles see revenue / category / DO charts. Log out and back in after a role change.
 
 ## Print layout issues
 

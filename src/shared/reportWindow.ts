@@ -19,6 +19,7 @@ export const REPORT_WINDOW_ROUTE_IDS = new Set([
   "revenue-taxes-report",
   "industry-product-monthly-sales-report",
   "bottled-palm-oil-sales-return-report",
+  "monthly-bottled-oil-report",
   "other-product-sales-deliveries-report",
   "stock-bin-card-report",
   "sales-budget-monthly-crosstab",

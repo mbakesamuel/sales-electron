@@ -3,7 +3,9 @@ import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts"
 import {
   canAccessBottledStockModule,
   canAccessStockModule,
+  resolveStockModuleVariant,
   type StockModuleVariant,
+  type StockProductFilter,
 } from "../../shared/stockModule.ts";
 import type { AuthUser } from "../auth/session.ts";
 import { getElectronApi } from "../auth/client.ts";
@@ -29,10 +31,24 @@ export function StockScreen({
     variant === "bottled"
       ? canAccessBottledStockModule(permissions)
       : canAccessStockModule(permissions);
+  const moduleVariant = resolveStockModuleVariant(permissions, variant);
+  const showProductToggle = moduleVariant === "all";
+  const [viewFilter, setViewFilter] = useState<StockProductFilter>(() =>
+    moduleVariant === "all" ? "all" : moduleVariant,
+  );
+
+  useEffect(() => {
+    if (!showProductToggle) {
+      setViewFilter(moduleVariant);
+    }
+  }, [moduleVariant, showProductToggle]);
 
   const refresh = useCallback(async () => {
     try {
-      const data = await getElectronApi().stock.getBootstrap(user.id, variant);
+      const data = await getElectronApi().stock.getBootstrap(
+        user.id,
+        showProductToggle ? viewFilter : moduleVariant,
+      );
       setBootstrap(data);
       setError(null);
     } catch (loadError) {
@@ -40,7 +56,7 @@ export function StockScreen({
         loadError instanceof Error ? loadError.message : "Failed to load stock data.",
       );
     }
-  }, [user.id, variant]);
+  }, [user.id, moduleVariant, showProductToggle, viewFilter]);
 
   useEffect(() => {
     if (!canAccess) {
@@ -48,6 +64,14 @@ export function StockScreen({
     }
     void refresh();
   }, [canAccess, refresh]);
+
+  function onViewFilterChange(next: StockProductFilter) {
+    if (!showProductToggle) {
+      return;
+    }
+    setBootstrap(null);
+    setViewFilter(next);
+  }
 
   if (!canAccess) {
     return (
@@ -75,7 +99,10 @@ export function StockScreen({
       bootstrap={bootstrap}
       user={user}
       permissions={permissions}
-      variant={variant}
+      variant={moduleVariant}
+      viewFilter={showProductToggle ? viewFilter : moduleVariant}
+      showProductToggle={showProductToggle}
+      onViewFilterChange={onViewFilterChange}
       onRefresh={refresh}
     />
   );

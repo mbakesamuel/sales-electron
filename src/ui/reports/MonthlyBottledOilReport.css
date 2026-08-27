@@ -1,0 +1,129 @@
+.mbo-meta {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.mbo-title {
+  margin: 0.75rem 0 0.5rem;
+  color: #000;
+  font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
+  font-size: 1rem;
+  font-weight: 900;
+  text-align: center;
+  line-height: 1.3;
+}
+
+.mbo-routing {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 0.75rem 0 0.5rem;
+  font-size: 0.95rem;
+}
+
+.mbo-routing-from,
+.mbo-routing-to {
+  margin: 0;
+}
+
+.mbo-routing-to {
+  justify-self: end;
+  text-align: left;
+  min-width: 12rem;
+}
+
+.mbo-routing-date {
+  display: block;
+  margin-top: 0.25rem;
+  text-align: left;
+}
+
+.mbo-routing-key {
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.mbo-empty {
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
+.mbo-section {
+  margin-top: 0.75rem;
+  overflow-x: auto;
+}
+
+.mbo-table th,
+.mbo-table td {
+  white-space: nowrap;
+}
+
+.mbo-table th:nth-child(2),
+.mbo-table td:nth-child(2),
+.mbo-table th:nth-child(3),
+.mbo-table td:nth-child(3) {
+  white-space: normal;
+  min-width: 7rem;
+  max-width: 14rem;
+}
+
+.mbo-table .mbo-pack-group,
+.mbo-table .mbo-pack-col,
+.mbo-table th.mbo-pack-col {
+  text-align: center !important;
+}
+
+.mbo-table .mbo-total-label {
+  text-align: center !important;
+}
+
+.mbo-footnote {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.mbo-signatories {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin-top: 2.5rem;
+  padding-top: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.mbo-signatory {
+  text-align: center;
+}
+
+.mbo-signatory-label {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 6mm 10mm;
+  }
+
+  body.mbo-print-landscape .mbo-document {
+    overflow: visible;
+  }
+
+  body.mbo-print-landscape .mbo-section {
+    overflow: visible;
+  }
+
+  body.mbo-print-landscape .mbo-table {
+    font-size: 11px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  body.mbo-print-landscape .mbo-table th,
+  body.mbo-print-landscape .mbo-table td {
+    padding: 2px 4px !important;
+  }
+}

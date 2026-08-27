@@ -19,8 +19,30 @@ export const STOCK_MODULE_ROUTE_ID = "stock";
 /** Single gate for the bottled stock management environment. */
 export const BOTTLED_STOCK_ROUTE_ID = "bottled-stock";
 
-export type StockProductFilter = "bulk" | "bottled";
+export type StockProductFilter = "bulk" | "bottled" | "all";
 export type StockModuleVariant = StockProductFilter;
+
+/** Document-level filter after resolving unified UI (bulk or bottled only). */
+export type DocumentStockProductFilter = "bulk" | "bottled";
+
+export function isAllProductFilter(filter: StockProductFilter): boolean {
+  return filter === "all";
+}
+
+export function inferDocumentProductFilter(
+  isBottledFlags: readonly number[],
+): DocumentStockProductFilter {
+  if (isBottledFlags.length === 0) {
+    throw new Error("Add at least one line.");
+  }
+  const bottled = isBottledFlags[0] === 1;
+  for (const flag of isBottledFlags) {
+    if ((flag === 1) !== bottled) {
+      throw new Error("Cannot mix loose and bottled products on one document.");
+    }
+  }
+  return bottled ? "bottled" : "bulk";
+}
 
 export type StockTabId = "balance" | "movements" | "receipts" | "transfers" | "adjustments";
 
@@ -94,6 +116,14 @@ export function getBottledStockModuleAccess(snapshot: RolePermissionsSnapshot): 
   return getRouteAccess(snapshot, BOTTLED_STOCK_ROUTE_ID);
 }
 
+/** True when the role can manage bottled stock (module route or legacy bin-card write). */
+export function hasUnifiedStockBottledCapability(snapshot: RolePermissionsSnapshot): boolean {
+  if (getBottledStockModuleAccess(snapshot) === "write") {
+    return true;
+  }
+  return getRouteAccess(snapshot, "stock-bin-card") === "write";
+}
+
 export function canAccessStockTab(
   snapshot: RolePermissionsSnapshot,
   _tabId: StockTabId,
@@ -117,6 +147,9 @@ export function canAccessStockTabForVariant(
   if (variant === "bottled") {
     return canAccessBottledStockModule(snapshot);
   }
+  if (variant === "all") {
+    return canAccessStockModule(snapshot);
+  }
   return canAccessStockTab(snapshot, tabId);
 }
 
@@ -127,6 +160,9 @@ export function isStockTabReadOnlyForVariant(
 ): boolean {
   if (variant === "bottled") {
     return getBottledStockModuleAccess(snapshot) !== "write";
+  }
+  if (variant === "all") {
+    return getStockModuleAccess(snapshot) !== "write";
   }
   return isStockTabReadOnly(snapshot, tabId);
 }
@@ -147,29 +183,68 @@ export function getVisibleStockTabsForVariant(
 }
 
 export function normalizeStockProductFilter(value: unknown): StockProductFilter {
+  if (value === "all") {
+    return "all";
+  }
   return value === "bottled" ? "bottled" : "bulk";
 }
 
-/** Bottled-only users (e.g. Store Keeper) use bottled stock; everyone else defaults to bulk. */
+/**
+ * Main Stock screen variant: unified (loose + bottled) whenever the role can
+ * write the stock module. Bottled-only roles (e.g. Store Keeper) open the
+ * bottled-stock route instead (`routeVariant === "bottled"`).
+ *
+ * Stock Write also authorizes bottled document mutations on the main screen;
+ * Bottled Stock Write remains for bottled-only keepers.
+ */
+export function resolveStockModuleVariant(
+  snapshot: RolePermissionsSnapshot,
+  routeVariant: "bulk" | "bottled",
+): StockModuleVariant {
+  if (routeVariant === "bottled") {
+    return "bottled";
+  }
+  if (getStockModuleAccess(snapshot) === "write") {
+    return "all";
+  }
+  return "bulk";
+}
+
+/** Bottled-only users (e.g. Store Keeper) use bottled stock; dual-write roles use unified all on Stock route. */
 export function resolveStockProductFilterFromAccess(
   bulkAccess: RouteAccess,
   bottledAccess: RouteAccess,
   requested?: StockProductFilter | null,
+  _bottledCapabilityAccess?: RouteAccess | null,
 ): StockProductFilter {
+  const normalized =
+    requested === undefined || requested === null
+      ? null
+      : normalizeStockProductFilter(requested);
   const hasBulk = bulkAccess !== "none";
-  const hasBottled = bottledAccess !== "none";
+  const hasBottledRoute = bottledAccess !== "none";
 
   // Bottled-primary users (e.g. Store Keeper): any bottled access without bulk write.
-  if (hasBottled && bulkAccess !== "write") {
+  if (hasBottledRoute && bulkAccess !== "write") {
     return "bottled";
   }
-  if (hasBulk && hasBottled) {
+  // Main Stock writers: honor Loose / Bottled / All view filter.
+  if (hasBulk && bulkAccess === "write") {
+    if (normalized === "bottled") {
+      return "bottled";
+    }
+    if (normalized === "bulk") {
+      return "bulk";
+    }
+    return "all";
+  }
+  if (hasBulk && hasBottledRoute) {
     return normalizeStockProductFilter(requested);
   }
   if (hasBulk) {
-    return "bulk";
+    return normalized === "bottled" ? "bottled" : "bulk";
   }
-  if (hasBottled) {
+  if (hasBottledRoute) {
     return "bottled";
   }
   return "bulk";
@@ -183,5 +258,6 @@ export function resolveStockProductFilterFromSnapshot(
     getStockModuleAccess(snapshot),
     getBottledStockModuleAccess(snapshot),
     requested,
+    getRouteAccess(snapshot, "stock-bin-card"),
   );
 }

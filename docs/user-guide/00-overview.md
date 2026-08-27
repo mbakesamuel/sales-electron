@@ -18,20 +18,22 @@ Staff who create invoices, validate delivery orders, post stock, or print weekly
 | **Sales budget** | Annual quantities, monthly/weekly phasing views |
 | **Stocks** | Balances, receipts, transfers, adjustments, opening stock, **bin card** ledger |
 | **Delivery Order** | Delivery orders, **DO tracking**, **transfer DO balance**, validation queue, and opening (carry-forward) commitments |
-| **Sales** | Sales invoices (POS), including loading lines from a delivery order |
+| **Sales** | Sales invoices (POS), Bottle Oil sales, sales validation, vehicle **consignment notes** and **consignment validation** |
 | **Reports** | Daily sales, stock, commitment, bottle oil, weekly deliveries, monthly delivery/reconciliation, palm-oil sales, revenue & taxes, industry/PKO sections, bottled return, budget crosstabs |
 | **Users & access** | Users and role permissions (admin) |
-| **Overview** | Home dashboard: monthly revenue trend, sales by category, and DO vs sales by month |
+| **Overview** | Role-based home dashboard (commercial, Store Keeper, or supervisor) |
 
 ## Overview dashboard
 
-The **Overview** sidebar item opens a three-part dashboard (not the old background image):
+The **Overview** sidebar item opens a dashboard that depends on your role:
 
-1. **Line chart** — daily validated sales revenue (gross) for the open month  
-2. **Pie chart** — validated sales by product category (line net) for the open month  
-3. **Bar chart** — validated delivery-order kg vs sales kg by month for the open financial year  
+| Role | Dashboard |
+|------|-----------|
+| **Admin / Manager / Statistics clerk** (and similar) | **Commercial** — daily revenue line, sales by category pie, DO kg vs sales kg by month |
+| **Store Keeper** | **Bottle Oil** — open-month Bottle Oil revenue, sales by product, Bottle Oil units by month, invoice counts, bottled stock on hand |
+| **Senior sales supervisor** / **Junior sales supervisor** (`JNR_SALES_SUP`) | **Supervisor** — queue tiles (pending sales, pending stock, pending consignments), revenue + sales by product charts, loose and bottled stock tables |
 
-Totals use **validated** documents only. If no financial month is open, the dashboard asks you to open one. Use **Refresh** after posting new sales.
+Totals use **validated** sales where charts show revenue. If no financial month is open, the dashboard asks you to open one. Use **Refresh** after posting new sales. Queue tiles navigate to the matching validation screen.
 
 ## Important concepts
 

@@ -11,12 +11,16 @@
 
 | Kind | Examples |
 |------|----------|
-| Custom domain | Sales (`SalesClient` / `SalesScreen`), delivery orders (create, list, validation queue, **tracking**, **transfer**), carry-forward, stock hub (**bin card**), reports, budgets, dashboard, **`ChangePasswordScreen`** (first-login gate) |
+| Custom domain | Sales (`SalesClient` / `SalesScreen`), delivery orders (create, list, validation queue, **tracking**, **transfer**), **vehicle consignment notes** (+ validation queue), carry-forward, stock hub (**bin card**), reports, budgets, dashboard, **`ChangePasswordScreen`** (first-login gate) |
 | Schema/table CRUD | Many org master-data routes via shared table components + `api.db.*` |
 
 ## Overview dashboard
 
-Route **Overview** (`overview`) renders the dashboard under `src/ui/dashboard/` (revenue trend, category pie, DO vs sales bars). Data via `window.api.dashboard.getSummary`.
+Route **Overview** (`overview`) renders `src/ui/dashboard/DashboardScreen.tsx`. Data via `window.api.dashboard.getSummary`. UI branches on `summary.variant`:
+
+- `commercial` — revenue / category / DO vs sales charts  
+- `bottleOil` — Store Keeper compact layout (`.dash-root--bottle`)  
+- `supervisor` — queue tiles + stock tables (`.dash-root--supervisor`)
 
 ## Reports UI
 

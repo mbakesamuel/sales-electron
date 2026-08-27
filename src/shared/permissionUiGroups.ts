@@ -80,6 +80,7 @@ export const PERMISSION_UI_GROUPS: readonly PermissionUiGroup[] = [
       "carry-forward-stock",
       "stock",
       "bottled-stock",
+      "receive-transfers",
       "stock-validation",
       "stock-bin-card",
     ],
@@ -89,6 +90,7 @@ export const PERMISSION_UI_GROUPS: readonly PermissionUiGroup[] = [
       "direct_post_stock_receipts",
       "draft_stock_transfers",
       "post_stock_transfers",
+      "receive_stock_transfers",
       "direct_post_stock_transfers",
       "draft_stock_adjustments",
       "post_stock_adjustments",
@@ -133,6 +135,7 @@ export const PERMISSION_UI_GROUPS: readonly PermissionUiGroup[] = [
       "revenue-taxes-report",
       "industry-product-monthly-sales-report",
       "bottled-palm-oil-sales-return-report",
+      "monthly-bottled-oil-report",
       "other-product-sales-deliveries-report",
       // Opened from bin card (not sidebar)
       "stock-bin-card-report",

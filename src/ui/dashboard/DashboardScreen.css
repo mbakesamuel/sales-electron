@@ -32,6 +32,7 @@
 
 .dash-root--bottle .dash-tiles {
   gap: 0.4rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .dash-root--bottle .dash-tile {
@@ -472,6 +473,10 @@
 
   .dash-tiles {
     grid-template-columns: 1fr;
+  }
+
+  .dash-root--bottle .dash-tiles {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 

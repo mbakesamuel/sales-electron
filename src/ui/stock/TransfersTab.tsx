@@ -29,7 +29,6 @@ import {
 } from "./stockUtils.ts";
 import { STOCK_DOC_STATUS_LABELS } from "./stockDisplay.ts";
 import { TRANSFER_MODE_LABELS } from "../../shared/stockTransferMode.ts";
-import { isStoreKeeperRole } from "../../shared/roles.ts";
 import { TransferPrintView } from "./TransferPrintView.tsx";
 
 type FormTransferMode = "inter" | "intra";
@@ -79,7 +78,6 @@ interface TransfersTabProps {
   autoGenerateTransferNo: boolean;
   transferReceiveUsesDocumentDate: boolean;
   userId: string;
-  userRole: string;
   productFilter: StockProductFilter;
   onOk: (text: string) => void;
   onErr: (text: string) => void;
@@ -93,12 +91,15 @@ export function TransfersTab(props: TransfersTabProps) {
     products,
     scopedSalesPointId,
     userId,
-    userRole,
     productFilter,
     autoGenerateTransferNo,
     transferReceiveUsesDocumentDate,
   } = props;
-  const storeKeeperTransferMode = isStoreKeeperRole(userRole);
+  const receiveOnlyMode =
+    !props.canDraft &&
+    !props.canDirectPost &&
+    !props.canDispatch &&
+    props.canReceive;
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [formMode, setFormMode] = useState<FormTransferMode>("inter");
@@ -194,9 +195,14 @@ export function TransfersTab(props: TransfersTabProps) {
           setAsOfOnHand(rows);
         }
       })
-      .catch(() => {
+      .catch((loadError) => {
         if (!cancelled) {
           setAsOfOnHand([]);
+          props.onErr(
+            loadError instanceof Error
+              ? loadError.message
+              : "Could not load on-hand balances for the transfer date.",
+          );
         }
       });
     return () => {
@@ -233,9 +239,6 @@ export function TransfersTab(props: TransfersTabProps) {
   }
 
   function onFormModeChange(nextMode: FormTransferMode) {
-    if (storeKeeperTransferMode) {
-      return;
-    }
     setFormMode(nextMode);
     if (nextMode === "intra") {
       if (fromSalesPointId) {
@@ -546,8 +549,7 @@ export function TransfersTab(props: TransfersTabProps) {
   }
 
   function populateFormFromDetail(detail: TransferDetail) {
-    const intra =
-      !storeKeeperTransferMode && detail.transferMode === "INTRA_SALES_POINT";
+    const intra = detail.transferMode === "INTRA_SALES_POINT";
     setEditingId(detail.id);
     setTransferNo(detail.transferNo);
     setFormMode(intra ? "intra" : "inter");
@@ -679,6 +681,10 @@ export function TransfersTab(props: TransfersTabProps) {
               Pull a draft voucher by its number to cross-check the lines before
               dispatching.
             </p>
+          ) : receiveOnlyMode ? (
+            <p class="stock-hint">
+              Receive stock dispatched to your collection point.
+            </p>
           ) : (
             <p class="stock-hint">
               Draft a transfer, then submit it to your supervisor for dispatch.
@@ -744,8 +750,6 @@ export function TransfersTab(props: TransfersTabProps) {
               <th>Type</th>
               <th>From</th>
               <th>To</th>
-              <th>Dispatched</th>
-              <th>Received</th>
               <th class="stock-num">Total qty</th>
               <th>Status</th>
               <th class="stock-actions-col">Actions</th>
@@ -754,7 +758,7 @@ export function TransfersTab(props: TransfersTabProps) {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={9} class="stock-empty-cell">
+                <td colSpan={7} class="stock-empty-cell">
                   No transfers recorded yet.
                   {props.canDraft || props.canDirectPost ? (
                     <>
@@ -767,7 +771,7 @@ export function TransfersTab(props: TransfersTabProps) {
               </tr>
             ) : filteredRows.length === 0 ? (
               <tr>
-                <td colSpan={9} class="stock-empty-cell">
+                <td colSpan={7} class="stock-empty-cell">
                   No transfers match your search.
                 </td>
               </tr>
@@ -787,18 +791,6 @@ export function TransfersTab(props: TransfersTabProps) {
                     <td>{r.fromSalesPointName}</td>
                     <td>
                       {intra ? (r.locationSummary ?? "—") : r.toSalesPointName}
-                    </td>
-                    <td class="stock-nowrap">
-                      {r.dispatchedAtIso ? formatDate(r.dispatchedAtIso) : "—"}
-                      {r.dispatchedByName ? (
-                        <div class="stock-subtext">by {r.dispatchedByName}</div>
-                      ) : null}
-                    </td>
-                    <td class="stock-nowrap">
-                      {r.receivedAtIso ? formatDate(r.receivedAtIso) : "—"}
-                      {r.receivedByName ? (
-                        <div class="stock-subtext">by {r.receivedByName}</div>
-                      ) : null}
                     </td>
                     <td class="stock-num">{trimQty(r.totalQty)}</td>
                     <td>
@@ -924,26 +916,24 @@ export function TransfersTab(props: TransfersTabProps) {
                 </span>
               </label>
             ) : null}
-            {!storeKeeperTransferMode ? (
-              <div class="stock-form-row">
-                <span class="stock-form-label">Transfer type</span>
-                <div class="stock-form-control-wrap">
-                  <select
-                    class="stock-form-control"
-                    value={formMode}
-                    onChange={(event) =>
-                      onFormModeChange(
-                        (event.currentTarget as HTMLSelectElement)
-                          .value as FormTransferMode,
-                      )
-                    }
-                  >
-                    <option value="inter">Between collection points</option>
-                    <option value="intra">Within collection point</option>
-                  </select>
-                </div>
+            <div class="stock-form-row">
+              <span class="stock-form-label">Transfer type</span>
+              <div class="stock-form-control-wrap">
+                <select
+                  class="stock-form-control"
+                  value={formMode}
+                  onChange={(event) =>
+                    onFormModeChange(
+                      (event.currentTarget as HTMLSelectElement)
+                        .value as FormTransferMode,
+                    )
+                  }
+                >
+                  <option value="inter">Between collection points</option>
+                  <option value="intra">Within collection point</option>
+                </select>
               </div>
-            ) : null}
+            </div>
 
             {formMode === "inter" ? (
               <div class="stock-form-endpoints">
@@ -1220,6 +1210,16 @@ export function TransfersTab(props: TransfersTabProps) {
               )}
             />
 
+            {open &&
+            fromSalesPointId &&
+            asOfOnHand.length === 0 &&
+            /^\d{4}-\d{2}-\d{2}$/.test(dispatchedAt.trim().slice(0, 10)) ? (
+              <p class="stock-hint">
+                No sellable stock at the selected collection point for this date.
+                Choose another source location or check on-hand balances.
+              </p>
+            ) : null}
+
             <div class="stock-modal-actions">
               {editingId ? (
                 <button type="submit" disabled={busy} class="stock-btn-primary">
@@ -1310,16 +1310,14 @@ export function TransfersTab(props: TransfersTabProps) {
               value={reviewDetail.transferNo}
             />
 
-            {!storeKeeperTransferMode ? (
-              <ReviewReadonlyField
-                label="Transfer type"
-                value={
-                  isIntraRow(reviewDetail)
-                    ? "Within collection point"
-                    : "Between collection points"
-                }
-              />
-            ) : null}
+            <ReviewReadonlyField
+              label="Transfer type"
+              value={
+                isIntraRow(reviewDetail)
+                  ? "Within collection point"
+                  : "Between collection points"
+              }
+            />
 
             {isIntraRow(reviewDetail) ? (
               <label class="stock-form-row">

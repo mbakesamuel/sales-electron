@@ -65,6 +65,8 @@ export interface BottleOilDashboardSummary extends DashboardSummaryBase {
     invoiceCounts: DashboardInvoiceCounts;
     stockOnHand: DashboardStockOnHandRow[];
     sellableUnitsTotal: number;
+    /** DISPATCHED transfers destined for the Store Keeper's collection point. */
+    pendingReceives: number;
 }
 export interface DashboardQueueTile {
     id: "pendingSales" | "pendingStock" | "pendingConsignment";

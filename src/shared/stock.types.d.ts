@@ -185,12 +185,34 @@ export interface AdjustmentDetail extends AdjustmentListRow {
         toCondition: StockCondition | null;
     }>;
 }
-export type StockProductFilter = "bulk" | "bottled";
+export type StockProductFilter = "bulk" | "bottled" | "all";
+/** Dispatched inter-site transfers awaiting receive at the user's collection point. */
+export interface StockReceiveQueueRow {
+    id: string;
+    transferNo: string;
+    fromSalesPointId: number;
+    fromSalesPointName: string;
+    toSalesPointId: number;
+    toSalesPointName: string;
+    dispatchedAtIso: string | null;
+    totalQty: string;
+    lineCount: number;
+    createdByName: string;
+    dispatchedByName: string | null;
+}
+export interface StockReceiveQueuePage {
+    rows: StockReceiveQueueRow[];
+    storageLocations: StorageLocationOption[];
+    transferReceiveUsesDocumentDate: boolean;
+    scopedSalesPointId: number | null;
+}
 export interface StockBootstrap {
     productFilter: StockProductFilter;
     canManageReceipts: boolean;
+    canInitiateTransfers: boolean;
     canDispatchTransfers: boolean;
     canReceiveTransfers: boolean;
+    canCancelTransfers: boolean;
     canPostAdjustments: boolean;
     canReclassifyStock: boolean;
     canCancelDocuments: boolean;

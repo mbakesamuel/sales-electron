@@ -11,8 +11,12 @@ import type {
   LoadedConsignmentFormView,
   SaveConsignmentNoteInput,
   SaveConsignmentNoteResult,
+  LoadSaleForConsignmentResult,
 } from "../../shared/vehicleConsignmentNotes.types.js";
-import type { SaleDisposition } from "../../shared/sales.types.js";
+import type {
+  SaleDisposition,
+  SaleProductMode,
+} from "../../shared/sales.types.js";
 import { formatKgInTonsAndKilosWords } from "../../shared/formatKgInWords.js";
 import {
   assertRouteWrite,
@@ -201,12 +205,36 @@ function loadNoteById(noteId: string): ConsignmentNoteSnapshot | null {
   return row ? mapNoteRow(row) : null;
 }
 
+const NORMAL_BOTTLE_VCN_ERROR =
+  "Consignment notes are not allowed for normal Bottle Oil sales.";
+
+function isNormalBottleSale(
+  mode: SaleProductMode | null,
+  disposition: SaleDisposition | null,
+): boolean {
+  return (
+    mode === "BOTTLE" && (disposition == null || disposition === "NORMAL")
+  );
+}
+
+function parseSaleProductMode(value: unknown): SaleProductMode | null {
+  return value === "BOTTLE" || value === "LOOSE" ? value : null;
+}
+
+function parseSaleDisposition(value: unknown): SaleDisposition | null {
+  return value === "NORMAL" ||
+    value === "RATION" ||
+    value === "PUBLIC_RELATION"
+    ? value
+    : null;
+}
+
 function loadSaleSnapshot(saleId: string): ConsignmentSaleSnapshot | null {
   const sale = getDatabase()
     .prepare(
       `SELECT s.id, s.invoiceNo, s.status, s.vehicleNumber, s.soldAt,
               s.deliveryOrderNo, s.customerNameSnapshot, s.customerId,
-              s.saleDisposition,
+              s.saleProductMode, s.saleDisposition,
               sp.name AS salesPointName,
               c.address AS customerAddress
        FROM Sale s
@@ -221,15 +249,13 @@ function loadSaleSnapshot(saleId: string): ConsignmentSaleSnapshot | null {
   }
 
   const saleIdStr = String(sale.id);
-  const disposition = sale.saleDisposition
-    ? (String(sale.saleDisposition) as SaleDisposition)
-    : null;
 
   return {
     id: saleIdStr,
     invoiceNo: String(sale.invoiceNo),
     status: String(sale.status) as ConsignmentNoteStatus,
-    saleDisposition: disposition,
+    saleProductMode: parseSaleProductMode(sale.saleProductMode),
+    saleDisposition: parseSaleDisposition(sale.saleDisposition),
     salesPointName: sale.salesPointName ? String(sale.salesPointName) : null,
     customerName: String(sale.customerNameSnapshot),
     customerAddress: sale.customerAddress ? String(sale.customerAddress) : null,
@@ -255,10 +281,10 @@ function buildFormView(saleId: string): LoadedConsignmentFormView | null {
 
 export function loadSaleForConsignmentByInvoice(
   invoiceNo: string,
-): LoadedConsignmentFormView | null {
+): LoadSaleForConsignmentResult {
   const trimmed = invoiceNo.trim();
   if (!trimmed) {
-    return null;
+    return { ok: false, error: "No sale matches that invoice number." };
   }
 
   const sale = getDatabase()
@@ -266,10 +292,21 @@ export function loadSaleForConsignmentByInvoice(
     .get(trimmed) as { id: string } | undefined;
 
   if (!sale) {
-    return null;
+    return { ok: false, error: "No sale matches that invoice number." };
   }
 
-  return buildFormView(String(sale.id));
+  const view = buildFormView(String(sale.id));
+  if (!view) {
+    return { ok: false, error: "No sale matches that invoice number." };
+  }
+
+  if (
+    isNormalBottleSale(view.sale.saleProductMode, view.sale.saleDisposition)
+  ) {
+    return { ok: false, error: NORMAL_BOTTLE_VCN_ERROR };
+  }
+
+  return { ok: true, data: view };
 }
 
 export function loadConsignmentByVcnNo(
@@ -342,6 +379,10 @@ export function saveConsignmentNote(
       ok: false,
       error: "Validate the sale before saving a consignment note.",
     };
+  }
+
+  if (isNormalBottleSale(sale.saleProductMode, sale.saleDisposition)) {
+    return { ok: false, error: NORMAL_BOTTLE_VCN_ERROR };
   }
 
   const checks = [

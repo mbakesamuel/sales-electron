@@ -43,6 +43,8 @@ interface ReceiptsTabProps {
   canDirectPost: boolean;
   autoGenerateReceiptNo: boolean;
   userId: string;
+  /** Global Stock view filter; locks the bottled checkbox when Loose or Bottled. */
+  viewProductFilter?: StockProductFilter;
   onOk: (text: string) => void;
   onErr: (text: string) => void;
 }
@@ -57,10 +59,13 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
     scopedSalesPointId,
     userId,
     autoGenerateReceiptNo,
+    viewProductFilter = "all",
   } = props;
+  const bottledLocked = viewProductFilter === "bulk" || viewProductFilter === "bottled";
+  const lockedBottled = viewProductFilter === "bottled";
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [bottledProducts, setBottledProducts] = useState(false);
+  const [bottledProducts, setBottledProducts] = useState(lockedBottled);
   const [receiptNo, setReceiptNo] = useState("");
   const [salesPointId, setSalesPointId] = useState<string>(
     scopedSalesPointId != null ? String(scopedSalesPointId) : "",
@@ -136,7 +141,8 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
 
   function resetForm() {
     setEditingId(null);
-    setBottledProducts(false);
+    const nextBottled = bottledLocked ? lockedBottled : false;
+    setBottledProducts(nextBottled);
     setReceiptNo("");
     const sp = scopedSalesPointId != null ? String(scopedSalesPointId) : "";
     setSalesPointId(sp);
@@ -147,7 +153,11 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
       {
         productId: "",
         qty: "",
-        storageLocationId: defaultReceiptLocationId(storageLocations, sp, false),
+        storageLocationId: defaultReceiptLocationId(
+          storageLocations,
+          sp,
+          nextBottled,
+        ),
       },
     ]);
   }
@@ -192,6 +202,13 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
       }),
     );
   }
+
+  useEffect(() => {
+    if (!bottledLocked) {
+      return;
+    }
+    onBottledProductsChange(lockedBottled);
+  }, [bottledLocked, lockedBottled]);
 
   function onSalesPointChange(nextId: string) {
     setSalesPointId(nextId);
@@ -781,6 +798,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
                   <input
                     type="checkbox"
                     checked={bottledProducts}
+                    disabled={bottledLocked}
                     onChange={(event) =>
                       onBottledProductsChange(
                         (event.currentTarget as HTMLInputElement).checked,
@@ -790,9 +808,13 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
                   Bottled products
                 </label>
                 <span class="stock-form-hint">
-                  {bottledProducts
-                    ? "Line products are limited to bottled items."
-                    : "Line products are limited to other (non-bottled) items."}
+                  {bottledLocked
+                    ? viewProductFilter === "bottled"
+                      ? "Locked to bottled by the Stock product view."
+                      : "Locked to loose products by the Stock product view."
+                    : bottledProducts
+                      ? "Line products are limited to bottled items."
+                      : "Line products are limited to other (non-bottled) items."}
                 </span>
               </span>
             </label>

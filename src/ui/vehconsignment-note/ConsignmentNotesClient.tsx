@@ -146,17 +146,20 @@ export function ConsignmentNotesClient({
     setBusy("inv");
     setBanner(null);
     try {
-      const data =
+      const result =
         await api.vehicleConsignmentNotes.loadSaleByInvoice(invoiceLookup);
-      if (!data) {
+      if (!result.ok) {
         setBanner({
           type: "error",
-          text: "No sale matches that invoice number.",
+          text: result.error,
         });
         return;
       }
-      applyLoaded(data);
-      setBanner({ type: "ok", text: `Loaded sale ${data.sale.invoiceNo}.` });
+      applyLoaded(result.data);
+      setBanner({
+        type: "ok",
+        text: `Loaded sale ${result.data.sale.invoiceNo}.`,
+      });
     } catch (error) {
       setBanner({
         type: "error",

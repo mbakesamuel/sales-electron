@@ -18,6 +18,7 @@ export declare function getAuthenticatedReports(): {
     getIndustryProductMonthlySales: () => Promise<import("../../shared/reports.types.ts").IndustryProductMonthlySalesReport>;
     getBottledPalmOilSalesReturn: () => Promise<import("../../shared/reports.types.ts").BottledPalmOilSalesReturnReport>;
     getOtherProductSalesDeliveries: () => Promise<import("../../shared/reports.types.ts").OtherProductSalesDeliveriesReport>;
+    getMonthlyBottledOil: () => Promise<import("../../shared/reports.types.ts").MonthlyBottledOilReport>;
     getRevenueTaxes: (period?: import("../../shared/reports.types.ts").RevenueTaxesPeriod, salesPointId?: number | null) => Promise<import("../../shared/reports.types.ts").RevenueTaxesReport>;
     getSalesBudgetMonthlyCrosstab: (reportYear?: number) => Promise<import("../../shared/reports.types.ts").SalesBudgetMonthlyCrosstabReport>;
     getSalesBudgetWeeklyCrosstab: (reportYear?: number) => Promise<import("../../shared/reports.types.ts").SalesBudgetWeeklyCrosstabReport>;

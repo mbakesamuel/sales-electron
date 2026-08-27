@@ -36,6 +36,7 @@ Sidebar section: **Reports**, grouped as **Daily**, **Weekly**, and **Monthly**.
 | **Revenue & taxes** | Validated invoice **net**, **VAT**, **sales tax**, and **gross** for the open month or FY to date (optional sales point); by day/month and by sales point. |
 | **Industry product monthly sales** | Full-year **Industry** sales by sales point for each non-LPO / non-bottled product (tons and '000 FRS); Jan–Jul and Aug–Dec + TODATE. |
 | **Bottled palm oil sales return** | Open-month bottled B/F (carry-forward), receptions by supplier, Cash Sales / GM's Public Relations issues, and balance by pack (qty, kg, value without taxes). |
+| **Bottled Oil monthly** | Open-month Bottle Oil **Ration** and **Public relation** sales by invoice: date, customer, address, pack qty (1x20L / 3x5L / 1x15L), received by, amount, VEH. C. NO (consignment note). |
 | **Other product sales and deliveries** | Open-month non-LPO / non-bottled sales by sales point and product; DELIVERIES kg + F.CFA (tax excluded); PAYMENTS blank. |
 | Budget monthly/weekly crosstabs | See [Sales budgets](07-sales-budgets.md). |
 
@@ -105,6 +106,12 @@ If a PKO sale is “missing”, open the correct week and scroll to section 3 �
 - **Open month** only (through as-at).
 - Opening B/F (prior balance + in-month carry-forward), receptions by supplier, **Cash Sales** and **GM's Public Relations** issues, closing balance.
 - Pack columns (20L, 3×5L, 1×15L) in units, kg (0 dp), and value without taxes.
+
+## Bottled Oil monthly
+
+- Open-month **validated** Bottle Oil **Ration** and **Public relation** sales only.
+- One row per invoice: date, customer, address, pack qty (1x20L / 3x5L / 1x15L), received by, amount (gross), VEH. C. NO (consignment note when present).
+- Usual report header and signatory footer; print / CSV / comments.
 
 ## Other product sales and deliveries
 

@@ -24,7 +24,7 @@ release/Sales Management Application-Setup-{version}-win-x64.exe
 On the user PC:
 Prefer: quit the app, then run the new Setup (same options / overwrite).
 Or: uninstall without deleting user data (if the uninstaller asks), then install the new build.
-Launch once — migrations for anything new (e.g. 085_…, VCN layout code) apply; sales/stock stay.
+Launch once — migrations for anything new (e.g. `086_supervisor_overview.sql`, VCN layout) apply; sales/stock stay.
 Do not run db:reset, delete sales.db, or copy a fresh DB over production.
 
 Optional but wise before major releases: copy %APPDATA%\sales-electron\ (with the app closed, or use a proper SQLite backup) so you can roll back if a migration fails.

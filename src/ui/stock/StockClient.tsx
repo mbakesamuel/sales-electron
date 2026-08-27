@@ -4,6 +4,7 @@ import {
   getVisibleStockTabsForVariant,
   isStockTabReadOnlyForVariant,
   type StockModuleVariant,
+  type StockProductFilter,
   type StockTabId,
 } from "../../shared/stockModule.ts";
 import type { AuthUser } from "../auth/session.ts";
@@ -43,11 +44,23 @@ const TAB_DEFINITIONS: {
   { id: "adjustments", stockTabId: "adjustments", label: "Adjustments" },
 ];
 
+const PRODUCT_VIEW_OPTIONS: ReadonlyArray<{
+  id: StockProductFilter;
+  label: string;
+}> = [
+  { id: "bulk", label: "Loose" },
+  { id: "bottled", label: "Bottled" },
+  { id: "all", label: "All" },
+];
+
 interface StockClientProps {
   bootstrap: StockBootstrap;
   user: AuthUser;
   permissions: RolePermissionsSnapshot;
   variant: StockModuleVariant;
+  viewFilter: StockProductFilter;
+  showProductToggle: boolean;
+  onViewFilterChange: (next: StockProductFilter) => void;
   onRefresh: () => void | Promise<void>;
 }
 
@@ -56,9 +69,12 @@ export function StockClient({
   user,
   permissions,
   variant,
+  viewFilter,
+  showProductToggle,
+  onViewFilterChange,
   onRefresh,
 }: StockClientProps) {
-  const productFilter = variant;
+  const productFilter = viewFilter;
   const visibleTabs = useMemo((): VisibleTab[] => {
     const allowedStockTabs = getVisibleStockTabsForVariant(permissions, variant);
 
@@ -128,11 +144,15 @@ export function StockClient({
   const title =
     variant === "bottled"
       ? "Stock Management - Bottled Products"
-      : "Stock Management - Loose Products/Others";
+      : variant === "all"
+        ? "Stock Management"
+        : "Stock Management - Loose Products/Others";
   const subtitle =
     variant === "bottled"
       ? "Bin card ledger, transfers, and adjustments for bottled products."
-      : "On-hand quantities, receipts, transfers and adjustments as reported by Production.";
+      : variant === "all"
+        ? "On-hand quantities, receipts, transfers, and adjustments for loose and bottled products."
+        : "On-hand quantities, receipts, transfers and adjustments as reported by Production.";
 
   return (
     <div class="stock-screen">
@@ -142,6 +162,34 @@ export function StockClient({
           <p class="stock-header-subtitle">{subtitle}</p>
         </div>
       </header>
+
+      {showProductToggle ? (
+        <div
+          class="stock-product-toggle"
+          role="group"
+          aria-label="Product view"
+        >
+          {PRODUCT_VIEW_OPTIONS.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              class={`stock-product-toggle-btn${
+                viewFilter === option.id ? " is-active" : ""
+              }`}
+              aria-pressed={viewFilter === option.id}
+              onClick={() => {
+                if (viewFilter === option.id) {
+                  return;
+                }
+                setBanner(null);
+                onViewFilterChange(option.id);
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {banner ? (
         <div class={`stock-banner stock-banner-${banner.type}`}>
@@ -205,6 +253,7 @@ export function StockClient({
             canDirectPost={!tabReadOnly && bootstrap.canDirectPostReceipts}
             autoGenerateReceiptNo={bootstrap.autoGenerateReceiptNo}
             userId={user.id}
+            viewProductFilter={productFilter}
             onOk={announceOk}
             onErr={announceErr}
           />
@@ -219,8 +268,12 @@ export function StockClient({
             onHand={bootstrap.onHand}
             scopedSalesPointId={bootstrap.scopedSalesPointId}
             canDispatch={!tabReadOnly && bootstrap.canDispatchTransfers}
-            canReceive={!tabReadOnly && bootstrap.canReceiveTransfers}
-            canCancel={!tabReadOnly && bootstrap.canCancelDocuments}
+            canReceive={
+              !tabReadOnly &&
+              variant === "bottled" &&
+              bootstrap.canReceiveTransfers
+            }
+            canCancel={!tabReadOnly && bootstrap.canCancelTransfers}
             canDraft={!tabReadOnly && bootstrap.canDraftTransfers}
             canDirectPost={!tabReadOnly && bootstrap.canDirectPostTransfers}
             autoGenerateTransferNo={bootstrap.autoGenerateTransferNo}
@@ -228,7 +281,6 @@ export function StockClient({
               bootstrap.transferReceiveUsesDocumentDate
             }
             userId={user.id}
-            userRole={user.role}
             productFilter={productFilter}
             onOk={announceOk}
             onErr={announceErr}

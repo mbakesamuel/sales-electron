@@ -126,6 +126,16 @@ File: `bottledPalmOilSalesReturnReport.ts`
 - Open month through as-at; B/F = prior sellable bottled + in-month `CARRY_FORWARD`; receptions by `supplierLabel`; Cash Sales (`NORMAL`) vs GM's Public Relations (`PUBLIC_RELATION`); RATION omitted; packs 20L / 3×5L / 1×15L.
 - UI: `BottledPalmOilSalesReturnScreen.tsx` — spreadsheet layout; A4 portrait print / CSV / comments.
 
+## Bottled Oil monthly
+
+File: `monthlyBottledOilReport.ts`
+
+- IPC: `reports:getMonthlyBottledOil`.
+- Route: `monthly-bottled-oil-report` (Reports → Monthly).
+- Permissions seeded in migration `087_monthly_bottled_oil_report_permissions.sql`.
+- Open month through as-at; validated Bottle Oil **Ration** / **Public relation** only; one row per sale with pack qty (1x20L / 3x5L / 1x15L via `detectBottledPack`), gross amount, customer address, VCN `consignmentNoteNo` + receiver name (left join).
+- UI: `MonthlyBottledOilReportScreen.tsx` — sample-style table; usual `ReportHeader` / `ReportFooter`; print / CSV / comments.
+
 ## Other product sales and deliveries
 
 File: `otherProductSalesDeliveriesReport.ts`
@@ -163,6 +173,7 @@ Not a sidebar report route — opened from **Bin card** with filter query.
 | `revenueTaxesReport.ts` | Revenue & taxes (validated net / VAT / sales tax / gross) |
 | `industryProductMonthlySalesReport.ts` | Industry product monthly sales (FY SP × month tons/'000 FRS) |
 | `bottledPalmOilSalesReturnReport.ts` | Bottled palm oil sales return (open-month B/F / reception / issues / balance) |
+| `monthlyBottledOilReport.ts` | Bottled Oil monthly (Ration/PR invoice rows + packs + VCN) |
 | `otherProductSalesDeliveriesReport.ts` | Other product sales and deliveries (SP × product, deliveries only) |
 | `salesBudgetMonthlyCrosstab.ts` / `Weekly` | Budget crosstabs |
 | `binCard.ts` (stock) | Bin card printable ledger (parameterized report window) |

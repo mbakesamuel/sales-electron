@@ -117,6 +117,12 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
     table: "StockBalance",
   },
   {
+    id: "receive-transfers",
+    label: "Receive transfers",
+    sectionId: "inventory",
+    table: "StockTransfer",
+  },
+  {
     id: "stock-validation",
     label: "Stock validation",
     sectionId: "inventory",
@@ -217,6 +223,11 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
   {
     id: "bottled-palm-oil-sales-return-report",
     label: "Bottled palm oil sales return",
+    sectionId: "reports",
+  },
+  {
+    id: "monthly-bottled-oil-report",
+    label: "Bottled Oil monthly",
     sectionId: "reports",
   },
   {

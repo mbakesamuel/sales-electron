@@ -55,7 +55,7 @@ export function SalesLineModal({
   salesPointId,
   preferredStorageLocationId = "",
   isBottleMode,
-  isSpecialDisposition,
+  isSpecialDisposition: _isSpecialDisposition,
   useRegisteredCustomer,
   customerId,
   transactionDate,
@@ -93,8 +93,7 @@ export function SalesLineModal({
         : "Enter the loose product, location, and weight.";
 
   const allowAutoUnitPrice =
-    !isSpecialDisposition &&
-    (isBottleMode || (useRegisteredCustomer && customerId.trim().length > 0));
+    isBottleMode || (useRegisteredCustomer && customerId.trim().length > 0);
 
   useEffect(() => {
     setDraft(line);
@@ -303,7 +302,7 @@ export function SalesLineModal({
   const unitPrice = parseDecimal(
     isBottleMode ? draft.unitPricePerUnit : draft.unitPricePerKg,
   );
-  const subtotal = isSpecialDisposition ? 0 : Math.round(quantity * unitPrice);
+  const subtotal = Math.round(quantity * unitPrice);
 
   function updateDraft(values: Partial<SalesLineDraft>) {
     setDraft((current) => ({ ...current, ...values }));
@@ -363,12 +362,12 @@ export function SalesLineModal({
       }
     }
 
-    if (!isSpecialDisposition && unitPrice < 0) {
+    if (unitPrice < 0) {
       setError("Unit price cannot be negative.");
       return;
     }
 
-    if (!isSpecialDisposition && priceError) {
+    if (priceError) {
       setError(priceError);
       return;
     }
@@ -506,13 +505,8 @@ export function SalesLineModal({
             min="0"
             step="1"
             value={
-              isSpecialDisposition
-                ? "0"
-                : isBottleMode
-                  ? draft.unitPricePerUnit
-                  : draft.unitPricePerKg
+              isBottleMode ? draft.unitPricePerUnit : draft.unitPricePerKg
             }
-            disabled={isSpecialDisposition}
             onInput={(event) => {
               const value = (event.currentTarget as HTMLInputElement).value;
               setPriceError(null);

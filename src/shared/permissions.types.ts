@@ -12,6 +12,7 @@ export const PERMISSION_ACTIONS = [
   "post_stock_receipts",
   "draft_stock_transfers",
   "post_stock_transfers",
+  "receive_stock_transfers",
   "draft_stock_adjustments",
   "post_stock_adjustments",
   "direct_post_stock_receipts",

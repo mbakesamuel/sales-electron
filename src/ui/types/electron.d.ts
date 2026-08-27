@@ -6,6 +6,7 @@ import type {
   ConsignmentMutationResult,
   ConsignmentPrintPayload,
   LoadedConsignmentFormView,
+  LoadSaleForConsignmentResult,
   SaveConsignmentNoteInput,
   SaveConsignmentNoteResult,
 } from "../../shared/vehicleConsignmentNotes.types.ts";
@@ -31,6 +32,7 @@ import type {
   IndustryProductMonthlySalesReport,
   BottledPalmOilSalesReturnReport,
   OtherProductSalesDeliveriesReport,
+  MonthlyBottledOilReport,
   RevenueTaxesPeriod,
   RevenueTaxesReport,
   SalesBudgetMonthlyCrosstabReport,
@@ -201,6 +203,7 @@ interface ReportsApi {
   getOtherProductSalesDeliveries(
     authToken: string,
   ): Promise<OtherProductSalesDeliveriesReport>;
+  getMonthlyBottledOil(authToken: string): Promise<MonthlyBottledOilReport>;
   getRevenueTaxes(
     authToken: string,
     period?: RevenueTaxesPeriod,
@@ -267,7 +270,7 @@ interface FinancialYearsApi {
 }
 
 interface VehicleConsignmentNotesApi {
-  loadSaleByInvoice(invoiceNo: string): Promise<LoadedConsignmentFormView | null>;
+  loadSaleByInvoice(invoiceNo: string): Promise<LoadSaleForConsignmentResult>;
   loadByVcnNo(vcnNo: string): Promise<LoadedConsignmentFormView | null>;
   save(input: SaveConsignmentNoteInput): Promise<SaveConsignmentNoteResult>;
   delete(payload: { id: string; userId: string }): Promise<ConsignmentMutationResult>;

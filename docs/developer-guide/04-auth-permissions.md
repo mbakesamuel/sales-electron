@@ -32,9 +32,11 @@ Defaults: [`src/electron/auth/permissions/defaults.ts`](../../src/electron/auth/
 | Key | Use |
 |-----|-----|
 | `validate_sales` | Validate invoices |
+| `direct_validate_sales` | Create + validate sale in one step |
 | `validate_delivery_orders` | Validate DOs (including Validation queue bulk validate) |
 | `cancel_validated_delivery_order` | Cancel validated DO |
 | `transfer_delivery_order_balance` | Transfer remaining DO balance to another sales point |
+| `validate_vehicle_consignment_notes` | Validate vehicle consignment notes |
 | `manage_permissions` | Edit matrix |
 | `draft_stock_receipts` | Create / edit / delete draft receipts |
 | `post_stock_receipts` | Post receipts and cancel posted receipts |
@@ -43,7 +45,9 @@ Defaults: [`src/electron/auth/permissions/defaults.ts`](../../src/electron/auth/
 | `draft_stock_adjustments` | Create / edit / delete draft adjustments |
 | `post_stock_adjustments` | Post adjustments (including reclassify) and cancel posted adjustments |
 
-UI screens check route access for navigation; mutation handlers should also enforce actions where relevant. New report routes need route-permission seeds so roles can open them — recent examples: `monthly-palm-oil-sales-report`, `revenue-taxes-report`, `industry-product-monthly-sales-report`, `bottled-palm-oil-sales-return-report`, `other-product-sales-deliveries-report`, `stock-bin-card` / `stock-bin-card-report` (migrations `046`–`051`). DO tracking and transfer routes: `delivery-order-tracking`, `delivery-order-transfer` (`044`–`045`).
+UI screens check route access for navigation; mutation handlers should also enforce actions where relevant. New report routes need route-permission seeds so roles can open them — recent examples: `monthly-palm-oil-sales-report`, `revenue-taxes-report`, `industry-product-monthly-sales-report`, `bottled-palm-oil-sales-return-report`, `other-product-sales-deliveries-report`, `stock-bin-card` / `stock-bin-card-report` (migrations `046`–`051`). DO tracking and transfer routes: `delivery-order-tracking`, `delivery-order-transfer` (`044`–`045`). Vehicle consignment: `vehicle-consignment-notes` / `vehicle-consignment-validation` + `validate_vehicle_consignment_notes` (`084`–`086`).
+
+Supervisor Overview roles: `SENIOR_SALES_SUPERVISOR` and custom `JNR_SALES_SUP` via `isSupervisorOverviewRole()` in `src/shared/roles.ts`. Store Keeper Overview: `isStoreKeeperRole()`.
 
 Stock document buttons require route **write** on `stock-receipts` / `stock-transfers` / `stock-adjustments` **and** the matching draft or post action (see `getStockBootstrap` in [`src/electron/stock/service.ts`](../../src/electron/stock/service.ts)).
 

@@ -14,7 +14,6 @@ interface TransfersTabProps {
     autoGenerateTransferNo: boolean;
     transferReceiveUsesDocumentDate: boolean;
     userId: string;
-    userRole: string;
     productFilter: StockProductFilter;
     onOk: (text: string) => void;
     onErr: (text: string) => void;

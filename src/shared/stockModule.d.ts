@@ -6,8 +6,12 @@ export declare const STOCK_MODULE_ROUTE_IDS: readonly ["stock-balance", "stock-m
 export declare const STOCK_MODULE_ROUTE_ID = "stock";
 /** Single gate for the bottled stock management environment. */
 export declare const BOTTLED_STOCK_ROUTE_ID = "bottled-stock";
-export type StockProductFilter = "bulk" | "bottled";
+export type StockProductFilter = "bulk" | "bottled" | "all";
 export type StockModuleVariant = StockProductFilter;
+/** Document-level filter after resolving unified UI (bulk or bottled only). */
+export type DocumentStockProductFilter = "bulk" | "bottled";
+export declare function isAllProductFilter(filter: StockProductFilter): boolean;
+export declare function inferDocumentProductFilter(isBottledFlags: readonly number[]): DocumentStockProductFilter;
 export type StockTabId = "balance" | "movements" | "receipts" | "transfers" | "adjustments";
 export declare const STOCK_TAB_DEFINITIONS: ReadonlyArray<{
     id: StockTabId;
@@ -21,6 +25,7 @@ export declare function canAccessStockModule(snapshot: RolePermissionsSnapshot):
 export declare function getStockModuleAccess(snapshot: RolePermissionsSnapshot): RouteAccess;
 export declare function canAccessBottledStockModule(snapshot: RolePermissionsSnapshot): boolean;
 export declare function getBottledStockModuleAccess(snapshot: RolePermissionsSnapshot): RouteAccess;
+export declare function hasUnifiedStockBottledCapability(snapshot: RolePermissionsSnapshot): boolean;
 export declare function canAccessStockTab(snapshot: RolePermissionsSnapshot, _tabId: StockTabId): boolean;
 export declare function isStockTabReadOnly(snapshot: RolePermissionsSnapshot, _tabId: StockTabId): boolean;
 /** Bulk and bottled environments are each gated by a single module route. */
@@ -29,6 +34,8 @@ export declare function isStockTabReadOnlyForVariant(snapshot: RolePermissionsSn
 export declare function getVisibleStockTabs(snapshot: RolePermissionsSnapshot): StockTabId[];
 export declare function getVisibleStockTabsForVariant(snapshot: RolePermissionsSnapshot, variant: StockModuleVariant): StockTabId[];
 export declare function normalizeStockProductFilter(value: unknown): StockProductFilter;
-/** Bottled-only users (e.g. Store Keeper) use bottled stock; everyone else defaults to bulk. */
-export declare function resolveStockProductFilterFromAccess(bulkAccess: RouteAccess, bottledAccess: RouteAccess, requested?: StockProductFilter | null): StockProductFilter;
+/** Main Stock screen variant: unified when the role can write the stock module. */
+export declare function resolveStockModuleVariant(snapshot: RolePermissionsSnapshot, routeVariant: "bulk" | "bottled"): StockModuleVariant;
+/** Bottled-only users (e.g. Store Keeper) use bottled stock; stock writers use unified all on Stock route. */
+export declare function resolveStockProductFilterFromAccess(bulkAccess: RouteAccess, bottledAccess: RouteAccess, requested?: StockProductFilter | null, bottledCapabilityAccess?: RouteAccess | null): StockProductFilter;
 export declare function resolveStockProductFilterFromSnapshot(snapshot: RolePermissionsSnapshot, requested?: StockProductFilter | null): StockProductFilter;
