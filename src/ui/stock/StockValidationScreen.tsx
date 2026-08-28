@@ -3,6 +3,7 @@ import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type {
   AdjustmentDetail,
   ReceiptDetail,
+  StockProductFilter,
   StockValidationDocKind,
   StockValidationQueuePage,
   StockValidationQueueRow,
@@ -10,12 +11,13 @@ import type {
 } from "../../shared/stock.types.ts";
 import type { AuthUser } from "../auth/session.ts";
 import { getElectronApi } from "../auth/client.ts";
-import { DocDialog, ReviewKeyValue, ReviewLineTable } from "./StockDialogs.tsx";
+import { DocDialog, ReviewKeyValue, ReviewLineTable, type StockDialogMessage } from "./StockDialogs.tsx";
 import { trimQty } from "./stockUtils.ts";
 import "./StockScreen.css";
 
 interface StockValidationScreenProps {
   user: AuthUser;
+  canValidate: boolean;
 }
 
 type ReviewState =
@@ -40,8 +42,10 @@ function kindLabel(kind: StockValidationDocKind): string {
   }
 }
 
-function moduleLabel(filter: "bulk" | "bottled"): string {
-  return filter === "bottled" ? "Bottled" : "Bulk";
+function moduleLabel(filter: StockProductFilter): string {
+  if (filter === "bottled") return "Bottled";
+  if (filter === "all") return "All";
+  return "Bulk";
 }
 
 function actionLabel(row: StockValidationQueueRow): string {
@@ -51,16 +55,31 @@ function actionLabel(row: StockValidationQueueRow): string {
   return "Post";
 }
 
-export function StockValidationScreen({ user }: StockValidationScreenProps) {
+export function StockValidationScreen({ user, canValidate }: StockValidationScreenProps) {
   const [page, setPage] = useState<StockValidationQueuePage | null>(null);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
   const [reviewBusy, setReviewBusy] = useState(false);
   const [review, setReview] = useState<ReviewState | null>(null);
-  const [message, setMessage] = useState<{
-    type: "ok" | "error";
-    text: string;
-  } | null>(null);
+  const [screenMessage, setScreenMessage] = useState<StockDialogMessage>(null);
+  const [reviewMessage, setReviewMessage] = useState<StockDialogMessage>(null);
+
+  function showScreenErr(text: string) {
+    setScreenMessage({ type: "error", text });
+  }
+
+  function showScreenOk(text: string) {
+    setScreenMessage({ type: "ok", text });
+  }
+
+  function showReviewErr(text: string) {
+    setReviewMessage({ type: "error", text });
+  }
+
+  function closeReviewModal() {
+    setReviewMessage(null);
+    setReview(null);
+  }
 
   async function refresh() {
     setPage(await getElectronApi().stock.listValidationQueue(user.id));
@@ -68,13 +87,11 @@ export function StockValidationScreen({ user }: StockValidationScreenProps) {
 
   useEffect(() => {
     void refresh().catch((error) => {
-      setMessage({
-        type: "error",
-        text:
-          error instanceof Error
-            ? error.message
-            : "Could not load stock validation queue.",
-      });
+      showScreenErr(
+        error instanceof Error
+          ? error.message
+          : "Could not load stock validation queue.",
+      );
     });
   }, [user.id]);
 
@@ -88,21 +105,35 @@ export function StockValidationScreen({ user }: StockValidationScreenProps) {
 
   async function validateItems(
     items: Array<{ kind: StockValidationDocKind; id: string }>,
+    fromReview = false,
   ) {
     if (items.length === 0) {
-      setMessage({ type: "error", text: "Select at least one document." });
+      const text = "Select at least one document.";
+      if (fromReview) {
+        showReviewErr(text);
+      } else {
+        showScreenErr(text);
+      }
       return;
     }
 
     setBusy(true);
-    setMessage(null);
+    if (fromReview) {
+      setReviewMessage(null);
+    } else {
+      setScreenMessage(null);
+    }
     try {
       const result = await getElectronApi().stock.validateMany({
         userId: user.id,
         items,
       });
       if (result.ok === false) {
-        setMessage({ type: "error", text: result.error });
+        if (fromReview) {
+          showReviewErr(result.error);
+        } else {
+          showScreenErr(result.error);
+        }
         return;
       }
       const errorText =
@@ -111,18 +142,26 @@ export function StockValidationScreen({ user }: StockValidationScreenProps) {
               result.errors[0] ? `: ${result.errors[0].error}` : ""
             }`
           : "";
-      setMessage({
-        type: "ok",
-        text: `Validated ${result.validated} document(s)${errorText}.`,
-      });
+      if (fromReview && result.errors.length > 0) {
+        showReviewErr(
+          result.errors[0]?.error ??
+            `${result.errors.length} document(s) could not be validated.`,
+        );
+        await refresh();
+        return;
+      }
+      showScreenOk(`Validated ${result.validated} document(s)${errorText}.`);
       setSelected({});
-      setReview(null);
+      closeReviewModal();
       await refresh();
     } catch (error) {
-      setMessage({
-        type: "error",
-        text: error instanceof Error ? error.message : "Validation failed.",
-      });
+      const text =
+        error instanceof Error ? error.message : "Validation failed.";
+      if (fromReview) {
+        showReviewErr(text);
+      } else {
+        showScreenErr(text);
+      }
     } finally {
       setBusy(false);
     }
@@ -130,7 +169,7 @@ export function StockValidationScreen({ user }: StockValidationScreenProps) {
 
   async function openReview(row: StockValidationQueueRow) {
     setReviewBusy(true);
-    setMessage(null);
+    setScreenMessage(null);
     try {
       if (row.kind === "RECEIPT") {
         const res = await getElectronApi().stock.loadReceiptForReview({
@@ -138,9 +177,10 @@ export function StockValidationScreen({ user }: StockValidationScreenProps) {
           receiptId: row.id,
         });
         if (res.ok === false) {
-          setMessage({ type: "error", text: res.error });
+          showScreenErr(res.error);
           return;
         }
+        setReviewMessage(null);
         setReview({ kind: "RECEIPT", detail: res.detail });
         return;
       }
@@ -150,9 +190,10 @@ export function StockValidationScreen({ user }: StockValidationScreenProps) {
           transferId: row.id,
         });
         if (res.ok === false) {
-          setMessage({ type: "error", text: res.error });
+          showScreenErr(res.error);
           return;
         }
+        setReviewMessage(null);
         setReview({ kind: "TRANSFER", detail: res.detail });
         return;
       }
@@ -161,9 +202,10 @@ export function StockValidationScreen({ user }: StockValidationScreenProps) {
         adjustmentId: row.id,
       });
       if (res.ok === false) {
-        setMessage({ type: "error", text: res.error });
+        showScreenErr(res.error);
         return;
       }
+      setReviewMessage(null);
       setReview({ kind: "ADJUSTMENT", detail: res.detail });
     } finally {
       setReviewBusy(false);
@@ -192,6 +234,7 @@ export function StockValidationScreen({ user }: StockValidationScreenProps) {
           <p class="stock-header-subtitle">
             Draft receipts, transfers, and adjustments awaiting validation.
             {page ? ` ${page.totalPending} pending.` : ""}
+            {!canValidate ? " View only — you cannot post documents." : ""}
           </p>
         </div>
         <div class="stock-header-actions">
@@ -203,26 +246,28 @@ export function StockValidationScreen({ user }: StockValidationScreenProps) {
           >
             Refresh
           </button>
-          <button
-            type="button"
-            class="stock-btn-primary"
-            disabled={busy || selectedItems.length === 0}
-            onClick={() =>
-              void validateItems(
-                selectedItems.map((row) => ({ kind: row.kind, id: row.id })),
-              )
-            }
-          >
-            {busy
-              ? "Validating…"
-              : `Validate selected (${selectedItems.length})`}
-          </button>
+          {canValidate ? (
+            <button
+              type="button"
+              class="stock-btn-primary"
+              disabled={busy || selectedItems.length === 0}
+              onClick={() =>
+                void validateItems(
+                  selectedItems.map((row) => ({ kind: row.kind, id: row.id })),
+                )
+              }
+            >
+              {busy
+                ? "Validating…"
+                : `Validate selected (${selectedItems.length})`}
+            </button>
+          ) : null}
         </div>
       </header>
 
-      {message ? (
-        <div class={`stock-banner stock-banner-${message.type}`}>
-          {message.text}
+      {screenMessage ? (
+        <div class={`stock-banner stock-banner-${screenMessage.type}`}>
+          {screenMessage.text}
         </div>
       ) : null}
 
@@ -234,24 +279,26 @@ export function StockValidationScreen({ user }: StockValidationScreenProps) {
             <thead>
               <tr>
                 <th>
-                  <input
-                    type="checkbox"
-                    checked={allChecked}
-                    aria-label="Select all"
-                    onChange={(event) => {
-                      const checked = (
-                        event.currentTarget as HTMLInputElement
-                      ).checked;
-                      if (!page) return;
-                      const next: Record<string, boolean> = {};
-                      if (checked) {
-                        for (const row of page.rows) {
-                          next[rowKey(row)] = true;
+                  {canValidate ? (
+                    <input
+                      type="checkbox"
+                      checked={allChecked}
+                      aria-label="Select all"
+                      onChange={(event) => {
+                        const checked = (
+                          event.currentTarget as HTMLInputElement
+                        ).checked;
+                        if (!page) return;
+                        const next: Record<string, boolean> = {};
+                        if (checked) {
+                          for (const row of page.rows) {
+                            next[rowKey(row)] = true;
+                          }
                         }
-                      }
-                      setSelected(next);
-                    }}
-                  />
+                        setSelected(next);
+                      }}
+                    />
+                  ) : null}
                 </th>
                 <th>Type</th>
                 <th>Document #</th>
@@ -276,20 +323,22 @@ export function StockValidationScreen({ user }: StockValidationScreenProps) {
                 page.rows.map((row) => (
                   <tr key={rowKey(row)}>
                     <td>
-                      <input
-                        type="checkbox"
-                        checked={Boolean(selected[rowKey(row)])}
-                        aria-label={`Select ${row.documentNo}`}
-                        onChange={(event) => {
-                          const checked = (
-                            event.currentTarget as HTMLInputElement
-                          ).checked;
-                          setSelected((current) => ({
-                            ...current,
-                            [rowKey(row)]: checked,
-                          }));
-                        }}
-                      />
+                      {canValidate ? (
+                        <input
+                          type="checkbox"
+                          checked={Boolean(selected[rowKey(row)])}
+                          aria-label={`Select ${row.documentNo}`}
+                          onChange={(event) => {
+                            const checked = (
+                              event.currentTarget as HTMLInputElement
+                            ).checked;
+                            setSelected((current) => ({
+                              ...current,
+                              [rowKey(row)]: checked,
+                            }));
+                          }}
+                        />
+                      ) : null}
                     </td>
                     <td>{kindLabel(row.kind)}</td>
                     <td class="stock-mono">{row.documentNo}</td>
@@ -316,18 +365,20 @@ export function StockValidationScreen({ user }: StockValidationScreenProps) {
                         >
                           Review
                         </button>
-                        <button
-                          type="button"
-                          class="stock-btn-primary stock-btn-small"
-                          disabled={busy}
-                          onClick={() =>
-                            void validateItems([
-                              { kind: row.kind, id: row.id },
-                            ])
-                          }
-                        >
-                          {actionLabel(row)}
-                        </button>
+                        {canValidate ? (
+                          <button
+                            type="button"
+                            class="stock-btn-primary stock-btn-small"
+                            disabled={busy}
+                            onClick={() =>
+                              void validateItems([
+                                { kind: row.kind, id: row.id },
+                              ])
+                            }
+                          >
+                            {actionLabel(row)}
+                          </button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -348,7 +399,8 @@ export function StockValidationScreen({ user }: StockValidationScreenProps) {
                 : review.detail.adjustmentNo
           }`}
           wide
-          onClose={() => setReview(null)}
+          message={reviewMessage}
+          onClose={closeReviewModal}
         >
           <div class="stock-form">
             {review.kind === "RECEIPT" ? (
@@ -422,29 +474,34 @@ export function StockValidationScreen({ user }: StockValidationScreenProps) {
               <button
                 type="button"
                 class="stock-btn-secondary"
-                onClick={() => setReview(null)}
+                onClick={closeReviewModal}
               >
                 Close
               </button>
-              <button
-                type="button"
-                class="stock-btn-primary"
-                disabled={busy}
-                onClick={() =>
-                  void validateItems([
-                    {
-                      kind: review.kind,
-                      id: review.detail.id,
-                    },
-                  ])
-                }
-              >
-                {busy
-                  ? "Validating…"
-                  : reviewRow
-                    ? actionLabel(reviewRow)
-                    : "Validate"}
-              </button>
+              {canValidate ? (
+                <button
+                  type="button"
+                  class="stock-btn-primary"
+                  disabled={busy}
+                  onClick={() =>
+                    void validateItems(
+                      [
+                        {
+                          kind: review.kind,
+                          id: review.detail.id,
+                        },
+                      ],
+                      true,
+                    )
+                  }
+                >
+                  {busy
+                    ? "Validating…"
+                    : reviewRow
+                      ? actionLabel(reviewRow)
+                      : "Validate"}
+                </button>
+              ) : null}
             </div>
           </div>
         </DocDialog>

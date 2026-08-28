@@ -4,8 +4,12 @@ export declare function formatDate(iso: string | null | undefined): string;
 export declare function trimQty(qty: string): string;
 export declare function locationsForSalesPoint(storageLocations: StorageLocationOption[], salesPointId: string | number): StorageLocationOption[];
 /** Storage locations eligible for goods-in receipts (excludes sales tanks). */
-export declare function locationsForReceiptAtSalesPoint(storageLocations: StorageLocationOption[], salesPointId: string | number): StorageLocationOption[];
+export declare function locationsForReceiptAtSalesPoint(storageLocations: StorageLocationOption[], salesPointId: string | number, forBottled?: boolean): StorageLocationOption[];
 export declare function defaultLocationId(storageLocations: StorageLocationOption[], salesPointId: string | number): string;
+export declare function isBottleOilStoreLocation(name: string): boolean;
+/** Loose-product intra transfer destinations (excludes Bottle Oil Store). */
+export declare function locationsForIntraTransferDestination(storageLocations: StorageLocationOption[], salesPointId: string | number): StorageLocationOption[];
+export declare function defaultIntraToLocationId(storageLocations: StorageLocationOption[], salesPointId: string | number, excludeLocationId: string): string;
 export declare function defaultReceiptLocationId(storageLocations: StorageLocationOption[], salesPointId: string | number, forBottled?: boolean): string;
 /** Locations that already hold this product, or have no on-hand of any product. */
 export declare function receiptLocationOptionsForProduct(locationOptions: StorageLocationOption[], onHand: StockBalanceRow[], salesPointId: string | number, productId: string): StorageLocationOption[];

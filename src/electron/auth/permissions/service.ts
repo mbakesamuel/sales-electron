@@ -311,6 +311,16 @@ export function seedDefaultPermissions(database: import("better-sqlite3").Databa
   }
 
   // Custom roles: ensure every catalog route exists (default NONE) so new gates appear in the UI.
+  // Role table is created in migration 062; skip when seeding from earlier migrations (e.g. 012).
+  const roleTable = database
+    .prepare(
+      `SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'Role' LIMIT 1`,
+    )
+    .get();
+  if (!roleTable) {
+    return;
+  }
+
   const customRoles = database
     .prepare(`SELECT id FROM Role WHERE isSystem = 0`)
     .all() as Array<{ id: string }>;

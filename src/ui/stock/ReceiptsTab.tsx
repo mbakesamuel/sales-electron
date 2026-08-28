@@ -17,6 +17,7 @@ import {
   ReviewKeyValue,
   ReviewLineTable,
   StatusBadge,
+  type StockDialogMessage,
 } from "./StockDialogs.tsx";
 import { ReceiptPrintView } from "./ReceiptPrintView.tsx";
 import { ReceiptLineEditor, type ReceiptLineDraft } from "./LineEditors.tsx";
@@ -96,6 +97,30 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
   const [postingPeriod, setPostingPeriod] = useState<OpenPostingPeriod | null>(
     null,
   );
+  const [modalMessage, setModalMessage] = useState<StockDialogMessage>(null);
+
+  function showModalErr(text: string) {
+    setModalMessage({ type: "error", text });
+  }
+
+  function clearModalMessage() {
+    setModalMessage(null);
+  }
+
+  function closeReviewModal() {
+    clearModalMessage();
+    setReviewDetail(null);
+  }
+
+  function closeFormModal() {
+    clearModalMessage();
+    setOpen(false);
+  }
+
+  function closeCancelModal() {
+    clearModalMessage();
+    setPendingCancel(null);
+  }
 
   const receiptSalesPoints = useMemo(() => {
     const millAttached = salesPoints.filter((sp) => sp.attachedToMill);
@@ -223,6 +248,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
         storageLocationId: locationsForReceiptAtSalesPoint(
           storageLocations,
           nextId,
+          bottledProducts,
         ).some((loc) => String(loc.id) === l.storageLocationId)
           ? l.storageLocationId
           : defLoc,
@@ -232,6 +258,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
 
   function openCreate() {
     resetForm();
+    clearModalMessage();
     setOpen(true);
   }
 
@@ -245,6 +272,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
       return;
     }
     setBusy(true);
+    clearModalMessage();
     try {
       const res = await getElectronApi().stock.saveReceipt({
         userId,
@@ -267,7 +295,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
           })),
       });
       if (res.ok === false) {
-        props.onErr(res.error);
+        showModalErr(res.error);
         return;
       }
       if (editingId) {
@@ -277,7 +305,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
       } else {
         props.onOk(`Receipt ${res.documentNo} drafted.`);
       }
-      setOpen(false);
+      closeFormModal();
       resetForm();
     } finally {
       setBusy(false);
@@ -286,13 +314,14 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
 
   async function onPost(id: string) {
     setBusy(true);
+    clearModalMessage();
     try {
       const detailRes = await getElectronApi().stock.loadReceiptForReview({
         userId,
         receiptId: id,
       });
       if (detailRes.ok === false) {
-        props.onErr(detailRes.error);
+        showModalErr(detailRes.error);
         return;
       }
       const res = await getElectronApi().stock.postReceipt({
@@ -301,11 +330,11 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
         receiptId: id,
       });
       if (res.ok === false) {
-        props.onErr(res.error);
+        showModalErr(res.error);
         return;
       }
       props.onOk("Receipt posted; balances updated.");
-      if (reviewDetail?.id === id) setReviewDetail(null);
+      if (reviewDetail?.id === id) closeReviewModal();
     } finally {
       setBusy(false);
     }
@@ -314,15 +343,15 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
   async function onCancel() {
     if (!pendingCancel) return;
     const id = pendingCancel.id;
-    setPendingCancel(null);
     setBusy(true);
+    clearModalMessage();
     try {
       const detailRes = await getElectronApi().stock.loadReceiptForReview({
         userId,
         receiptId: id,
       });
       if (detailRes.ok === false) {
-        props.onErr(detailRes.error);
+        showModalErr(detailRes.error);
         return;
       }
       const res = await getElectronApi().stock.cancelReceipt({
@@ -331,11 +360,12 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
         receiptId: id,
       });
       if (res.ok === false) {
-        props.onErr(res.error);
+        showModalErr(res.error);
         return;
       }
       props.onOk("Receipt cancelled.");
-      if (reviewDetail?.id === id) setReviewDetail(null);
+      closeCancelModal();
+      if (reviewDetail?.id === id) closeReviewModal();
     } finally {
       setBusy(false);
     }
@@ -352,6 +382,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
         props.onErr(res.error);
         return;
       }
+      clearModalMessage();
       setReviewDetail(res.detail);
     } finally {
       setReviewBusy(false);
@@ -394,20 +425,31 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
 
   async function openEditById(id: string) {
     setReviewBusy(true);
+    const fromReview = reviewDetail?.id === id;
     try {
       const res = await getElectronApi().stock.loadReceiptForReview({
         userId,
         receiptId: id,
       });
       if (res.ok === false) {
-        props.onErr(res.error);
+        if (fromReview) {
+          showModalErr(res.error);
+        } else {
+          props.onErr(res.error);
+        }
         return;
       }
       if (res.detail.status !== "DRAFT") {
-        props.onErr("Only draft receipts can be edited.");
+        const text = "Only draft receipts can be edited.";
+        if (fromReview) {
+          showModalErr(text);
+        } else {
+          props.onErr(text);
+        }
         return;
       }
-      setReviewDetail(null);
+      closeReviewModal();
+      clearModalMessage();
       populateFormFromDetail(res.detail);
     } finally {
       setReviewBusy(false);
@@ -578,7 +620,8 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
         <DocDialog
           title={`Review receipt ${reviewDetail.receiptNo}`}
           wide
-          onClose={() => setReviewDetail(null)}
+          message={modalMessage}
+          onClose={closeReviewModal}
         >
           <div class="stock-review">
             <div class="stock-review-top">
@@ -624,7 +667,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
               <button
                 type="button"
                 class="stock-btn-secondary"
-                onClick={() => setReviewDetail(null)}
+                onClick={closeReviewModal}
               >
                 Close
               </button>
@@ -686,7 +729,8 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
         <DocDialog
           title={editingId ? "Edit receipt" : "New receipt"}
           wide
-          onClose={() => setOpen(false)}
+          message={modalMessage}
+          onClose={closeFormModal}
         >
           <form
             onSubmit={(event) => void onSave(event, false)}
@@ -837,6 +881,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
               locationOptions={locationsForReceiptAtSalesPoint(
                 storageLocations,
                 salesPointId,
+                bottledProducts,
               )}
               defaultLocationId={defaultReceiptLocationId(
                 storageLocations,
@@ -886,7 +931,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
               )}
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={closeFormModal}
                 disabled={busy}
                 class="stock-btn-secondary"
               >
@@ -913,7 +958,8 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
             pendingCancel.status === "DRAFT" ? "Delete" : "Cancel receipt"
           }
           busy={busy}
-          onCancel={() => setPendingCancel(null)}
+          message={modalMessage}
+          onCancel={closeCancelModal}
           onConfirm={onCancel}
         />
       ) : null}

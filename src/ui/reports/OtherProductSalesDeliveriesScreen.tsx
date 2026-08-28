@@ -300,7 +300,7 @@ export function OtherProductSalesDeliveriesScreen({
         </button>
         <ReportCommentsEditor
           reportId="other-product-sales-deliveries-report"
-          initialText={report.comments}
+          comments={report.comments}
           onSaved={(comments) => setReport({ ...report, comments })}
         />
       </div>

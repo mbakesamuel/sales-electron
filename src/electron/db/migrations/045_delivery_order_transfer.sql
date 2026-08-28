@@ -118,5 +118,5 @@ INSERT OR IGNORE INTO RoleActionPermission (role, actionKey, allowed) VALUES
   ('ADMIN', 'transfer_delivery_order_balance', 1),
   ('MANAGER', 'transfer_delivery_order_balance', 1),
   ('SENIOR_SALES_SUPERVISOR', 'transfer_delivery_order_balance', 1),
-  ('STATISTICS_SUPERVISOR', 'transfer_delivery_order_balance', 0),
-  ('SALES_CLERK', 'transfer_delivery_order_balance', 0);
+  ('STATISTICS_CLERK', 'transfer_delivery_order_balance', 0),
+  ('STORE_KEEPER', 'transfer_delivery_order_balance', 0);

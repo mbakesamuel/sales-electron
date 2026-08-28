@@ -314,7 +314,7 @@ export function IndustryProductMonthlySalesScreen({
         </button>
         <ReportCommentsEditor
           reportId="industry-product-monthly-sales-report"
-          initialText={report.comments}
+          comments={report.comments}
           onSaved={(comments) => setReport({ ...report, comments })}
         />
       </div>

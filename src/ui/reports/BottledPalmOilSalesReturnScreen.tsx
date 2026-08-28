@@ -308,7 +308,7 @@ export function BottledPalmOilSalesReturnScreen({
         </button>
         <ReportCommentsEditor
           reportId="bottled-palm-oil-sales-return-report"
-          initialText={report.comments}
+          comments={report.comments}
           onSaved={(comments) => setReport({ ...report, comments })}
         />
       </div>

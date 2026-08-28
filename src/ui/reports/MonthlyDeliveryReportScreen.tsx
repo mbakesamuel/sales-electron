@@ -1,6 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
 import { getAuthenticatedReports } from "../auth/reports.ts";
-import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type {
   MonthlyDeliveryBudgetSection,
   MonthlyDeliveryReport,

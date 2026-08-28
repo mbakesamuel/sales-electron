@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu } from "electron";
+import { app, BrowserWindow, Menu, dialog } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { closeDatabase, initDatabase } from "./db/index.js";
@@ -100,6 +100,11 @@ app.whenReady().then(() => {
     backfillFinancialMonths();
   } catch (error) {
     console.error("Database initialization failed:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    dialog.showErrorBox(
+      "Database initialization failed",
+      `${message}\n\nThe application cannot start. If this persists after reinstalling, delete the folder:\n${app.getPath("userData")}`,
+    );
     app.exit(1);
     return;
   }

@@ -16,13 +16,16 @@ import {
   DocDialog,
   ReviewLineTable,
   StatusBadge,
+  type StockDialogMessage,
 } from "./StockDialogs.tsx";
 import { TransferLineEditor, type TransferLineDraft } from "./LineEditors.tsx";
 import {
   clampIsoDateToRange,
+  defaultIntraToLocationId,
   defaultLocationId,
   formatDate,
   formatDateTime,
+  locationsForIntraTransferDestination,
   locationsForSalesPoint,
   trimQty,
   utcIsoDateToday,
@@ -41,6 +44,27 @@ function defaultToLocationId(
   const locs = locationsForSalesPoint(storageLocations, salesPointId);
   const other = locs.find((loc) => String(loc.id) !== excludeLocationId);
   return other ? String(other.id) : "";
+}
+
+function resolveIntraToLocationId(
+  storageLocations: StorageLocationOption[],
+  salesPointId: string,
+  excludeFromId: string,
+  currentToId: string | undefined,
+): string {
+  const eligible = locationsForIntraTransferDestination(
+    storageLocations,
+    salesPointId,
+  );
+  const defTo = defaultIntraToLocationId(
+    storageLocations,
+    salesPointId,
+    excludeFromId,
+  );
+  if (currentToId && eligible.some((loc) => String(loc.id) === currentToId)) {
+    return currentToId;
+  }
+  return defTo;
 }
 
 function isIntraRow(row: TransferListRow): boolean {
@@ -146,6 +170,35 @@ export function TransfersTab(props: TransfersTabProps) {
   const [postingPeriod, setPostingPeriod] = useState<OpenPostingPeriod | null>(
     null,
   );
+  const [modalMessage, setModalMessage] = useState<StockDialogMessage>(null);
+
+  function showModalErr(text: string) {
+    setModalMessage({ type: "error", text });
+  }
+
+  function clearModalMessage() {
+    setModalMessage(null);
+  }
+
+  function closeReviewModal() {
+    clearModalMessage();
+    setReviewDetail(null);
+  }
+
+  function closeFormModal() {
+    clearModalMessage();
+    setOpen(false);
+  }
+
+  function closeReceiveModal() {
+    clearModalMessage();
+    setReceiveDetail(null);
+  }
+
+  function closeCancelModal() {
+    clearModalMessage();
+    setPendingCancel(null);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -198,7 +251,7 @@ export function TransfersTab(props: TransfersTabProps) {
       .catch((loadError) => {
         if (!cancelled) {
           setAsOfOnHand([]);
-          props.onErr(
+          showModalErr(
             loadError instanceof Error
               ? loadError.message
               : "Could not load on-hand balances for the transfer date.",
@@ -245,7 +298,7 @@ export function TransfersTab(props: TransfersTabProps) {
         setToSalesPointId(fromSalesPointId);
       }
       const defFrom = defaultLocationId(storageLocations, fromSalesPointId);
-      const defTo = defaultToLocationId(
+      const defTo = defaultIntraToLocationId(
         storageLocations,
         fromSalesPointId,
         defFrom,
@@ -253,7 +306,12 @@ export function TransfersTab(props: TransfersTabProps) {
       setLines((prev) =>
         prev.map((l) => ({
           ...l,
-          toStorageLocationId: l.toStorageLocationId || defTo,
+          toStorageLocationId: resolveIntraToLocationId(
+            storageLocations,
+            fromSalesPointId,
+            l.fromStorageLocationId || defFrom,
+            l.toStorageLocationId || defTo,
+          ),
         })),
       );
     } else {
@@ -267,7 +325,7 @@ export function TransfersTab(props: TransfersTabProps) {
   function onFromSalesPointChange(nextId: string) {
     setFromSalesPointId(nextId);
     const defFrom = defaultLocationId(storageLocations, nextId);
-    const defTo = defaultToLocationId(storageLocations, nextId, defFrom);
+    const defTo = defaultIntraToLocationId(storageLocations, nextId, defFrom);
     if (formMode === "intra") {
       setToSalesPointId(nextId);
     }
@@ -278,12 +336,12 @@ export function TransfersTab(props: TransfersTabProps) {
         fromStorageLocationId: defFrom,
         ...(formMode === "intra"
           ? {
-              toStorageLocationId: locationsForSalesPoint(
+              toStorageLocationId: resolveIntraToLocationId(
                 storageLocations,
                 nextId,
-              ).some((loc) => String(loc.id) === l.toStorageLocationId)
-                ? l.toStorageLocationId
-                : defTo,
+                defFrom,
+                l.toStorageLocationId,
+              ),
             }
           : {}),
       })),
@@ -291,6 +349,7 @@ export function TransfersTab(props: TransfersTabProps) {
   }
 
   function openReceiveDialog(detail: TransferDetail) {
+    clearModalMessage();
     setReceiveDetail(detail);
     setReceiveBy(detail.receiveBy ?? "");
     setReceiveByDesign(detail.receiveByDesign ?? "");
@@ -311,6 +370,7 @@ export function TransfersTab(props: TransfersTabProps) {
 
   function openCreate() {
     resetForm();
+    clearModalMessage();
     setOpen(true);
   }
 
@@ -329,10 +389,11 @@ export function TransfersTab(props: TransfersTabProps) {
       transferReceiveUsesDocumentDate &&
       !/^\d{4}-\d{2}-\d{2}$/.test(receiveDate.trim())
     ) {
-      props.onErr("Receive date is required.");
+      showModalErr("Receive date is required.");
       return;
     }
     setBusy(true);
+    clearModalMessage();
     try {
       const fromSp = Number.parseInt(fromSalesPointId, 10);
       const toSp =
@@ -395,7 +456,7 @@ export function TransfersTab(props: TransfersTabProps) {
           })),
       });
       if (res.ok === false) {
-        props.onErr(res.error);
+        showModalErr(res.error);
         return;
       }
       if (editingId) {
@@ -409,15 +470,24 @@ export function TransfersTab(props: TransfersTabProps) {
       } else {
         props.onOk(`Transfer ${res.documentNo} drafted.`);
       }
-      setOpen(false);
+      closeFormModal();
       resetForm();
     } finally {
       setBusy(false);
     }
   }
 
+  function reportActionErr(documentId: string, text: string) {
+    if (reviewDetail?.id === documentId) {
+      showModalErr(text);
+    } else {
+      props.onErr(text);
+    }
+  }
+
   async function onPost(id: string) {
     setBusy(true);
+    clearModalMessage();
     try {
       const res = await getElectronApi().stock.postInternalTransfer({
         userId,
@@ -425,11 +495,11 @@ export function TransfersTab(props: TransfersTabProps) {
         transferId: id,
       });
       if (res.ok === false) {
-        props.onErr(res.error);
+        reportActionErr(id, res.error);
         return;
       }
       props.onOk("Location move posted; balances updated.");
-      if (reviewDetail?.id === id) setReviewDetail(null);
+      if (reviewDetail?.id === id) closeReviewModal();
     } finally {
       setBusy(false);
     }
@@ -437,6 +507,7 @@ export function TransfersTab(props: TransfersTabProps) {
 
   async function onDispatch(id: string) {
     setBusy(true);
+    clearModalMessage();
     try {
       const res = await getElectronApi().stock.dispatchTransfer({
         userId,
@@ -444,11 +515,11 @@ export function TransfersTab(props: TransfersTabProps) {
         transferId: id,
       });
       if (res.ok === false) {
-        props.onErr(res.error);
+        reportActionErr(id, res.error);
         return;
       }
       props.onOk("Transfer dispatched; source balance updated.");
-      if (reviewDetail?.id === id) setReviewDetail(null);
+      if (reviewDetail?.id === id) closeReviewModal();
     } finally {
       setBusy(false);
     }
@@ -478,10 +549,11 @@ export function TransfersTab(props: TransfersTabProps) {
       transferReceiveUsesDocumentDate &&
       !/^\d{4}-\d{2}-\d{2}$/.test(receiveDate.trim())
     ) {
-      props.onErr("Receive date is required.");
+      showModalErr("Receive date is required.");
       return;
     }
     setBusy(true);
+    clearModalMessage();
     try {
       const res = await getElectronApi().stock.receiveTransfer({
         userId,
@@ -498,12 +570,13 @@ export function TransfersTab(props: TransfersTabProps) {
         receiveDate: receiveDate || null,
       });
       if (res.ok === false) {
-        props.onErr(res.error);
+        showModalErr(res.error);
         return;
       }
       props.onOk("Transfer received; destination balance updated.");
-      setReceiveDetail(null);
-      if (reviewDetail?.id === receiveDetail.id) setReviewDetail(null);
+      const receivedId = receiveDetail.id;
+      closeReceiveModal();
+      if (reviewDetail?.id === receivedId) closeReviewModal();
     } finally {
       setBusy(false);
     }
@@ -512,8 +585,8 @@ export function TransfersTab(props: TransfersTabProps) {
   async function onCancelTransfer() {
     if (!pendingCancel) return;
     const id = pendingCancel.id;
-    setPendingCancel(null);
     setBusy(true);
+    clearModalMessage();
     try {
       const res = await getElectronApi().stock.cancelTransfer({
         userId,
@@ -521,11 +594,12 @@ export function TransfersTab(props: TransfersTabProps) {
         transferId: id,
       });
       if (res.ok === false) {
-        props.onErr(res.error);
+        showModalErr(res.error);
         return;
       }
       props.onOk("Transfer cancelled.");
-      if (reviewDetail?.id === id) setReviewDetail(null);
+      closeCancelModal();
+      if (reviewDetail?.id === id) closeReviewModal();
     } finally {
       setBusy(false);
     }
@@ -542,6 +616,7 @@ export function TransfersTab(props: TransfersTabProps) {
         props.onErr(res.error);
         return;
       }
+      clearModalMessage();
       setReviewDetail(res.detail);
     } finally {
       setReviewBusy(false);
@@ -572,7 +647,7 @@ export function TransfersTab(props: TransfersTabProps) {
       storageLocations,
       detail.fromSalesPointId,
     );
-    const defTo = defaultToLocationId(
+    const defTo = defaultIntraToLocationId(
       storageLocations,
       String(detail.fromSalesPointId),
       defFrom,
@@ -585,9 +660,14 @@ export function TransfersTab(props: TransfersTabProps) {
             fromStorageLocationId: String(l.fromStorageLocationId),
             ...(intra
               ? {
-                  toStorageLocationId: l.toStorageLocationId
-                    ? String(l.toStorageLocationId)
-                    : defTo,
+                  toStorageLocationId: resolveIntraToLocationId(
+                    storageLocations,
+                    String(detail.fromSalesPointId),
+                    String(l.fromStorageLocationId),
+                    l.toStorageLocationId
+                      ? String(l.toStorageLocationId)
+                      : defTo,
+                  ),
                 }
               : {}),
           }))
@@ -605,20 +685,31 @@ export function TransfersTab(props: TransfersTabProps) {
 
   async function openEditById(id: string) {
     setReviewBusy(true);
+    const fromReview = reviewDetail?.id === id;
     try {
       const res = await getElectronApi().stock.loadTransferForReview({
         userId,
         transferId: id,
       });
       if (res.ok === false) {
-        props.onErr(res.error);
+        if (fromReview) {
+          showModalErr(res.error);
+        } else {
+          props.onErr(res.error);
+        }
         return;
       }
       if (res.detail.status !== "DRAFT") {
-        props.onErr("Only draft transfers can be edited.");
+        const text = "Only draft transfers can be edited.";
+        if (fromReview) {
+          showModalErr(text);
+        } else {
+          props.onErr(text);
+        }
         return;
       }
-      setReviewDetail(null);
+      closeReviewModal();
+      clearModalMessage();
       populateFormFromDetail(res.detail);
     } finally {
       setReviewBusy(false);
@@ -879,7 +970,8 @@ export function TransfersTab(props: TransfersTabProps) {
         <DocDialog
           title={editingId ? "Edit transfer" : "New transfer"}
           wide
-          onClose={() => setOpen(false)}
+          message={!pendingCancel && !receiveDetail && !reviewDetail ? modalMessage : null}
+          onClose={closeFormModal}
         >
           <form
             onSubmit={(event) => void onSave(event, false)}
@@ -1172,8 +1264,10 @@ export function TransfersTab(props: TransfersTabProps) {
 
             {formMode === "intra" &&
             fromSalesPointId &&
-            locationsForSalesPoint(storageLocations, fromSalesPointId).length <
-              2 ? (
+            locationsForIntraTransferDestination(
+              storageLocations,
+              fromSalesPointId,
+            ).length < 2 ? (
               <p class="stock-hint stock-hint-warn">
                 Add at least two storage locations for this collection point to
                 move stock between bins.
@@ -1195,19 +1289,31 @@ export function TransfersTab(props: TransfersTabProps) {
                 storageLocations,
                 fromSalesPointId,
               )}
-              toLocationOptions={locationsForSalesPoint(
-                storageLocations,
-                formMode === "intra" ? fromSalesPointId : toSalesPointId,
-              )}
+              toLocationOptions={
+                formMode === "intra"
+                  ? locationsForIntraTransferDestination(
+                      storageLocations,
+                      fromSalesPointId,
+                    )
+                  : locationsForSalesPoint(storageLocations, toSalesPointId)
+              }
               defaultFromLocationId={defaultLocationId(
                 storageLocations,
                 fromSalesPointId,
               )}
-              defaultToLocationId={defaultToLocationId(
-                storageLocations,
-                formMode === "intra" ? fromSalesPointId : toSalesPointId,
-                defaultLocationId(storageLocations, fromSalesPointId),
-              )}
+              defaultToLocationId={
+                formMode === "intra"
+                  ? defaultIntraToLocationId(
+                      storageLocations,
+                      fromSalesPointId,
+                      defaultLocationId(storageLocations, fromSalesPointId),
+                    )
+                  : defaultToLocationId(
+                      storageLocations,
+                      toSalesPointId,
+                      defaultLocationId(storageLocations, fromSalesPointId),
+                    )
+              }
             />
 
             {open &&
@@ -1259,7 +1365,7 @@ export function TransfersTab(props: TransfersTabProps) {
               )}
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={closeFormModal}
                 disabled={busy}
                 class="stock-btn-secondary"
               >
@@ -1286,7 +1392,8 @@ export function TransfersTab(props: TransfersTabProps) {
             pendingCancel.status === "DRAFT" ? "Delete" : "Cancel transfer"
           }
           busy={busy}
-          onCancel={() => setPendingCancel(null)}
+          message={modalMessage}
+          onCancel={closeCancelModal}
           onConfirm={onCancelTransfer}
         />
       ) : null}
@@ -1295,7 +1402,10 @@ export function TransfersTab(props: TransfersTabProps) {
         <DocDialog
           title={`Review transfer ${reviewDetail.transferNo}`}
           wide
-          onClose={() => setReviewDetail(null)}
+          message={
+            !pendingCancel && !receiveDetail ? modalMessage : null
+          }
+          onClose={closeReviewModal}
         >
           <div class="stock-form">
             <div class="stock-form-row">
@@ -1432,7 +1542,7 @@ export function TransfersTab(props: TransfersTabProps) {
               <button
                 type="button"
                 class="stock-btn-secondary"
-                onClick={() => setReviewDetail(null)}
+                onClick={closeReviewModal}
               >
                 Close
               </button>
@@ -1525,7 +1635,8 @@ export function TransfersTab(props: TransfersTabProps) {
         <DocDialog
           title={`Receive transfer ${receiveDetail.transferNo}`}
           wide
-          onClose={() => setReceiveDetail(null)}
+          message={!pendingCancel ? modalMessage : null}
+          onClose={closeReceiveModal}
         >
           <form onSubmit={onReceiveSubmit} class="stock-form">
             <p class="stock-hint">
@@ -1655,7 +1766,7 @@ export function TransfersTab(props: TransfersTabProps) {
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => setReceiveDetail(null)}
+                onClick={closeReceiveModal}
                 class="stock-btn-secondary"
               >
                 Cancel

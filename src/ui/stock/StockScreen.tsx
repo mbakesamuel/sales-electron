@@ -4,7 +4,6 @@ import {
   canAccessBottledStockModule,
   canAccessStockModule,
   resolveStockModuleVariant,
-  type StockModuleVariant,
   type StockProductFilter,
 } from "../../shared/stockModule.ts";
 import type { AuthUser } from "../auth/session.ts";
@@ -16,7 +15,7 @@ import "./StockScreen.css";
 interface StockScreenProps {
   user: AuthUser;
   permissions: RolePermissionsSnapshot;
-  variant?: StockModuleVariant;
+  variant?: "bulk" | "bottled";
 }
 
 export function StockScreen({

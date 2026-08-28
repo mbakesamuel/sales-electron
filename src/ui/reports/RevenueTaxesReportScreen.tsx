@@ -306,7 +306,7 @@ export function RevenueTaxesReportScreen({
           </button>
           <ReportCommentsEditor
             reportId="revenue-taxes-report"
-            initialText={report.comments}
+            comments={report.comments}
             onSaved={(comments) => setReport({ ...report, comments })}
           />
         </div>

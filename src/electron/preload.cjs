@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld("api", {
     insertRow: (input) => ipcRenderer.invoke("db:insertRow", input),
     updateRow: (input) => ipcRenderer.invoke("db:updateRow", input),
     deleteRow: (input) => ipcRenderer.invoke("db:deleteRow", input),
+    clearOperationalData: (input) =>
+      ipcRenderer.invoke("db:clearOperationalData", input),
   },
   auth: {
     login: (data) => ipcRenderer.invoke("auth:login", data),

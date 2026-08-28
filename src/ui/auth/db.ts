@@ -1,6 +1,7 @@
 import { AUTH_TOKEN_KEY } from "./session.ts";
 import { getElectronApi } from "./client.ts";
 import type {
+  ClearOperationalDataInput,
   TableDeleteInput,
   TableInsertInput,
   TableUpdateInput,
@@ -27,6 +28,13 @@ export function getAuthenticatedDb() {
       api.updateRow({ ...input, authToken: requireAuthToken() }),
     deleteRow: (input: Omit<TableDeleteInput, "authToken">) =>
       api.deleteRow({ ...input, authToken: requireAuthToken() }),
+    clearOperationalData: (
+      input: Omit<ClearOperationalDataInput, "authToken">,
+    ) =>
+      api.clearOperationalData({
+        ...input,
+        authToken: requireAuthToken(),
+      }),
   };
 }
 

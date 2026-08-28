@@ -257,7 +257,7 @@ export function MonthlyDeliveriesByDestinationScreen({
         </button>
         <ReportCommentsEditor
           reportId="monthly-deliveries-by-destination-report"
-          initialText={report.comments}
+          comments={report.comments}
           onSaved={(comments) => setReport({ ...report, comments })}
         />
       </div>

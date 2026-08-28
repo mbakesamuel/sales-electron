@@ -902,6 +902,18 @@ function userHasMustChangePassword(database: Database.Database): boolean {
   return getTableColumns(database, "User").has("mustChangePassword");
 }
 
+function stockTransferHasConsignmentFields(database: Database.Database): boolean {
+  return getTableColumns(database, "StockTransfer").has("consignedBy");
+}
+
+function deliveryOrderTransferSchemaIsCurrent(database: Database.Database): boolean {
+  return (
+    getTableColumns(database, "DeliveryOrder").has("transferredFromDeliveryOrderId") &&
+    tableExists(database, "DeliveryOrderTransfer") &&
+    tableExists(database, "DeliveryOrderTransferLine")
+  );
+}
+
 function millHasIsActive(database: Database.Database): boolean {
   return tableExists(database, "Mill") && getTableColumns(database, "Mill").has("isActive");
 }
@@ -1463,6 +1475,14 @@ function runMigrations(database: Database.Database): void {
     }
 
     if (
+      fileName === "045_delivery_order_transfer.sql" &&
+      deliveryOrderTransferSchemaIsCurrent(database)
+    ) {
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (
       fileName === "052_mill_is_active.sql" &&
       (!tableExists(database, "Mill") || millHasIsActive(database))
     ) {
@@ -1551,6 +1571,14 @@ function runMigrations(database: Database.Database): void {
     if (
       fileName === "066_sales_point_attached_to_mill.sql" &&
       salesPointHasAttachedToMill(database)
+    ) {
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (
+      fileName === "071_stock_transfer_consignment_fields.sql" &&
+      stockTransferHasConsignmentFields(database)
     ) {
       database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
       continue;

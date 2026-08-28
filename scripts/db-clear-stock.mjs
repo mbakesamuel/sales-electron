@@ -1,6 +1,6 @@
 /**
- * Clear stock documents, stock ledger/balances, and sales from sales.db.
- * Keeps delivery orders and all master data.
+ * Clear stock documents, stock ledger/balances, sales, VCNs, and delivery orders
+ * from sales.db. Keeps master data (products, customers, users, budgets, etc.).
  *
  * Run (close the Electron app first):
  *   npm run db:clear-stock -- confirm
@@ -21,6 +21,7 @@ import {
   getDatabase,
   initDatabase,
 } from "../dist-electron/electron/db/index.js";
+import { clearOperationalData } from "../dist-electron/electron/db/clearOperationalData.js";
 
 const APP_USER_DATA = path.join(
   process.env.APPDATA ?? path.join(os.homedir(), "AppData", "Roaming"),
@@ -49,22 +50,6 @@ function wantsForceClear() {
 
 const FORCE = wantsForceClear();
 
-const DELETE_TABLES = [
-  "StockMovement",
-  "StockBalance",
-  "StockReceipt",
-  "StockTransfer",
-  "StockAdjustment",
-  "Sale",
-];
-
-const SEQUENCE_TABLES = [
-  "StockReceiptSequence",
-  "StockTransferSequence",
-  "StockAdjustmentSequence",
-  "CommercialInvoiceSequence",
-];
-
 function printUsageAndExit() {
   console.error(`
 This will permanently delete from:
@@ -72,14 +57,17 @@ This will permanently delete from:
 
   - StockMovement, StockBalance
   - StockReceipt (+ lines), StockTransfer (+ lines), StockAdjustment (+ lines)
-  - Sale (+ SaleLine, SaleAppliedTax, Payment, VehicleConsignmentNote)
-  - and reset stock / commercial invoice sequences to nextNumber = 1
+  - Sale (+ SaleLine, SaleAppliedTax, Payment, VehicleConsignmentNote, ConsignmentDetails)
+  - DeliveryOrderTransfer (+ lines), DeliveryOrder (+ details / payment details)
+  - and reset stock / commercial invoice / DO / VCN sequences to nextNumber = 1
 
 Kept: products, locations, sales points, users, customers, mills,
-      delivery orders, budgets, permissions, settings.
+      budgets, permissions, settings.
 
 Re-run with confirmation (close the Electron app first):
   npm run db:clear-stock -- confirm
+
+Admins can also run this from Company settings → Clear operational data.
 `);
   process.exit(1);
 }
@@ -104,32 +92,9 @@ app.whenReady().then(() => {
     console.log(`Database: ${dbPath}`);
     db.pragma("foreign_keys = ON");
 
-    const clearAll = db.transaction(() => {
-      const deleted = {};
+    const { deleted, sequences } = clearOperationalData(db);
 
-      for (const table of DELETE_TABLES) {
-        const result = db.prepare(`DELETE FROM ${table}`).run();
-        deleted[table] = result.changes;
-      }
-
-      const sequences = {};
-      for (const table of SEQUENCE_TABLES) {
-        const result = db
-          .prepare(
-            `UPDATE ${table}
-             SET nextNumber = 1,
-                 updatedAt = datetime('now')`,
-          )
-          .run();
-        sequences[table] = result.changes;
-      }
-
-      return { deleted, sequences };
-    });
-
-    const { deleted, sequences } = clearAll();
-
-    console.log("Cleared stock + sales:");
+    console.log("Cleared stock + sales + delivery orders:");
     for (const [table, count] of Object.entries(deleted)) {
       console.log(`  ${table}: ${count} row(s) deleted`);
     }
@@ -144,7 +109,7 @@ app.whenReady().then(() => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(
-      `Failed to clear stock/sales (close the Electron app first if the DB is locked): ${message}`,
+      `Failed to clear ops data (close the Electron app first if the DB is locked): ${message}`,
     );
     try {
       closeDatabase();

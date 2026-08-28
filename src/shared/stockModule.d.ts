@@ -25,6 +25,7 @@ export declare function canAccessStockModule(snapshot: RolePermissionsSnapshot):
 export declare function getStockModuleAccess(snapshot: RolePermissionsSnapshot): RouteAccess;
 export declare function canAccessBottledStockModule(snapshot: RolePermissionsSnapshot): boolean;
 export declare function getBottledStockModuleAccess(snapshot: RolePermissionsSnapshot): RouteAccess;
+/** True when the role can manage bottled stock (module route or legacy bin-card write). */
 export declare function hasUnifiedStockBottledCapability(snapshot: RolePermissionsSnapshot): boolean;
 export declare function canAccessStockTab(snapshot: RolePermissionsSnapshot, _tabId: StockTabId): boolean;
 export declare function isStockTabReadOnly(snapshot: RolePermissionsSnapshot, _tabId: StockTabId): boolean;
@@ -34,8 +35,15 @@ export declare function isStockTabReadOnlyForVariant(snapshot: RolePermissionsSn
 export declare function getVisibleStockTabs(snapshot: RolePermissionsSnapshot): StockTabId[];
 export declare function getVisibleStockTabsForVariant(snapshot: RolePermissionsSnapshot, variant: StockModuleVariant): StockTabId[];
 export declare function normalizeStockProductFilter(value: unknown): StockProductFilter;
-/** Main Stock screen variant: unified when the role can write the stock module. */
+/**
+ * Main Stock screen variant: unified (loose + bottled) whenever the role can
+ * write the stock module. Bottled-only roles (e.g. Store Keeper) open the
+ * bottled-stock route instead (`routeVariant === "bottled"`).
+ *
+ * Stock Write also authorizes bottled document mutations on the main screen;
+ * Bottled Stock Write remains for bottled-only keepers.
+ */
 export declare function resolveStockModuleVariant(snapshot: RolePermissionsSnapshot, routeVariant: "bulk" | "bottled"): StockModuleVariant;
-/** Bottled-only users (e.g. Store Keeper) use bottled stock; stock writers use unified all on Stock route. */
-export declare function resolveStockProductFilterFromAccess(bulkAccess: RouteAccess, bottledAccess: RouteAccess, requested?: StockProductFilter | null, bottledCapabilityAccess?: RouteAccess | null): StockProductFilter;
+/** Bottled-only users (e.g. Store Keeper) use bottled stock; dual-write roles use unified all on Stock route. */
+export declare function resolveStockProductFilterFromAccess(bulkAccess: RouteAccess, bottledAccess: RouteAccess, requested?: StockProductFilter | null, _bottledCapabilityAccess?: RouteAccess | null): StockProductFilter;
 export declare function resolveStockProductFilterFromSnapshot(snapshot: RolePermissionsSnapshot, requested?: StockProductFilter | null): StockProductFilter;

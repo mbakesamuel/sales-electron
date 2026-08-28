@@ -322,7 +322,7 @@ export function UserFormModal({
             >
               {roleOptions.map((role) => (
                 <option key={role.id} value={role.id}>
-                  {"label" in role ? role.label : formatRoleLabel(role.id)}
+                  {role.label}
                 </option>
               ))}
             </select>

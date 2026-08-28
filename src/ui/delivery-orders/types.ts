@@ -56,6 +56,9 @@ export interface DeliveryOrderPaymentInput {
   bank?: string;
   cashReceiptNo?: string;
   receiptDate?: string;
+  traiteNo?: string;
+  traiteIssuedOn?: string;
+  traiteMaturityOn?: string;
 }
 
 export interface SaveDeliveryOrderInput {
@@ -121,6 +124,9 @@ export interface LoadedDeliveryOrderPayment {
   bank: string;
   cashReceiptNo: string;
   receiptDate: string;
+  traiteNo: string;
+  traiteIssuedOn: string;
+  traiteMaturityOn: string;
 }
 
 export interface LoadedDeliveryOrderView {

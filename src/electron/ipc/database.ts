@@ -1,5 +1,7 @@
 import { ipcMain } from "electron";
 import type {
+  ClearOperationalDataInput,
+  ClearOperationalDataResponse,
   TableDeleteInput,
   TableInsertInput,
   TableQueryInput,
@@ -9,6 +11,7 @@ import type {
 } from "../../shared/database.types.js";
 import { assertTableWrite } from "../auth/permissions/service.js";
 import { requireAuthUser } from "../auth/requireUser.js";
+import { clearOperationalData } from "../db/clearOperationalData.js";
 import { getDatabase } from "../db/index.js";
 import {
   deleteRow,
@@ -95,4 +98,37 @@ export function registerDatabaseHandlers(): void {
     assertTableWrite(user.role, input.table.trim());
     deleteRow(input);
   });
+
+  ipcMain.handle(
+    "db:clearOperationalData",
+    (
+      _event,
+      input: ClearOperationalDataInput,
+    ): ClearOperationalDataResponse => {
+      try {
+        const user = requireAuthUser(input?.authToken);
+        if (user.role !== "ADMIN") {
+          return {
+            ok: false,
+            error: "Only Administrators can clear operational data.",
+          };
+        }
+        if (!input || input.confirm !== "CLEAR") {
+          return {
+            ok: false,
+            error: 'Confirmation required: confirm must be "CLEAR".',
+          };
+        }
+
+        const db = getDatabase();
+        db.pragma("foreign_keys = ON");
+        const result = clearOperationalData(db);
+        return { ok: true, ...result };
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : String(error);
+        return { ok: false, error: message };
+      }
+    },
+  );
 }

@@ -9,14 +9,35 @@ export function StatusBadge({ status }: { status: StockDocStatus }) {
   return <span class={statusBadgeClass(status)}>{STOCK_DOC_STATUS_LABELS[status]}</span>;
 }
 
+export type StockDialogMessage = {
+  type: "ok" | "error";
+  text: string;
+} | null;
+
+function DialogMessageBanner({ message }: { message: StockDialogMessage }) {
+  if (!message) {
+    return null;
+  }
+  return (
+    <div class={`stock-banner stock-banner-${message.type}`}>{message.text}</div>
+  );
+}
+
 interface DocDialogProps {
   title: string;
   wide?: boolean;
+  message?: StockDialogMessage;
   onClose: () => void;
   children: ComponentChildren;
 }
 
-export function DocDialog({ title, wide = false, onClose, children }: DocDialogProps) {
+export function DocDialog({
+  title,
+  wide = false,
+  message = null,
+  onClose,
+  children,
+}: DocDialogProps) {
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
@@ -54,7 +75,10 @@ export function DocDialog({ title, wide = false, onClose, children }: DocDialogP
             X
           </button>
         </div>
-        <div class="stock-modal-body">{children}</div>
+        <div class="stock-modal-body">
+          <DialogMessageBanner message={message} />
+          {children}
+        </div>
       </div>
     </div>,
     document.body,
@@ -66,6 +90,7 @@ interface ConfirmDialogProps {
   description: string;
   confirmLabel: string;
   busy?: boolean;
+  message?: StockDialogMessage;
   onCancel: () => void;
   onConfirm: () => void;
 }
@@ -75,6 +100,7 @@ export function ConfirmDialog({
   description,
   confirmLabel,
   busy = false,
+  message = null,
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
@@ -92,6 +118,7 @@ export function ConfirmDialog({
           <div class="stock-modal-title">{title}</div>
         </div>
         <div class="stock-modal-body">
+          <DialogMessageBanner message={message} />
           <p class="stock-confirm-description">{description}</p>
           <div class="stock-modal-actions">
             <button type="button" class="stock-btn-secondary" disabled={busy} onClick={onCancel}>

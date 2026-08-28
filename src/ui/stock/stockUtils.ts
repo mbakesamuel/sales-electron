@@ -31,10 +31,18 @@ export function locationsForSalesPoint(
 export function locationsForReceiptAtSalesPoint(
   storageLocations: StorageLocationOption[],
   salesPointId: string | number,
+  forBottled?: boolean,
 ): StorageLocationOption[] {
-  return locationsForSalesPoint(storageLocations, salesPointId).filter(
+  const base = locationsForSalesPoint(storageLocations, salesPointId).filter(
     (location) => !location.isSalesTank,
   );
+  if (forBottled === true) {
+    return base.filter((location) => isBottleOilStoreLocationName(location.name));
+  }
+  if (forBottled === false) {
+    return base.filter((location) => !isBottleOilStoreLocationName(location.name));
+  }
+  return base;
 }
 
 export function defaultLocationId(
@@ -50,14 +58,42 @@ function isBottleOilStoreLocationName(name: string): boolean {
   return name.toLowerCase().includes("bottle");
 }
 
+export function isBottleOilStoreLocation(name: string): boolean {
+  return isBottleOilStoreLocationName(name);
+}
+
+/** Loose-product intra transfer destinations (excludes Bottle Oil Store). */
+export function locationsForIntraTransferDestination(
+  storageLocations: StorageLocationOption[],
+  salesPointId: string | number,
+): StorageLocationOption[] {
+  return locationsForSalesPoint(storageLocations, salesPointId).filter(
+    (location) => !isBottleOilStoreLocationName(location.name),
+  );
+}
+
+export function defaultIntraToLocationId(
+  storageLocations: StorageLocationOption[],
+  salesPointId: string | number,
+  excludeLocationId: string,
+): string {
+  const locs = locationsForIntraTransferDestination(storageLocations, salesPointId);
+  const other = locs.find((loc) => String(loc.id) !== excludeLocationId);
+  return other ? String(other.id) : "";
+}
+
 export function defaultReceiptLocationId(
   storageLocations: StorageLocationOption[],
   salesPointId: string | number,
   forBottled = false,
 ): string {
-  const locs = locationsForReceiptAtSalesPoint(storageLocations, salesPointId);
+  const locs = locationsForReceiptAtSalesPoint(
+    storageLocations,
+    salesPointId,
+    forBottled,
+  );
   if (forBottled) {
-    const bottleStore = locs.find((l) => isBottleOilStoreLocationName(l.name));
+    const bottleStore = locs[0];
     if (bottleStore) {
       return String(bottleStore.id);
     }
@@ -93,7 +129,11 @@ export function receiptLocationOptionsForProduct(
   const occupiedIds = new Set<number>();
   const holdingProductIds = new Set<number>();
   for (const row of onHand) {
-    if (row.salesPointId !== spId || !hasPositiveQty(row.qty)) {
+    if (
+      row.salesPointId !== spId ||
+      row.storageLocationId == null ||
+      !hasPositiveQty(row.qty)
+    ) {
       continue;
     }
     occupiedIds.add(row.storageLocationId);

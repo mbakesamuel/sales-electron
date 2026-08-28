@@ -8,7 +8,7 @@ import type {
 import type { AuthUser } from "../auth/session.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
-import { DocDialog, ReviewKeyValue, ReviewLineTable } from "./StockDialogs.tsx";
+import { DocDialog, ReviewKeyValue, ReviewLineTable, type StockDialogMessage } from "./StockDialogs.tsx";
 import {
   clampIsoDateToRange,
   defaultLocationId,
@@ -27,10 +27,8 @@ export function ReceiveTransfersScreen({ user }: ReceiveTransfersScreenProps) {
   const [page, setPage] = useState<StockReceiveQueuePage | null>(null);
   const [busy, setBusy] = useState(false);
   const [reviewBusy, setReviewBusy] = useState(false);
-  const [message, setMessage] = useState<{
-    type: "ok" | "error";
-    text: string;
-  } | null>(null);
+  const [screenMessage, setScreenMessage] = useState<StockDialogMessage>(null);
+  const [modalMessage, setModalMessage] = useState<StockDialogMessage>(null);
   const [review, setReview] = useState<TransferDetail | null>(null);
   const [receiveDetail, setReceiveDetail] = useState<TransferDetail | null>(
     null,
@@ -51,7 +49,7 @@ export function ReceiveTransfersScreen({ user }: ReceiveTransfersScreenProps) {
 
   useEffect(() => {
     void refresh().catch((error) => {
-      setMessage({
+      setScreenMessage({
         type: "error",
         text:
           error instanceof Error
@@ -82,6 +80,7 @@ export function ReceiveTransfersScreen({ user }: ReceiveTransfersScreenProps) {
 
   function openReceiveDialog(detail: TransferDetail) {
     const locations = page?.storageLocations ?? [];
+    setModalMessage(null);
     setReceiveDetail(detail);
     setReceiveBy(detail.receiveBy ?? "");
     setReceiveByDesign(detail.receiveByDesign ?? "");
@@ -100,18 +99,29 @@ export function ReceiveTransfersScreen({ user }: ReceiveTransfersScreenProps) {
     );
   }
 
+  function closeReceiveModal() {
+    setModalMessage(null);
+    setReceiveDetail(null);
+  }
+
+  function closeReviewModal() {
+    setModalMessage(null);
+    setReview(null);
+  }
+
   async function openReview(row: StockReceiveQueueRow) {
     setReviewBusy(true);
-    setMessage(null);
+    setScreenMessage(null);
     try {
       const res = await getElectronApi().stock.loadTransferForReview({
         userId: user.id,
         transferId: row.id,
       });
       if (res.ok === false) {
-        setMessage({ type: "error", text: res.error });
+        setScreenMessage({ type: "error", text: res.error });
         return;
       }
+      setModalMessage(null);
       setReview(res.detail);
     } finally {
       setReviewBusy(false);
@@ -120,14 +130,14 @@ export function ReceiveTransfersScreen({ user }: ReceiveTransfersScreenProps) {
 
   async function openReceive(row: StockReceiveQueueRow) {
     setReviewBusy(true);
-    setMessage(null);
+    setScreenMessage(null);
     try {
       const res = await getElectronApi().stock.loadTransferForReview({
         userId: user.id,
         transferId: row.id,
       });
       if (res.ok === false) {
-        setMessage({ type: "error", text: res.error });
+        setScreenMessage({ type: "error", text: res.error });
         return;
       }
       openReceiveDialog(res.detail);
@@ -145,11 +155,11 @@ export function ReceiveTransfersScreen({ user }: ReceiveTransfersScreenProps) {
       page.transferReceiveUsesDocumentDate &&
       !/^\d{4}-\d{2}-\d{2}$/.test(receiveDate.trim())
     ) {
-      setMessage({ type: "error", text: "Receive date is required." });
+      setModalMessage({ type: "error", text: "Receive date is required." });
       return;
     }
     setBusy(true);
-    setMessage(null);
+    setModalMessage(null);
     try {
       const res = await getElectronApi().stock.receiveTransfer({
         userId: user.id,
@@ -166,17 +176,19 @@ export function ReceiveTransfersScreen({ user }: ReceiveTransfersScreenProps) {
         receiveDate: receiveDate || null,
       });
       if (res.ok === false) {
-        setMessage({ type: "error", text: res.error });
+        setModalMessage({ type: "error", text: res.error });
         return;
       }
-      setMessage({
-        type: "ok",
-        text: `Transfer ${receiveDetail.transferNo} received.`,
-      });
-      setReceiveDetail(null);
-      if (review?.id === receiveDetail.id) {
-        setReview(null);
+      const transferNo = receiveDetail.transferNo;
+      const receivedId = receiveDetail.id;
+      closeReceiveModal();
+      if (review?.id === receivedId) {
+        closeReviewModal();
       }
+      setScreenMessage({
+        type: "ok",
+        text: `Transfer ${transferNo} received.`,
+      });
       await refresh();
     } finally {
       setBusy(false);
@@ -203,7 +215,7 @@ export function ReceiveTransfersScreen({ user }: ReceiveTransfersScreenProps) {
             disabled={busy || reviewBusy}
             onClick={() => {
               void refresh().catch((error) => {
-                setMessage({
+                setScreenMessage({
                   type: "error",
                   text:
                     error instanceof Error
@@ -218,9 +230,9 @@ export function ReceiveTransfersScreen({ user }: ReceiveTransfersScreenProps) {
         </div>
       </header>
 
-      {message ? (
-        <div class={`stock-banner stock-banner-${message.type}`}>
-          {message.text}
+      {screenMessage ? (
+        <div class={`stock-banner stock-banner-${screenMessage.type}`}>
+          {screenMessage.text}
         </div>
       ) : null}
 
@@ -296,7 +308,7 @@ export function ReceiveTransfersScreen({ user }: ReceiveTransfersScreenProps) {
         <DocDialog
           title={`Transfer ${review.transferNo}`}
           wide
-          onClose={() => setReview(null)}
+          onClose={closeReviewModal}
         >
           <div class="stock-form">
             <ReviewKeyValue label="From">
@@ -325,7 +337,7 @@ export function ReceiveTransfersScreen({ user }: ReceiveTransfersScreenProps) {
               <button
                 type="button"
                 class="stock-btn-secondary"
-                onClick={() => setReview(null)}
+                onClick={closeReviewModal}
               >
                 Close
               </button>
@@ -335,7 +347,7 @@ export function ReceiveTransfersScreen({ user }: ReceiveTransfersScreenProps) {
                 disabled={busy || reviewBusy}
                 onClick={() => {
                   openReceiveDialog(review);
-                  setReview(null);
+                  closeReviewModal();
                 }}
               >
                 Receive transfer
@@ -349,7 +361,8 @@ export function ReceiveTransfersScreen({ user }: ReceiveTransfersScreenProps) {
         <DocDialog
           title={`Receive transfer ${receiveDetail.transferNo}`}
           wide
-          onClose={() => setReceiveDetail(null)}
+          message={modalMessage}
+          onClose={closeReceiveModal}
         >
           <form onSubmit={onReceiveSubmit} class="stock-form">
             <p class="stock-hint">
@@ -479,7 +492,7 @@ export function ReceiveTransfersScreen({ user }: ReceiveTransfersScreenProps) {
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => setReceiveDetail(null)}
+                onClick={closeReceiveModal}
                 class="stock-btn-secondary"
               >
                 Cancel

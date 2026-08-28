@@ -91,6 +91,19 @@ export interface TableDeleteInput {
     primaryKey: Record<string, unknown>;
     authToken?: string;
 }
+export interface ClearOperationalDataInput {
+    authToken?: string;
+    /** Must be exactly `"CLEAR"`. */
+    confirm: string;
+}
+export type ClearOperationalDataResponse = {
+    ok: true;
+    deleted: Record<string, number>;
+    sequences: Record<string, number>;
+} | {
+    ok: false;
+    error: string;
+};
 export interface DatabaseApi {
     getSchemaSummary(): Promise<SchemaSummary>;
     queryTable(input: TableQueryInput): Promise<TableQueryResult>;
@@ -98,6 +111,7 @@ export interface DatabaseApi {
     insertRow(input: TableInsertInput): Promise<Record<string, unknown>>;
     updateRow(input: TableUpdateInput): Promise<Record<string, unknown>>;
     deleteRow(input: TableDeleteInput): Promise<void>;
+    clearOperationalData(input: ClearOperationalDataInput): Promise<ClearOperationalDataResponse>;
 }
 export interface AuthSessionResponse {
     user: AuthUser;

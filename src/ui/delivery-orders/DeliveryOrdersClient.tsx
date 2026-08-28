@@ -8,6 +8,7 @@ import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts"
 import { canPerformActionFromSnapshot } from "../../shared/permissionUtils.ts";
 import type {
   DeliveryOrdersFormOptions,
+  DeliveryOrdersPaymentMethodOption,
   DeliveryOrderTaxPreview,
   PendingDeliveryOrderRow,
 } from "./types.ts";
@@ -50,7 +51,51 @@ type PaymentRow = {
   bank: string;
   cashReceiptNo: string;
   receiptDate: string;
+  traiteNo: string;
+  traiteIssuedOn: string;
+  traiteMaturityOn: string;
 };
+
+function paymentsMissingTraiteDetails(
+  payments: PaymentRow[],
+  methods: DeliveryOrdersPaymentMethodOption[],
+): boolean {
+  return payments.some((payment) => {
+    if (!payment.paymentMethodId.trim()) {
+      return false;
+    }
+    const method = methods.find((item) => item.id === payment.paymentMethodId);
+    if (method?.kind !== "TRAITE") {
+      return false;
+    }
+    return (
+      !payment.traiteNo.trim() ||
+      !payment.traiteIssuedOn.trim() ||
+      !payment.traiteMaturityOn.trim()
+    );
+  });
+}
+
+function emptyPaymentExtras(): Pick<
+  PaymentRow,
+  | "chequeNo"
+  | "bank"
+  | "cashReceiptNo"
+  | "receiptDate"
+  | "traiteNo"
+  | "traiteIssuedOn"
+  | "traiteMaturityOn"
+> {
+  return {
+    chequeNo: "",
+    bank: "",
+    cashReceiptNo: "",
+    receiptDate: "",
+    traiteNo: "",
+    traiteIssuedOn: "",
+    traiteMaturityOn: "",
+  };
+}
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -178,10 +223,7 @@ export function DeliveryOrdersClient({
     return {
       paymentMethodId: "",
       paymentDate: todayIsoDate(),
-      chequeNo: "",
-      bank: "",
-      cashReceiptNo: "",
-      receiptDate: "",
+      ...emptyPaymentExtras(),
     };
   }
 
@@ -436,6 +478,9 @@ export function DeliveryOrdersClient({
               bank: payment.bank,
               cashReceiptNo: payment.cashReceiptNo,
               receiptDate: payment.receiptDate,
+              traiteNo: payment.traiteNo,
+              traiteIssuedOn: payment.traiteIssuedOn,
+              traiteMaturityOn: payment.traiteMaturityOn,
             }))
           : [],
       );
@@ -484,6 +529,13 @@ export function DeliveryOrdersClient({
         setBanner({ type: "error", text: "Select a collection point." });
         return;
       }
+      if (paymentsMissingTraiteDetails(payments, paymentMethods)) {
+        setBanner({
+          type: "error",
+          text: "Enter trait no #, issued date, and maturity date for traite payments.",
+        });
+        return;
+      }
 
       const result = await getElectronApi().deliveryOrders.save({
         userId: user.id,
@@ -509,6 +561,9 @@ export function DeliveryOrdersClient({
             bank: payment.bank || undefined,
             cashReceiptNo: payment.cashReceiptNo || undefined,
             receiptDate: payment.receiptDate || undefined,
+            traiteNo: payment.traiteNo || undefined,
+            traiteIssuedOn: payment.traiteIssuedOn || undefined,
+            traiteMaturityOn: payment.traiteMaturityOn || undefined,
           })),
       });
 
@@ -1079,13 +1134,17 @@ export function DeliveryOrdersClient({
                 (item) => item.id === payment.paymentMethodId,
               );
               const isCheque = method?.kind === "CHEQUE";
+              const isTraite = method?.kind === "TRAITE";
               const isBankTransfer = method?.kind === "BANK_TRANSFER";
-              const fieldCount = isCheque ? 4 : 3;
+              const fieldCount = isTraite ? 6 : isCheque ? 4 : 3;
+              const gridClass = isTraite
+                ? "sales-payment-grid sales-payment-grid--cols-6"
+                : `sales-payment-grid sales-payment-grid--cols-${fieldCount}`;
 
               return (
                 <div class="sales-payment-row" key={index}>
                   <div
-                    class={`sales-payment-grid sales-payment-grid--cols-${fieldCount}`}
+                    class={gridClass}
                     style={{ "--sales-payment-cols": String(fieldCount) }}
                   >
                     <label class="sales-field">
@@ -1102,9 +1161,7 @@ export function DeliveryOrdersClient({
                                     paymentMethodId: (
                                       event.currentTarget as HTMLSelectElement
                                     ).value,
-                                    chequeNo: "",
-                                    bank: "",
-                                    cashReceiptNo: "",
+                                    ...emptyPaymentExtras(),
                                   }
                                 : item,
                             ),
@@ -1145,7 +1202,100 @@ export function DeliveryOrdersClient({
                       />
                     </label>
 
-                    {isCheque ? (
+                    {isTraite ? (
+                      <>
+                        <label class="sales-field">
+                          <span>Trait no #</span>
+                          <input
+                            type="text"
+                            value={payment.traiteNo}
+                            disabled={!isFormEditable}
+                            placeholder="Trait number"
+                            onInput={(event) =>
+                              setPayments((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index
+                                    ? {
+                                        ...item,
+                                        traiteNo: (
+                                          event.currentTarget as HTMLInputElement
+                                        ).value,
+                                      }
+                                    : item,
+                                ),
+                              )
+                            }
+                          />
+                        </label>
+                        <label class="sales-field">
+                          <span>Issued on</span>
+                          <input
+                            type="date"
+                            value={payment.traiteIssuedOn}
+                            disabled={!isFormEditable}
+                            onInput={(event) =>
+                              setPayments((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index
+                                    ? {
+                                        ...item,
+                                        traiteIssuedOn: (
+                                          event.currentTarget as HTMLInputElement
+                                        ).value,
+                                      }
+                                    : item,
+                                ),
+                              )
+                            }
+                          />
+                        </label>
+                        <label class="sales-field">
+                          <span>Maturity on</span>
+                          <input
+                            type="date"
+                            value={payment.traiteMaturityOn}
+                            disabled={!isFormEditable}
+                            onInput={(event) =>
+                              setPayments((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index
+                                    ? {
+                                        ...item,
+                                        traiteMaturityOn: (
+                                          event.currentTarget as HTMLInputElement
+                                        ).value,
+                                      }
+                                    : item,
+                                ),
+                              )
+                            }
+                          />
+                        </label>
+                        <label class="sales-field">
+                          <span>Bank</span>
+                          <input
+                            type="text"
+                            value={payment.bank}
+                            disabled={!isFormEditable}
+                            placeholder="Bank name"
+                            onInput={(event) =>
+                              setPayments((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index
+                                    ? {
+                                        ...item,
+                                        bank: (
+                                          event.currentTarget as HTMLInputElement
+                                        ).value,
+                                      }
+                                    : item,
+                                ),
+                              )
+                            }
+                          />
+                        </label>
+                      </>
+                    ) : isCheque ? (
                       <>
                         <label class="sales-field">
                           <span>Cheque no.</span>

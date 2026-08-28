@@ -6,7 +6,6 @@ export declare function canWriteRouteFromSnapshot(snapshot: RolePermissionsSnaps
 export declare function canPerformActionFromSnapshot(snapshot: RolePermissionsSnapshot, actionKey: PermissionActionKey): boolean;
 /** Sidebar label: bottled-only keepers see "Stock" for bottled-stock. */
 export declare function stockNavLabelForRoute(snapshot: RolePermissionsSnapshot, routeId: string, defaultLabel: string): string;
-/** Filters nav by permissions; hides bottled-stock when main stock is available. */
 export declare function filterSectionsForPermissions<TSection extends {
     routes: readonly {
         id: string;

@@ -9,6 +9,8 @@ import type {
 import { isIntraSalesPointTransfer } from "../../shared/stockTransferMode.js";
 import {
   assertAction,
+  assertRouteRead,
+  assertRouteWrite,
   canAccessRoute,
 } from "../auth/permissions/service.js";
 import { getDatabase } from "../db/index.js";
@@ -72,7 +74,7 @@ function canSeeProductFilter(role: string, filter: StockProductFilter): boolean 
 
 export function listStockValidationQueue(userId: string): StockValidationQueuePage {
   const actor = getActor(userId);
-  assertAction(actor.role, "validate_stock_documents");
+  assertRouteRead(actor.role, "stock-validation");
 
   const db = getDatabase();
   const scoped = actor.salesPointId;
@@ -233,6 +235,7 @@ export function validateStockDocuments(
   items: StockValidationItem[],
 ): StockValidateManyResult {
   const actor = getActor(userId);
+  assertRouteWrite(actor.role, "stock-validation");
   assertAction(actor.role, "validate_stock_documents");
 
   const unique = new Map<string, StockValidationItem>();

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
+import type { AuthUser } from "../auth/session.ts";
 import { formatDisplayDate as formatDate } from "../../shared/formatDisplayDate.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
 import { normalizeVatRateDecimal } from "../../shared/taxRules.ts";
@@ -57,6 +58,7 @@ type ModalState =
 
 interface CompanySettingsScreenProps {
   readOnly?: boolean;
+  user?: AuthUser | null;
 }
 
 const COLUMNS: Array<{ key: SortField; label: string }> = [

@@ -276,7 +276,7 @@ export function MonthlyPalmOilSalesScreen({
         </button>
         <ReportCommentsEditor
           reportId="monthly-palm-oil-sales-report"
-          initialText={report.comments}
+          comments={report.comments}
           onSaved={(comments) => setReport({ ...report, comments })}
         />
       </div>

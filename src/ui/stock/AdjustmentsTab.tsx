@@ -11,7 +11,7 @@ import type {
   StockProductFilter,
   StorageLocationOption,
 } from "../../shared/stock.types.ts";
-import { ConfirmDialog, DocDialog, ReviewKeyValue, ReviewLineTable, StatusBadge } from "./StockDialogs.tsx";
+import { ConfirmDialog, DocDialog, ReviewKeyValue, ReviewLineTable, StatusBadge, type StockDialogMessage } from "./StockDialogs.tsx";
 import { AdjustmentLineEditor, type AdjustmentLineDraft } from "./LineEditors.tsx";
 import {
   clampIsoDateToRange,
@@ -80,6 +80,38 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
   const [reviewDetail, setReviewDetail] = useState<AdjustmentDetail | null>(null);
   const [reviewBusy, setReviewBusy] = useState(false);
   const [postingPeriod, setPostingPeriod] = useState<OpenPostingPeriod | null>(null);
+  const [modalMessage, setModalMessage] = useState<StockDialogMessage>(null);
+
+  function showModalErr(text: string) {
+    setModalMessage({ type: "error", text });
+  }
+
+  function clearModalMessage() {
+    setModalMessage(null);
+  }
+
+  function closeReviewModal() {
+    clearModalMessage();
+    setReviewDetail(null);
+  }
+
+  function closeFormModal() {
+    clearModalMessage();
+    setOpen(false);
+  }
+
+  function closeCancelModal() {
+    clearModalMessage();
+    setPendingCancel(null);
+  }
+
+  function reportActionErr(documentId: string, text: string) {
+    if (reviewDetail?.id === documentId) {
+      showModalErr(text);
+    } else {
+      props.onErr(text);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -137,6 +169,7 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
 
   function openCreate() {
     resetForm();
+    clearModalMessage();
     setOpen(true);
   }
 
@@ -177,6 +210,7 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
     event.preventDefault();
     if (busy) return;
     setBusy(true);
+    clearModalMessage();
     try {
       const res = await getElectronApi().stock.saveAdjustment({
         userId,
@@ -200,7 +234,7 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
           })),
       });
       if ("error" in res) {
-        props.onErr(res.error);
+        showModalErr(res.error);
         return;
       }
       props.onOk(
@@ -208,10 +242,10 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
           ? `Adjustment ${res.documentNo} updated.`
           : `Adjustment ${res.documentNo} drafted.`,
       );
-      setOpen(false);
+      closeFormModal();
       resetForm();
     } catch (error) {
-      props.onErr(error instanceof Error ? error.message : "Could not save adjustment.");
+      showModalErr(error instanceof Error ? error.message : "Could not save adjustment.");
     } finally {
       setBusy(false);
     }
@@ -219,6 +253,7 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
 
   async function onPost(id: string) {
     setBusy(true);
+    clearModalMessage();
     try {
       const res = await getElectronApi().stock.postAdjustment({
         userId,
@@ -226,13 +261,16 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
         adjustmentId: id,
       });
       if ("error" in res) {
-        props.onErr(res.error);
+        reportActionErr(id, res.error);
         return;
       }
       props.onOk("Adjustment posted; balances updated.");
-      if (reviewDetail?.id === id) setReviewDetail(null);
+      if (reviewDetail?.id === id) closeReviewModal();
     } catch (error) {
-      props.onErr(error instanceof Error ? error.message : "Could not post adjustment.");
+      reportActionErr(
+        id,
+        error instanceof Error ? error.message : "Could not post adjustment.",
+      );
     } finally {
       setBusy(false);
     }
@@ -241,8 +279,8 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
   async function onCancel() {
     if (!pendingCancel) return;
     const id = pendingCancel.id;
-    setPendingCancel(null);
     setBusy(true);
+    clearModalMessage();
     try {
       const res = await getElectronApi().stock.cancelAdjustment({
         userId,
@@ -250,13 +288,16 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
         adjustmentId: id,
       });
       if ("error" in res) {
-        props.onErr(res.error);
+        showModalErr(res.error);
         return;
       }
       props.onOk("Adjustment cancelled.");
-      if (reviewDetail?.id === id) setReviewDetail(null);
+      closeCancelModal();
+      if (reviewDetail?.id === id) closeReviewModal();
     } catch (error) {
-      props.onErr(error instanceof Error ? error.message : "Could not cancel adjustment.");
+      showModalErr(
+        error instanceof Error ? error.message : "Could not cancel adjustment.",
+      );
     } finally {
       setBusy(false);
     }
@@ -270,6 +311,7 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
         props.onErr(res.error);
         return;
       }
+      clearModalMessage();
       setReviewDetail(res.detail);
     } catch (error) {
       props.onErr(error instanceof Error ? error.message : "Could not load adjustment.");
@@ -280,20 +322,37 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
 
   async function openEditById(id: string) {
     setReviewBusy(true);
+    const fromReview = reviewDetail?.id === id;
     try {
       const res = await getElectronApi().stock.loadAdjustmentForReview({ userId, adjustmentId: id });
       if ("error" in res) {
-        props.onErr(res.error);
+        if (fromReview) {
+          showModalErr(res.error);
+        } else {
+          props.onErr(res.error);
+        }
         return;
       }
       if (res.detail.status !== "DRAFT") {
-        props.onErr("Only draft adjustments can be edited.");
+        const text = "Only draft adjustments can be edited.";
+        if (fromReview) {
+          showModalErr(text);
+        } else {
+          props.onErr(text);
+        }
         return;
       }
-      setReviewDetail(null);
+      closeReviewModal();
+      clearModalMessage();
       populateFormFromDetail(res.detail);
     } catch (error) {
-      props.onErr(error instanceof Error ? error.message : "Could not load adjustment.");
+      const text =
+        error instanceof Error ? error.message : "Could not load adjustment.";
+      if (fromReview) {
+        showModalErr(text);
+      } else {
+        props.onErr(text);
+      }
     } finally {
       setReviewBusy(false);
     }
@@ -465,7 +524,8 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
         <DocDialog
           title={`Review adjustment ${reviewDetail.sourceKind === "CARRY_FORWARD" ? "CF · " : ""}${reviewDetail.adjustmentNo}`}
           wide
-          onClose={() => setReviewDetail(null)}
+          message={!pendingCancel ? modalMessage : null}
+          onClose={closeReviewModal}
         >
           <div class="stock-review">
             <div class="stock-review-top">
@@ -503,7 +563,7 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
             />
 
             <div class="stock-modal-actions">
-              <button type="button" class="stock-btn-secondary" onClick={() => setReviewDetail(null)}>
+              <button type="button" class="stock-btn-secondary" onClick={closeReviewModal}>
                 Close
               </button>
               {(reviewDetail.status === "DRAFT" && props.canDraft) ||
@@ -544,7 +604,12 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
       ) : null}
 
       {open ? (
-        <DocDialog title={editingId ? "Edit adjustment" : "New adjustment"} wide onClose={() => setOpen(false)}>
+        <DocDialog
+          title={editingId ? "Edit adjustment" : "New adjustment"}
+          wide
+          message={!pendingCancel && !reviewDetail ? modalMessage : null}
+          onClose={closeFormModal}
+        >
           <form onSubmit={onSave} class="stock-form">
             {scopedSalesPointId == null ? (
               <label class="stock-form-row">
@@ -645,7 +710,7 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
               <button type="submit" disabled={busy} class="stock-btn-primary">
                 {editingId ? "Save changes" : "Create draft"}
               </button>
-              <button type="button" onClick={() => setOpen(false)} disabled={busy} class="stock-btn-secondary">
+              <button type="button" onClick={closeFormModal} disabled={busy} class="stock-btn-secondary">
                 Cancel
               </button>
             </div>
@@ -663,7 +728,8 @@ export function AdjustmentsTab(props: AdjustmentsTabProps) {
           }
           confirmLabel={pendingCancel.status === "DRAFT" ? "Delete" : "Cancel adjustment"}
           busy={busy}
-          onCancel={() => setPendingCancel(null)}
+          message={modalMessage}
+          onCancel={closeCancelModal}
           onConfirm={onCancel}
         />
       ) : null}

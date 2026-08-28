@@ -54,6 +54,9 @@ export function OnHandTab({ salesPoints, scopedSalesPointId, rows }: OnHandTabPr
     const grouped = new Map<string, GroupedRow>();
 
     for (const r of base) {
+      if (r.storageLocationId == null) {
+        continue;
+      }
       const key = `${r.salesPointId}:${r.storageLocationId}:${r.productId}`;
       const existing = grouped.get(key);
       const qtyNum = Number.parseFloat(r.qty);

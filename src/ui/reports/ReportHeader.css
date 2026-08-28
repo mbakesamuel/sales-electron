@@ -96,6 +96,8 @@
   font-weight: 700;
   letter-spacing: 0.02em;
   font-family: "Arial Narrow", Arial, sans-serif;
+  /* Inherit from .report-header so global h1 theme color does not override print-friendly text. */
+  color: inherit;
 }
 
 @media print {

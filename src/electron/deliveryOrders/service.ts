@@ -165,7 +165,12 @@ export function getDeliveryOrdersFormOptions(): DeliveryOrdersFormOptions {
 
   const products = db
     .prepare(
-      `SELECT productId, productName FROM Product ORDER BY productName ASC LIMIT 200`,
+      `SELECT p.productId, p.productName
+       FROM Product p
+       INNER JOIN ProductCat pc ON pc.productCatId = p.productCatId
+       WHERE COALESCE(pc.isBottled, 0) = 0
+       ORDER BY p.productName ASC
+       LIMIT 200`,
     )
     .all() as DeliveryOrdersFormOptions["products"];
 
@@ -176,7 +181,7 @@ export function getDeliveryOrdersFormOptions(): DeliveryOrdersFormOptions {
   const paymentMethods = db
     .prepare(
       `SELECT id, code, name, kind FROM PaymentMethodDefinition
-       WHERE isActive = 1 AND kind IN ('SIMPLE', 'CHEQUE', 'BANK_TRANSFER')
+       WHERE isActive = 1 AND kind != 'CREDIT'
        ORDER BY sortOrder ASC, name ASC`,
     )
     .all() as DeliveryOrdersFormOptions["paymentMethods"];
@@ -344,6 +349,13 @@ function mapLoadedOrder(order: Record<string, unknown>): LoadedDeliveryOrderView
       bank: payment.bank ? String(payment.bank) : "",
       cashReceiptNo: payment.cashReceiptNo ? String(payment.cashReceiptNo) : "",
       receiptDate: payment.receiptDate ? String(payment.receiptDate).slice(0, 10) : "",
+      traiteNo: payment.traiteNo ? String(payment.traiteNo) : "",
+      traiteIssuedOn: payment.traiteIssuedOn
+        ? String(payment.traiteIssuedOn).slice(0, 10)
+        : "",
+      traiteMaturityOn: payment.traiteMaturityOn
+        ? String(payment.traiteMaturityOn).slice(0, 10)
+        : "",
     })),
   };
 }
@@ -634,6 +646,25 @@ export function saveDeliveryOrder(input: SaveDeliveryOrderInput): SaveDeliveryOr
       return { ok: false, error: "Quantity must be a positive whole number." };
     }
 
+    const productRow = db
+      .prepare(
+        `SELECT p.productName, COALESCE(pc.isBottled, 0) AS isBottled
+         FROM Product p
+         INNER JOIN ProductCat pc ON pc.productCatId = p.productCatId
+         WHERE p.productId = ?`,
+      )
+      .get(line.productId) as { productName: string; isBottled: number } | undefined;
+
+    if (!productRow) {
+      return { ok: false, error: "Product not found." };
+    }
+    if (productRow.isBottled === 1) {
+      return {
+        ok: false,
+        error: `${productRow.productName} is bottled. Delivery orders are for loose products only.`,
+      };
+    }
+
     const unitPrice = resolveUnitPriceExTax(
       line.productId,
       taxInfo.customerTypeId,
@@ -825,8 +856,9 @@ function insertLinesAndPayments(
 
   const insertPayment = db.prepare(
     `INSERT INTO DeliveryOrderPaymentDetails (
-      deliveryOrderId, paymentDate, chequeNo, bank, cashReceiptNo, receiptDate, paymentMethodId
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      deliveryOrderId, paymentDate, chequeNo, bank, cashReceiptNo, receiptDate,
+      traiteNo, traiteIssuedOn, traiteMaturityOn, paymentMethodId
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
 
   for (const payment of payments) {
@@ -841,6 +873,9 @@ function insertLinesAndPayments(
       payment.bank?.trim() || null,
       payment.cashReceiptNo?.trim() || null,
       payment.receiptDate || null,
+      payment.traiteNo?.trim() || null,
+      payment.traiteIssuedOn || null,
+      payment.traiteMaturityOn || null,
       payment.paymentMethodId,
     );
   }

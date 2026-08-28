@@ -1,4 +1,4 @@
-import type { BinCardQuery, BinCardReport, ReceiveTransferInput, SaveAdjustmentInput, SaveReceiptInput, SaveTransferInput, StockBalanceRow, StockBootstrap, StockGenericResult, StockMutationResult, StockProductFilter, StockReceiveQueuePage, StockValidateManyResult, StockValidationItem, StockValidationQueuePage } from "../../shared/stock.types.ts";
+import type { BinCardQuery, BinCardReport, ReceiveTransferInput, SaveAdjustmentInput, SaveReceiptInput, SaveTransferInput, StockBalanceRow, StockBootstrap, StockGenericResult, StockMutationResult, StockProductFilter, StockValidateManyResult, StockValidationItem, StockValidationQueuePage, StockReceiveQueuePage } from "../../shared/stock.types.ts";
 type DocFilterPayload = {
     userId: string;
     productFilter?: StockProductFilter | null;

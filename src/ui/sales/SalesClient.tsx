@@ -60,15 +60,6 @@ function parseDec(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-/** Digits-only amount for payment inputs (XAF whole units). */
-function parseAmountInput(value: string): string {
-  const digits = String(value ?? "").replace(/\D/g, "");
-  if (!digits) {
-    return "";
-  }
-  return String(Number.parseInt(digits, 10));
-}
-
 function formatAmountInput(value: string): string {
   if (!value.trim()) {
     return "";

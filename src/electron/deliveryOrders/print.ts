@@ -20,8 +20,27 @@ function paymentDetail(row: {
   chequeNo: string | null;
   bank: string | null;
   cashReceiptNo: string | null;
+  traiteNo: string | null;
+  traiteIssuedOn: string | null;
+  traiteMaturityOn: string | null;
 }): string | null {
-  if (row.kind === "CHEQUE" || row.kind === "TRAITE") {
+  if (row.kind === "TRAITE") {
+    const parts: string[] = [];
+    if (row.traiteNo?.trim()) {
+      parts.push(`Trait ${row.traiteNo.trim()}`);
+    }
+    if (row.traiteIssuedOn?.trim()) {
+      parts.push(`issued ${row.traiteIssuedOn.trim().slice(0, 10)}`);
+    }
+    if (row.traiteMaturityOn?.trim()) {
+      parts.push(`matures ${row.traiteMaturityOn.trim().slice(0, 10)}`);
+    }
+    if (row.bank?.trim()) {
+      parts.push(row.bank.trim());
+    }
+    return parts.length > 0 ? parts.join(" · ") : null;
+  }
+  if (row.kind === "CHEQUE") {
     const parts = [row.chequeNo, row.bank].filter(Boolean);
     return parts.length > 0 ? parts.join(" · ") : null;
   }
@@ -138,7 +157,10 @@ export function loadDeliveryOrderPrintById(
          dp.paymentDate,
          dp.chequeNo,
          dp.bank,
-         dp.cashReceiptNo
+         dp.cashReceiptNo,
+         dp.traiteNo,
+         dp.traiteIssuedOn,
+         dp.traiteMaturityOn
        FROM DeliveryOrderPaymentDetails dp
        INNER JOIN PaymentMethodDefinition pmd ON pmd.id = dp.paymentMethodId
        WHERE dp.deliveryOrderId = ?
@@ -151,6 +173,9 @@ export function loadDeliveryOrderPrintById(
     chequeNo: string | null;
     bank: string | null;
     cashReceiptNo: string | null;
+    traiteNo: string | null;
+    traiteIssuedOn: string | null;
+    traiteMaturityOn: string | null;
   }>;
 
   const subtotalExTax = sumMoney(lines.map((line) => line.lineSubtotalExTax));

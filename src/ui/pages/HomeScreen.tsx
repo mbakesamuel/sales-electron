@@ -264,16 +264,17 @@ function RouteContent({
   }
 
   if (route.id === "stock-validation") {
-    if (
-      !canPerformActionFromSnapshot(permissions, "validate_stock_documents")
-    ) {
+    if (!canAccessRouteFromSnapshot(permissions, "stock-validation")) {
       return (
         <p class="home-access-denied">
-          You do not have permission to validate stock documents.
+          You do not have permission to view stock validation.
         </p>
       );
     }
-    return <StockValidationScreen user={user} />;
+    const canValidate =
+      canWriteRouteFromSnapshot(permissions, "stock-validation") &&
+      canPerformActionFromSnapshot(permissions, "validate_stock_documents");
+    return <StockValidationScreen user={user} canValidate={canValidate} />;
   }
 
   if (route.id === "receive-transfers") {
@@ -354,7 +355,7 @@ function RouteContent({
   }
 
   if (route.id === "company-settings") {
-    return <CompanySettingsScreen readOnly={readOnly} />;
+    return <CompanySettingsScreen readOnly={readOnly} user={user} />;
   }
 
   if (route.id === "report-settings") {
