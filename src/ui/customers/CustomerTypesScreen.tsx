@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { formatDisplayDate as formatDate } from "../../shared/formatDisplayDate.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
 
 import { FormDialog } from "../components/FormDialog.tsx";
 import "../components/FormDialog.css";
+import { RowActions } from "../components/RowActions.tsx";
 import { CustomerTypeFormModal } from "./CustomerTypeFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "./CustomersScreen.css";
@@ -33,29 +34,6 @@ interface CustomerTypeRow {
 type FormState = { mode: "create" } | { mode: "edit"; row: Record<string, unknown> };
 
 const PAGE_SIZE = 6;
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
-
-function typeBadgeClass(name: string): string {
-  const normalized = name.toLowerCase();
-  if (normalized === "industry") {
-    return "customers-badge customers-badge-slate";
-  }
-  if (normalized === "wholesale") {
-    return "customers-badge customers-badge-violet";
-  }
-  if (normalized === "retail") {
-    return "customers-badge customers-badge-blue";
-  }
-  return "customers-badge customers-badge-blue";
-}
 
 function salesTaxBadgeClass(exempt: boolean): string {
   return exempt
@@ -150,15 +128,6 @@ function IconCheck() {
   );
 }
 
-function IconX() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <circle cx="12" cy="12" r="10" />
-      <path d="m15 9-6 6M9 9l6 6" />
-    </svg>
-  );
-}
-
 function IconUsers() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -213,16 +182,6 @@ function IconSliders() {
   );
 }
 
-function IconMore() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="5" cy="12" r="1.5" />
-      <circle cx="12" cy="12" r="1.5" />
-      <circle cx="19" cy="12" r="1.5" />
-    </svg>
-  );
-}
-
 function IconChevronUp({ active = false }: { active?: boolean }) {
   return (
     <svg
@@ -264,128 +223,6 @@ function IconChevronRight() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="m9 18 6-6-6-6" />
     </svg>
-  );
-}
-
-function IconEye() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function IconPencil() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-    </svg>
-  );
-}
-
-function IconTrash() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    </svg>
-  );
-}
-
-function BoolBadge({ value }: { value: boolean }) {
-  return (
-    <span class={`customers-bool-icon${value ? "" : " is-false"}`}>
-      {value ? <IconCheck /> : <IconX />}
-    </span>
-  );
-}
-
-function ActionMenu({
-  onView,
-  onEdit,
-  onDelete,
-  disableDelete,
-  canWrite = true,
-}: {
-  onView: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-  disableDelete?: boolean;
-  canWrite?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    function onPointerDown(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-
-    window.addEventListener("mousedown", onPointerDown);
-    return () => window.removeEventListener("mousedown", onPointerDown);
-  }, [open]);
-
-  return (
-    <div class="customers-actions" ref={rootRef}>
-      <button
-        type="button"
-        class="customers-actions-trigger"
-        aria-label="Actions"
-        onClick={() => setOpen((current) => !current)}
-      >
-        <IconMore />
-      </button>
-
-      {open ? (
-        <div class="customers-actions-menu">
-          <button
-            type="button"
-            class="customers-actions-item"
-            onClick={() => {
-              setOpen(false);
-              onView();
-            }}
-          >
-            <IconEye />
-            View
-          </button>
-          {canWrite ? (
-            <>
-              <button
-                type="button"
-                class="customers-actions-item"
-                onClick={() => {
-                  setOpen(false);
-                  onEdit();
-                }}
-              >
-                <IconPencil />
-                Edit
-              </button>
-              <div class="customers-actions-divider" />
-              <button
-                type="button"
-                class="customers-actions-item customers-actions-item-danger"
-                disabled={disableDelete}
-                onClick={() => {
-                  setOpen(false);
-                  onDelete();
-                }}
-              >
-                <IconTrash />
-                Delete
-              </button>
-            </>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
   );
 }
 
@@ -720,7 +557,7 @@ export function CustomerTypesScreen({ readOnly = false }: CustomerTypesScreenPro
             <IconTags />
           </div>
           <div>
-            <h2 class="customers-screen-brand-title">CustomerBase</h2>
+            <h2 class="customers-screen-brand-title">Customer Types</h2>
             <p class="customers-screen-brand-subtitle">Customer Type Definitions</p>
           </div>
         </div>
@@ -857,13 +694,8 @@ export function CustomerTypesScreen({ readOnly = false }: CustomerTypesScreenPro
                   />
                 </th>
                 <SortableTh label="Type" col="name" />
-                <SortableTh label="Code" col="code" />
-                <SortableTh label="Sort" col="sortOrder" className="customers-col-hide-md" />
                 <th>Status</th>
                 <th>Sales tax</th>
-                <th class="customers-col-hide-md" style="text-align: center;">
-                  System
-                </th>
                 <SortableTh
                   label="Customers"
                   col="customerCount"
@@ -874,19 +706,19 @@ export function CustomerTypesScreen({ readOnly = false }: CustomerTypesScreenPro
                   col="createdAt"
                   className="customers-col-hide-lg"
                 />
-                <th style="width: 40px;" />
+                <th style="width: 1%;">Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={10} class="customers-table-empty">
+                  <td colSpan={7} class="customers-table-empty">
                     Loading customer types…
                   </td>
                 </tr>
               ) : paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={10} class="customers-table-empty">
+                  <td colSpan={7} class="customers-table-empty">
                     No customer types match your search.
                   </td>
                 </tr>
@@ -904,20 +736,10 @@ export function CustomerTypesScreen({ readOnly = false }: CustomerTypesScreenPro
 
                     <td>
                       <div class="customers-name-cell">
-                        <div class="customers-avatar">{initials(row.name)}</div>
                         <div>
                           <p class="customers-name-primary">{row.name}</p>
-                          <span class={typeBadgeClass(row.name)}>{row.code}</span>
                         </div>
                       </div>
-                    </td>
-
-                    <td>
-                      <span class="customers-mono-chip">{row.code}</span>
-                    </td>
-
-                    <td class="customers-col-hide-md">
-                      <span class="customers-contact-mono">{row.sortOrder}</span>
                     </td>
 
                     <td>
@@ -932,10 +754,6 @@ export function CustomerTypesScreen({ readOnly = false }: CustomerTypesScreenPro
                       </span>
                     </td>
 
-                    <td class="customers-col-hide-md" style="text-align: center;">
-                      <BoolBadge value={row.isSystem} />
-                    </td>
-
                     <td class="customers-col-hide-lg">
                       <span class="customers-contact-mono">
                         {row.customerCount > 0 ? row.customerCount : "—"}
@@ -945,17 +763,16 @@ export function CustomerTypesScreen({ readOnly = false }: CustomerTypesScreenPro
                     <td class="customers-col-hide-lg">
                       <div class="customers-dates">
                         <div>{row.createdAt}</div>
-                        <div class="customers-dates-updated">↑ {row.updatedAt}</div>
                       </div>
                     </td>
 
                     <td>
-                      <ActionMenu
+                      <RowActions
                         canWrite={canWrite}
+                        disableDelete={row.isSystem}
                         onView={() => setViewRow(row)}
                         onEdit={() => setFormState({ mode: "edit", row: row.raw })}
                         onDelete={() => void deleteType(row)}
-                        disableDelete={row.isSystem}
                       />
                     </td>
                   </tr>

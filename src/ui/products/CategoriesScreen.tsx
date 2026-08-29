@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { formatDisplayDate as formatDate } from "../../shared/formatDisplayDate.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
 
 import { FormDialog } from "../components/FormDialog.tsx";
 import "../components/FormDialog.css";
+import { RowActions } from "../components/RowActions.tsx";
 import { CategoryFormModal } from "./CategoryFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "../customers/CustomersScreen.css";
@@ -28,22 +29,6 @@ interface CategoryRow {
 type FormState = { mode: "create" } | { mode: "edit"; row: Record<string, unknown> };
 
 const PAGE_SIZE = 6;
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
-
-function categoryBadgeClass(name: string): string {
-  const normalized = name.toLowerCase();
-  if (normalized.includes("palm")) return "customers-badge customers-badge-emerald";
-  if (normalized.includes("bottle")) return "customers-badge customers-badge-violet";
-  return "customers-badge customers-badge-blue";
-}
 
 function matchesTab(row: CategoryRow, tab: ActiveTab): boolean {
   if (tab === "all") return true;
@@ -167,16 +152,6 @@ function IconSliders() {
   );
 }
 
-function IconMore() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="5" cy="12" r="1.5" />
-      <circle cx="12" cy="12" r="1.5" />
-      <circle cx="19" cy="12" r="1.5" />
-    </svg>
-  );
-}
-
 function IconCheck() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -239,91 +214,11 @@ function IconChevronRight() {
   );
 }
 
-function IconEye() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function IconPencil() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-    </svg>
-  );
-}
-
-function IconTrash() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    </svg>
-  );
-}
-
 function BoolBadge({ value }: { value: boolean }) {
   return (
     <span class={`customers-bool-icon${value ? "" : " is-false"}`}>
       {value ? <IconCheck /> : <IconX />}
     </span>
-  );
-}
-
-function ActionMenu({
-  onView,
-  onEdit,
-  onDelete,
-  canWrite = true,
-}: {
-  onView: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-  canWrite?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onPointerDown(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    }
-    window.addEventListener("mousedown", onPointerDown);
-    return () => window.removeEventListener("mousedown", onPointerDown);
-  }, [open]);
-
-  return (
-    <div class="customers-actions" ref={rootRef}>
-      <button
-        type="button"
-        class="customers-actions-trigger"
-        aria-label="Actions"
-        onClick={() => setOpen((current) => !current)}
-      >
-        <IconMore />
-      </button>
-      {open ? (
-        <div class="customers-actions-menu">
-          <button type="button" class="customers-actions-item" onClick={() => { setOpen(false); onView(); }}>
-            <IconEye /> View
-          </button>
-          {canWrite ? (
-            <>
-              <button type="button" class="customers-actions-item" onClick={() => { setOpen(false); onEdit(); }}>
-                <IconPencil /> Edit
-              </button>
-              <div class="customers-actions-divider" />
-              <button type="button" class="customers-actions-item customers-actions-item-danger" onClick={() => { setOpen(false); onDelete(); }}>
-                <IconTrash /> Delete
-              </button>
-            </>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
   );
 }
 
@@ -539,7 +434,7 @@ export function CategoriesScreen({ readOnly = false }: CategoriesScreenProps = {
         <div class="customers-screen-brand">
           <div class="customers-screen-brand-icon"><IconLayers /></div>
           <div>
-            <h2 class="customers-screen-brand-title">ProductCatalog</h2>
+            <h2 class="customers-screen-brand-title">Product Category Catalog</h2>
             <p class="customers-screen-brand-subtitle">Category Management</p>
           </div>
         </div>
@@ -632,7 +527,7 @@ export function CategoriesScreen({ readOnly = false }: CategoriesScreenProps = {
                 <th class="customers-col-hide-md" style="text-align: center;">Bottled</th>
                 <SortableTh label="Products" col="productCount" className="customers-col-hide-lg" />
                 <SortableTh label="Created" col="createdAt" className="customers-col-hide-lg" />
-                <th style="width: 40px;" />
+                <th style="width: 1%;">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -648,10 +543,8 @@ export function CategoriesScreen({ readOnly = false }: CategoriesScreenProps = {
                     </td>
                     <td>
                       <div class="customers-name-cell">
-                        <div class="customers-avatar">{initials(row.productCat)}</div>
                         <div>
                           <p class="customers-name-primary">{row.productCat}</p>
-                          <span class={categoryBadgeClass(row.productCat)}>{row.productCode}</span>
                         </div>
                       </div>
                     </td>
@@ -662,11 +555,10 @@ export function CategoriesScreen({ readOnly = false }: CategoriesScreenProps = {
                     <td class="customers-col-hide-lg">
                       <div class="customers-dates">
                         <div>{row.createdAt}</div>
-                        <div class="customers-dates-updated">↑ {row.updatedAt}</div>
                       </div>
                     </td>
                     <td>
-                      <ActionMenu
+                      <RowActions
                         canWrite={canWrite}
                         onView={() => setViewRow(row)}
                         onEdit={() => {

@@ -541,6 +541,55 @@
   background: #dc2626;
 }
 
+.company-settings-danger-zone {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.company-settings-danger-copy {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.company-settings-danger-copy p {
+  margin: 0;
+}
+
+.company-settings-danger-btn {
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+}
+
+.company-settings-danger-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.company-settings-clear-ops-list {
+  margin: 0 0 16px;
+  padding-left: 20px;
+  font-size: 13px;
+}
+
+.company-settings-clear-ops-confirm {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.company-settings-clear-ops .company-settings-error {
+  margin: 0 0 12px;
+}
+
 @media (max-width: 760px) {
   .company-settings-header,
   .company-settings-toolbar {

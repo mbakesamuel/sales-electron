@@ -118,6 +118,7 @@ function isBooleanColumn(name: string, type: string): boolean {
     name === "looseSalesAllowPublicRelation" ||
     name === "looseSalesAllowUnregisteredCustomer" ||
     name === "loosePalmOilRequireSalesTank" ||
+    name === "loosePalmOilAllowInterSalesPointTransfer" ||
     name === "hideZeroReportRows"
   );
 }

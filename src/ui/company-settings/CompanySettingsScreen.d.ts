@@ -5,5 +5,5 @@ interface CompanySettingsScreenProps {
     readOnly?: boolean;
     user?: AuthUser | null;
 }
-export declare function CompanySettingsScreen({ readOnly, }?: CompanySettingsScreenProps): import("preact").JSX.Element;
+export declare function CompanySettingsScreen({ readOnly, user, }?: CompanySettingsScreenProps): import("preact").JSX.Element;
 export {};

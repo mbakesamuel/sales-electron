@@ -607,6 +607,29 @@ export function HomeScreen({
     "vehicle-consignment-validation",
   ]);
 
+  const catalogFillRoutes = new Set([
+    "customers",
+    "customer-types",
+    "products",
+    "product-categories",
+    "unit-prices",
+    "sales-points",
+    "commercial-services",
+    "locations",
+    "storage-locations",
+    "tax-regimes",
+    "tax-rate-schedules",
+    "payment-methods",
+    "financial-year-periods",
+    "financial-months",
+    "users",
+  ]);
+
+  const usesFillLayout =
+    catalogFillRoutes.has(activeRouteId) ||
+    activeRouteId === "roles" ||
+    activeRouteId === "role-permissions";
+
   return (
     <ReportOverlayContext.Provider value={reportOverlayContextValue}>
     <div class="home-layout">
@@ -736,7 +759,7 @@ export function HomeScreen({
                 activeRouteId === "vehicle-consignment-validation" ||
                 activeRouteId === "bottle-oil-sales"
               ? " home-main--stock"
-              : activeRouteId === "roles" || activeRouteId === "role-permissions"
+              : usesFillLayout
                 ? " home-main--fill"
                 : ""
         }`}

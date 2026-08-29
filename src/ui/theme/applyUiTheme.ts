@@ -10,7 +10,7 @@ export const UI_THEME_LABELS: Record<UiThemePreset, string> = {
 };
 
 export const UI_THEME_COLORS: Record<UiThemePreset, string> = {
-  agro: "#c5a017",
+  agro: "#d4a017",
   dark: "#1a2418",
 };
 

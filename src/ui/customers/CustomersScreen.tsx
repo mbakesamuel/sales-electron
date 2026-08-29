@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { formatDisplayDate as formatDate, formatDisplayDateTime } from "../../shared/formatDisplayDate.ts";
+import { useEffect, useMemo, useState } from "preact/hooks";
+import {
+  formatDisplayDate as formatDate,
+  formatDisplayDateTime,
+} from "../../shared/formatDisplayDate.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedDb } from "../auth/db.ts";
 
 import { FormDialog } from "../components/FormDialog.tsx";
 import "../components/FormDialog.css";
+import { RowActions } from "../components/RowActions.tsx";
 import { CustomerFormModal } from "./CustomerFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "./CustomersScreen.css";
@@ -47,18 +51,11 @@ interface CustomerRow {
   raw: Record<string, unknown>;
 }
 
-type FormState = { mode: "create" } | { mode: "edit"; row: Record<string, unknown> };
+type FormState =
+  | { mode: "create" }
+  | { mode: "edit"; row: Record<string, unknown> };
 
 const PAGE_SIZE = 6;
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
 
 function residencyLabel(value: unknown): string {
   const code = String(value ?? "").toUpperCase();
@@ -90,7 +87,10 @@ function typeBadgeClass(label: string, isPlaceholder: boolean): string {
   return "customers-badge customers-badge-blue";
 }
 
-function matchesCustomerTypeTab(customer: CustomerRow, tab: ActiveTab): boolean {
+function matchesCustomerTypeTab(
+  customer: CustomerRow,
+  tab: ActiveTab,
+): boolean {
   if (tab === "all") {
     return true;
   }
@@ -102,18 +102,15 @@ function matchesCustomerTypeTab(customer: CustomerRow, tab: ActiveTab): boolean 
   return customer.customerTypeLabel.toLowerCase() === tab.toLowerCase();
 }
 
-function countByCustomerType(rows: CustomerRow[], type: CustomerTypeTab): number {
+function countByCustomerType(
+  rows: CustomerRow[],
+  type: CustomerTypeTab,
+): number {
   return rows.filter(
     (customer) =>
       !customer.isPosPlaceholder &&
       customer.customerTypeLabel.toLowerCase() === type.toLowerCase(),
   ).length;
-}
-
-function residencyBadgeClass(label: string): string {
-  return label === "Foreign"
-    ? "customers-badge customers-badge-sky"
-    : "customers-badge customers-badge-emerald";
 }
 
 function exportCsv(rows: CustomerRow[]) {
@@ -196,15 +193,6 @@ function IconCheck() {
   );
 }
 
-function IconX() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <circle cx="12" cy="12" r="10" />
-      <path d="m15 9-6 6M9 9l6 6" />
-    </svg>
-  );
-}
-
 function IconMapPin() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -267,33 +255,6 @@ function IconSliders() {
   );
 }
 
-function IconMail() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <rect width="20" height="16" x="2" y="4" rx="2" />
-      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-    </svg>
-  );
-}
-
-function IconPhone() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
-    </svg>
-  );
-}
-
-function IconMore() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="5" cy="12" r="1.5" />
-      <circle cx="12" cy="12" r="1.5" />
-      <circle cx="19" cy="12" r="1.5" />
-    </svg>
-  );
-}
-
 function IconChevronUp({ active = false }: { active?: boolean }) {
   return (
     <svg
@@ -338,129 +299,13 @@ function IconChevronRight() {
   );
 }
 
-function IconEye() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function IconPencil() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-    </svg>
-  );
-}
-
-function IconTrash() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    </svg>
-  );
-}
-
-function BoolBadge({ value }: { value: boolean }) {
-  return (
-    <span class={`customers-bool-icon${value ? "" : " is-false"}`}>
-      {value ? <IconCheck /> : <IconX />}
-    </span>
-  );
-}
-
-function ActionMenu({
-  onView,
-  onEdit,
-  onDelete,
-  canWrite = true,
-}: {
-  onView: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-  canWrite?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    function onPointerDown(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-
-    window.addEventListener("mousedown", onPointerDown);
-    return () => window.removeEventListener("mousedown", onPointerDown);
-  }, [open]);
-
-  return (
-    <div class="customers-actions" ref={rootRef}>
-      <button
-        type="button"
-        class="customers-actions-trigger"
-        aria-label="Row actions"
-        onClick={() => setOpen((current) => !current)}
-      >
-        <IconMore />
-      </button>
-      {open ? (
-        <div class="customers-actions-menu">
-          <button
-            type="button"
-            class="customers-actions-item"
-            onClick={() => {
-              setOpen(false);
-              onView();
-            }}
-          >
-            <IconEye />
-            View
-          </button>
-          {canWrite ? (
-            <>
-              <button
-                type="button"
-                class="customers-actions-item"
-                onClick={() => {
-                  setOpen(false);
-                  onEdit();
-                }}
-              >
-                <IconPencil />
-                Edit
-              </button>
-              <div class="customers-actions-divider" />
-              <button
-                type="button"
-                class="customers-actions-item customers-actions-item-danger"
-                onClick={() => {
-                  setOpen(false);
-                  onDelete();
-                }}
-              >
-                <IconTrash />
-                Delete
-              </button>
-            </>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 interface CustomersScreenProps {
   readOnly?: boolean;
 }
 
-export function CustomersScreen({ readOnly = false }: CustomersScreenProps = {}) {
+export function CustomersScreen({
+  readOnly = false,
+}: CustomersScreenProps = {}) {
   const canWrite = !readOnly;
   const [rows, setRows] = useState<CustomerRow[]>([]);
   const [schema, setSchema] = useState<TableSchema | null>(null);
@@ -486,14 +331,19 @@ export function CustomersScreen({ readOnly = false }: CustomersScreenProps = {})
 
       try {
         const api = getElectronApi();
-        const [customerResult, typeResult, regimeResult, serviceResult, tableSchema] =
-          await Promise.all([
-            api.db.queryTable({ table: "Customer", limit: 200 }),
-            api.db.queryTable({ table: "CustomerTypeDefinition", limit: 200 }),
-            api.db.queryTable({ table: "TaxRegime", limit: 200 }),
-            api.db.queryTable({ table: "CommercialService", limit: 200 }),
-            api.db.getTableSchema("Customer"),
-          ]);
+        const [
+          customerResult,
+          typeResult,
+          regimeResult,
+          serviceResult,
+          tableSchema,
+        ] = await Promise.all([
+          api.db.queryTable({ table: "Customer", limit: 200 }),
+          api.db.queryTable({ table: "CustomerTypeDefinition", limit: 200 }),
+          api.db.queryTable({ table: "TaxRegime", limit: 200 }),
+          api.db.queryTable({ table: "CommercialService", limit: 200 }),
+          api.db.getTableSchema("Customer"),
+        ]);
 
         if (cancelled) {
           return;
@@ -524,7 +374,7 @@ export function CustomersScreen({ readOnly = false }: CustomersScreenProps = {})
           const customerTypeId = String(row.customerTypeId ?? "");
           const customerTypeLabel = isPosPlaceholder
             ? "Placeholder"
-            : typeMap.get(customerTypeId) ?? customerTypeId;
+            : (typeMap.get(customerTypeId) ?? customerTypeId);
           const residency = String(row.residency ?? "");
           const commercialServiceId = String(row.commercialServiceId ?? "");
 
@@ -536,7 +386,8 @@ export function CustomersScreen({ readOnly = false }: CustomersScreenProps = {})
             address: row.address ? String(row.address) : "—",
             taxRegimeId: row.taxRegimeId ? String(row.taxRegimeId) : "—",
             taxRegimeLabel: row.taxRegimeId
-              ? regimeMap.get(String(row.taxRegimeId)) ?? String(row.taxRegimeId)
+              ? (regimeMap.get(String(row.taxRegimeId)) ??
+                String(row.taxRegimeId))
               : "—",
             taxpayerId: row.taxpayerId ? String(row.taxpayerId) : "",
             createdAt: formatDate(row.createdAt),
@@ -629,7 +480,8 @@ export function CustomersScreen({ readOnly = false }: CustomersScreenProps = {})
   }, [page, totalPages]);
 
   const allSelected =
-    paginated.length > 0 && paginated.every((customer) => selectedIds.has(customer.id));
+    paginated.length > 0 &&
+    paginated.every((customer) => selectedIds.has(customer.id));
 
   const stats = useMemo(
     () => [
@@ -653,7 +505,8 @@ export function CustomersScreen({ readOnly = false }: CustomersScreenProps = {})
       },
       {
         label: "Foreign Residency",
-        value: rows.filter((customer) => customer.residencyLabel === "Foreign").length,
+        value: rows.filter((customer) => customer.residencyLabel === "Foreign")
+          .length,
         icon: IconMapPin,
         className: "customers-stat-icon-amber",
       },
@@ -815,7 +668,11 @@ export function CustomersScreen({ readOnly = false }: CustomersScreenProps = {})
       return <IconChevronUp />;
     }
 
-    return sortDir === "asc" ? <IconChevronUp active /> : <IconChevronDown active />;
+    return sortDir === "asc" ? (
+      <IconChevronUp active />
+    ) : (
+      <IconChevronDown active />
+    );
   }
 
   function SortableTh({
@@ -841,7 +698,9 @@ export function CustomersScreen({ readOnly = false }: CustomersScreenProps = {})
   }
 
   const pageStart =
-    sorted.length === 0 ? 0 : Math.min((currentPage - 1) * PAGE_SIZE + 1, sorted.length);
+    sorted.length === 0
+      ? 0
+      : Math.min((currentPage - 1) * PAGE_SIZE + 1, sorted.length);
   const pageEnd = Math.min(currentPage * PAGE_SIZE, sorted.length);
 
   return (
@@ -852,7 +711,7 @@ export function CustomersScreen({ readOnly = false }: CustomersScreenProps = {})
             <IconUsers />
           </div>
           <div>
-            <h2 class="customers-screen-brand-title">CustomerBase</h2>
+            <h2 class="customers-screen-brand-title">Customer List</h2>
             <p class="customers-screen-brand-subtitle">Customer Management</p>
           </div>
         </div>
@@ -948,7 +807,10 @@ export function CustomersScreen({ readOnly = false }: CustomersScreenProps = {})
                 />
               </div>
 
-              <button type="button" class="customers-btn customers-btn-secondary">
+              <button
+                type="button"
+                class="customers-btn customers-btn-secondary"
+              >
                 <IconSliders />
                 Filters
               </button>
@@ -1001,48 +863,26 @@ export function CustomersScreen({ readOnly = false }: CustomersScreenProps = {})
                 </th>
                 <SortableTh label="Customer" col="name" />
                 <SortableTh label="Contact" col="email" />
-                <SortableTh label="Address" col="address" className="customers-col-hide-lg" />
-                <SortableTh label="Type" col="customerTypeLabel" />
                 <SortableTh
-                  label="Residency"
-                  col="residencyLabel"
-                  className="customers-col-hide-md"
-                />
-                <SortableTh
-                  label="Tax Regime"
-                  col="taxRegimeLabel"
-                  className="customers-col-hide-xl"
-                />
-                <th class="customers-col-hide-xl">Taxpayer ID</th>
-               {/*  <th class="customers-col-hide-md" style="text-align: center;">
-                  Has ID
-                </th> */}
-                <th class="customers-col-hide-lg" style="text-align: center;">
-                  POS
-                </th>
-                <SortableTh
-                  label="Service"
-                  col="commercialServiceLabel"
-                  className="customers-col-hide-xl"
-                />
-                <SortableTh
-                  label="Created"
-                  col="createdAt"
+                  label="Address"
+                  col="address"
                   className="customers-col-hide-lg"
                 />
-                <th style="width: 40px;" />
+                <SortableTh label="Type" col="customerTypeLabel" />
+                <SortableTh label="Tax Regime" col="taxRegimeLabel" />
+                <th style="width: 1%;">Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={13} class="customers-table-empty">
+                  <td colSpan={7} class="customers-table-empty">
                     Loading customers…
                   </td>
                 </tr>
               ) : paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={13} class="customers-table-empty">
+                  <td colSpan={7} class="customers-table-empty">
                     No customers match your search.
                   </td>
                 </tr>
@@ -1063,34 +903,21 @@ export function CustomersScreen({ readOnly = false }: CustomersScreenProps = {})
 
                     <td>
                       <div class="customers-name-cell">
-                        <div class="customers-avatar">{initials(customer.name)}</div>
                         <div>
                           <p class="customers-name-primary">{customer.name}</p>
-                          <p class="customers-name-secondary">
-                            {customer.commercialServiceLabel}
-                          </p>
                         </div>
                       </div>
                     </td>
 
                     <td>
-                      <div class="customers-contact-cell">
-                        <div class="customers-contact-line">
-                          <IconMail />
-                          <span class="customers-contact-mono">{customer.email}</span>
-                        </div>
-                        <div class="customers-contact-line customers-contact-muted">
-                          <IconPhone />
-                          <span class="customers-contact-mono">{customer.phone}</span>
-                        </div>
-                      </div>
+                      <span class="customers-contact-mono">
+                        {[customer.email, customer.phone].filter(Boolean).join(" · ") ||
+                          "—"}
+                      </span>
                     </td>
 
                     <td class="customers-col-hide-lg">
-                      <div class="customers-address-cell">
-                        <IconMapPin />
-                        <span>{customer.address}</span>
-                      </div>
+                      <span class="customers-address-cell">{customer.address}</span>
                     </td>
 
                     <td>
@@ -1104,45 +931,14 @@ export function CustomersScreen({ readOnly = false }: CustomersScreenProps = {})
                       </span>
                     </td>
 
-                    <td class="customers-col-hide-md">
-                      <span class={residencyBadgeClass(customer.residencyLabel)}>
-                        {customer.residencyLabel}
+                    <td>
+                      <span class="customers-mono-chip">
+                        {customer.taxRegimeLabel}
                       </span>
-                    </td>
-
-                    <td class="customers-col-hide-xl">
-                      <span class="customers-mono-chip">{customer.taxRegimeLabel}</span>
-                    </td>
-
-                    <td class="customers-col-hide-xl">
-                      <span class="customers-contact-mono customers-contact-muted">
-                        {customer.taxpayerId || "—"}
-                      </span>
-                    </td>
-
-                  {/*   <td class="customers-col-hide-md" style="text-align: center;">
-                      <BoolBadge value={customer.hasTaxpayerId} />
-                    </td>
- */}
-                    <td class="customers-col-hide-lg" style="text-align: center;">
-                      <BoolBadge value={customer.isPosPlaceholder} />
-                    </td>
-
-                    <td class="customers-col-hide-xl">
-                      <span class="customers-contact-mono">
-                        {customer.commercialServiceLabel}
-                      </span>
-                    </td>
-
-                    <td class="customers-col-hide-lg">
-                      <div class="customers-dates">
-                        <div>{customer.createdAt}</div>
-                        <div class="customers-dates-updated">↑ {customer.updatedAt}</div>
-                      </div>
                     </td>
 
                     <td>
-                      <ActionMenu
+                      <RowActions
                         canWrite={canWrite}
                         onView={() => setViewCustomer(customer)}
                         onEdit={() =>
@@ -1165,27 +961,22 @@ export function CustomersScreen({ readOnly = false }: CustomersScreenProps = {})
           <div class="customers-pagination-pages">
             <button
               type="button"
-              class="customers-page-btn customers-page-nav"
+              class="customers-pagination-btn"
               disabled={currentPage === 1}
               onClick={() => setPage((current) => Math.max(1, current - 1))}
             >
               <IconChevronLeft />
             </button>
-            {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
-              <button
-                key={pageNumber}
-                type="button"
-                class={`customers-page-btn${pageNumber === currentPage ? " is-active" : ""}`}
-                onClick={() => setPage(pageNumber)}
-              >
-                {pageNumber}
-              </button>
-            ))}
+            <span class="customers-pagination-current">
+              {currentPage} / {totalPages}
+            </span>
             <button
               type="button"
-              class="customers-page-btn customers-page-nav"
+              class="customers-pagination-btn"
               disabled={currentPage === totalPages}
-              onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+              onClick={() =>
+                setPage((current) => Math.min(totalPages, current + 1))
+              }
             >
               <IconChevronRight />
             </button>
@@ -1231,7 +1022,10 @@ export function CustomersScreen({ readOnly = false }: CustomersScreenProps = {})
               </div>
             ))}
           </div>
-          <div class="form-dialog-actions" style="padding-left: 0; margin-top: 12px;">
+          <div
+            class="form-dialog-actions"
+            style="padding-left: 0; margin-top: 12px;"
+          >
             {canWrite ? (
               <button
                 type="button"

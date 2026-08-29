@@ -546,6 +546,10 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
   );
 }
 
+function dashTileStatusClass(count: number): string {
+  return count > 0 ? "dash-tile--pending" : "dash-tile--clear";
+}
+
 function BottleOilTiles({
   summary,
   onNavigate,
@@ -566,15 +570,17 @@ function BottleOilTiles({
       {onNavigate ? (
         <button
           type="button"
-          class="dash-tile dash-tile-btn"
+          class={`dash-tile dash-tile-btn ${dashTileStatusClass(summary.pendingReceives)}`}
           onClick={() => onNavigate("receive-transfers")}
         >
           {pendingReceiveContent}
         </button>
       ) : (
-        <div class="dash-tile">{pendingReceiveContent}</div>
+        <div class={`dash-tile ${dashTileStatusClass(summary.pendingReceives)}`}>
+          {pendingReceiveContent}
+        </div>
       )}
-      <div class="dash-tile">
+      <div class={`dash-tile ${dashTileStatusClass(summary.invoiceCounts.pending)}`}>
         <div class="dash-tile-label">Pending invoices</div>
         <div class="dash-tile-value">{summary.invoiceCounts.pending}</div>
         <div class="dash-tile-meta">Bottle Oil drafts awaiting validation</div>
@@ -713,7 +719,7 @@ function SupervisorQueueTiles({
             <button
               key={tile.id}
               type="button"
-              class="dash-tile dash-tile-btn"
+              class={`dash-tile dash-tile-btn ${dashTileStatusClass(tile.count)}`}
               onClick={() => onNavigate(tile.routeId)}
             >
               {content}
@@ -721,7 +727,10 @@ function SupervisorQueueTiles({
           );
         }
         return (
-          <div key={tile.id} class="dash-tile">
+          <div
+            key={tile.id}
+            class={`dash-tile ${dashTileStatusClass(tile.count)}`}
+          >
             {content}
           </div>
         );

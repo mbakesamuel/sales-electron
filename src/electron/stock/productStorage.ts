@@ -43,6 +43,77 @@ export function productIsLoosePalmOilById(
   return Number(row?.isMain ?? 0) === 1;
 }
 
+export function productIsBottledById(
+  db: Database.Database,
+  productId: number,
+): boolean {
+  const row = db
+    .prepare(
+      `SELECT COALESCE(pc.isBottled, 0) AS isBottled
+       FROM Product p
+       INNER JOIN ProductCat pc ON pc.productCatId = p.productCatId
+       WHERE p.productId = ?`,
+    )
+    .get(productId) as { isBottled: number } | undefined;
+  return Number(row?.isBottled ?? 0) === 1;
+}
+
+export function loadLoosePalmOilAllowInterSalesPointTransfer(
+  db: ReturnType<typeof getDatabase> = getDatabase(),
+): boolean {
+  try {
+    const columns = db
+      .prepare(`PRAGMA table_info(CompanySettings)`)
+      .all() as Array<{ name: string }>;
+    if (
+      !columns.some((col) => col.name === "loosePalmOilAllowInterSalesPointTransfer")
+    ) {
+      return false;
+    }
+
+    const row = db
+      .prepare(
+        `SELECT loosePalmOilAllowInterSalesPointTransfer
+         FROM CompanySettings
+         WHERE id = 'default'`,
+      )
+      .get() as
+      | { loosePalmOilAllowInterSalesPointTransfer: number | null }
+      | undefined;
+
+    if (row?.loosePalmOilAllowInterSalesPointTransfer == null) {
+      return false;
+    }
+    return Number(row.loosePalmOilAllowInterSalesPointTransfer) !== 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Inter transfers: bottled always; loose Palm Oil only when company setting allows. */
+export function assertInterTransferProductsAllowed(
+  db: Database.Database,
+  productIds: number[],
+): void {
+  const allowLoosePalmOil = loadLoosePalmOilAllowInterSalesPointTransfer(db);
+  for (const productId of productIds) {
+    if (productIsBottledById(db, productId)) {
+      continue;
+    }
+    if (productIsLoosePalmOilById(db, productId)) {
+      if (allowLoosePalmOil) {
+        continue;
+      }
+      throw new Error(
+        "Loose Palm Oil cannot be transferred between collection points. Use Within collection point instead.",
+      );
+    }
+    throw new Error(
+      "Only bottled products can be transferred between collection points. Use Within collection point for loose products.",
+    );
+  }
+}
+
 export function loadLoosePalmOilRequireSalesTank(
   db: ReturnType<typeof getDatabase> = getDatabase(),
 ): boolean {

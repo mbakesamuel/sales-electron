@@ -87,6 +87,24 @@ function ReviewReadonlyField(props: { label: string; value: string }) {
   );
 }
 
+function isInterTransferProductAllowed(
+  productId: string,
+  products: ProductOption[],
+  allowLoosePalmOilInter: boolean,
+): boolean {
+  if (!productId) {
+    return true;
+  }
+  const product = products.find((p) => String(p.productId) === productId);
+  if (!product) {
+    return false;
+  }
+  if (product.isBottled) {
+    return true;
+  }
+  return product.isLoosePalmOil && allowLoosePalmOilInter;
+}
+
 interface TransfersTabProps {
   rows: TransferListRow[];
   salesPoints: SalesPointOption[];
@@ -101,6 +119,7 @@ interface TransfersTabProps {
   canDirectPost: boolean;
   autoGenerateTransferNo: boolean;
   transferReceiveUsesDocumentDate: boolean;
+  loosePalmOilAllowInterSalesPointTransfer: boolean;
   userId: string;
   productFilter: StockProductFilter;
   onOk: (text: string) => void;
@@ -118,6 +137,7 @@ export function TransfersTab(props: TransfersTabProps) {
     productFilter,
     autoGenerateTransferNo,
     transferReceiveUsesDocumentDate,
+    loosePalmOilAllowInterSalesPointTransfer,
   } = props;
   const receiveOnlyMode =
     !props.canDraft &&
@@ -263,6 +283,27 @@ export function TransfersTab(props: TransfersTabProps) {
     };
   }, [open, dispatchedAt, fromSalesPointId, userId, productFilter]);
 
+  const transferOnHand = useMemo(() => {
+    if (formMode !== "inter") {
+      return asOfOnHand;
+    }
+    const allowedProductIds = new Set(
+      products
+        .filter(
+          (p) =>
+            p.isBottled ||
+            (p.isLoosePalmOil && loosePalmOilAllowInterSalesPointTransfer),
+        )
+        .map((p) => p.productId),
+    );
+    return asOfOnHand.filter((row) => allowedProductIds.has(row.productId));
+  }, [
+    formMode,
+    asOfOnHand,
+    products,
+    loosePalmOilAllowInterSalesPointTransfer,
+  ]);
+
   function defaultDispatchedAt(): string {
     return clampIsoDateToRange(utcIsoDateToday(), postingPeriod);
   }
@@ -318,7 +359,21 @@ export function TransfersTab(props: TransfersTabProps) {
       if (toSalesPointId === fromSalesPointId) {
         setToSalesPointId("");
       }
-      setLines((prev) => prev.map(({ toStorageLocationId: _to, ...l }) => l));
+      setLines((prev) =>
+        prev
+          .map(({ toStorageLocationId: _to, ...line }) => {
+            if (
+              isInterTransferProductAllowed(
+                line.productId,
+                products,
+                loosePalmOilAllowInterSalesPointTransfer,
+              )
+            ) {
+              return line;
+            }
+            return { ...line, productId: "", qty: "" };
+          }),
+      );
     }
   }
 
@@ -979,7 +1034,7 @@ export function TransfersTab(props: TransfersTabProps) {
           >
             {!autoGenerateTransferNo && !editingId ? (
               <label class="stock-form-row">
-                <span class="stock-form-label">Consignment #</span>
+                <span class="stock-form-label">V.C. Number</span>
                 <span class="stock-form-control-wrap">
                   <input
                     class="stock-form-control stock-mono"
@@ -997,7 +1052,7 @@ export function TransfersTab(props: TransfersTabProps) {
             ) : null}
             {!autoGenerateTransferNo && editingId ? (
               <label class="stock-form-row">
-                <span class="stock-form-label">Consignment #</span>
+                <span class="stock-form-label">V.C. Number</span>
                 <span class="stock-form-control-wrap">
                   <input
                     class="stock-form-control stock-mono"
@@ -1026,6 +1081,13 @@ export function TransfersTab(props: TransfersTabProps) {
                 </select>
               </div>
             </div>
+            {formMode === "inter" ? (
+              <p class="stock-form-hint">
+                Between collection points: bottled products only. Loose Palm Oil
+                requires the company setting or use{" "}
+                <strong>Within collection point</strong>.
+              </p>
+            ) : null}
 
             {formMode === "inter" ? (
               <div class="stock-form-endpoints">
@@ -1145,6 +1207,48 @@ export function TransfersTab(props: TransfersTabProps) {
                 />
               </span>
             </label>
+
+            <TransferLineEditor
+              products={products}
+              lines={lines}
+              onChange={setLines}
+              mode={formMode}
+              fromSalesPointId={fromSalesPointId}
+              onHand={transferOnHand}
+              asOfDate={dispatchedAt.trim().slice(0, 10)}
+              requireDestinationLocation={
+                props.canDirectPost && formMode === "inter" && !editingId
+              }
+              fromLocationOptions={locationsForSalesPoint(
+                storageLocations,
+                fromSalesPointId,
+              )}
+              toLocationOptions={
+                formMode === "intra"
+                  ? locationsForIntraTransferDestination(
+                      storageLocations,
+                      fromSalesPointId,
+                    )
+                  : locationsForSalesPoint(storageLocations, toSalesPointId)
+              }
+              defaultFromLocationId={defaultLocationId(
+                storageLocations,
+                fromSalesPointId,
+              )}
+              defaultToLocationId={
+                formMode === "intra"
+                  ? defaultIntraToLocationId(
+                      storageLocations,
+                      fromSalesPointId,
+                      defaultLocationId(storageLocations, fromSalesPointId),
+                    )
+                  : defaultToLocationId(
+                      storageLocations,
+                      toSalesPointId,
+                      defaultLocationId(storageLocations, fromSalesPointId),
+                    )
+              }
+            />
 
             {formMode === "inter" ? (
               <div class="stock-transfer-signatures">
@@ -1274,47 +1378,7 @@ export function TransfersTab(props: TransfersTabProps) {
               </p>
             ) : null}
 
-            <TransferLineEditor
-              products={products}
-              lines={lines}
-              onChange={setLines}
-              mode={formMode}
-              fromSalesPointId={fromSalesPointId}
-              onHand={asOfOnHand}
-              asOfDate={dispatchedAt.trim().slice(0, 10)}
-              requireDestinationLocation={
-                props.canDirectPost && formMode === "inter" && !editingId
-              }
-              fromLocationOptions={locationsForSalesPoint(
-                storageLocations,
-                fromSalesPointId,
-              )}
-              toLocationOptions={
-                formMode === "intra"
-                  ? locationsForIntraTransferDestination(
-                      storageLocations,
-                      fromSalesPointId,
-                    )
-                  : locationsForSalesPoint(storageLocations, toSalesPointId)
-              }
-              defaultFromLocationId={defaultLocationId(
-                storageLocations,
-                fromSalesPointId,
-              )}
-              defaultToLocationId={
-                formMode === "intra"
-                  ? defaultIntraToLocationId(
-                      storageLocations,
-                      fromSalesPointId,
-                      defaultLocationId(storageLocations, fromSalesPointId),
-                    )
-                  : defaultToLocationId(
-                      storageLocations,
-                      toSalesPointId,
-                      defaultLocationId(storageLocations, fromSalesPointId),
-                    )
-              }
-            />
+            
 
             {open &&
             fromSalesPointId &&

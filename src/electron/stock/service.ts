@@ -55,7 +55,10 @@ import {
   reverseMovementsBySource,
 } from "./post.js";
 import {
+  assertMovementLocationRules,
   assertProductsAllowStorageLocation,
+  assertInterTransferProductsAllowed,
+  loadLoosePalmOilAllowInterSalesPointTransfer,
   storageOmitProductCatSql,
 } from "./productStorage.js";
 import {
@@ -79,6 +82,7 @@ import {
   type DocumentStockProductFilter,
   type StockProductFilter,
 } from "../../shared/stockModule.js";
+import { productOmitsStorageLocation } from "../../shared/productStorageRules.js";
 import { loadRolePermissionsSnapshot } from "../auth/permissions/service.js";
 
 function nowIso(): string {
@@ -312,12 +316,27 @@ function resolveMutationProductFilter(
   return resolveDocumentFilterForMutation(db, uiFilter, productIds);
 }
 
-function assertProductsMatchStockFilter(
+/** Validates receipt lines: bottled filter + per-line location rules (null for PKCP/PKP). */
+function assertReceiptProductLines(
+  db: import("better-sqlite3").Database,
+  lines: Array<{ productId: number; storageLocationId: number | null }>,
+  productFilter: DocumentStockProductFilter,
+): void {
+  assertProductsMatchBottledFilter(
+    db,
+    lines.map((line) => line.productId),
+    productFilter,
+  );
+  for (const line of lines) {
+    assertMovementLocationRules(db, line.productId, line.storageLocationId);
+  }
+}
+
+function assertProductsMatchBottledFilter(
   db: import("better-sqlite3").Database,
   productIds: number[],
   productFilter: DocumentStockProductFilter,
 ): void {
-  assertProductsAllowStorageLocation(db, productIds);
   const expected = bottledFlagForFilter(productFilter);
   const stmt = db.prepare(
     `SELECT p.productId, p.productName, COALESCE(pc.isBottled, 0) AS isBottled
@@ -340,6 +359,15 @@ function assertProductsMatchStockFilter(
       );
     }
   }
+}
+
+function assertProductsMatchStockFilter(
+  db: import("better-sqlite3").Database,
+  productIds: number[],
+  productFilter: DocumentStockProductFilter,
+): void {
+  assertProductsAllowStorageLocation(db, productIds);
+  assertProductsMatchBottledFilter(db, productIds, productFilter);
 }
 
 function resolveWriteCaps(role: string, productFilter: StockProductFilter) {
@@ -491,19 +519,26 @@ export function getStockBootstrap(
     productName: string;
     uom: string | null;
     isBottled: number;
+    isMain: number;
+    productCode: string | null;
   }): StockBootstrap["products"][number] {
     const isBottled = row.isBottled === 1;
     return {
       productId: row.productId,
       productName: row.productName,
       isBottled,
+      isLoosePalmOil: row.isMain === 1 && !isBottled,
+      omitsStorageLocation: productOmitsStorageLocation(row.productCode),
       uom: uomForBottled(isBottled, row.uom),
     };
   }
 
   const products = db
     .prepare(
-      `SELECT p.productId, p.productName, p.uom, COALESCE(pc.isBottled, 0) AS isBottled
+      `SELECT p.productId, p.productName, p.uom,
+              COALESCE(pc.isBottled, 0) AS isBottled,
+              COALESCE(pc.isMain, 0) AS isMain,
+              pc.productCode
        FROM Product p
        LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
        WHERE ${productFilterParts.clause}
@@ -517,10 +552,12 @@ export function getStockBootstrap(
     productFilter === "bulk" || productFilter === "all"
       ? db
           .prepare(
-            `SELECT p.productId, p.productName, p.uom, COALESCE(pc.isBottled, 0) AS isBottled
+            `SELECT p.productId, p.productName, p.uom,
+                    COALESCE(pc.isBottled, 0) AS isBottled,
+                    COALESCE(pc.isMain, 0) AS isMain,
+                    pc.productCode
              FROM Product p
              LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
-             WHERE ${storageOmitProductCatSql("pc")}
              ORDER BY p.productName ASC`,
           )
           .all()
@@ -553,6 +590,8 @@ export function getStockBootstrap(
     autoGenerateReceiptNo: documentNumberSettings.autoGenerateReceiptNo,
     autoGenerateTransferNo: documentNumberSettings.autoGenerateTransferNo,
     transferReceiveUsesDocumentDate: loadStockTransferReceiveUsesDocumentDate(),
+    loosePalmOilAllowInterSalesPointTransfer:
+      loadLoosePalmOilAllowInterSalesPointTransfer(),
     onHand: loadOnHand(scopedSalesPointId, productFilter),
     movements:
       productFilter === "bottled"
@@ -1313,8 +1352,8 @@ export function loadReceiptDetail(id: string, userId: string): ReceiptDetail | n
        FROM StockReceiptLine l
        JOIN Product p ON p.productId = l.productId
        LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
-       JOIN StorageLocation sl ON sl.id = l.storageLocationId
-       JOIN Location loc ON loc.id = sl.locationId
+       LEFT JOIN StorageLocation sl ON sl.id = l.storageLocationId
+       LEFT JOIN Location loc ON loc.id = sl.locationId
        WHERE l.receiptId = ?
        ORDER BY l.id ASC`,
     )
@@ -1341,8 +1380,11 @@ export function loadReceiptDetail(id: string, userId: string): ReceiptDetail | n
       productName: line.productName as string,
       uom: uomForBottled((line.isBottled as number) === 1, line.uom as string | null),
       qty: String(line.qty),
-      storageLocationId: line.storageLocationId as number,
-      storageLocationName: line.storageLocationName as string,
+      storageLocationId: (line.storageLocationId as number | null) ?? null,
+      storageLocationName:
+        line.storageLocationId == null
+          ? "—"
+          : String(line.storageLocationName ?? "—"),
     })),
   };
 }
@@ -1468,9 +1510,12 @@ function finalizeReceiptPost(
   if (lines.length === 0) {
     throw new Error("Add at least one line before posting.");
   }
-  assertProductsMatchStockFilter(
+  assertReceiptProductLines(
     db,
-    lines.map((line) => line.productId as number),
+    lines.map((line) => ({
+      productId: line.productId as number,
+      storageLocationId: (line.storageLocationId as number | null) ?? null,
+    })),
     documentFilterForLines(
       db,
       uiProductFilter,
@@ -1479,16 +1524,19 @@ function finalizeReceiptPost(
   );
 
   for (const line of lines) {
-    assertStorageLocationForSalesPoint(
-      db,
-      existing.salesPointId as number,
-      line.storageLocationId as number,
-      "receipt",
-    );
+    const storageLocationId = (line.storageLocationId as number | null) ?? null;
+    if (storageLocationId != null) {
+      assertStorageLocationForSalesPoint(
+        db,
+        existing.salesPointId as number,
+        storageLocationId,
+        "receipt",
+      );
+    }
     applyMovement(db, {
       salesPointId: existing.salesPointId as number,
       productId: line.productId as number,
-      storageLocationId: line.storageLocationId as number,
+      storageLocationId,
       qty: String(line.qty),
       kind: "RECEIPT",
       occurredAt: String(existing.receivedAt),
@@ -1638,6 +1686,10 @@ function finalizeTransferDispatch(
       uiProductFilter,
       lines.map((line) => line.productId as number),
     ),
+  );
+  assertInterTransferProductsAllowed(
+    db,
+    lines.map((line) => line.productId as number),
   );
 
   const dispatchedAt = existing.dispatchedAt
@@ -1806,9 +1858,12 @@ export function saveReceipt(input: SaveReceiptInput): StockMutationResult {
       }
       return line;
     });
-    assertProductsMatchStockFilter(
+    assertReceiptProductLines(
       db,
-      lines.map((line) => line.productId),
+      lines.map((line) => ({
+        productId: line.productId,
+        storageLocationId: line.storageLocationId ?? null,
+      })),
       resolveMutationProductFilter(
         db,
         uiProductFilter,
@@ -1818,12 +1873,14 @@ export function saveReceipt(input: SaveReceiptInput): StockMutationResult {
 
     const tx = db.transaction(() => {
       for (const line of lines) {
-        assertStorageLocationForSalesPoint(
-          db,
-          input.salesPointId,
-          line.storageLocationId,
-          "receipt",
-        );
+        if (line.storageLocationId != null) {
+          assertStorageLocationForSalesPoint(
+            db,
+            input.salesPointId,
+            line.storageLocationId,
+            "receipt",
+          );
+        }
       }
 
       if (input.id) {
@@ -2030,6 +2087,12 @@ export function saveTransfer(input: SaveTransferInput): StockMutationResult {
         lines.map((line) => line.productId),
       ),
     );
+    if (!isIntra) {
+      assertInterTransferProductsAllowed(
+        db,
+        lines.map((line) => line.productId),
+      );
+    }
 
     const tx = db.transaction(() => {
       for (const line of lines) {
@@ -2674,7 +2737,7 @@ function cancelStockDocument(
           .all(documentId) as Array<{ productId: number }>;
         const lineProductIds = productRows.map((row) => row.productId);
         if (lineProductIds.length > 0) {
-          assertProductsMatchStockFilter(
+          assertProductsMatchBottledFilter(
             db,
             lineProductIds,
             documentFilterForLines(db, productFilter, lineProductIds),

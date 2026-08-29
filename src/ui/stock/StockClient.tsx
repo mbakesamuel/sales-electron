@@ -280,6 +280,9 @@ export function StockClient({
             transferReceiveUsesDocumentDate={
               bootstrap.transferReceiveUsesDocumentDate
             }
+            loosePalmOilAllowInterSalesPointTransfer={
+              bootstrap.loosePalmOilAllowInterSalesPointTransfer
+            }
             userId={user.id}
             productFilter={productFilter}
             onOk={announceOk}

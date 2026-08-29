@@ -312,7 +312,8 @@
 }
 
 .home-main--fill .home-content .permissions-screen,
-.home-main--fill .home-content .roles-screen {
+.home-main--fill .home-content .roles-screen,
+.home-main--fill .home-content .customers-screen {
   flex: 1;
   min-height: 0;
   min-width: 0;
@@ -320,6 +321,62 @@
   gap: 0;
   display: flex;
   flex-direction: column;
+}
+
+.home-main--fill .home-content .customers-screen {
+  gap: 16px;
+}
+
+.home-main--fill .home-content .customers-screen-header,
+.home-main--fill .home-content .customers-stats,
+.home-main--fill .home-content .customers-error {
+  flex-shrink: 0;
+}
+
+.home-main--fill .home-content .customers-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.home-main--fill .home-content .customers-card-toolbar {
+  flex-shrink: 0;
+}
+
+.home-main--fill .home-content .customers-table-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.home-main--fill .home-content .customers-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.home-main--fill .home-content .customers-pagination {
+  flex-shrink: 0;
+}
+
+.home-main--fill .home-content .customers-table th,
+.home-main--fill .home-content .customers-table td {
+  padding: 8px 12px;
+}
+
+.home-main--fill .home-content .customers-row-action-btn {
+  padding: 4px 6px;
+  font-size: 11px;
+}
+
+.home-main--fill .home-content .customers-row-action-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.home-main--fill .home-content .customers-table-empty {
+  padding: 32px 16px;
 }
 
 .access-admin-toolbar {

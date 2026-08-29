@@ -35,6 +35,10 @@ export interface ProductOption {
   productName: string;
   uom: string;
   isBottled: boolean;
+  /** Non-bottled Palm Oil (ProductCat.isMain). */
+  isLoosePalmOil: boolean;
+  /** Palm Kernel / Cake (PKCP/PKP) — no storage location on receipts. */
+  omitsStorageLocation: boolean;
 }
 
 export interface StockBalanceRow {
@@ -98,7 +102,7 @@ export interface ReceiptDetail extends ReceiptListRow {
     productName: string;
     uom: string;
     qty: string;
-    storageLocationId: number;
+    storageLocationId: number | null;
     storageLocationName: string;
   }>;
 }
@@ -246,6 +250,8 @@ export interface StockBootstrap {
   autoGenerateTransferNo: boolean;
   /** When true, transfer receive posts stock on the user Date (open month). */
   transferReceiveUsesDocumentDate: boolean;
+  /** When true, loose Palm Oil may transfer between collection points. */
+  loosePalmOilAllowInterSalesPointTransfer: boolean;
   onHand: StockBalanceRow[];
   movements: StockMovementRow[];
   receipts: ReceiptListRow[];
@@ -277,7 +283,7 @@ export interface SaveReceiptInput {
   lines: Array<{
     productId: number;
     qty: string;
-    storageLocationId: number;
+    storageLocationId: number | null;
   }>;
   /** Create and post in one step; requires direct_post_stock_receipts. New documents only. */
   postImmediately?: boolean;

@@ -111,8 +111,10 @@ function ThemeBadge({ preset }: { preset: ThemePreset }) {
 
 export function CompanySettingsScreen({
   readOnly = false,
+  user = null,
 }: CompanySettingsScreenProps = {}) {
   const canWrite = !readOnly;
+  const isAdmin = user?.role === "ADMIN";
   const [records, setRecords] = useState<CompanyRecord[]>([]);
   const [schema, setSchema] = useState<TableSchema | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
@@ -140,6 +142,10 @@ export function CompanySettingsScreen({
     stockTransferReceiveUsesDocumentDate,
     setStockTransferReceiveUsesDocumentDate,
   ] = useState(false);
+  const [
+    loosePalmOilAllowInterSalesPointTransfer,
+    setLoosePalmOilAllowInterSalesPointTransfer,
+  ] = useState(false);
   const [stockTransferSettingSaving, setStockTransferSettingSaving] =
     useState(false);
   const [stockTransferSettingSavedHint, setStockTransferSettingSavedHint] =
@@ -156,6 +162,13 @@ export function CompanySettingsScreen({
   const [looseSalesSettingSavedHint, setLooseSalesSettingSavedHint] = useState<
     string | null
   >(null);
+  const [clearOpsOpen, setClearOpsOpen] = useState(false);
+  const [clearOpsConfirmText, setClearOpsConfirmText] = useState("");
+  const [clearOpsBusy, setClearOpsBusy] = useState(false);
+  const [clearOpsError, setClearOpsError] = useState<string | null>(null);
+  const [clearOpsSuccessHint, setClearOpsSuccessHint] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -178,6 +191,7 @@ export function CompanySettingsScreen({
           setBottleOilUseRegisteredCustomers(false);
           setBottleOilAllowRation(false);
           setStockTransferReceiveUsesDocumentDate(false);
+          setLoosePalmOilAllowInterSalesPointTransfer(false);
           setLooseSalesAllowPublicRelation(false);
           setLooseSalesAllowUnregisteredCustomer(false);
           setLoosePalmOilRequireSalesTank(true);
@@ -200,6 +214,9 @@ export function CompanySettingsScreen({
         setStockTransferReceiveUsesDocumentDate(
           Number(row.stockTransferReceiveUsesDocumentDate ?? 0) !== 0,
         );
+        setLoosePalmOilAllowInterSalesPointTransfer(
+          Number(row.loosePalmOilAllowInterSalesPointTransfer ?? 0) !== 0,
+        );
         setLooseSalesAllowPublicRelation(
           Number(row.looseSalesAllowPublicRelation ?? 0) !== 0,
         );
@@ -218,6 +235,7 @@ export function CompanySettingsScreen({
           setBottleOilUseRegisteredCustomers(false);
           setBottleOilAllowRation(false);
           setStockTransferReceiveUsesDocumentDate(false);
+          setLoosePalmOilAllowInterSalesPointTransfer(false);
           setLooseSalesAllowPublicRelation(false);
           setLooseSalesAllowUnregisteredCustomer(false);
           setLoosePalmOilRequireSalesTank(true);
@@ -302,6 +320,8 @@ export function CompanySettingsScreen({
           stockTransferReceiveUsesDocumentDate: stockTransferReceiveUsesDocumentDate
             ? 1
             : 0,
+          loosePalmOilAllowInterSalesPointTransfer:
+            loosePalmOilAllowInterSalesPointTransfer ? 1 : 0,
         },
       });
       setStockTransferSettingSavedHint("Stock transfer options saved.");
@@ -459,6 +479,75 @@ export function CompanySettingsScreen({
           : "Failed to delete company settings.",
       );
       setModal(null);
+    }
+  }
+
+  function openClearOpsModal() {
+    setClearOpsConfirmText("");
+    setClearOpsError(null);
+    setClearOpsOpen(true);
+  }
+
+  function closeClearOpsModal() {
+    if (clearOpsBusy) {
+      return;
+    }
+    setClearOpsOpen(false);
+    setClearOpsConfirmText("");
+    setClearOpsError(null);
+  }
+
+  function formatClearOpsSummary(
+    deleted: Record<string, number>,
+    sequences: Record<string, number>,
+  ): string {
+    const deletedParts = Object.entries(deleted)
+      .filter(([, count]) => count > 0)
+      .map(([table, count]) => `${table} (${count})`);
+    const sequenceParts = Object.entries(sequences)
+      .filter(([, count]) => count > 0)
+      .map(([table]) => table);
+    const deletedLabel =
+      deletedParts.length > 0 ? deletedParts.join(", ") : "no rows";
+    const sequencesLabel =
+      sequenceParts.length > 0
+        ? ` Sequences reset: ${sequenceParts.join(", ")}.`
+        : "";
+    return `Cleared operational data: ${deletedLabel}.${sequencesLabel} Refresh open stock, sales, and delivery order screens.`;
+  }
+
+  async function onConfirmClearOps() {
+    if (clearOpsBusy || clearOpsConfirmText !== "CLEAR") {
+      return;
+    }
+
+    setClearOpsBusy(true);
+    setClearOpsError(null);
+    setClearOpsSuccessHint(null);
+    setActionError(null);
+
+    try {
+      const result = await getAuthenticatedDb().clearOperationalData({
+        confirm: "CLEAR",
+      });
+      if (result.ok === false) {
+        setClearOpsError(result.error);
+        return;
+      }
+
+      setClearOpsOpen(false);
+      setClearOpsConfirmText("");
+      setClearOpsSuccessHint(
+        formatClearOpsSummary(result.deleted, result.sequences),
+      );
+    } catch (clearError) {
+      setClearOpsError(
+        clearError instanceof Error
+          ? clearError.message
+          : "Failed to clear operational data.",
+      );
+    } finally {
+      setClearOpsBusy(false);
     }
   }
 
@@ -739,6 +828,29 @@ export function CompanySettingsScreen({
         <label class="company-settings-stock-numbering-option">
           <input
             type="checkbox"
+            checked={loosePalmOilAllowInterSalesPointTransfer}
+            disabled={isLoading || !canWrite || stockTransferSettingSaving}
+            onChange={(event) => {
+              setLoosePalmOilAllowInterSalesPointTransfer(
+                (event.currentTarget as HTMLInputElement).checked,
+              );
+              setStockTransferSettingSavedHint(null);
+            }}
+          />
+          <span>
+            <strong>Allow loose Palm Oil transfers between collection points</strong>
+            <span>
+              When unchecked (default), only bottled products may transfer between
+              collection points. Loose Palm Oil and other loose products must use
+              Within collection point. When checked, loose Palm Oil may also
+              transfer between collection points; other loose products remain
+              intra-only.
+            </span>
+          </span>
+        </label>
+        <label class="company-settings-stock-numbering-option">
+          <input
+            type="checkbox"
             checked={stockTransferReceiveUsesDocumentDate}
             disabled={isLoading || !canWrite || stockTransferSettingSaving}
             onChange={(event) => {
@@ -759,6 +871,45 @@ export function CompanySettingsScreen({
           </span>
         </label>
       </section>
+
+      {isAdmin && canWrite ? (
+        <section class="company-settings-stock-numbering company-settings-danger-zone">
+          <div class="company-settings-stock-numbering-header">
+            <div>
+              <h3>Danger zone</h3>
+              <p>
+                Permanently delete operational transactions while keeping master
+                data (products, customers, users, budgets, permissions, and
+                settings).
+              </p>
+            </div>
+            <button
+              type="button"
+              class="company-settings-delete-btn company-settings-danger-btn"
+              disabled={isLoading || clearOpsBusy}
+              onClick={openClearOpsModal}
+            >
+              Clear operational data…
+            </button>
+          </div>
+          <div class="company-settings-danger-copy">
+            <p>
+              <strong>Deletes:</strong> stock movements and balances; stock
+              receipts, transfers, and adjustments; sales (lines, payments, and
+              vehicle consignment notes); delivery orders and transfer links.
+            </p>
+            <p>
+              <strong>Resets:</strong> stock document, commercial invoice,
+              delivery order, and VCN sequence counters to 1.
+            </p>
+          </div>
+          {clearOpsSuccessHint && !actionError ? (
+            <p class="company-settings-stock-numbering-hint">
+              {clearOpsSuccessHint}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       <div class="company-settings-toolbar">
         <label class="company-settings-search">
@@ -935,6 +1086,65 @@ export function CompanySettingsScreen({
                 onClick={() => void deleteRecord(modal.record)}
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </FormDialog>
+      ) : null}
+
+      {clearOpsOpen ? (
+        <FormDialog
+          ariaLabel="Clear operational data"
+          title="Clear operational data"
+          onClose={closeClearOpsModal}
+        >
+          <div class="company-settings-delete company-settings-clear-ops">
+            <p>
+              This permanently deletes stock, sales, vehicle consignment notes,
+              and delivery order data from this database. Master data is kept.
+            </p>
+            <ul class="company-settings-clear-ops-list">
+              <li>StockMovement, StockBalance</li>
+              <li>StockReceipt, StockTransfer, StockAdjustment (+ lines)</li>
+              <li>Sale (+ lines, taxes, payments, VCN)</li>
+              <li>DeliveryOrderTransfer, DeliveryOrder (+ details)</li>
+              <li>Document sequences reset to 1</li>
+            </ul>
+            <label class="company-settings-clear-ops-confirm">
+              <span>Type CLEAR to confirm</span>
+              <input
+                type="text"
+                class="company-settings-input"
+                value={clearOpsConfirmText}
+                disabled={clearOpsBusy}
+                autoComplete="off"
+                spellcheck={false}
+                onInput={(event) =>
+                  setClearOpsConfirmText(
+                    (event.currentTarget as HTMLInputElement).value,
+                  )
+                }
+              />
+            </label>
+            {clearOpsError ? (
+              <p class="company-settings-error">{clearOpsError}</p>
+            ) : null}
+            <div class="form-dialog-actions">
+              <button
+                type="button"
+                class="form-dialog-btn-secondary"
+                disabled={clearOpsBusy}
+                onClick={closeClearOpsModal}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="company-settings-delete-btn"
+                disabled={clearOpsBusy || clearOpsConfirmText !== "CLEAR"}
+                onClick={() => void onConfirmClearOps()}
+              >
+                {clearOpsBusy ? "Clearing…" : "Clear operational data"}
               </button>
             </div>
           </div>

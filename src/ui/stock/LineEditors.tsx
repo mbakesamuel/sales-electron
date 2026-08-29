@@ -107,6 +107,7 @@ export function ReceiptLineEditor({
         {lines.map((l, idx) => {
           const product = products.find((p) => String(p.productId) === l.productId);
           const uom = product?.uom ?? "";
+          const lineOmitsStorage = product?.omitsStorageLocation ?? false;
           const lineLocations = locationsForLine(l.productId, l.storageLocationId);
           return (
             <div key={idx} class="stock-line-row stock-line-row-receipt">
@@ -115,9 +116,14 @@ export function ReceiptLineEditor({
                 value={l.productId}
                 onChange={(event) => {
                   const productId = (event.currentTarget as HTMLSelectElement).value;
+                  const nextProduct = products.find(
+                    (p) => String(p.productId) === productId,
+                  );
                   update(idx, {
                     productId,
-                    storageLocationId: locationAfterProductChange(productId, l.storageLocationId),
+                    storageLocationId: nextProduct?.omitsStorageLocation
+                      ? ""
+                      : locationAfterProductChange(productId, l.storageLocationId),
                   });
                 }}
                 aria-label="Product"
@@ -126,28 +132,33 @@ export function ReceiptLineEditor({
                 {products.map((p) => (
                   <option key={p.productId} value={p.productId}>
                     {p.productName}
+                    {p.omitsStorageLocation ? " · no location" : ""}
                   </option>
                 ))}
               </select>
-              <select
-                class="stock-line-select"
-                value={l.storageLocationId}
-                onChange={(event) =>
-                  update(idx, {
-                    storageLocationId: (event.currentTarget as HTMLSelectElement).value,
-                  })
-                }
-                aria-label="Storage location"
-                required
-              >
-                <option value="">Location…</option>
-                {lineLocations.map((loc) => (
-                  <option key={loc.id} value={loc.id}>
-                    {loc.name}
-                    {loc.isDefault ? " (default)" : ""}
-                  </option>
-                ))}
-              </select>
+              {lineOmitsStorage ? (
+                <span class="stock-line-location-placeholder stock-muted">—</span>
+              ) : (
+                <select
+                  class="stock-line-select"
+                  value={l.storageLocationId}
+                  onChange={(event) =>
+                    update(idx, {
+                      storageLocationId: (event.currentTarget as HTMLSelectElement).value,
+                    })
+                  }
+                  aria-label="Storage location"
+                  required
+                >
+                  <option value="">Location…</option>
+                  {lineLocations.map((loc) => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.name}
+                      {loc.isDefault ? " (default)" : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
               <input
                 type="number"
                 step="0.001"

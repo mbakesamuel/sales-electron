@@ -287,12 +287,30 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
         receivedAt,
         notes: notes || null,
         lines: lines
-          .filter((l) => l.productId && l.qty && l.storageLocationId)
-          .map((l) => ({
-            productId: Number.parseInt(l.productId, 10),
-            qty: l.qty,
-            storageLocationId: Number.parseInt(l.storageLocationId, 10),
-          })),
+          .filter((l) => {
+            if (!l.productId || !l.qty) {
+              return false;
+            }
+            const product = products.find(
+              (p) => String(p.productId) === l.productId,
+            );
+            if (product?.omitsStorageLocation) {
+              return true;
+            }
+            return Boolean(l.storageLocationId);
+          })
+          .map((l) => {
+            const product = products.find(
+              (p) => String(p.productId) === l.productId,
+            );
+            return {
+              productId: Number.parseInt(l.productId, 10),
+              qty: l.qty,
+              storageLocationId: product?.omitsStorageLocation
+                ? null
+                : Number.parseInt(l.storageLocationId, 10),
+            };
+          }),
       });
       if (res.ok === false) {
         showModalErr(res.error);
@@ -406,7 +424,8 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
         ? detail.lines.map((l) => ({
             productId: String(l.productId),
             qty: l.qty,
-            storageLocationId: String(l.storageLocationId),
+            storageLocationId:
+              l.storageLocationId != null ? String(l.storageLocationId) : "",
           }))
         : [
             {
@@ -858,7 +877,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
                       : "Locked to loose products by the Stock product view."
                     : bottledProducts
                       ? "Line products are limited to bottled items."
-                      : "Line products are limited to other (non-bottled) items."}
+                      : "Line products are limited to other (non-bottled) items, including Palm Kernel / Cake (no storage location)."}
                 </span>
               </span>
             </label>

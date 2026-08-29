@@ -3,31 +3,31 @@ html[data-theme="agro"] {
   --text: #4a5c3a;
   --text-h: #1c2b14;
   --text-muted: #6b7d58;
-  --bg: #f4f7eb;
-  --bg-elevated: #fffdf5;
-  --bg-soft: #eef4df;
-  --border: #d7e2c4;
+  --bg: #f5f7e8;
+  --bg-elevated: #fffef8;
+  --bg-soft: #f0f5e4;
+  --border: #d9e4c0;
   --border-strong: #b9c9a0;
   --code-bg: #e8f0d4;
-  --accent: #2f7d32;
-  --accent-hover: #256628;
+  --accent: #388e3c;
+  --accent-hover: #2e7d32;
   --accent-fg: #ffffff;
-  --accent-bg: rgba(47, 125, 50, 0.12);
-  --accent-border: rgba(47, 125, 50, 0.45);
-  --accent-soft: #e8f5e9;
-  --highlight: #c5a017;
-  --highlight-bg: rgba(197, 160, 23, 0.18);
+  --accent-bg: rgba(56, 142, 60, 0.16);
+  --accent-border: rgba(56, 142, 60, 0.5);
+  --accent-soft: #edf7ed;
+  --highlight: #d4a017;
+  --highlight-bg: rgba(212, 160, 23, 0.24);
   --social-bg: rgba(238, 244, 223, 0.7);
   --danger: #c62828;
   --shadow:
     rgba(40, 55, 28, 0.1) 0 10px 15px -3px, rgba(40, 55, 28, 0.05) 0 4px 6px -2px;
-  --shell-sidebar: #fffdf5;
-  --shell-main: #f4f7eb;
-  --shell-header: #fffdf5;
+  --shell-sidebar: #fffef8;
+  --shell-main: #f5f7e8;
+  --shell-header: #fffef8;
   --shell-content: transparent;
   --nav-hover: #eef4df;
-  --nav-active: #e3f2e4;
-  --nav-active-text: #1b5e20;
+  --nav-active: #e8f5e9;
+  --nav-active-text: #2e7d32;
 
   --sans: "Segoe UI", system-ui, sans-serif;
   --heading: "Segoe UI Semibold", "Segoe UI", system-ui, sans-serif;
@@ -46,6 +46,79 @@ html[data-theme="agro"] {
   @media (max-width: 1024px) {
     font-size: 16px;
   }
+}
+
+/* Agro: remap stray blues and strengthen green/yellow badges. */
+html[data-theme="agro"] .customers-tab.is-active,
+html[data-theme="agro"] .customers-sort-icon.is-active,
+html[data-theme="agro"] .company-settings-sort svg.is-active {
+  color: var(--accent) !important;
+}
+
+html[data-theme="agro"] .customers-page-btn.is-active {
+  background: var(--accent) !important;
+  color: var(--accent-fg) !important;
+}
+
+html[data-theme="agro"] .customers-link-btn-primary {
+  color: var(--accent) !important;
+}
+
+html[data-theme="agro"] .customers-checkbox,
+html[data-theme="agro"] .form-dialog-checkbox-label input {
+  accent-color: var(--accent);
+}
+
+html[data-theme="agro"] .customers-stat-icon-blue,
+html[data-theme="agro"] .customers-stat-icon-emerald,
+html[data-theme="agro"] .customers-badge-emerald,
+html[data-theme="agro"] .customers-badge-blue {
+  background: var(--accent-soft) !important;
+  color: var(--accent) !important;
+  box-shadow: inset 0 0 0 1px var(--accent-border) !important;
+}
+
+html[data-theme="agro"] .customers-stat-icon-amber,
+html[data-theme="agro"] .customers-badge-amber {
+  background: var(--highlight-bg) !important;
+  color: var(--highlight) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--highlight) 45%, transparent) !important;
+}
+
+html[data-theme="agro"] .sales-status-pending,
+html[data-theme="agro"] .stock-badge-amber {
+  background: var(--highlight-bg) !important;
+  border-color: color-mix(in srgb, var(--highlight) 40%, transparent) !important;
+  color: var(--highlight) !important;
+}
+
+html[data-theme="agro"] .stock-badge-emerald {
+  background: var(--accent-bg) !important;
+  border-color: var(--accent-border) !important;
+  color: var(--accent) !important;
+}
+
+html[data-theme="agro"] .company-settings-sort > span.is-active,
+html[data-theme="agro"] a.company-settings-sort.is-active {
+  color: var(--accent) !important;
+}
+
+html[data-theme="agro"] .company-settings-actions button:hover {
+  background: var(--accent-soft) !important;
+  color: var(--accent) !important;
+}
+
+html[data-theme="agro"] .customers-table tbody tr.is-selected {
+  background: var(--accent-bg) !important;
+}
+
+html[data-theme="agro"] .customers-avatar {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 30%, transparent),
+    color-mix(in srgb, var(--accent) 10%, transparent)
+  ) !important;
+  color: var(--accent) !important;
 }
 
 html[data-theme="dark"] {
@@ -492,6 +565,7 @@ html[data-theme="dark"] .table-data-pagination-actions button,
 html[data-theme="dark"] .sales-btn-small,
 html[data-theme="dark"] .stock-btn-small,
 html[data-theme="dark"] .customers-page-btn,
+html[data-theme="dark"] .customers-pagination-btn,
 html[data-theme="dark"] .company-settings-sort,
 html[data-theme="dark"] .sales-row-actions .sales-btn-secondary {
   background: var(--bg-soft) !important;
@@ -504,6 +578,7 @@ html[data-theme="dark"] .table-data-pagination-actions button:hover:not(:disable
 html[data-theme="dark"] .sales-btn-small:hover:not(:disabled),
 html[data-theme="dark"] .stock-btn-small:hover:not(:disabled),
 html[data-theme="dark"] .customers-page-btn:hover:not(:disabled),
+html[data-theme="dark"] .customers-pagination-btn:hover:not(:disabled),
 html[data-theme="dark"] .company-settings-sort:hover {
   background: var(--nav-hover) !important;
   color: var(--text-h) !important;
@@ -631,6 +706,7 @@ html[data-theme="dark"] .customers-badge-violet,
 html[data-theme="dark"] .customers-badge-emerald,
 html[data-theme="dark"] .customers-badge-amber,
 html[data-theme="dark"] .customers-badge-slate,
+html[data-theme="dark"] .customers-mono-chip,
 html[data-theme="dark"] .cfm-step-rail,
 html[data-theme="dark"] .cfm-section,
 html[data-theme="dark"] .company-settings-logo,

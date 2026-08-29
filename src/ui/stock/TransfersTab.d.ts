@@ -13,6 +13,7 @@ interface TransfersTabProps {
     canDirectPost: boolean;
     autoGenerateTransferNo: boolean;
     transferReceiveUsesDocumentDate: boolean;
+    loosePalmOilAllowInterSalesPointTransfer: boolean;
     userId: string;
     productFilter: StockProductFilter;
     onOk: (text: string) => void;

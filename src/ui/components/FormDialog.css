@@ -189,7 +189,7 @@
   width: 14px;
   height: 14px;
   margin: 0;
-  accent-color: #2563eb;
+  accent-color: var(--accent);
 }
 
 .form-dialog-subtotal {
