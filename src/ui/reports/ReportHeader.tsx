@@ -5,14 +5,14 @@ import logoSrc from "../../assets/logo.svg";
 import "./ReportHeader.css";
 
 export interface ReportHeaderProps {
-  companyName: string;
+  companyName?: string;
   department: string | null;
   serviceName: string | null;
   title: string;
   meta?: ComponentChildren;
 }
 
-function ReportLogo({ companyName }: { companyName: string }) {
+function ReportLogo({ companyName }: { companyName?: string }) {
   const [hasError, setHasError] = useState(false);
 
   if (hasError) {
@@ -34,7 +34,7 @@ function ReportLogo({ companyName }: { companyName: string }) {
 }
 
 export function ReportHeader({
-  companyName,
+/*   companyName, */
   department,
   serviceName,
   title,
@@ -42,13 +42,13 @@ export function ReportHeader({
 }: ReportHeaderProps) {
   return (
     <header class="report-header">
-      <div class="report-header-logo-wrap">
+    {/*   <div class="report-header-logo-wrap">
         <ReportLogo companyName={companyName} />
-      </div>
+      </div> */}
       {meta ? <div class="report-header-meta">{meta}</div> : null}
 
       <div class="report-header-company">
-        <p class="report-header-company-name">{companyName}</p>
+      {/*   <p class="report-header-company-name">{companyName}</p> */}
         {department ? <p class="report-header-department">{department}</p> : null}
         {serviceName ? (
           <p class="report-header-commercial-service">{serviceName}</p>

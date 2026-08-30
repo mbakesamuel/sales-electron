@@ -536,9 +536,15 @@ html[data-theme="dark"] .home-content .table-data-add-btn {
 
 html[data-theme="dark"] .home-content .stock-btn-primary:hover:not(:disabled),
 html[data-theme="dark"] .home-content .sales-btn-primary:hover:not(:disabled),
-html[data-theme="dark"] .home-content .company-settings-primary-btn:hover:not(:disabled),
-html[data-theme="dark"] .home-content .customers-btn-primary:hover:not(:disabled),
-html[data-theme="dark"] .home-content .scr-btn:not(.scr-btn-secondary):hover:not(:disabled),
+html[data-theme="dark"]
+  .home-content
+  .company-settings-primary-btn:hover:not(:disabled),
+html[data-theme="dark"]
+  .home-content
+  .customers-btn-primary:hover:not(:disabled),
+html[data-theme="dark"]
+  .home-content
+  .scr-btn:not(.scr-btn-secondary):hover:not(:disabled),
 html[data-theme="dark"] .home-content .table-data-add-btn:hover:not(:disabled) {
   background: var(--accent-hover);
 }

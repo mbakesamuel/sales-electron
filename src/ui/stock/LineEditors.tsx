@@ -4,6 +4,11 @@ import type {
   StockCondition,
   StorageLocationOption,
 } from "../../shared/stock.types.ts";
+import {
+  buildReceiptIntakeGroups,
+  filterReceiptPickerProducts,
+  receiptIntakeDisplayName,
+} from "../../shared/stockIntakeGroups.ts";
 import { receiptLocationOptionsForProduct, trimQty } from "./stockUtils.ts";
 
 export type ReceiptLineDraft = {
@@ -35,6 +40,7 @@ interface ReceiptLineEditorProps {
   defaultLocationId: string;
   onHand: StockBalanceRow[];
   salesPointId: string;
+  stockIntakeOilGrouping?: boolean;
 }
 
 export function ReceiptLineEditor({
@@ -45,7 +51,13 @@ export function ReceiptLineEditor({
   defaultLocationId: defLoc,
   onHand,
   salesPointId,
+  stockIntakeOilGrouping = false,
 }: ReceiptLineEditorProps) {
+  const pickerProducts = filterReceiptPickerProducts(products, stockIntakeOilGrouping);
+  const intakeGroups =
+    stockIntakeOilGrouping && pickerProducts.length > 0
+      ? buildReceiptIntakeGroups(products)
+      : null;
   function locationsForLine(productId: string, currentLocationId: string): StorageLocationOption[] {
     const eligible = receiptLocationOptionsForProduct(
       locationOptions,
@@ -105,7 +117,9 @@ export function ReceiptLineEditor({
       </div>
       <div class="stock-line-rows">
         {lines.map((l, idx) => {
-          const product = products.find((p) => String(p.productId) === l.productId);
+          const product =
+            products.find((p) => String(p.productId) === l.productId) ??
+            pickerProducts.find((p) => String(p.productId) === l.productId);
           const uom = product?.uom ?? "";
           const lineOmitsStorage = product?.omitsStorageLocation ?? false;
           const lineLocations = locationsForLine(l.productId, l.storageLocationId);
@@ -116,9 +130,9 @@ export function ReceiptLineEditor({
                 value={l.productId}
                 onChange={(event) => {
                   const productId = (event.currentTarget as HTMLSelectElement).value;
-                  const nextProduct = products.find(
-                    (p) => String(p.productId) === productId,
-                  );
+                  const nextProduct =
+                    products.find((p) => String(p.productId) === productId) ??
+                    pickerProducts.find((p) => String(p.productId) === productId);
                   update(idx, {
                     productId,
                     storageLocationId: nextProduct?.omitsStorageLocation
@@ -129,12 +143,23 @@ export function ReceiptLineEditor({
                 aria-label="Product"
               >
                 <option value="">Select product…</option>
-                {products.map((p) => (
-                  <option key={p.productId} value={p.productId}>
-                    {p.productName}
-                    {p.omitsStorageLocation ? " · no location" : ""}
-                  </option>
-                ))}
+                {intakeGroups
+                  ? intakeGroups.map((group) => (
+                      <optgroup key={group.key} label={group.label}>
+                        {group.products.map((p) => (
+                          <option key={p.productId} value={p.productId}>
+                            {receiptIntakeDisplayName(p)}
+                            {p.omitsStorageLocation ? " · no location" : ""}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))
+                  : pickerProducts.map((p) => (
+                      <option key={p.productId} value={p.productId}>
+                        {p.productName}
+                        {p.omitsStorageLocation ? " · no location" : ""}
+                      </option>
+                    ))}
               </select>
               {lineOmitsStorage ? (
                 <span class="stock-line-location-placeholder stock-muted">—</span>
@@ -257,6 +282,18 @@ function formatStockQtyLabel(qty: string): string {
   return Math.round(n).toLocaleString("en-US");
 }
 
+function productLabel(
+  products: ProductOption[],
+  productId: string,
+  fallback: string,
+): string {
+  const product = products.find((p) => String(p.productId) === productId);
+  if (product) {
+    return receiptIntakeDisplayName(product);
+  }
+  return fallback;
+}
+
 function buildAdjustmentStockOptions(
   onHand: StockBalanceRow[],
   salesPointId: string,
@@ -365,7 +402,7 @@ function buildTransferStockOptions(
       key,
       productId,
       fromStorageLocationId,
-      productName: row.productName,
+      productName: productLabel(products, productId, row.productName),
       storageLocationName: row.storageLocationName,
       uom: row.uom,
       qtyLabel: formatStockQtyLabel(row.qty),
@@ -394,7 +431,11 @@ function buildTransferStockOptions(
       key,
       productId: line.productId,
       fromStorageLocationId: line.fromStorageLocationId,
-      productName: product?.productName ?? onHandRow?.productName ?? `Product ${line.productId}`,
+      productName: productLabel(
+        products,
+        line.productId,
+        product?.productName ?? onHandRow?.productName ?? `Product ${line.productId}`,
+      ),
       storageLocationName:
         location?.name ?? onHandRow?.storageLocationName ?? `Location ${line.fromStorageLocationId}`,
       uom: product?.uom ?? onHandRow?.uom ?? "",

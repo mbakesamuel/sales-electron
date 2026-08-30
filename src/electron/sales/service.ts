@@ -18,6 +18,12 @@ import {
 } from "../../shared/salesModule.js";
 import { validateBookletSerial } from "../../shared/bookletSerial.js";
 import {
+  isDispositionPaymentMethodId,
+  paymentMethodIdForDisposition,
+  SYS_PM_PUBLIC_RELATION,
+  SYS_PM_RATION,
+} from "../../shared/dispositionPaymentMethods.js";
+import {
   resolveCustomerTaxProfile,
   SALES_TAX_LABEL,
 } from "../../shared/taxRules.js";
@@ -34,6 +40,7 @@ import {
   loadLoosePalmOilRequireSalesTank,
   productIsLoosePalmOilById,
   productRequiresSalesTankForLooseSale,
+  resolveStockProductId,
 } from "../stock/productStorage.js";
 import { isInsufficientStockError } from "../stock/errors.js";
 import { parseQty } from "../stock/decimal.js";
@@ -222,6 +229,43 @@ function validateSalePaymentMethods(
   return null;
 }
 
+function validateDispositionPayments(
+  saleDisposition: CreateSaleInput["saleDisposition"] | undefined,
+  payments: CreateSaleInput["payments"],
+  invoiceGross: number,
+): string | null {
+  const disposition = saleDisposition ?? "NORMAL";
+  const activePayments = payments.filter(
+    (payment) => parseAmount(payment.amount) > 0,
+  );
+  const requiredMethodId = paymentMethodIdForDisposition(disposition);
+
+  if (requiredMethodId) {
+    if (activePayments.length !== 1) {
+      return "Special dispositions require a single payment line.";
+    }
+
+    const payment = activePayments[0];
+    if (payment.paymentMethodId !== requiredMethodId) {
+      return "Payment method does not match sale disposition.";
+    }
+
+    if (Math.round(parseAmount(payment.amount)) !== invoiceGross) {
+      return "Paid amount must equal invoice total.";
+    }
+
+    return null;
+  }
+
+  for (const payment of activePayments) {
+    if (isDispositionPaymentMethodId(payment.paymentMethodId)) {
+      return "Disposition payment methods are only allowed for Ration or Public relation sales.";
+    }
+  }
+
+  return null;
+}
+
 function formatProductSummary(
   lines: Array<{ productName: string; qtyKg: string }>,
 ): string {
@@ -272,11 +316,12 @@ export function listStorageLocationsWithBalance(
   }
 
   const db = getDatabase();
-  if (productOmitsStorageLocationById(db, productId)) {
+  const stockProductId = resolveStockProductId(db, productId);
+  if (productOmitsStorageLocationById(db, stockProductId)) {
     return [];
   }
 
-  const requireSalesTank = productRequiresSalesTankForLooseSale(db, productId);
+  const requireSalesTank = productRequiresSalesTankForLooseSale(db, stockProductId);
   const salesTankSql = requireSalesTank
     ? " AND COALESCE(sl.isSalesTank, 0) = 1"
     : "";
@@ -298,7 +343,7 @@ export function listStorageLocationsWithBalance(
       .map((location) => ({
         id: location.id,
         name: location.name,
-        qty: getSellableBalanceAsOf(db, salesPointId, productId, location.id, asOf),
+        qty: getSellableBalanceAsOf(db, salesPointId, stockProductId, location.id, asOf),
       }))
       .filter((row) => row.qty > QTY_EPS);
   }
@@ -316,7 +361,7 @@ export function listStorageLocationsWithBalance(
          AND COALESCE(sl.isActive, 1) = 1${salesTankSql}
        ORDER BY l.locationName ASC`,
     )
-    .all(salesPointId, productId, salesPointId) as Array<{
+    .all(salesPointId, stockProductId, salesPointId) as Array<{
     id: number;
     name: string;
     qty: string;
@@ -373,9 +418,12 @@ export function getSalesFormOptions(userId: string): SalesFormOptions {
   const products = db
     .prepare(
       `SELECT p.productId, p.productName, pc.productCat, pc.productCode, pc.isBottled,
-              COALESCE(pc.isMain, 0) AS isMain
+              COALESCE(pc.isMain, 0) AS isMain,
+              COALESCE(p.excludeFromSales, 0) AS excludeFromSales,
+              COALESCE(p.omitsStorageLocation, 0) AS omitsStorageLocation
        FROM Product p
        INNER JOIN ProductCat pc ON pc.productCatId = p.productCatId
+       WHERE COALESCE(p.excludeFromSales, 0) = 0
        ORDER BY p.productName ASC
        LIMIT 200`,
     )
@@ -386,33 +434,37 @@ export function getSalesFormOptions(userId: string): SalesFormOptions {
     productCode: string;
     isBottled: number;
     isMain: number;
+    omitsStorageLocation: number;
   }>;
 
   const looseProducts = products
     .filter((product) => product.isBottled !== 1)
-    .map(({ productId, productName, productCat, productCode, isMain }) => ({
+    .map(({ productId, productName, productCat, productCode, isMain, omitsStorageLocation }) => ({
       productId,
       productName,
       productCat,
       productCatCode: productCode,
       isMain: isMain === 1,
+      omitsStorageLocation: omitsStorageLocation === 1,
     }));
 
   const bottledProducts = products
     .filter((product) => product.isBottled === 1)
-    .map(({ productId, productName, productCat, productCode, isMain }) => ({
+    .map(({ productId, productName, productCat, productCode, isMain, omitsStorageLocation }) => ({
       productId,
       productName,
       productCat,
       productCatCode: productCode,
       isMain: isMain === 1,
+      omitsStorageLocation: omitsStorageLocation === 1,
     }));
 
   const paymentMethods = db
     .prepare(
       `SELECT id, code, name, kind
        FROM PaymentMethodDefinition
-       WHERE isActive = 1 AND kind != 'CREDIT'
+       WHERE isActive = 1
+         AND kind NOT IN ('CREDIT', 'PUBLIC_RELATION')
        ORDER BY sortOrder ASC, name ASC`,
     )
     .all() as SalesFormOptions["paymentMethods"];
@@ -506,6 +558,8 @@ export function getSalesFormOptions(userId: string): SalesFormOptions {
     looseSalesAllowPublicRelation: loadLooseSalesAllowPublicRelation(db),
     looseSalesAllowUnregisteredCustomer: loadLooseSalesAllowUnregisteredCustomer(db),
     loosePalmOilRequireSalesTank: loadLoosePalmOilRequireSalesTank(db),
+    rationPaymentMethodId: SYS_PM_RATION,
+    publicRelationPaymentMethodId: SYS_PM_PUBLIC_RELATION,
   };
 }
 
@@ -1202,6 +1256,15 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
     return { ok: false, error: paymentMethodError };
   }
 
+  const dispositionPaymentError = validateDispositionPayments(
+    saleDisposition,
+    input.payments,
+    invoiceGross,
+  );
+  if (dispositionPaymentError) {
+    return { ok: false, error: dispositionPaymentError };
+  }
+
   const serialResult = validateBookletSerial(input.invoiceNo);
   if (!serialResult.ok) {
     return { ok: false, error: serialResult.error };
@@ -1313,14 +1376,15 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
     );
 
     for (const line of computedLines) {
-      const omitsStorage = productOmitsStorageLocationById(db, line.productId);
+      const stockProductId = resolveStockProductId(db, line.productId);
+      const omitsStorage = productOmitsStorageLocationById(db, stockProductId);
       const storageLocationId = omitsStorage
         ? null
         : input.salesPointId != null && Number.isFinite(input.salesPointId)
           ? resolveSaleLineStorageLocation(
               db,
               input.salesPointId,
-              line.productId,
+              stockProductId,
               line.storageLocationId ?? null,
               isBottleMode,
             )
@@ -1346,6 +1410,9 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
         continue;
       }
 
+      const paymentMethodId =
+        paymentMethodIdForDisposition(saleDisposition) ?? payment.paymentMethodId;
+
       insertPayment.run(
         newPaymentId(),
         saleId,
@@ -1357,7 +1424,7 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
         payment.traiteNo?.trim() || null,
         payment.traiteIssuedOn || null,
         payment.traiteMaturityOn || null,
-        payment.paymentMethodId,
+        paymentMethodId,
       );
     }
 

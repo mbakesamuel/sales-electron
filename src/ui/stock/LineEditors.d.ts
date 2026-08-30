@@ -25,8 +25,9 @@ interface ReceiptLineEditorProps {
     defaultLocationId: string;
     onHand: StockBalanceRow[];
     salesPointId: string;
+    stockIntakeOilGrouping?: boolean;
 }
-export declare function ReceiptLineEditor({ products, lines, onChange, locationOptions, defaultLocationId: defLoc, onHand, salesPointId, }: ReceiptLineEditorProps): import("preact").JSX.Element;
+export declare function ReceiptLineEditor({ products, lines, onChange, locationOptions, defaultLocationId: defLoc, onHand, salesPointId, stockIntakeOilGrouping, }: ReceiptLineEditorProps): import("preact").JSX.Element;
 interface TransferLineEditorProps {
     products: ProductOption[];
     lines: TransferLineDraft[];

@@ -10,7 +10,7 @@ Each area has two tabs: **Sales screen** (create / edit) and **Invoice list**.
 
 - **Loose (Sales Invoice)** — Lines in kg; deduct from a **sales tank**. Delivery-order picking is available for normal dispositions with a registered customer.
 - **Bottle Oil sales** — Separate screen for bottled products (units). Deducts from **Bottle Oil Store** (not a sales tank). No delivery-order picking. The per-invoice **Registered customer** checkbox is **never shown**; customer mode follows **App settings → Bottle Oil sales → Use registered customers** (off = invoice name only; on = directory customer required). **Ration** is available only when **Allow Ration disposition** is on in App settings (off by default). See [Organization setup](02-organization-setup.md).
-- **Sale disposition** — Normal commercial sales vs special cases such as **Ration** or **Public relation**. Special dispositions use an **invoice name only** (no directory customer) and no delivery-order linking. **Payments and line amounts work like normal sales** (Bottle Cash; loose non-cash). On loose Sales Invoice, **Ration** is limited to the **LPO** product category; **Public relation** uses Loose Palm Oil products. On Bottle Oil, Ration may be hidden by company setting; Public relation remains available.
+- **Sale disposition** — Normal commercial sales vs special cases such as **Ration** or **Public relation**. Special dispositions use an **invoice name only** (no directory customer) and no delivery-order linking. **Line amounts work like normal sales**; payment method is **fixed by disposition** (not Cash or cheque). On loose Sales Invoice, **Ration** is limited to the **LPO** product category; **Public relation** uses Loose Palm Oil products. On Bottle Oil, Ration may be hidden by company setting; Public relation remains available.
 
 ## Creating a normal sale
 
@@ -28,12 +28,16 @@ Vehicle number is required for loose/normal sales that need it.
 
 ## Payments
 
-The paid total must equal the invoice total for all dispositions (including **Ration** and **Public relation**). Payment amount is **locked** to the invoice gross (auto-filled); you choose the method and any method-specific fields.
+The paid total must equal the invoice total for all dispositions (including **Ration** and **Public relation**). Payment amount is **locked** to the invoice gross (auto-filled). For **normal** sales you choose the method; for **Ration** and **Public relation** the method is **read-only** and set automatically.
 
-| Mode | Allowed methods | Notes |
-|------|-----------------|-------|
-| **Bottle Oil sales** | **Cash only** | Method shows as read-only **Cash**. One payment line covering the full amount. |
-| **Loose (Sales Invoice)** | Cheque, Traite, Bank Transfer (and other non-cash methods) | **Cash is hidden**. Choose method from the dropdown. |
+| Mode / disposition | Payment method | Notes |
+|--------------------|----------------|-------|
+| **Bottle Oil — normal** | **Cash** (read-only) | One payment line covering the full amount. |
+| **Bottle Oil — Ration** | **Ration (deferred)** (read-only) | Full invoice amount; deferred CDC worker credit — not cash. |
+| **Bottle Oil — Public relation** | **Public relation (complimentary)** (read-only) | Full invoice amount; complimentary GM issue — not cash. |
+| **Loose — normal** | Cheque, Traite, Bank Transfer, etc. | **Cash is hidden**. Choose method from the dropdown. |
+| **Loose — Ration** | **Ration (deferred)** (read-only) | Same deferred method as bottle Ration. |
+| **Loose — Public relation** | **Public relation (complimentary)** (read-only) | Same complimentary method as bottle Public relation. |
 
 ### Traite (loose)
 

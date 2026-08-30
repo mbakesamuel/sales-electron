@@ -14,6 +14,7 @@ interface ReceiptsTabProps {
     userId: string;
     /** Global Stock view filter; locks the bottled checkbox when Loose or Bottled. */
     viewProductFilter?: StockProductFilter;
+    stockIntakeOilGrouping?: boolean;
     onOk: (text: string) => void;
     onErr: (text: string) => void;
 }

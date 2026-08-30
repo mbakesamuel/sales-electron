@@ -6,8 +6,10 @@ import type {
 } from "../../shared/stock.types.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthToken } from "../auth/db.ts";
+import { ReportDocumentShell } from "../reports/ReportDocumentShell.tsx";
 import { ReportHeader } from "../reports/ReportHeader.tsx";
 import { ReportWindowSaveButton } from "../reports/ReportWindowSaveButton.tsx";
+import { isBinCardReportMovementsEmpty } from "../reports/reportEmpty.ts";
 import "../reports/StockCommitmentReport.css";
 import { formatDate } from "./stockUtils.ts";
 import "./BinCardReport.css";
@@ -60,15 +62,24 @@ function handlePrint(): void {
 }
 
 function ReportDocument({ report }: { report: BinCardReport }) {
-  return (
-    <div class="scr-document bcr-document">
-      <ReportHeader
-        companyName={report.companyName}
-        department={report.department}
-        serviceName={report.serviceName}
-        title="Stock bin card"
-      />
+  const empty = isBinCardReportMovementsEmpty(report);
 
+  return (
+    <ReportDocumentShell
+      className="scr-document bcr-document"
+      isEmpty={empty}
+      emptyMessage="No movements in this period."
+      showComments={false}
+      showFooter={false}
+      header={
+        <ReportHeader
+          companyName={report.companyName}
+          department={report.department}
+          serviceName={report.serviceName}
+          title="Stock bin card"
+        />
+      }
+    >
       <div class="bcr-meta">
         <p>
           <span class="scr-meta-label">Product:</span> {report.productName}
@@ -161,7 +172,7 @@ function ReportDocument({ report }: { report: BinCardReport }) {
       ) : (
         <p class="bcr-footnote">Quantities in {report.uom}.</p>
       )}
-    </div>
+    </ReportDocumentShell>
   );
 }
 

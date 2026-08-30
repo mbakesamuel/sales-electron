@@ -11,10 +11,10 @@ import type {
   StockReportSection,
 } from "../../shared/reports.types.ts";
 import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
-import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
-import { ReportFooter } from "./ReportFooter.tsx";
+import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
+import { HIDE_ZERO_ROWS_HINT, isStockReportEmpty } from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 
 
@@ -59,14 +59,13 @@ function handlePrint(): void {
   window.print();
 }
 
-function ReportMatrixColGroup({ middleCount }: { middleCount: number }) {
+function LocationDetailColGroup() {
   return (
     <colgroup>
       <col class="sr-col-label" />
-      {Array.from({ length: middleCount }, (_, index) => (
-        <col key={index} class="sr-col-mid" />
-      ))}
-      <col class="sr-col-last" />
+      <col class="sr-col-storage" />
+      <col class="sr-col-qty" />
+      <col class="sr-col-remarks" />
     </colgroup>
   );
 }
@@ -81,12 +80,7 @@ function LocationDetailSection({
   return (
     <div class="scr-bottled-block mdr-section">
       <table class="scr-table sr-report-matrix sr-location-detail">
-        <colgroup>
-          <col class="sr-col-label" />
-          <col class="sr-col-storage" />
-          <col class="sr-col-qty" />
-          <col class="sr-col-remarks" />
-        </colgroup>
+        <LocationDetailColGroup />
         <thead>
           <tr>
             <th colSpan={4} class="scr-section-title">
@@ -202,8 +196,8 @@ function BottledMatrixSection({ section }: { section: StockReportBottledSection 
 function KernelSplitSection({ section }: { section: StockReportKernelSplitSection }) {
   return (
     <div class="scr-bottled-block">
-      <table class="scr-table sr-report-matrix">
-        <ReportMatrixColGroup middleCount={2} />
+      <table class="scr-table sr-report-matrix sr-location-detail">
+        <LocationDetailColGroup />
         <thead>
           <tr>
             <th colSpan={4} class="scr-section-title">
@@ -211,13 +205,10 @@ function KernelSplitSection({ section }: { section: StockReportKernelSplitSectio
             </th>
           </tr>
           <tr>
-            <th rowSpan={2} />
-            <th colSpan={3}>QUANTITY</th>
-          </tr>
-          <tr>
+            <th />
             <th>CRACKED</th>
             <th>UNCRACKED</th>
-            <th>TOTAL</th>
+            <th />
           </tr>
         </thead>
         <tbody>
@@ -226,14 +217,14 @@ function KernelSplitSection({ section }: { section: StockReportKernelSplitSectio
               <td class="scr-row-label">{row.salesPointName}</td>
               <td class="scr-num">{formatKg(row.crackedKg)}</td>
               <td class="scr-num">{formatKg(row.uncrackedKg)}</td>
-              <td class="scr-num">{formatKg(row.totalKg)}</td>
+              <td />
             </tr>
           ))}
           <tr class="scr-row-total">
             <td class="scr-row-label">{section.totals.salesPointName}</td>
             <td class="scr-num">{formatKg(section.totals.crackedKg)}</td>
             <td class="scr-num">{formatKg(section.totals.uncrackedKg)}</td>
-            <td class="scr-num">{formatKg(section.totals.totalKg)}</td>
+            <td />
           </tr>
         </tbody>
       </table>
@@ -248,29 +239,35 @@ function SalesPointQtySection({
 }) {
   return (
     <div class="scr-bottled-block">
-      <table class="scr-table sr-report-matrix">
-        <ReportMatrixColGroup middleCount={0} />
+      <table class="scr-table sr-report-matrix sr-location-detail">
+        <LocationDetailColGroup />
         <thead>
           <tr>
-            <th colSpan={2} class="scr-section-title">
+            <th colSpan={4} class="scr-section-title">
               {section.title}
             </th>
           </tr>
           <tr>
             <th />
+            <th />
             <th>{section.quantityLabel}</th>
+            <th />
           </tr>
         </thead>
         <tbody>
           {section.rows.map((row) => (
             <tr key={row.salesPointName}>
               <td class="scr-row-label">{row.salesPointName}</td>
+              <td />
               <td class="scr-num">{formatKg(row.quantityKg)}</td>
+              <td />
             </tr>
           ))}
           <tr class="scr-row-total">
             <td class="scr-row-label">TOTAL</td>
+            <td />
             <td class="scr-num">{formatKg(section.totalKg)}</td>
+            <td />
           </tr>
         </tbody>
       </table>
@@ -338,10 +335,10 @@ function buildCsv(report: StockReport): string {
       lines.push(["LITRES", ...section.litres, sumRowUnits(section.litres)].join(","));
       lines.push(["KGS", ...section.kgs, section.totalKgs].join(","));
     } else if (section.kind === "kernel_split") {
-      lines.push("SALES POINT,CRACKED,UNCRACKED,TOTAL");
+      lines.push("SALES POINT,CRACKED,UNCRACKED,");
       for (const row of section.rows) {
         lines.push(
-          [row.salesPointName, row.crackedKg, row.uncrackedKg, row.totalKg].join(","),
+          [row.salesPointName, row.crackedKg, row.uncrackedKg, ""].join(","),
         );
       }
       lines.push(
@@ -349,15 +346,15 @@ function buildCsv(report: StockReport): string {
           section.totals.salesPointName,
           section.totals.crackedKg,
           section.totals.uncrackedKg,
-          section.totals.totalKg,
+          "",
         ].join(","),
       );
     } else if (section.kind === "sales_point_qty") {
-      lines.push(`SALES POINT,${section.quantityLabel}`);
+      lines.push(`SALES POINT,,${section.quantityLabel},`);
       for (const row of section.rows) {
-        lines.push([row.salesPointName, row.quantityKg].join(","));
+        lines.push([row.salesPointName, "", row.quantityKg, ""].join(","));
       }
-      lines.push(["TOTAL", section.totalKg].join(","));
+      lines.push(["TOTAL", "", section.totalKg, ""].join(","));
     }
     lines.push("");
   }
@@ -378,20 +375,33 @@ function downloadCsv(report: StockReport): void {
 }
 
 export function StockReportDocument({ report }: { report: StockReport }) {
+  const empty = isStockReportEmpty(report);
+
   return (
-    <div class="scr-document sr-stock-compact wpp-pack-page">
-      <ReportHeader
-        companyName={report.settings.companyName}
-        department={report.settings.department ?? null}
-        serviceName={report.settings.serviceName ?? null}
-        title={`STOCK REPORT AS AT ${formatDisplayDate(report.asAtIso)}`}
-      />
-
-      {report.sections.map((section) => renderSection(section, report.oilGrandTotalKg))}
-
-      <ReportCommentsSection comments={report.comments} />
-      <ReportFooter name={report.settings.signatoryName} label={report.settings.signatoryTitle} />
-    </div>
+    <ReportDocumentShell
+      className="scr-document sr-stock-compact wpp-pack-page"
+      isEmpty={empty}
+      emptyMessage={`No stock quantities to display as at ${formatDisplayDate(report.asAtIso)}.`}
+      emptyHint={HIDE_ZERO_ROWS_HINT}
+      comments={report.comments}
+      signatoryName={report.settings.signatoryName}
+      signatoryTitle={report.settings.signatoryTitle}
+      header={
+        <ReportHeader
+          companyName={report.settings.companyName}
+          department={report.settings.department ?? null}
+          serviceName={report.settings.serviceName ?? null}
+          title={`STOCK REPORT AS AT ${formatDisplayDate(report.asAtIso)}`}
+        />
+      }
+    >
+      {report.sections
+        .filter((section) => section.kind !== "bottled")
+        .map((section) => renderSection(section, report.oilGrandTotalKg))}
+      {report.sections
+        .filter((section) => section.kind === "bottled")
+        .map((section) => renderSection(section, report.oilGrandTotalKg))}
+    </ReportDocumentShell>
   );
 }
 

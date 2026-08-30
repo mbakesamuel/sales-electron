@@ -4,6 +4,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { seedDefaultPermissions } from "../auth/permissions/service.js";
+import { applyStockIntakeProductBackfill } from "../stock/stockIntakeMigration.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -1595,6 +1596,14 @@ function runMigrations(database: Database.Database): void {
       continue;
     }
 
+    if (fileName === "098_stock_intake_oil_grouping.sql") {
+      const sql = readFileSync(path.join(getMigrationsDir(), fileName), "utf8");
+      database.exec(sql);
+      applyStockIntakeProductBackfill(database);
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
     const sql = readFileSync(path.join(getMigrationsDir(), fileName), "utf8");
     database.exec(sql);
     database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
@@ -1611,6 +1620,7 @@ export function initDatabase(): Database.Database {
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   runMigrations(db);
+  applyStockIntakeProductBackfill(db);
   // Fill any new route/action defaults for existing DBs (INSERT OR IGNORE).
   seedDefaultPermissions(db);
 

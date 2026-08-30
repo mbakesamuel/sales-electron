@@ -37,20 +37,20 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
       },
       {
         id: "financial-year-periods",
-        label: "Financial years",
+        label: "Financial year",
         table: "FinancialYearPeriod",
         description: "Open and closed financial years.",
       },
       {
         id: "financial-months",
-        label: "Financial months",
+        label: "Financial month",
         table: "FinancialMonth",
         description:
           "Open and close calendar months for the current financial year.",
       },
       {
         id: "commercial-services",
-        label: "Commercial services",
+        label: "Services",
         table: "CommercialService",
         description: "Commercial service sites and modules.",
       },
@@ -62,31 +62,31 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
       },
       {
         id: "locations",
-        label: "Locations",
+        label: "Oil storage Locations",
         table: "Location",
         description: "Reusable location name definitions.",
       },
       {
         id: "storage-locations",
-        label: "Storage locations",
+        label: "Locations Assignment",
         table: "StorageLocation",
         description: "Assign locations to collection points.",
       },
       {
         id: "payment-methods",
-        label: "Payment methods",
+        label: "Payment Options",
         table: "PaymentMethodDefinition",
         description: "Accepted payment methods.",
       },
       {
         id: "tax-regimes",
-        label: "Tax regimes",
+        label: "Tax Regime",
         table: "TaxRegime",
         description: "Actual vs Simplified tax regimes.",
       },
       {
         id: "tax-rate-schedules",
-        label: "Tax rates",
+        label: "Tax Rate Schedule",
         table: "TaxRateSchedule",
         description: "Date-effective VAT and sales-tax rates.",
       },
@@ -104,7 +104,7 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
       },
       {
         id: "customer-types",
-        label: "Customer types",
+        label: "Customer Types",
         table: "CustomerTypeDefinition",
         description: "Customer type definitions.",
       },
@@ -122,13 +122,13 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
       },
       {
         id: "product-categories",
-        label: "Categories",
+        label: "Product Categories",
         table: "ProductCat",
         description: "Product categories and codes.",
       },
       {
         id: "unit-prices",
-        label: "ProductUnit prices",
+        label: "Product Unit Prices",
         table: "ProductUnitPriceSchedule",
         description: "Scheduled product unit prices.",
       },
@@ -136,31 +136,20 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
   },
   {
     id: "sales-budget",
-    label: "Sales budget",
+    label: "Sales Budget",
     routes: [
       {
         id: "sales-budget",
-        label: "Sales budget phasing",
+        label: "12 Months Phasing",
         table: "ProductSalesBudget",
         description: "Set annual quantities and monthly phasing profiles.",
-      },
-      {
-        id: "sales-budget-monthly-crosstab",
-        label: "Sales budget phasing (monthly)",
-        table: "ProductSalesBudget",
-        description: "Monthly phased budget kg crosstab by product.",
-      },
-      {
-        id: "sales-budget-weekly-crosstab",
-        label: "Sales budget phasing (weekly)",
-        table: "ProductSalesBudget",
-        description: "Weekly phased budget kg crosstab by product and month.",
-      },
+      },   
+     
     ],
   },
   {
     id: "inventory",
-    label: "Stocks",
+    label: "Oil Stocks",
     routes: [
       {
         id: "carry-forward-stock",
@@ -178,7 +167,7 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
       },
       {
         id: "bottled-stock",
-        label: "Bottled Stock",
+        label: "Bottle Stock",
         table: "StockBalance",
         description:
           "Bin card ledger, transfers, and adjustments for bottled products.",
@@ -205,14 +194,14 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
     routes: [
       {
         id: "carry-forward-commitments",
-        label: "Opening commitments",
+        label: "Register Commitments",
         table: "DeliveryOrder",
         description:
           "Enter opening / carried-forward customer commitments by product and collection point.",
       },
       {
         id: "delivery-orders",
-        label: "Delivery Orders",
+        label: "Delivery Order",
         table: "DeliveryOrder",
         description: "Create and manage delivery orders.",
       },
@@ -238,7 +227,7 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
     routes: [
       {
         id: "sales",
-        label: "Sales Invoicing",
+        label: "Invoicing",
         table: "Sale",
         description:
           "Create and manage loose-product sales invoices (POS screen).",
@@ -274,43 +263,56 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
     const dailyRoutes: SchemaRoute[] = [
       {
         id: "daily-sales-report",
-        label: "Daily sales report",
+        label: "Sales Summary",
         table: "Sale",
         description:
-          "Daily sales by product with DO details and customer-type summary.",
+          "Daily sales detail by product with DO lines and customer-type summary.",
+      },
+      {
+        id: "daily-sales-matrix-report",
+        label: "Day to Day Sales Details",
+        table: "Sale",
+        description:
+          "Monthly day-by-day sales matrix by customer category with transfer column.",
       },
     ];
     const weeklyRoutes: SchemaRoute[] = [
       {
+        id: "sales-budget-weekly-crosstab",
+        label: "Budget Phasing",
+        table: "ProductSalesBudget",
+        description: "Weekly phased budget kg crosstab by product and month.",
+      },
+      {
         id: "stock-commitment-report",
-        label: "Stock summary report",
+        label: "Stock Summary",
         table: "StockBalance",
         description:
           "Stock and delivery-order commitment report for management.",
       },
       {
         id: "stock-report",
-        label: "Stock report",
+        label: "Stock",
         table: "StockBalance",
         description: "Stock by collection point and storage location.",
       },
       {
         id: "commitment-report",
-        label: "Commitment report",
+        label: "Commitments",
         table: "DeliveryOrder",
         description:
           "Outstanding delivery-order commitments by customer and collection point.",
       },
       {
         id: "bottle-oil-stock-sales-report",
-        label: "Bottle Oil stock & sales",
+        label: "Bottle Stock",
         table: "StockBalance",
         description:
           "Bottled palm oil stock by collection point and monthly sales to date.",
       },
       {
         id: "bottled-weekly-issues-report",
-        label: "Bottled Oil Issues",
+        label: "Bottle Sales",
         table: "Sale",
         description:
           "Bottled palm oil issues Mon–Fri by payment method, with MTD and YTD summary.",
@@ -324,20 +326,26 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
     ];
     const monthlyRoutes: SchemaRoute[] = [
       {
+        id: "sales-budget-monthly-crosstab",
+        label: "Budget Phasing",
+        table: "ProductSalesBudget",
+        description: "Monthly phased budget kg crosstab by product.",
+      },
+      {
         id: "monthly-delivery-report-h1",
-        label: "Monthly Delivery By Product/Cust Category (Jan–Jun)",
+        label: "Delivery By Product/Cust Category (Jan–Jun)",
         table: "Sale",
         description: "Monthly deliveries and value for January through June.",
       },
       {
         id: "monthly-delivery-report-h2",
-        label: "Monthly delivery (Jul–Dec)",
+        label: "Delivery By Product/Cust Category (Jul–Dec)",
         table: "Sale",
         description: "Monthly deliveries and value for July through December.",
       },
       {
         id: "monthly-stock-reconciliation-report",
-        label: "Stock reconciliation",
+        label: "Stock Reconciliation",
         table: "StockBalance",
         description:
           "Open-month LPO opening/reception/issues reconciliation with BPO and palm-kernel rows.",
@@ -399,10 +407,20 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
           "Open-month non-LPO / non-bottled sales by collection point and product (deliveries kg and F.CFA without taxes).",
       },
     ];
+    const annualRoutes: SchemaRoute[] = [
+      {
+        id: "palm-oil-sales-activity-report",
+        label: "Palm Oil Sales Activity",
+        table: "Sale",
+        description:
+          "Annual palm oil sales by customer category in tons and FCFA.",
+      },
+    ];
     const groups: SchemaRouteGroup[] = [
       { id: "daily", label: "Daily", routes: dailyRoutes },
       { id: "weekly", label: "Weekly", routes: weeklyRoutes },
       { id: "monthly", label: "Monthly", routes: monthlyRoutes },
+      { id: "annual", label: "Annual", routes: annualRoutes },
     ];
     return {
       id: "reports",

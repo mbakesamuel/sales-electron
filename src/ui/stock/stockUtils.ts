@@ -143,7 +143,10 @@ export function receiptLocationOptionsForProduct(
   }
 
   return locationOptions.filter(
-    (loc) => holdingProductIds.has(loc.id) || !occupiedIds.has(loc.id),
+    (loc) =>
+      holdingProductIds.has(loc.id) ||
+      !occupiedIds.has(loc.id) ||
+      loc.allowsMultiProduct,
   );
 }
 

@@ -10,6 +10,7 @@ import type {
   MonthlyPaymentDeliveryReport,
   MonthlyDeliveriesByDestinationReport,
   MonthlyPalmOilSalesReport,
+  PalmOilSalesActivityReport,
   IndustryProductMonthlySalesReport,
   BottledPalmOilSalesReturnReport,
   OtherProductSalesDeliveriesReport,
@@ -21,6 +22,7 @@ import type {
   SalesBudgetWeeklyCrosstabReport,
   WeeklyDeliveriesReport,
   DailySalesReport,
+  DailySalesMatrixReport,
 } from "../../shared/reports.types.js";
 import { requireAuthUser } from "../auth/requireUser.js";
 import { getMonthlyDeliveryReport } from "../reports/monthlyDeliveryReport.js";
@@ -28,6 +30,7 @@ import { getMonthlyStockReconciliationReport } from "../reports/monthlyStockReco
 import { getMonthlyPaymentDeliveryReport } from "../reports/monthlyPaymentDeliveryReport.js";
 import { getMonthlyDeliveriesByDestinationReport } from "../reports/monthlyDeliveriesByDestinationReport.js";
 import { getMonthlyPalmOilSalesReport } from "../reports/monthlyPalmOilSalesReport.js";
+import { getPalmOilSalesActivityReport } from "../reports/palmOilSalesActivityReport.js";
 import { getIndustryProductMonthlySalesReport } from "../reports/industryProductMonthlySalesReport.js";
 import { getBottledPalmOilSalesReturnReport } from "../reports/bottledPalmOilSalesReturnReport.js";
 import { getOtherProductSalesDeliveriesReport } from "../reports/otherProductSalesDeliveriesReport.js";
@@ -42,6 +45,7 @@ import { getStockCommitmentReport } from "../reports/stockCommitment.js";
 import { getStockReport } from "../reports/stockReport.js";
 import { getWeeklyDeliveriesReport } from "../reports/weeklyDeliveriesReport.js";
 import { getDailySalesReport } from "../reports/dailySalesReport.js";
+import { getDailySalesMatrixReport } from "../reports/dailySalesMatrixReport.js";
 import { getOpenMonthWeekChoices } from "../reports/weekChoices.js";
 import {
   saveReportComments,
@@ -182,6 +186,14 @@ export function registerReportsHandlers(): void {
   );
 
   ipcMain.handle(
+    "reports:getPalmOilSalesActivity",
+    (_event, authToken: string): PalmOilSalesActivityReport => {
+      const user = requireAuthUser(authToken);
+      return getPalmOilSalesActivityReport(user.id);
+    },
+  );
+
+  ipcMain.handle(
     "reports:getIndustryProductMonthlySales",
     (_event, authToken: string): IndustryProductMonthlySalesReport => {
       const user = requireAuthUser(authToken);
@@ -274,6 +286,31 @@ export function registerReportsHandlers(): void {
         user.id,
         reportDateIso,
         Number.isFinite(pointId) ? pointId : null,
+      );
+    },
+  );
+
+  ipcMain.handle(
+    "reports:getDailySalesMatrix",
+    (
+      _event,
+      authToken: string,
+      salesPointId?: unknown,
+      productId?: unknown,
+    ): DailySalesMatrixReport => {
+      const user = requireAuthUser(authToken);
+      const pointId =
+        salesPointId == null || salesPointId === ""
+          ? null
+          : Number.parseInt(String(salesPointId), 10);
+      const prodId =
+        productId == null || productId === ""
+          ? null
+          : Number.parseInt(String(productId), 10);
+      return getDailySalesMatrixReport(
+        user.id,
+        Number.isFinite(pointId) ? pointId : null,
+        Number.isFinite(prodId) ? prodId : null,
       );
     },
   );

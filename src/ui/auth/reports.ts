@@ -34,6 +34,8 @@ export function getAuthenticatedReports() {
       api.getMonthlyDeliveriesByDestination(requireAuthToken()),
     getMonthlyPalmOilSales: () =>
       api.getMonthlyPalmOilSales(requireAuthToken()),
+    getPalmOilSalesActivity: () =>
+      api.getPalmOilSalesActivity(requireAuthToken()),
     getIndustryProductMonthlySales: () =>
       api.getIndustryProductMonthlySales(requireAuthToken()),
     getBottledPalmOilSalesReturn: () =>
@@ -52,6 +54,8 @@ export function getAuthenticatedReports() {
       api.getSalesBudgetWeeklyCrosstab(requireAuthToken(), reportYear),
     getDailySales: (reportDateIso: string, salesPointId?: number | null) =>
       api.getDailySales(requireAuthToken(), reportDateIso, salesPointId ?? null),
+    getDailySalesMatrix: (salesPointId?: number | null, productId?: number | null) =>
+      api.getDailySalesMatrix(requireAuthToken(), salesPointId ?? null, productId ?? null),
     saveReportComments: (input: { reportId: string; text: string | null }) =>
       api.saveReportComments(requireAuthToken(), input),
     listSignatories: () => api.listSignatories(requireAuthToken()),

@@ -559,6 +559,37 @@ export interface DailySalesReport {
   comments: string | null;
 }
 
+export interface DailySalesMatrixDayRow {
+  day: number;
+  industry: number;
+  wholeSale: number;
+  retail: number;
+  cdcWorker: number;
+  staff: number;
+  trnsfr: number;
+  total: number;
+}
+
+export interface DailySalesMatrixReport {
+  settings: ReportCompanySettings;
+  monthStartIso: string;
+  monthEndIso: string;
+  asAtIso: string;
+  monthLabel: string;
+  selectedSalesPointId: number | null;
+  salesPointLabel: string;
+  salesPointOptions: Array<{ id: number; name: string }>;
+  selectedProductId: number | null;
+  productLabel: string;
+  productOptions: Array<{ id: number; name: string; productCode: string | null }>;
+  daysInMonth: number;
+  rows: DailySalesMatrixDayRow[];
+  columnTotals: Omit<DailySalesMatrixDayRow, "day">;
+  grandTotal: number;
+  generatedAtIso: string;
+  comments: string | null;
+}
+
 export type MonthlyStockReconciliationRowKind =
   | "data"
   | "section_header"
@@ -717,6 +748,54 @@ export interface MonthlyPalmOilSalesReport {
   monthColumnsH1: MonthlyPalmOilSalesMonthColumn[];
   monthColumnsH2: MonthlyPalmOilSalesMonthColumn[];
   rows: MonthlyPalmOilSalesRow[];
+  comments: string | null;
+}
+
+export interface PalmOilSalesActivityCell {
+  tons: number;
+  /** Full FCFA (tax-excluded line net); UI divides by 1000 for '000 FRS. */
+  value: number;
+}
+
+export interface PalmOilSalesActivityMonthColumn {
+  month: number;
+  label: string;
+  isPartialMonth?: boolean;
+}
+
+export type PalmOilSalesActivityRowKind =
+  | "section"
+  | "data"
+  | "total"
+  | "avg_price"
+  | "budget";
+
+export interface PalmOilSalesActivityRow {
+  id: string;
+  label: string;
+  kind: PalmOilSalesActivityRowKind;
+  months: PalmOilSalesActivityCell[];
+  toDate: PalmOilSalesActivityCell;
+  pctTage: number | null;
+  budgetPricePerKg?: number | null;
+  budgetPct?: number | null;
+}
+
+export interface PalmOilSalesActivitySection {
+  id: "looseOil" | "looseAndBtldOil";
+  title: string;
+  monthColumns: PalmOilSalesActivityMonthColumn[];
+  rows: PalmOilSalesActivityRow[];
+}
+
+export interface PalmOilSalesActivityReport {
+  settings: ReportCompanySettings;
+  financialYear: number;
+  asAtIso: string;
+  reportTitle: string;
+  generatedAtIso: string;
+  looseOilSection: PalmOilSalesActivitySection;
+  looseAndBtldSection: PalmOilSalesActivitySection;
   comments: string | null;
 }
 

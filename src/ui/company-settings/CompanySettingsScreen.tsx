@@ -146,6 +146,9 @@ export function CompanySettingsScreen({
     loosePalmOilAllowInterSalesPointTransfer,
     setLoosePalmOilAllowInterSalesPointTransfer,
   ] = useState(false);
+  const [stockIntakeOilGrouping, setStockIntakeOilGrouping] = useState(false);
+  const [loadedStockIntakeOilGrouping, setLoadedStockIntakeOilGrouping] =
+    useState(false);
   const [stockTransferSettingSaving, setStockTransferSettingSaving] =
     useState(false);
   const [stockTransferSettingSavedHint, setStockTransferSettingSavedHint] =
@@ -192,6 +195,8 @@ export function CompanySettingsScreen({
           setBottleOilAllowRation(false);
           setStockTransferReceiveUsesDocumentDate(false);
           setLoosePalmOilAllowInterSalesPointTransfer(false);
+          setStockIntakeOilGrouping(false);
+          setLoadedStockIntakeOilGrouping(false);
           setLooseSalesAllowPublicRelation(false);
           setLooseSalesAllowUnregisteredCustomer(false);
           setLoosePalmOilRequireSalesTank(true);
@@ -217,6 +222,10 @@ export function CompanySettingsScreen({
         setLoosePalmOilAllowInterSalesPointTransfer(
           Number(row.loosePalmOilAllowInterSalesPointTransfer ?? 0) !== 0,
         );
+        const intakeGrouping =
+          Number(row.stockIntakeOilGrouping ?? 0) !== 0;
+        setStockIntakeOilGrouping(intakeGrouping);
+        setLoadedStockIntakeOilGrouping(intakeGrouping);
         setLooseSalesAllowPublicRelation(
           Number(row.looseSalesAllowPublicRelation ?? 0) !== 0,
         );
@@ -236,6 +245,8 @@ export function CompanySettingsScreen({
           setBottleOilAllowRation(false);
           setStockTransferReceiveUsesDocumentDate(false);
           setLoosePalmOilAllowInterSalesPointTransfer(false);
+          setStockIntakeOilGrouping(false);
+          setLoadedStockIntakeOilGrouping(false);
           setLooseSalesAllowPublicRelation(false);
           setLooseSalesAllowUnregisteredCustomer(false);
           setLoosePalmOilRequireSalesTank(true);
@@ -313,6 +324,36 @@ export function CompanySettingsScreen({
     setActionError(null);
     setStockTransferSettingSavedHint(null);
     try {
+      if (
+        user?.id &&
+        stockIntakeOilGrouping !== loadedStockIntakeOilGrouping
+      ) {
+        if (!stockIntakeOilGrouping) {
+          const status =
+            await getElectronApi().stock.getIntakeOilGroupingStatus();
+          if (status.poolTotalQty > 0.000001) {
+            const confirmed = window.confirm(
+              `Pooled intake stock (Sludge Oil and Palm Kernel) totals ${status.poolTotalQty.toLocaleString("en-US")} kg. ` +
+                "Turning this off will move Sludge Oil balance to Bottom Tank Oil Grade A and Palm Kernel balance to Cracked Palm Kernel. Continue?",
+            );
+            if (!confirmed) {
+              return;
+            }
+          }
+        }
+
+        const groupingResult =
+          await getElectronApi().stock.applyIntakeOilGrouping({
+            userId: user.id,
+            enabled: stockIntakeOilGrouping,
+          });
+        if (!groupingResult.ok) {
+          setActionError(groupingResult.error);
+          return;
+        }
+        setLoadedStockIntakeOilGrouping(stockIntakeOilGrouping);
+      }
+
       await getAuthenticatedDb().updateRow({
         table: "CompanySettings",
         primaryKey: { id: "default" },
@@ -845,6 +886,29 @@ export function CompanySettingsScreen({
               Within collection point. When checked, loose Palm Oil may also
               transfer between collection points; other loose products remain
               intra-only.
+            </span>
+          </span>
+        </label>
+        <label class="company-settings-stock-numbering-option">
+          <input
+            type="checkbox"
+            checked={stockIntakeOilGrouping}
+            disabled={isLoading || !canWrite || stockTransferSettingSaving}
+            onChange={(event) => {
+              setStockIntakeOilGrouping(
+                (event.currentTarget as HTMLInputElement).checked,
+              );
+              setStockTransferSettingSavedHint(null);
+            }}
+          />
+          <span>
+            <strong>Group products for stock intake</strong>
+            <span>
+              When off (default), each product is received and tracked separately.
+              When on, bulk receipts and carry-forward use Palm Oil, Sludge Oil, and
+              Palm Kernel groups; sludge grades and cracked/uncracked palm kernel
+              invoices deduct from shared pools. Invoices and reports always show
+              the individual product names.
             </span>
           </span>
         </label>

@@ -17,6 +17,7 @@ import {
   normalizeDefaultValue,
   quoteIdentifier,
 } from "./tableMeta.js";
+import { assertProductOmitsStorageLocationChangeAllowed } from "../stock/productStorage.js";
 
 function maybeSyncCompanyVatFromTaxSchedule(table: string): void {
   if (table === "TaxRateSchedule") {
@@ -382,6 +383,16 @@ export function updateRow(input: TableUpdateInput): Record<string, unknown> {
     const primaryKey = extractPrimaryKey(input.primaryKey, schema.primaryKeyColumns);
     const values = prepareUpdateValues(table, schema, input.values ?? {});
     assertBudgetRowAgainstOpenYear(table, primaryKey, values);
+    if (table === "Product" && "omitsStorageLocation" in values) {
+      const productId = Number(primaryKey.productId);
+      if (Number.isFinite(productId)) {
+        assertProductOmitsStorageLocationChangeAllowed(
+          getDatabase(),
+          productId,
+          values.omitsStorageLocation,
+        );
+      }
+    }
     const columns = Object.keys(values);
 
     const assignments = columns

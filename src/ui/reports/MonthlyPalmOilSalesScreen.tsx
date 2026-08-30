@@ -7,10 +7,13 @@ import type {
   MonthlyPalmOilSalesRow,
 } from "../../shared/reports.types.ts";
 import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
-import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
-import { ReportFooter } from "./ReportFooter.tsx";
+import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
+import {
+  HIDE_ZERO_ROWS_HINT,
+  isMonthlyPalmOilSalesReportEmpty,
+} from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 import "./MonthlyPalmOilSalesReport.css";
 
@@ -175,14 +178,26 @@ function MonthBlock({
 }
 
 function ReportDocument({ report }: { report: MonthlyPalmOilSalesReport }) {
+  const empty = isMonthlyPalmOilSalesReportEmpty(report);
+
   return (
-    <div class="scr-document mpos-document">
-      <ReportHeader
-        companyName={report.settings.companyName}
-        department={report.settings.department ?? null}
-        serviceName={report.settings.serviceName ?? null}
-        title={report.reportTitle}
-      />
+    <ReportDocumentShell
+      className="scr-document mpos-document"
+      isEmpty={empty}
+      emptyMessage="No palm oil sales for this month."
+      emptyHint={HIDE_ZERO_ROWS_HINT}
+      comments={report.comments}
+      signatoryName={report.settings.signatoryName}
+      signatoryTitle={report.settings.signatoryTitle}
+      header={
+        <ReportHeader
+          companyName={report.settings.companyName}
+          department={report.settings.department ?? null}
+          serviceName={report.settings.serviceName ?? null}
+          title={report.reportTitle}
+        />
+      }
+    >
       <MonthBlock
         columns={report.monthColumnsH1}
         rows={report.rows}
@@ -194,12 +209,7 @@ function ReportDocument({ report }: { report: MonthlyPalmOilSalesReport }) {
         showYtd
       />
       <p class="mpos-footnote">Value in &apos;000 FRS · taxes excluded</p>
-      <ReportCommentsSection comments={report.comments} />
-      <ReportFooter
-        name={report.settings.signatoryName}
-        label={report.settings.signatoryTitle}
-      />
-    </div>
+    </ReportDocumentShell>
   );
 }
 

@@ -16,6 +16,7 @@ export interface StorageLocationRow {
   salesPointId: number;
   name: string;
   isActive: boolean;
+  isSalesTank: boolean;
   /** Derived from location isActive. */
   effectivelySellable: boolean;
 }
@@ -55,7 +56,8 @@ export function loadStorageLocations(): StorageLocationRow[] {
   return getDatabase()
     .prepare(
       `SELECT sl.id, sl.salesPointId, l.locationName AS name,
-              COALESCE(sl.isActive, 1) AS isActive
+              COALESCE(sl.isActive, 1) AS isActive,
+              COALESCE(sl.isSalesTank, 0) AS isSalesTank
        FROM StorageLocation sl
        INNER JOIN Location l ON l.id = sl.locationId
        ORDER BY sl.salesPointId ASC, l.locationName ASC`,
@@ -68,6 +70,7 @@ export function loadStorageLocations(): StorageLocationRow[] {
         salesPointId: Number((row as { salesPointId: number }).salesPointId),
         name: (row as { name: string }).name,
         isActive,
+        isSalesTank: (row as { isSalesTank: number }).isSalesTank === 1,
         effectivelySellable: isStorageLocationEffectivelySellable({ isActive }),
       };
     });

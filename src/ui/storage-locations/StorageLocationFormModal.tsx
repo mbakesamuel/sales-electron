@@ -28,6 +28,7 @@ interface FormData {
   isDefault: boolean;
   isActive: boolean;
   isSalesTank: boolean;
+  allowsMultiProduct: boolean;
 }
 
 function initForm(mode: "create" | "edit", row?: Record<string, unknown>): FormData {
@@ -38,6 +39,7 @@ function initForm(mode: "create" | "edit", row?: Record<string, unknown>): FormD
       isDefault: false,
       isActive: true,
       isSalesTank: false,
+      allowsMultiProduct: false,
     };
   }
 
@@ -51,6 +53,8 @@ function initForm(mode: "create" | "edit", row?: Record<string, unknown>): FormD
     isDefault: row.isDefault === 1 || row.isDefault === true,
     isActive: row.isActive === 1 || row.isActive === true || row.isActive == null,
     isSalesTank: row.isSalesTank === 1 || row.isSalesTank === true,
+    allowsMultiProduct:
+      row.allowsMultiProduct === 1 || row.allowsMultiProduct === true,
   };
 }
 
@@ -219,6 +223,7 @@ export function StorageLocationFormModal({
       isDefault: form.isDefault ? 1 : 0,
       isActive: form.isActive ? 1 : 0,
       isSalesTank: form.isSalesTank ? 1 : 0,
+      allowsMultiProduct: form.allowsMultiProduct ? 1 : 0,
       updatedAt: new Date().toISOString().slice(0, 19).replace("T", " "),
     };
 
@@ -358,6 +363,30 @@ export function StorageLocationFormModal({
               Sales tanks are offered on loose sales invoices and hidden from stock
               receipts. Bottle oil sells from Bottle Oil Store and must not be a
               sales tank.
+            </p>
+          </div>
+        </div>
+
+        <div class="form-dialog-row">
+          <span class="form-dialog-label">Multi-product</span>
+          <div class="form-dialog-control">
+            <label class="form-dialog-checkbox-label">
+              <input
+                type="checkbox"
+                checked={form.allowsMultiProduct}
+                disabled={isSubmitting}
+                onChange={(event) =>
+                  updateField(
+                    "allowsMultiProduct",
+                    (event.currentTarget as HTMLInputElement).checked,
+                  )
+                }
+              />
+              Allow multiple bulk products
+            </label>
+            <p class="form-dialog-hint">
+              For drum storage and similar small tanks. Multiple bulk products may
+              share this location; bottled and bulk stock still cannot mix.
             </p>
           </div>
         </div>

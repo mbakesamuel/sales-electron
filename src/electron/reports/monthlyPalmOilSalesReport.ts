@@ -5,20 +5,19 @@ import type {
   MonthlyPalmOilSalesRow,
 } from "../../shared/reports.types.js";
 import { resolveReportAsAt } from "../financialYears/service.js";
-import { getDatabase } from "../db/index.js";
 import {
   loadReportComments,
   loadReportCompanySettings,
 } from "./companySettings.js";
 import {
-  PALM_OIL_KG_PER_LITRE,
-  detectBottledPack,
-  loadProducts,
-  nowIso,
-  parseQty,
-  sum,
-  type ProductRow,
-} from "./shared.js";
+  LPO_DESTINATION_ROWS,
+  loadPalmOilSaleLines,
+  monthIndexFromIso,
+  palmOilLineKg,
+  resolveMonthlyPalmOilDestinationId,
+  type MonthlyPalmOilDestinationId,
+} from "./palmOilSalesShared.js";
+import { loadProducts, nowIso, sum } from "./shared.js";
 
 const ROUTE_ID = "monthly-palm-oil-sales-report";
 
@@ -36,30 +35,6 @@ const MONTH_NAMES = [
   "NOVEMBER",
   "DECEMBER",
 ] as const;
-
-const LPO_DESTINATION_ROWS = [
-  { id: "industries", label: "INDUSTRIES" },
-  { id: "wholesales", label: "WHOLESALES" },
-  { id: "retail", label: "RETAIL" },
-  { id: "cdcWorkers", label: "CDC WORKERS" },
-  { id: "makoko", label: "MAKOKO FARMS" },
-] as const;
-
-type DestinationId = (typeof LPO_DESTINATION_ROWS)[number]["id"];
-
-interface SaleLineRecord {
-  dateIssued: string;
-  saleDisposition: string | null;
-  customerName: string;
-  customerTypeCode: string;
-  customerTypeName: string;
-  productId: number;
-  isMain: number;
-  isBottled: number;
-  qtyKg: number;
-  qtyUnits: number | null;
-  lineNet: number;
-}
 
 function emptyCell(): MonthlyPalmOilSalesCell {
   return { tons: 0, value: 0 };
@@ -90,91 +65,6 @@ function sumRowMonths(rows: MonthlyPalmOilSalesRow[]): MonthlyPalmOilSalesCell[]
     tons: sum(rows.map((row) => row.months[monthIndex]?.tons ?? 0)),
     value: sum(rows.map((row) => row.months[monthIndex]?.value ?? 0)),
   }));
-}
-
-function resolveDestinationId(
-  saleDisposition: string | null,
-  customerName: string,
-  customerTypeCode: string,
-  customerTypeName: string,
-): DestinationId {
-  if (saleDisposition === "RATION") {
-    return "cdcWorkers";
-  }
-
-  const text = `${customerName} ${customerTypeCode} ${customerTypeName}`.toUpperCase();
-  if (text.includes("MAKOKO")) {
-    return "makoko";
-  }
-  if (text.includes("STAFF") || text.includes("WORKER") || text.includes("RATION")) {
-    return "cdcWorkers";
-  }
-  if (text.includes("WHOLESALE")) {
-    return "wholesales";
-  }
-  if (text.includes("RETAIL")) {
-    return "retail";
-  }
-  if (text.includes("INDUSTR")) {
-    return "industries";
-  }
-  return "cdcWorkers";
-}
-
-function loadSaleLines(yearFromIso: string, yearToIso: string): SaleLineRecord[] {
-  return getDatabase()
-    .prepare(
-      `SELECT s.dateIssued, s.saleDisposition,
-              COALESCE(c.name, '') AS customerName,
-              COALESCE(ct.code, '') AS customerTypeCode,
-              COALESCE(ct.name, '') AS customerTypeName,
-              sl.productId,
-              COALESCE(pc.isMain, 0) AS isMain,
-              COALESCE(pc.isBottled, 0) AS isBottled,
-              sl.qtyKg, sl.qtyUnits, sl.lineNet
-       FROM Sale s
-       INNER JOIN SaleLine sl ON sl.saleId = s.id
-       INNER JOIN Product p ON p.productId = sl.productId
-       LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
-       LEFT JOIN Customer c ON c.id = s.customerId
-       LEFT JOIN CustomerTypeDefinition ct ON ct.id = c.customerTypeId
-       WHERE s.status = 'VALIDATED'
-         AND s.dateIssued >= ?
-         AND s.dateIssued <= ?`,
-    )
-    .all(yearFromIso, yearToIso)
-    .map((row) => ({
-      dateIssued: String((row as { dateIssued: string }).dateIssued).slice(0, 10),
-      saleDisposition: (row as { saleDisposition: string | null }).saleDisposition,
-      customerName: String((row as { customerName: string }).customerName ?? ""),
-      customerTypeCode: String((row as { customerTypeCode: string }).customerTypeCode ?? ""),
-      customerTypeName: String((row as { customerTypeName: string }).customerTypeName ?? ""),
-      productId: (row as { productId: number }).productId,
-      isMain: (row as { isMain: number }).isMain,
-      isBottled: (row as { isBottled: number }).isBottled,
-      qtyKg: parseQty((row as { qtyKg: string }).qtyKg),
-      qtyUnits: (row as { qtyUnits: string | null }).qtyUnits
-        ? parseQty((row as { qtyUnits: string }).qtyUnits)
-        : null,
-      lineNet: parseQty((row as { lineNet: string }).lineNet),
-    }));
-}
-
-function lineKg(line: SaleLineRecord, products: ProductRow[]): number {
-  if (line.isBottled === 1) {
-    const product = products.find((item) => item.productId === line.productId);
-    if (!product) {
-      return line.qtyUnits ?? line.qtyKg;
-    }
-    const pack = detectBottledPack(product);
-    const units = line.qtyUnits ?? line.qtyKg;
-    return units * pack.litresPerUnit * PALM_OIL_KG_PER_LITRE;
-  }
-  return line.qtyKg;
-}
-
-function monthIndexFromIso(iso: string): number {
-  return Number.parseInt(iso.slice(5, 7), 10) - 1;
 }
 
 function buildMonthColumns(
@@ -217,11 +107,11 @@ export function getMonthlyPalmOilSalesReport(
   const comments = loadReportComments(ROUTE_ID);
   const products = loadProducts();
 
-  const lines = loadSaleLines(yearFromIso, yearToIso).filter(
+  const lines = loadPalmOilSaleLines(yearFromIso, yearToIso).filter(
     (line) => line.dateIssued <= asAtIso,
   );
 
-  const destinationMonths = new Map<DestinationId, MonthlyPalmOilSalesCell[]>();
+  const destinationMonths = new Map<MonthlyPalmOilDestinationId, MonthlyPalmOilSalesCell[]>();
   for (const row of LPO_DESTINATION_ROWS) {
     destinationMonths.set(row.id, emptyMonthCells());
   }
@@ -233,7 +123,7 @@ export function getMonthlyPalmOilSalesReport(
       continue;
     }
 
-    const tons = kgToTons(lineKg(line, products));
+    const tons = kgToTons(palmOilLineKg(line, products));
     const value = line.lineNet;
 
     if (line.isBottled === 1) {
@@ -245,7 +135,7 @@ export function getMonthlyPalmOilSalesReport(
       continue;
     }
 
-    const destination = resolveDestinationId(
+    const destination = resolveMonthlyPalmOilDestinationId(
       line.saleDisposition,
       line.customerName,
       line.customerTypeCode,

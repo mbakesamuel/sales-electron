@@ -5,6 +5,7 @@ import { BottleOilStockSalesReportScreen } from "./BottleOilStockSalesReportScre
 import { BottledWeeklyIssuesReportScreen } from "./BottledWeeklyIssuesReportScreen.tsx";
 import { WeeklyDeliveriesReportScreen } from "./WeeklyDeliveriesReportScreen.tsx";
 import { DailySalesReportScreen } from "./DailySalesReportScreen.tsx";
+import { DailySalesMatrixReportScreen } from "./DailySalesMatrixReportScreen.tsx";
 import {
   MonthlyDeliveryReportH1Screen,
   MonthlyDeliveryReportH2Screen,
@@ -20,6 +21,7 @@ import { OtherProductSalesDeliveriesScreen } from "./OtherProductSalesDeliveries
 import { RevenueTaxesReportScreen } from "./RevenueTaxesReportScreen.tsx";
 import { SalesBudgetMonthlyCrosstabScreen } from "./SalesBudgetMonthlyCrosstabScreen.tsx";
 import { SalesBudgetWeeklyCrosstabScreen } from "./SalesBudgetWeeklyCrosstabScreen.tsx";
+import { PalmOilSalesActivityScreen } from "./PalmOilSalesActivityScreen.tsx";
 import { BinCardReportScreen } from "../stock/BinCardReportScreen.tsx";
 import "./ReportLightSurface.css";
 
@@ -47,6 +49,8 @@ export function ReportBody({
       return <WeeklyDeliveriesReportScreen windowMode={windowMode} />;
     case "daily-sales-report":
       return <DailySalesReportScreen windowMode={windowMode} />;
+    case "daily-sales-matrix-report":
+      return <DailySalesMatrixReportScreen windowMode={windowMode} />;
     case "monthly-delivery-report-h1":
       return <MonthlyDeliveryReportH1Screen windowMode={windowMode} />;
     case "monthly-delivery-report-h2":
@@ -80,6 +84,8 @@ export function ReportBody({
       return <SalesBudgetMonthlyCrosstabScreen windowMode={windowMode} />;
     case "sales-budget-weekly-crosstab":
       return <SalesBudgetWeeklyCrosstabScreen windowMode={windowMode} />;
+    case "palm-oil-sales-activity-report":
+      return <PalmOilSalesActivityScreen windowMode={windowMode} />;
     default:
       return (
         <p class="scr-status scr-status-error">

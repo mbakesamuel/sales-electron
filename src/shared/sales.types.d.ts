@@ -1,5 +1,5 @@
 export type SaleStatus = "PENDING" | "VALIDATED" | "REJECTED";
-export type PaymentMethodKind = "SIMPLE" | "CHEQUE" | "TRAITE" | "CREDIT" | "BANK_TRANSFER";
+export type PaymentMethodKind = "SIMPLE" | "CHEQUE" | "TRAITE" | "CREDIT" | "BANK_TRANSFER" | "PUBLIC_RELATION";
 export type SaleProductMode = "LOOSE" | "BOTTLE";
 export type SaleDisposition = "NORMAL" | "RATION" | "PUBLIC_RELATION";
 export interface SalesCustomerOption {
@@ -22,6 +22,8 @@ export interface SalesProductOption {
     productCatCode: string;
     /** ProductCat.isMain — Loose Palm Oil category. */
     isMain: boolean;
+    /** When true, stock is tracked at collection-point level (no storage location). */
+    omitsStorageLocation: boolean;
 }
 export interface SalesPaymentMethodOption {
     id: string;
@@ -71,6 +73,10 @@ export interface SalesFormOptions {
     looseSalesAllowUnregisteredCustomer: boolean;
     /** Company setting: Loose Palm Oil must use a sales tank when true (default). */
     loosePalmOilRequireSalesTank: boolean;
+    /** System payment method id for Ration (deferred) disposition. */
+    rationPaymentMethodId: string;
+    /** System payment method id for Public relation (complimentary) disposition. */
+    publicRelationPaymentMethodId: string;
 }
 export interface SaleLineInput {
     productId: number;

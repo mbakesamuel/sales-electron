@@ -59,7 +59,8 @@ import {
   assertProductsAllowStorageLocation,
   assertInterTransferProductsAllowed,
   loadLoosePalmOilAllowInterSalesPointTransfer,
-  storageOmitProductCatSql,
+  loadStockIntakeOilGrouping,
+  storageLocationProductSql,
 } from "./productStorage.js";
 import {
   allocateAdjustmentNo,
@@ -73,6 +74,15 @@ import {
   normalizeStockDocumentNumber,
 } from "./documentNumberSettings.js";
 import {
+  isStockPoolProduct,
+  type StockIntakeGroup,
+} from "../../shared/stockIntakeGroups.js";
+import {
+  consolidateIntakePoolBalances,
+  getIntakePoolTotalQty,
+  splitIntakePoolBalancesToLandingProducts,
+} from "./stockIntakeBalance.js";
+import {
   BOTTLED_STOCK_ROUTE_ID,
   STOCK_MODULE_ROUTE_ID,
   inferDocumentProductFilter,
@@ -82,7 +92,6 @@ import {
   type DocumentStockProductFilter,
   type StockProductFilter,
 } from "../../shared/stockModule.js";
-import { productOmitsStorageLocation } from "../../shared/productStorageRules.js";
 import { loadRolePermissionsSnapshot } from "../auth/permissions/service.js";
 
 function nowIso(): string {
@@ -498,7 +507,8 @@ export function getStockBootstrap(
   const storageLocations = db
     .prepare(
       `SELECT sl.id, sl.salesPointId, l.locationName AS name, sl.isDefault,
-              COALESCE(sl.isSalesTank, 0) AS isSalesTank
+              COALESCE(sl.isSalesTank, 0) AS isSalesTank,
+              COALESCE(sl.allowsMultiProduct, 0) AS allowsMultiProduct
        FROM StorageLocation sl
        JOIN Location l ON l.id = sl.locationId
        WHERE sl.salesPointId IS NOT NULL
@@ -511,6 +521,7 @@ export function getStockBootstrap(
       name: (row as { name: string }).name,
       isDefault: (row as { isDefault: number }).isDefault === 1,
       isSalesTank: (row as { isSalesTank: number }).isSalesTank === 1,
+      allowsMultiProduct: (row as { allowsMultiProduct: number }).allowsMultiProduct === 1,
     }));
 
   const productFilterParts = uiBottledFilterParts(productFilter);
@@ -521,28 +532,53 @@ export function getStockBootstrap(
     isBottled: number;
     isMain: number;
     productCode: string | null;
+    stockIntakeGroup?: string | null;
+    stockPoolProductId?: number | null;
+    excludeFromSales?: number | null;
+    omitsStorageLocation?: number | null;
   }): StockBootstrap["products"][number] {
     const isBottled = row.isBottled === 1;
+    const stockIntakeGroup: StockIntakeGroup | null =
+      row.stockIntakeGroup === "PALM_OIL" ||
+      row.stockIntakeGroup === "SLUDGE_OIL" ||
+      row.stockIntakeGroup === "PALM_KERNEL"
+        ? row.stockIntakeGroup
+        : null;
+    const excludeFromSales = Number(row.excludeFromSales ?? 0) !== 0;
     return {
       productId: row.productId,
       productName: row.productName,
       isBottled,
       isLoosePalmOil: row.isMain === 1 && !isBottled,
-      omitsStorageLocation: productOmitsStorageLocation(row.productCode),
+      omitsStorageLocation: Number(row.omitsStorageLocation ?? 0) !== 0,
       uom: uomForBottled(isBottled, row.uom),
+      stockIntakeGroup,
+      stockPoolProductId: row.stockPoolProductId ?? null,
+      excludeFromSales,
+      isStockPool: isStockPoolProduct({
+        excludeFromSales,
+        stockPoolProductId: row.stockPoolProductId ?? null,
+        stockIntakeGroup,
+      }),
     };
   }
 
-  const products = db
-    .prepare(
-      `SELECT p.productId, p.productName, p.uom,
+  const productSelectSql = `SELECT p.productId, p.productName, p.uom,
               COALESCE(pc.isBottled, 0) AS isBottled,
               COALESCE(pc.isMain, 0) AS isMain,
-              pc.productCode
+              pc.productCode,
+              p.stockIntakeGroup,
+              p.stockPoolProductId,
+              COALESCE(p.excludeFromSales, 0) AS excludeFromSales,
+              COALESCE(p.omitsStorageLocation, 0) AS omitsStorageLocation`;
+
+  const products = db
+    .prepare(
+      `${productSelectSql}
        FROM Product p
        LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
        WHERE ${productFilterParts.clause}
-         AND ${storageOmitProductCatSql("pc")}
+         AND ${storageLocationProductSql("p")}
        ORDER BY p.productName ASC`,
     )
     .all(...productFilterParts.params)
@@ -552,10 +588,7 @@ export function getStockBootstrap(
     productFilter === "bulk" || productFilter === "all"
       ? db
           .prepare(
-            `SELECT p.productId, p.productName, p.uom,
-                    COALESCE(pc.isBottled, 0) AS isBottled,
-                    COALESCE(pc.isMain, 0) AS isMain,
-                    pc.productCode
+            `${productSelectSql}
              FROM Product p
              LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
              ORDER BY p.productName ASC`,
@@ -592,6 +625,7 @@ export function getStockBootstrap(
     transferReceiveUsesDocumentDate: loadStockTransferReceiveUsesDocumentDate(),
     loosePalmOilAllowInterSalesPointTransfer:
       loadLoosePalmOilAllowInterSalesPointTransfer(),
+    stockIntakeOilGrouping: loadStockIntakeOilGrouping(),
     onHand: loadOnHand(scopedSalesPointId, productFilter),
     movements:
       productFilter === "bottled"
@@ -601,6 +635,56 @@ export function getStockBootstrap(
     transfers: loadTransfers(scopedSalesPointId, productFilter),
     adjustments: loadAdjustments(scopedSalesPointId, productFilter),
   };
+}
+
+export function getStockIntakeOilGroupingStatus(): {
+  enabled: boolean;
+  poolTotalQty: number;
+} {
+  const db = getDatabase();
+  return {
+    enabled: loadStockIntakeOilGrouping(db),
+    poolTotalQty: getIntakePoolTotalQty(db),
+  };
+}
+
+export function applyStockIntakeOilGrouping(
+  userId: string,
+  enabled: boolean,
+): { ok: true } | { ok: false; error: string } {
+  try {
+    const db = getDatabase();
+    const current = loadStockIntakeOilGrouping(db);
+    if (current === enabled) {
+      db.prepare(
+        `UPDATE CompanySettings
+         SET stockIntakeOilGrouping = ?, updatedAt = datetime('now')
+         WHERE id = 'default'`,
+      ).run(enabled ? 1 : 0);
+      return { ok: true };
+    }
+
+    const tx = db.transaction(() => {
+      if (enabled) {
+        consolidateIntakePoolBalances(db, userId);
+      } else {
+        splitIntakePoolBalancesToLandingProducts(db, userId);
+      }
+
+      db.prepare(
+        `UPDATE CompanySettings
+         SET stockIntakeOilGrouping = ?, updatedAt = datetime('now')
+         WHERE id = 'default'`,
+      ).run(enabled ? 1 : 0);
+    });
+    tx();
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Could not update stock intake setting.",
+    };
+  }
 }
 
 function loadOnHand(

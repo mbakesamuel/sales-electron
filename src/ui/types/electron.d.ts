@@ -29,6 +29,7 @@ import type {
   MonthlyPaymentDeliveryReport,
   MonthlyDeliveriesByDestinationReport,
   MonthlyPalmOilSalesReport,
+  PalmOilSalesActivityReport,
   IndustryProductMonthlySalesReport,
   BottledPalmOilSalesReturnReport,
   OtherProductSalesDeliveriesReport,
@@ -39,6 +40,7 @@ import type {
   SalesBudgetWeeklyCrosstabReport,
   WeeklyDeliveriesReport,
   DailySalesReport,
+  DailySalesMatrixReport,
   ReportSignatoryRow,
 } from "../../shared/reports.types.ts";
 import type {
@@ -211,6 +213,7 @@ interface ReportsApi {
     authToken: string,
   ): Promise<MonthlyDeliveriesByDestinationReport>;
   getMonthlyPalmOilSales(authToken: string): Promise<MonthlyPalmOilSalesReport>;
+  getPalmOilSalesActivity(authToken: string): Promise<PalmOilSalesActivityReport>;
   getIndustryProductMonthlySales(
     authToken: string,
   ): Promise<IndustryProductMonthlySalesReport>;
@@ -239,6 +242,11 @@ interface ReportsApi {
     reportDateIso: string,
     salesPointId?: number | null,
   ): Promise<DailySalesReport>;
+  getDailySalesMatrix(
+    authToken: string,
+    salesPointId?: number | null,
+    productId?: number | null,
+  ): Promise<DailySalesMatrixReport>;
   saveReportComments(
     authToken: string,
     input: { reportId: string; text: string | null },

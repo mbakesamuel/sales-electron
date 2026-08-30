@@ -5,10 +5,13 @@ import type {
   MonthlyStockReconciliationReport,
 } from "../../shared/reports.types.ts";
 import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
-import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
-import { ReportFooter } from "./ReportFooter.tsx";
+import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
+import {
+  HIDE_ZERO_ROWS_HINT,
+  isMonthlyStockReconciliationReportEmpty,
+} from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 import "./MonthlyStockReconciliationReport.css";
 
@@ -195,20 +198,28 @@ export function MonthlyStockReconciliationDocument({
 }: {
   report: MonthlyStockReconciliationReport;
 }) {
+  const empty = isMonthlyStockReconciliationReportEmpty(report);
+
   return (
-    <div class="scr-document msr-document wpp-pack-page">
-      <ReportHeader
-        companyName={report.settings.companyName}
-        department={report.settings.department ?? null}
-        serviceName={report.settings.serviceName ?? null}
-        title={report.reportTitle}
-      />
-
+    <ReportDocumentShell
+      className="scr-document msr-document wpp-pack-page"
+      isEmpty={empty}
+      emptyMessage="No reconciliation figures to display."
+      emptyHint={HIDE_ZERO_ROWS_HINT}
+      comments={report.comments}
+      signatoryName={report.settings.signatoryName}
+      signatoryTitle={report.settings.signatoryTitle}
+      header={
+        <ReportHeader
+          companyName={report.settings.companyName}
+          department={report.settings.department ?? null}
+          serviceName={report.settings.serviceName ?? null}
+          title={report.reportTitle}
+        />
+      }
+    >
       <ReportMatrix report={report} />
-
-      <ReportCommentsSection comments={report.comments} />
-      <ReportFooter name={report.settings.signatoryName} label={report.settings.signatoryTitle} />
-    </div>
+    </ReportDocumentShell>
   );
 }
 

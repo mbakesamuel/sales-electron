@@ -4,7 +4,7 @@ import type { StockCondition, StockMovementKind } from "../../shared/stock.types
 import { getTransferableSellableBalanceAsOf } from "./asOfBalance.js";
 import { formatQty, parseQty } from "./decimal.js";
 import { InsufficientStockError } from "./errors.js";
-import { assertMovementLocationRules } from "./productStorage.js";
+import { assertMovementLocationRules, storageLocationAllowsMultiProductById } from "./productStorage.js";
 
 export interface ApplyMovementInput {
   salesPointId: number;
@@ -93,7 +93,7 @@ function getBalanceQty(
 /**
  * Storage location occupancy rules (non-zero on-hand, any condition):
  * - Bottled products may share a location with other bottled products.
- * - Non-bottled (bulk) products: at most one product per location.
+ * - Non-bottled (bulk) products: at most one product per location (unless allowsMultiProduct).
  * - Bottled and non-bottled stock must never share a location.
  */
 function assertStorageLocationProductRules(
@@ -158,6 +158,10 @@ function assertStorageLocationProductRules(
 
   // Bottled products may co-mingle with other bottled products.
   if (incomingBottled) {
+    return;
+  }
+
+  if (storageLocationAllowsMultiProductById(db, storageLocationId)) {
     return;
   }
 

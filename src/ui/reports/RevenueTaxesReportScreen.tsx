@@ -8,10 +8,10 @@ import type {
   RevenueTaxesTotals,
 } from "../../shared/reports.types.ts";
 import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
-import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
-import { ReportFooter } from "./ReportFooter.tsx";
+import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
+import { isRevenueTaxesReportEmpty } from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 import "./SalesBudgetCrosstab.css";
 import "./RevenueTaxesReport.css";
@@ -161,14 +161,25 @@ function MoneyTable({
 }
 
 function ReportDocument({ report }: { report: RevenueTaxesReport }) {
+  const empty = isRevenueTaxesReportEmpty(report);
+
   return (
-    <div class="scr-document rtr-document">
-      <ReportHeader
-        companyName={report.settings.companyName}
-        department={report.settings.department ?? null}
-        serviceName={report.settings.serviceName ?? null}
-        title={report.reportTitle}
-      />
+    <ReportDocumentShell
+      className="scr-document rtr-document"
+      isEmpty={empty}
+      emptyMessage="No validated invoices in this period."
+      comments={report.comments}
+      signatoryName={report.settings.signatoryName}
+      signatoryTitle={report.settings.signatoryTitle}
+      header={
+        <ReportHeader
+          companyName={report.settings.companyName}
+          department={report.settings.department ?? null}
+          serviceName={report.settings.serviceName ?? null}
+          title={report.reportTitle}
+        />
+      }
+    >
       <p class="rtr-basis">
         Validated invoice totals by date issued · {report.salesPointLabel} · as
         at {formatDisplayDate(report.asAtIso)}
@@ -184,12 +195,7 @@ function ReportDocument({ report }: { report: RevenueTaxesReport }) {
         rows={report.bySalesPoint}
         emptyLabel="No collection-point breakdown for this period."
       />
-      <ReportCommentsSection comments={report.comments} />
-      <ReportFooter
-        name={report.settings.signatoryName}
-        label={report.settings.signatoryTitle}
-      />
-    </div>
+    </ReportDocumentShell>
   );
 }
 

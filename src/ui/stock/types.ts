@@ -14,6 +14,8 @@ import type {
   StockValidationItem,
   StockValidationQueuePage,
   StockReceiveQueuePage,
+  ApplyStockIntakeOilGroupingResult,
+  StockIntakeOilGroupingStatus,
 } from "../../shared/stock.types.ts";
 
 type DocFilterPayload = {
@@ -116,4 +118,9 @@ export interface StockApi {
     userId: string;
     items: StockValidationItem[];
   }): Promise<StockValidateManyResult>;
+  getIntakeOilGroupingStatus(): Promise<StockIntakeOilGroupingStatus>;
+  applyIntakeOilGrouping(payload: {
+    userId: string;
+    enabled: boolean;
+  }): Promise<ApplyStockIntakeOilGroupingResult>;
 }

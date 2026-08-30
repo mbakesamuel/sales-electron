@@ -24,6 +24,7 @@ interface FormData {
   productCatId: string;
   commercialServiceId: string;
   uom: string;
+  omitsStorageLocation: boolean;
 }
 
 const UOM_OPTIONS = ["Kg", "Unit", "Litre", "Ton", "Bag"] as const;
@@ -38,6 +39,10 @@ function buildLabel(row: Record<string, unknown>, columns: string[]): string {
   return String(row.id ?? row.productCatId ?? "");
 }
 
+function readBoolean(value: unknown): boolean {
+  return value === 1 || value === true || value === "1";
+}
+
 function initForm(mode: "create" | "edit", row?: Record<string, unknown>): FormData {
   if (mode !== "edit" || !row) {
     return {
@@ -46,6 +51,7 @@ function initForm(mode: "create" | "edit", row?: Record<string, unknown>): FormD
       productCatId: "",
       commercialServiceId: "",
       uom: "Kg",
+      omitsStorageLocation: false,
     };
   }
 
@@ -56,7 +62,25 @@ function initForm(mode: "create" | "edit", row?: Record<string, unknown>): FormD
     commercialServiceId:
       row.commercialServiceId != null ? String(row.commercialServiceId) : "",
     uom: row.uom != null ? String(row.uom) : "Kg",
+    omitsStorageLocation: readBoolean(row.omitsStorageLocation),
   };
+}
+
+function storageLocationHelp(row: Record<string, unknown> | undefined): string {
+  const excludeFromSales = readBoolean(row?.excludeFromSales);
+  const stockPoolProductId = row?.stockPoolProductId;
+  const hasPool =
+    stockPoolProductId != null &&
+    stockPoolProductId !== "" &&
+    Number.isFinite(Number(stockPoolProductId));
+
+  if (excludeFromSales && !hasPool) {
+    return "When intake grouping is on, receipts and transfers post to this pool product.";
+  }
+  if (hasPool) {
+    return "When intake grouping is on, stock is held on the pool product; this setting applies when grouping is off.";
+  }
+  return "Stock is tracked at collection-point level only (no tank/location).";
 }
 
 export function ProductFormModal({
@@ -150,6 +174,7 @@ export function ProductFormModal({
       productCatId,
       uom,
       commercialServiceId: form.commercialServiceId || null,
+      omitsStorageLocation: form.omitsStorageLocation ? 1 : 0,
     };
 
     try {
@@ -302,6 +327,30 @@ export function ProductFormModal({
                 </option>
               ))}
             </select>
+          </div>
+        </div>
+
+        <div class="form-dialog-row">
+          <label class="form-dialog-label" for="product-omit-location">
+            Storage location
+          </label>
+          <div class="form-dialog-control">
+            <label class="form-dialog-checkbox-label">
+              <input
+                id="product-omit-location"
+                type="checkbox"
+                checked={form.omitsStorageLocation}
+                disabled={isSubmitting}
+                onChange={(event) =>
+                  updateField(
+                    "omitsStorageLocation",
+                    (event.currentTarget as HTMLInputElement).checked,
+                  )
+                }
+              />
+              No storage location
+            </label>
+            <p class="form-dialog-hint">{storageLocationHelp(row)}</p>
           </div>
         </div>
 

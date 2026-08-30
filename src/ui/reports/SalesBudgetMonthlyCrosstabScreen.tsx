@@ -8,10 +8,10 @@ import {
   monthName,
 } from "../../shared/salesBudgetPhase.ts";
 import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
-import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
-import { ReportFooter } from "./ReportFooter.tsx";
+import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
+import { salesBudgetMonthlyCrosstabEmptyMessage } from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 import "./SalesBudgetCrosstab.css";
 
@@ -193,14 +193,22 @@ export function SalesBudgetMonthlyCrosstabScreen({
         </div>
       </div>
 
-      <div class="scr-document">
-        <ReportHeader
-          companyName={report.settings.companyName}
-          department={report.settings.department}
-          serviceName={report.settings.serviceName}
-          title="Sales budget — monthly phasing crosstab (kg)"
-        />
-
+      <ReportDocumentShell
+        className="scr-document"
+        isEmpty={salesBudgetMonthlyCrosstabEmptyMessage(report) !== null}
+        emptyMessage={salesBudgetMonthlyCrosstabEmptyMessage(report) ?? ""}
+        comments={report.comments}
+        signatoryName={report.settings.signatoryName}
+        signatoryTitle={report.settings.signatoryTitle}
+        header={
+          <ReportHeader
+            companyName={report.settings.companyName}
+            department={report.settings.department}
+            serviceName={report.settings.serviceName}
+            title="Sales budget — monthly phasing crosstab (kg)"
+          />
+        }
+      >
         <div>
           <p class="sbc-intro">
             Calendar year <strong>{report.reportYear}</strong>. Rows are budget groups; columns are
@@ -222,17 +230,8 @@ export function SalesBudgetMonthlyCrosstabScreen({
           <p class="sbc-intro-meta">Generated {formatGeneratedAt(report.generatedAtIso)}</p>
         </div>
 
-        {!report.hasAnyBudget ? (
-          <p class="sbc-empty">
-            No product sales budgets are defined yet. Use Sales budgets to add annual quantities.
-          </p>
-        ) : report.categoriesInReportCount === 0 ? (
-          <p class="sbc-empty">
-            No category budgets for this year. Use Sales budgets to add annual quantities.
-          </p>
-        ) : (
-          <div class="sbc-table-wrap">
-            <table class="sbc-table">
+        <div class="sbc-table-wrap">
+          <table class="sbc-table">
               <thead>
                 <tr>
                   <th class="sbc-sticky-col sbc-product-col">Budget group</th>
@@ -277,11 +276,7 @@ export function SalesBudgetMonthlyCrosstabScreen({
               </tfoot>
             </table>
           </div>
-        )}
-
-        <ReportCommentsSection comments={report.comments} />
-        <ReportFooter name={report.settings.signatoryName} label={report.settings.signatoryTitle} />
-      </div>
+      </ReportDocumentShell>
     </div>
   );
 }

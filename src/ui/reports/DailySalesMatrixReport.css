@@ -1,0 +1,21 @@
+.dsm-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.dsm-toolbar .scr-toolbar-actions {
+  justify-self: end;
+  align-self: start;
+}
+
+@media (max-width: 640px) {
+  .dsm-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .dsm-toolbar .scr-toolbar-actions {
+    justify-self: start;
+  }
+}

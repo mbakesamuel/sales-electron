@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { getElectronApi } from "../auth/client.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
-import { productOmitsStorageLocation } from "../../shared/productStorageRules.ts";
 import {
   locationCoversQty,
   pickLocationForQty,
@@ -79,9 +78,7 @@ export function SalesLineModal({
   const selectedProduct = products.find(
     (product) => String(product.productId) === draft.productId,
   );
-  const omitsStorage = productOmitsStorageLocation(
-    selectedProduct?.productCatCode,
-  );
+  const omitsStorage = Boolean(selectedProduct?.omitsStorageLocation);
   const isLoosePalmOil = Boolean(selectedProduct?.isMain);
   const needsStorageLocation = !isBottleMode && !omitsStorage;
   const subtitle = isBottleMode

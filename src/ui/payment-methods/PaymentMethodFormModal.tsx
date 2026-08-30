@@ -26,6 +26,7 @@ export const PAYMENT_METHOD_KIND_LABELS: Record<PaymentMethodKind, string> = {
   TRAITE: "Traite",
   CREDIT: "Credit",
   BANK_TRANSFER: "Bank transfer",
+  PUBLIC_RELATION: "Public relation",
 };
 
 const KIND_OPTIONS = Object.keys(PAYMENT_METHOD_KIND_LABELS) as PaymentMethodKind[];
@@ -36,7 +37,8 @@ function normalizeKind(value: unknown): PaymentMethodKind {
     kind === "CHEQUE" ||
     kind === "TRAITE" ||
     kind === "CREDIT" ||
-    kind === "BANK_TRANSFER"
+    kind === "BANK_TRANSFER" ||
+    kind === "PUBLIC_RELATION"
   ) {
     return kind;
   }

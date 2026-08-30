@@ -7,10 +7,13 @@ import type {
   OtherProductSalesDeliveriesRow,
 } from "../../shared/reports.types.ts";
 import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
-import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
-import { ReportFooter } from "./ReportFooter.tsx";
+import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
+import {
+  HIDE_ZERO_ROWS_HINT,
+  isOtherProductSalesDeliveriesReportEmpty,
+} from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 import "./OtherProductSalesDeliveriesReport.css";
 
@@ -124,35 +127,26 @@ function MetricCells({ row }: { row: OtherProductSalesDeliveriesRow }) {
 }
 
 function ReportDocument({ report }: { report: OtherProductSalesDeliveriesReport }) {
-  if (report.sections.length === 0) {
-    return (
-      <div class="scr-document opsd-document">
+  const empty = isOtherProductSalesDeliveriesReportEmpty(report);
+
+  return (
+    <ReportDocumentShell
+      className="scr-document opsd-document"
+      isEmpty={empty}
+      emptyMessage="No other-product (non-LPO / non-bottled) sales in this period."
+      emptyHint={HIDE_ZERO_ROWS_HINT}
+      comments={report.comments}
+      signatoryName={report.settings.signatoryName}
+      signatoryTitle={report.settings.signatoryTitle}
+      header={
         <ReportHeader
           companyName={report.settings.companyName}
           department={report.settings.department ?? null}
           serviceName={report.settings.serviceName ?? null}
           title={report.reportTitle}
         />
-        <p class="opsd-empty">
-          No other-product (non-LPO / non-bottled) sales in this period.
-        </p>
-        <ReportCommentsSection comments={report.comments} />
-        <ReportFooter
-          name={report.settings.signatoryName}
-          label={report.settings.signatoryTitle}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div class="scr-document opsd-document">
-      <ReportHeader
-        companyName={report.settings.companyName}
-        department={report.settings.department ?? null}
-        serviceName={report.settings.serviceName ?? null}
-        title={report.reportTitle}
-      />
+      }
+    >
       <div class="opsd-section">
         <table class="scr-table opsd-table">
           <thead>
@@ -214,12 +208,7 @@ function ReportDocument({ report }: { report: OtherProductSalesDeliveriesReport 
         Sales without taxes · PAYMENTS blank for other products · kg rounded to
         0 dp
       </p>
-      <ReportCommentsSection comments={report.comments} />
-      <ReportFooter
-        name={report.settings.signatoryName}
-        label={report.settings.signatoryTitle}
-      />
-    </div>
+    </ReportDocumentShell>
   );
 }
 

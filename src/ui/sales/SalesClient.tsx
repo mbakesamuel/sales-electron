@@ -19,6 +19,7 @@ import {
   isValidBookletSerial,
   validateBookletSerial,
 } from "../../shared/bookletSerial.ts";
+import { paymentMethodIdForDisposition } from "../../shared/dispositionPaymentMethods.ts";
 import { SalePrintView } from "./SalePrintView.tsx";
 import { SalesLineModal, type SalesLineDraft } from "./SalesLineModal.tsx";
 import type {
@@ -76,6 +77,22 @@ function clampDateToPeriod(isoDate: string, period: OpenPostingPeriod | null): s
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function dispositionPaymentMethodName(
+  options: SalesFormOptions | null,
+  paymentMethodId: string,
+): string | null {
+  if (!options) {
+    return null;
+  }
+  if (paymentMethodId === options.rationPaymentMethodId) {
+    return "Ration (deferred)";
+  }
+  if (paymentMethodId === options.publicRelationPaymentMethodId) {
+    return "Public relation (complimentary)";
+  }
+  return null;
 }
 
 function cashOnlyPaymentMethods(
@@ -363,11 +380,20 @@ export function SalesClient({
       ? (options?.looseProducts ?? []).filter((product) => product.isMain)
       : (options?.looseProducts ?? []);
   const paymentMethodOptions = useMemo(() => {
+    if (isSpecialDisposition) {
+      return [];
+    }
     const methods = options?.paymentMethods ?? [];
     return isBottleMode
       ? cashOnlyPaymentMethods(methods)
       : nonCashPaymentMethods(methods);
-  }, [options?.paymentMethods, isBottleMode]);
+  }, [options?.paymentMethods, isBottleMode, isSpecialDisposition]);
+  const dispositionPaymentMethodId = useMemo(() => {
+    if (!options || !isSpecialDisposition) {
+      return "";
+    }
+    return paymentMethodIdForDisposition(saleDisposition) ?? "";
+  }, [options, isSpecialDisposition, saleDisposition]);
   const lockPaymentAmount = true;
   const salesPointLocations = locationsForSalesPoint(salesPointId);
   const catalogProducts = useMemo(
@@ -470,9 +496,9 @@ export function SalesClient({
     });
   }, [totals.gross, isFormEditable]);
 
-  // Bottle Oil: always keep a single Cash payment line (Cash must remain visible/selected).
+  // Bottle Oil: keep a single Cash payment line (skip for Ration / Public relation).
   useEffect(() => {
-    if (!options || !isBottleMode) {
+    if (!options || !isBottleMode || isSpecialDisposition) {
       return;
     }
     const cashMethods = cashOnlyPaymentMethods(options.paymentMethods);
@@ -495,11 +521,39 @@ export function SalesClient({
         },
       ];
     });
-  }, [options, isBottleMode, totals.gross]);
+  }, [options, isBottleMode, isSpecialDisposition, totals.gross]);
+
+  // Ration / Public relation: single locked disposition payment line.
+  useEffect(() => {
+    if (!options || !isFormEditable || !isSpecialDisposition || !dispositionPaymentMethodId) {
+      return;
+    }
+    setPayments((current) => {
+      if (
+        current.length === 1 &&
+        current[0]?.paymentMethodId === dispositionPaymentMethodId
+      ) {
+        return current;
+      }
+      return [
+        {
+          paymentMethodId: dispositionPaymentMethodId,
+          amount: String(totals.gross),
+          ...emptyPaymentExtras(),
+        },
+      ];
+    });
+  }, [
+    options,
+    isFormEditable,
+    isSpecialDisposition,
+    dispositionPaymentMethodId,
+    totals.gross,
+  ]);
 
   // Loose sales: drop Cash if it was selected (Cash is hidden from the list).
   useEffect(() => {
-    if (!options || !isFormEditable || isBottleMode) {
+    if (!options || !isFormEditable || isBottleMode || isSpecialDisposition) {
       return;
     }
     const allowed = new Set(
@@ -523,7 +577,7 @@ export function SalesClient({
       });
       return changed ? next : current;
     });
-  }, [options, isFormEditable, isBottleMode]);
+  }, [options, isFormEditable, isBottleMode, isSpecialDisposition]);
 
   useEffect(() => {
     async function bootstrap() {
@@ -1898,7 +1952,7 @@ export function SalesClient({
                 XAF paid
               </h3>
             </div>
-            {isFormEditable && !isBottleMode ? (
+            {isFormEditable && !isBottleMode && !isSpecialDisposition ? (
               <button
                 type="button"
                 class="sales-btn-secondary"
@@ -1923,6 +1977,12 @@ export function SalesClient({
                 options.paymentMethods.find(
                   (item) => item.id === payment.paymentMethodId,
                 );
+              const methodLabel =
+                method?.name ??
+                dispositionPaymentMethodName(options, payment.paymentMethodId) ??
+                (isBottleMode && !isSpecialDisposition ? "Cash" : null) ??
+                payment.paymentMethodId ??
+                "—";
               const isCheque = method?.kind === "CHEQUE";
               const isTraite = method?.kind === "TRAITE";
               const isBankTransfer = method?.kind === "BANK_TRANSFER";
@@ -1936,11 +1996,9 @@ export function SalesClient({
                   <div class={gridClass}>
                     <label class="sales-field">
                       <span>Method</span>
-                      {isReadOnly || isBottleMode ? (
+                      {isReadOnly || isBottleMode || isSpecialDisposition ? (
                         <div class="sales-payment-value">
-                          {method?.name ??
-                            (isBottleMode ? "Cash" : payment.paymentMethodId) ??
-                            "—"}
+                          {methodLabel}
                         </div>
                       ) : (
                         <select
@@ -2141,7 +2199,7 @@ export function SalesClient({
                     </label>
                   </div>
 
-                  {isFormEditable && !isBottleMode ? (
+                  {isFormEditable && !isBottleMode && !isSpecialDisposition ? (
                     <button
                       type="button"
                       class="sales-btn-secondary sales-payment-remove"

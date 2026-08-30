@@ -2,10 +2,13 @@ import { useEffect, useState } from "preact/hooks";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import type { MonthlyPaymentDeliveryReport } from "../../shared/reports.types.ts";
 import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
-import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
-import { ReportFooter } from "./ReportFooter.tsx";
+import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
+import {
+  HIDE_ZERO_ROWS_HINT,
+  isMonthlyPaymentDeliveryReportEmpty,
+} from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 import "./MonthlyPaymentDeliveryReport.css";
 
@@ -122,18 +125,28 @@ function ReportTable({ report }: { report: MonthlyPaymentDeliveryReport }) {
 }
 
 function ReportDocument({ report }: { report: MonthlyPaymentDeliveryReport }) {
+  const empty = isMonthlyPaymentDeliveryReportEmpty(report);
+
   return (
-    <div class="scr-document mpd-document">
-      <ReportHeader
-        companyName={report.settings.companyName}
-        department={report.settings.department ?? null}
-        serviceName={report.settings.serviceName ?? null}
-        title={report.reportTitle}
-      />
+    <ReportDocumentShell
+      className="scr-document mpd-document"
+      isEmpty={empty}
+      emptyMessage="No payment or delivery data for this month."
+      emptyHint={HIDE_ZERO_ROWS_HINT}
+      comments={report.comments}
+      signatoryName={report.settings.signatoryName}
+      signatoryTitle={report.settings.signatoryTitle}
+      header={
+        <ReportHeader
+          companyName={report.settings.companyName}
+          department={report.settings.department ?? null}
+          serviceName={report.settings.serviceName ?? null}
+          title={report.reportTitle}
+        />
+      }
+    >
       <ReportTable report={report} />
-      <ReportCommentsSection comments={report.comments} />
-      <ReportFooter name={report.settings.signatoryName} label={report.settings.signatoryTitle} />
-    </div>
+    </ReportDocumentShell>
   );
 }
 

@@ -13,15 +13,21 @@ export interface CarryForwardStockRow {
   lastOccurredAt: string | null;
 }
 
+export interface CarryForwardStockProductOption {
+  productId: number;
+  productName: string;
+  uom: string;
+  isBottled: boolean;
+  productCatCode: string;
+  omitsStorageLocation: boolean;
+  stockIntakeGroup?: "PALM_OIL" | "SLUDGE_OIL" | "PALM_KERNEL" | null;
+  stockPoolProductId?: number | null;
+  excludeFromSales?: boolean;
+  isStockPool?: boolean;
+}
+
 export interface CarryForwardStockFormOptions {
-  products: Array<{
-    productId: number;
-    productName: string;
-    uom: string;
-    isBottled: boolean;
-    productCatCode: string;
-    omitsStorageLocation: boolean;
-  }>;
+  products: CarryForwardStockProductOption[];
   salesPoints: Array<{ id: number; name: string }>;
   storageLocations: Array<{
     id: number;
@@ -29,6 +35,8 @@ export interface CarryForwardStockFormOptions {
     name: string;
     isDefault: boolean;
   }>;
+  /** When true, bulk intake uses Palm Oil / Sludge Oil grouping. */
+  stockIntakeOilGrouping: boolean;
 }
 
 export interface UpsertCarryForwardStockBatchLine {

@@ -132,6 +132,10 @@ function buildSection(
     .filter((row) => !hideZero || row.rowTotal > 0)
     .sort((left, right) => left.label.localeCompare(right.label));
 
+  if (hideZero && dataRows.length === 0) {
+    return null;
+  }
+
   const columnTotals = salesPoints.map((salesPoint) =>
     sum(
       categoryCommitments

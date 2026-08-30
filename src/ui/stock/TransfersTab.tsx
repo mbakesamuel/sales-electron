@@ -380,7 +380,6 @@ export function TransfersTab(props: TransfersTabProps) {
   function onFromSalesPointChange(nextId: string) {
     setFromSalesPointId(nextId);
     const defFrom = defaultLocationId(storageLocations, nextId);
-    const defTo = defaultIntraToLocationId(storageLocations, nextId, defFrom);
     if (formMode === "intra") {
       setToSalesPointId(nextId);
     }

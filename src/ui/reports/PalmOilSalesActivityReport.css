@@ -1,0 +1,79 @@
+.posa-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.posa-section {
+  overflow-x: auto;
+  margin-top: 14px;
+}
+
+.posa-section:first-of-type {
+  margin-top: 0;
+}
+
+.posa-table {
+  min-width: 720px;
+  table-layout: auto;
+}
+
+.posa-label-col {
+  min-width: 120px;
+  max-width: 160px;
+  white-space: normal;
+}
+
+.posa-pct-col {
+  min-width: 56px;
+}
+
+.posa-footnote {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: #4b5563;
+  text-transform: none;
+}
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 6mm 10mm;
+  }
+
+  body.posa-print-landscape .posa-document {
+    overflow: visible;
+  }
+
+  body.posa-print-landscape .posa-section {
+    overflow: visible;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  body.posa-print-landscape .posa-table {
+    min-width: 0;
+    width: 100%;
+    font-size: 8px;
+  }
+
+  body.posa-print-landscape .posa-table th,
+  body.posa-print-landscape .posa-table td {
+    padding: 2px 3px !important;
+  }
+
+  body.posa-print-landscape .posa-label-col {
+    min-width: 64px;
+    max-width: 88px;
+  }
+
+  body.scr-print-mode .posa-table {
+    min-width: 0;
+    font-size: 9px;
+  }
+
+  body.scr-print-mode .posa-label-col {
+    min-width: 72px;
+    max-width: 96px;
+  }
+}

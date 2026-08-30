@@ -46,6 +46,7 @@ interface ReceiptsTabProps {
   userId: string;
   /** Global Stock view filter; locks the bottled checkbox when Loose or Bottled. */
   viewProductFilter?: StockProductFilter;
+  stockIntakeOilGrouping?: boolean;
   onOk: (text: string) => void;
   onErr: (text: string) => void;
 }
@@ -61,6 +62,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
     userId,
     autoGenerateReceiptNo,
     viewProductFilter = "all",
+    stockIntakeOilGrouping = false,
   } = props;
   const bottledLocked = viewProductFilter === "bulk" || viewProductFilter === "bottled";
   const lockedBottled = viewProductFilter === "bottled";
@@ -909,6 +911,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
               )}
               onHand={onHand}
               salesPointId={salesPointId}
+              stockIntakeOilGrouping={stockIntakeOilGrouping && !bottledProducts}
             />
 
             <div class="stock-modal-actions">

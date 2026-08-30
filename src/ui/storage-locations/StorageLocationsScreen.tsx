@@ -27,6 +27,7 @@ interface StorageLocationRow {
   locationName: string;
   isActive: boolean;
   isSalesTank: boolean;
+  allowsMultiProduct: boolean;
   salesPointId: number;
   salesPointLabel: string;
   isDefault: boolean;
@@ -67,6 +68,7 @@ function exportCsv(rows: StorageLocationRow[]) {
     "location",
     "isActive",
     "isSalesTank",
+    "allowsMultiProduct",
     "salesPoint",
     "isDefault",
     "createdAt",
@@ -79,6 +81,7 @@ function exportCsv(rows: StorageLocationRow[]) {
       row.locationName,
       row.isActive ? "1" : "0",
       row.isSalesTank ? "1" : "0",
+      row.allowsMultiProduct ? "1" : "0",
       row.salesPointLabel,
       row.isDefault ? "1" : "0",
       row.createdAt,
@@ -337,6 +340,8 @@ export function StorageLocationsScreen({
             isActive:
               row.isActive === 1 || row.isActive === true || row.isActive == null,
             isSalesTank: row.isSalesTank === 1 || row.isSalesTank === true,
+            allowsMultiProduct:
+              row.allowsMultiProduct === 1 || row.allowsMultiProduct === true,
             salesPointId,
             salesPointLabel,
             isDefault: row.isDefault === 1 || row.isDefault === true,
@@ -820,6 +825,9 @@ export function StorageLocationsScreen({
                           {row.isSalesTank ? (
                             <p class="customers-name-secondary">Sales tank</p>
                           ) : null}
+                          {row.allowsMultiProduct ? (
+                            <p class="customers-name-secondary">Multi-product</p>
+                          ) : null}
                         </div>
                       </div>
                     </td>
@@ -904,6 +912,7 @@ export function StorageLocationsScreen({
               ["Location", viewRow.locationName],
               ["Status", viewRow.isActive ? "Active" : "Inactive"],
               ["Sales tank", viewRow.isSalesTank ? "Yes" : "No"],
+              ["Multi-product", viewRow.allowsMultiProduct ? "Yes" : "No"],
               ["Collection point", viewRow.salesPointLabel],
               ["Default location", viewRow.isDefault ? "Yes" : "No"],
               ["Created", viewRow.createdAt],

@@ -4,6 +4,7 @@ export const REPORT_WINDOW_HASH_PREFIX = "#/report-window/";
 /** Routes that open in a secondary BrowserWindow. */
 export const REPORT_WINDOW_ROUTE_IDS = new Set([
   "daily-sales-report",
+  "daily-sales-matrix-report",
   "stock-commitment-report",
   "stock-report",
   "commitment-report",
@@ -21,6 +22,7 @@ export const REPORT_WINDOW_ROUTE_IDS = new Set([
   "bottled-palm-oil-sales-return-report",
   "monthly-bottled-oil-report",
   "other-product-sales-deliveries-report",
+  "palm-oil-sales-activity-report",
   "stock-bin-card-report",
   "sales-budget-monthly-crosstab",
   "sales-budget-weekly-crosstab",

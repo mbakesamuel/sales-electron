@@ -26,7 +26,7 @@ import {
 } from "./shared.js";
 import { getDatabase } from "../db/index.js";
 import { loadStockBalancesAsOf } from "../stock/asOfBalance.js";
-import { productOmitsStorageLocation } from "../../shared/productStorageRules.js";
+import { compareStorageLocationsForReport } from "./storageLocationReportOrder.js";
 
 interface CategoryRow {
   productCatId: number;
@@ -109,8 +109,38 @@ function isPalmKernelCategory(category: CategoryRow): boolean {
   );
 }
 
-function resolveCategoryLayout(category: CategoryRow): CategoryLayout {
-  if (productOmitsStorageLocation(category.productCode)) {
+function loadCategoryAllOmitStorageLocation(): Map<number, boolean> {
+  const rows = getDatabase()
+    .prepare(
+      `SELECT productCatId,
+              MIN(COALESCE(omitsStorageLocation, 0)) AS minOmit,
+              MAX(COALESCE(omitsStorageLocation, 0)) AS maxOmit,
+              COUNT(*) AS productCount
+       FROM Product
+       GROUP BY productCatId`,
+    )
+    .all() as Array<{
+    productCatId: number;
+    minOmit: number;
+    maxOmit: number;
+    productCount: number;
+  }>;
+
+  const map = new Map<number, boolean>();
+  for (const row of rows) {
+    map.set(
+      row.productCatId,
+      row.productCount > 0 && row.minOmit === 1 && row.maxOmit === 1,
+    );
+  }
+  return map;
+}
+
+function resolveCategoryLayout(
+  category: CategoryRow,
+  categoryAllOmitStorage: Map<number, boolean>,
+): CategoryLayout {
+  if (categoryAllOmitStorage.get(category.productCatId)) {
     return "sales_point_qty";
   }
   if (category.isBottled === 1) {
@@ -125,14 +155,14 @@ function resolveCategoryLayout(category: CategoryRow): CategoryLayout {
   return "location_detail";
 }
 
-/** Report order: main loose → PKO → bottled → palm kernel → cake → other. */
+/** Report order: main loose → PKO → palm kernel → cake → bottled → other. */
 function sortCategoriesForReport(categories: CategoryRow[]): CategoryRow[] {
   const rank = (category: CategoryRow): number => {
     if (category.isMain === 1) return 0;
     if (isPalmKernelOilCategory(category)) return 1;
-    if (category.isBottled === 1) return 2;
-    if (isPalmKernelCategory(category)) return 3;
-    if (isPalmKernelCakeCategory(category)) return 4;
+    if (isPalmKernelCategory(category)) return 2;
+    if (isPalmKernelCakeCategory(category)) return 3;
+    if (category.isBottled === 1) return 4;
     return 5;
   };
   return [...categories].sort((a, b) => {
@@ -237,9 +267,9 @@ function buildLocationSection(
   let sectionTotalKg = 0;
 
   for (const salesPoint of salesPoints) {
-    const locations = storageLocations.filter(
-      (location) => location.salesPointId === salesPoint.id,
-    );
+    const locations = storageLocations
+      .filter((location) => location.salesPointId === salesPoint.id)
+      .sort(compareStorageLocationsForReport);
     const dataRows: StockReportLocationRow[] = [];
 
     for (const location of locations) {
@@ -491,6 +521,7 @@ export function getStockReport(userId?: string | null): StockReport {
   const categories = sortCategoriesForReport(loadCategories()).filter((category) =>
     products.some((product) => product.productCatId === category.productCatId),
   );
+  const categoryAllOmitStorage = loadCategoryAllOmitStorageLocation();
 
   const oilCategories = categories.filter(isOilLocationCategory);
   const lastOilCatId = oilCategories[oilCategories.length - 1]?.productCatId ?? null;
@@ -499,7 +530,7 @@ export function getStockReport(userId?: string | null): StockReport {
   let oilGrandTotalKg = 0;
 
   for (const category of categories) {
-    const layout = resolveCategoryLayout(category);
+    const layout = resolveCategoryLayout(category, categoryAllOmitStorage);
     if (layout === "bottled") {
       const bottled = buildBottledSection(
         category,
@@ -509,21 +540,37 @@ export function getStockReport(userId?: string | null): StockReport {
         storageLocations,
         hideZero,
       );
-      if (bottled) {
+      if (bottled && bottled.rows.length > 0) {
         sections.push(bottled);
       }
       continue;
     }
     if (layout === "kernel_split") {
-      sections.push(
-        buildKernelSplitSection(category, salesPoints, products, balances, hideZero),
+      const kernelSection = buildKernelSplitSection(
+        category,
+        salesPoints,
+        products,
+        balances,
+        hideZero,
       );
+      if (
+        kernelSection.rows.length > 0 ||
+        Math.abs(kernelSection.totals.totalKg) > 0.0001
+      ) {
+        sections.push(kernelSection);
+      }
       continue;
     }
     if (layout === "sales_point_qty") {
-      sections.push(
-        buildSalesPointQtySection(category, salesPoints, balances, hideZero),
+      const qtySection = buildSalesPointQtySection(
+        category,
+        salesPoints,
+        balances,
+        hideZero,
       );
+      if (qtySection.rows.length > 0) {
+        sections.push(qtySection);
+      }
       continue;
     }
 
@@ -538,9 +585,11 @@ export function getStockReport(userId?: string | null): StockReport {
       showOilGrandTotalAfter,
       hideZero,
     );
-    sections.push(locationSection);
-    if (isOilLocationCategory(category)) {
-      oilGrandTotalKg += locationSection.sectionTotalKg;
+    if (locationSection.rows.length > 0) {
+      sections.push(locationSection);
+      if (isOilLocationCategory(category)) {
+        oilGrandTotalKg += locationSection.sectionTotalKg;
+      }
     }
   }
 

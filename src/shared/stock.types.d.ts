@@ -29,6 +29,8 @@ export interface StorageLocationOption {
     isDefault: boolean;
     /** When true, location is used for POS/sales invoicing only (not goods-in receipts). */
     isSalesTank: boolean;
+    /** When true, multiple bulk products may share this location (e.g. drums). */
+    allowsMultiProduct: boolean;
 }
 export interface ProductOption {
     productId: number;
@@ -37,8 +39,16 @@ export interface ProductOption {
     isBottled: boolean;
     /** Non-bottled Palm Oil (ProductCat.isMain). */
     isLoosePalmOil: boolean;
-    /** Palm Kernel / Cake (PKCP/PKP) — no storage location on receipts. */
+    /** Per-product flag — no storage location on stock docs. */
     omitsStorageLocation: boolean;
+    /** Palm Oil / Sludge Oil intake grouping label when stockIntakeOilGrouping is on. */
+    stockIntakeGroup?: "PALM_OIL" | "SLUDGE_OIL" | "PALM_KERNEL" | null;
+    /** When set, stock ops use this product's balance instead (sludge grades). */
+    stockPoolProductId?: number | null;
+    /** Stock-only product — hidden from invoice pickers. */
+    excludeFromSales?: boolean;
+    /** Canonical Sludge Oil pool product. */
+    isStockPool?: boolean;
 }
 export interface StockBalanceRow {
     salesPointId: number;
@@ -237,6 +247,8 @@ export interface StockBootstrap {
     transferReceiveUsesDocumentDate: boolean;
     /** When true, loose Palm Oil may transfer between collection points. */
     loosePalmOilAllowInterSalesPointTransfer: boolean;
+    /** When true, bulk receipts group Palm Oil / Sludge Oil and sludge grades share one tank. */
+    stockIntakeOilGrouping: boolean;
     onHand: StockBalanceRow[];
     movements: StockMovementRow[];
     receipts: ReceiptListRow[];
@@ -414,6 +426,16 @@ export type StockValidateManyResult = {
         id: string;
         error: string;
     }>;
+} | {
+    ok: false;
+    error: string;
+};
+export interface StockIntakeOilGroupingStatus {
+    enabled: boolean;
+    poolTotalQty: number;
+}
+export type ApplyStockIntakeOilGroupingResult = {
+    ok: true;
 } | {
     ok: false;
     error: string;

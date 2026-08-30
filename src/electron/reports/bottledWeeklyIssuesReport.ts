@@ -149,11 +149,20 @@ function classifyMethod(
   paymentKind: string | null,
   paymentCode: string | null,
 ): BottledWeeklyPaymentMethod {
-  if (disposition === "PUBLIC_RELATION" || disposition === "RATION") {
-    return "PRO";
-  }
   const kind = (paymentKind ?? "").toUpperCase();
   const code = (paymentCode ?? "").toUpperCase();
+  if (code === "PUBLIC_RELATION" || kind === "PUBLIC_RELATION") {
+    return "PRO";
+  }
+  if (code === "RATION" || (kind === "CREDIT" && code.includes("RATION"))) {
+    return "CREDIT";
+  }
+  if (disposition === "PUBLIC_RELATION") {
+    return "PRO";
+  }
+  if (disposition === "RATION") {
+    return "CREDIT";
+  }
   if (kind === "CREDIT" || code.includes("CREDIT")) {
     return "CREDIT";
   }
@@ -306,12 +315,17 @@ function buildMethodBlocks(
   }
 
   function resolveShares(line: SaleIssueLine): SalePaymentShare[] {
-    if (line.saleDisposition === "PUBLIC_RELATION" || line.saleDisposition === "RATION") {
+    const shares = paymentShares.get(line.saleId);
+    if (shares && shares.length > 0) {
+      return shares;
+    }
+    if (line.saleDisposition === "PUBLIC_RELATION") {
       return [{ saleId: line.saleId, method: "PRO", share: 1 }];
     }
-    return paymentShares.get(line.saleId) ?? [
-      { saleId: line.saleId, method: "CASH", share: 1 },
-    ];
+    if (line.saleDisposition === "RATION") {
+      return [{ saleId: line.saleId, method: "CREDIT", share: 1 }];
+    }
+    return [{ saleId: line.saleId, method: "CASH", share: 1 }];
   }
 
   function applyLines(lines: SaleIssueLine[], scope: "week" | "month") {
@@ -478,9 +492,12 @@ function metricFromLines(
     }
     const lineKg = unitsToKg(line.units, pack.litresPerUnit);
     const shares =
-      line.saleDisposition === "PUBLIC_RELATION" || line.saleDisposition === "RATION"
+      paymentShares.get(line.saleId) ??
+      (line.saleDisposition === "PUBLIC_RELATION"
         ? [{ method: "PRO" as const, share: 1 }]
-        : (paymentShares.get(line.saleId) ?? [{ method: "CASH" as const, share: 1 }]);
+        : line.saleDisposition === "RATION"
+          ? [{ method: "CREDIT" as const, share: 1 }]
+          : [{ method: "CASH" as const, share: 1 }]);
     for (const share of shares) {
       kg += lineKg * share.share;
       value += line.lineNet * share.share;
@@ -572,9 +589,12 @@ function kgByMethod(
     }
     const lineKg = unitsToKg(line.units, pack.litresPerUnit);
     const shares =
-      line.saleDisposition === "PUBLIC_RELATION" || line.saleDisposition === "RATION"
+      paymentShares.get(line.saleId) ??
+      (line.saleDisposition === "PUBLIC_RELATION"
         ? [{ method: "PRO" as const, share: 1 }]
-        : (paymentShares.get(line.saleId) ?? [{ method: "CASH" as const, share: 1 }]);
+        : line.saleDisposition === "RATION"
+          ? [{ method: "CREDIT" as const, share: 1 }]
+          : [{ method: "CASH" as const, share: 1 }]);
     for (const share of shares) {
       result[share.method] += lineKg * share.share;
     }

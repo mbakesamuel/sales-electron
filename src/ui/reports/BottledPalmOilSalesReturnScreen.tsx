@@ -6,10 +6,13 @@ import type {
   BottledPalmOilSalesReturnRowKind,
 } from "../../shared/reports.types.ts";
 import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
-import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
-import { ReportFooter } from "./ReportFooter.tsx";
+import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
+import {
+  HIDE_ZERO_ROWS_HINT,
+  isBottledPalmOilSalesReturnReportEmpty,
+} from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 import "./BottledPalmOilSalesReturnReport.css";
 
@@ -149,15 +152,26 @@ function rowClassName(row: BottledPalmOilSalesReturnRow): string | undefined {
 
 function ReportDocument({ report }: { report: BottledPalmOilSalesReturnReport }) {
   const colSpan = report.packColumns.length * 2 + 3;
+  const empty = isBottledPalmOilSalesReturnReportEmpty(report);
 
   return (
-    <div class="scr-document bposr-document">
-      <ReportHeader
-        companyName={report.settings.companyName}
-        department={report.settings.department ?? null}
-        serviceName={report.settings.serviceName ?? null}
-        title={report.reportTitle}
-      />
+    <ReportDocumentShell
+      className="scr-document bposr-document"
+      isEmpty={empty}
+      emptyMessage="No bottled palm oil sales or returns for this period."
+      emptyHint={HIDE_ZERO_ROWS_HINT}
+      comments={report.comments}
+      signatoryName={report.settings.signatoryName}
+      signatoryTitle={report.settings.signatoryTitle}
+      header={
+        <ReportHeader
+          companyName={report.settings.companyName}
+          department={report.settings.department ?? null}
+          serviceName={report.settings.serviceName ?? null}
+          title={report.reportTitle}
+        />
+      }
+    >
       <div class="bposr-section">
         <table class="scr-table bposr-table">
           <thead>
@@ -221,12 +235,7 @@ function ReportDocument({ report }: { report: BottledPalmOilSalesReturnReport })
         </table>
       </div>
       <p class="bposr-footnote">Value without taxes · amounts in FCFA</p>
-      <ReportCommentsSection comments={report.comments} />
-      <ReportFooter
-        name={report.settings.signatoryName}
-        label={report.settings.signatoryTitle}
-      />
-    </div>
+    </ReportDocumentShell>
   );
 }
 

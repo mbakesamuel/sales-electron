@@ -181,6 +181,11 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
     sectionId: "reports",
   },
   {
+    id: "daily-sales-matrix-report",
+    label: "Daily sales summary (matrix)",
+    sectionId: "reports",
+  },
+  {
     id: "monthly-delivery-report-h1",
     label: "Monthly delivery (Jan–Jun)",
     sectionId: "reports",
@@ -233,6 +238,11 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
   {
     id: "other-product-sales-deliveries-report",
     label: "Other product sales and deliveries",
+    sectionId: "reports",
+  },
+  {
+    id: "palm-oil-sales-activity-report",
+    label: "Palm Oil Sales Activity",
     sectionId: "reports",
   },
   {

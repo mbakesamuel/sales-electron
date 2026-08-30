@@ -13,8 +13,9 @@ import { formatQty, parseQty } from "./decimal.js";
 import { applyMovement } from "./post.js";
 import {
   productOmitsStorageLocationById,
+  loadStockIntakeOilGrouping,
 } from "./productStorage.js";
-import { productOmitsStorageLocation } from "../../shared/productStorageRules.js";
+import { isStockPoolProduct } from "../../shared/stockIntakeGroups.js";
 import { allocateAdjustmentNo } from "./sequences.js";
 
 const ROUTE_ID = "carry-forward-stock";
@@ -84,11 +85,16 @@ const NULL_LOC_MATCH = `(
 export function getCarryForwardStockFormOptions(): CarryForwardStockFormOptions {
   const db = getDatabase();
   return {
+    stockIntakeOilGrouping: loadStockIntakeOilGrouping(db),
     products: db
       .prepare(
         `SELECT p.productId, p.productName, COALESCE(p.uom, 'Kg') AS uom,
                 COALESCE(pc.isBottled, 0) AS isBottled,
-                COALESCE(pc.productCode, '') AS productCode
+                COALESCE(pc.productCode, '') AS productCode,
+                p.stockIntakeGroup,
+                p.stockPoolProductId,
+                COALESCE(p.excludeFromSales, 0) AS excludeFromSales,
+                COALESCE(p.omitsStorageLocation, 0) AS omitsStorageLocation
          FROM Product p
          LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
          ORDER BY p.productName ASC`,
@@ -101,14 +107,33 @@ export function getCarryForwardStockFormOptions(): CarryForwardStockFormOptions 
           uom: string;
           isBottled: number;
           productCode: string;
+          stockIntakeGroup: string | null;
+          stockPoolProductId: number | null;
+          excludeFromSales: number;
+          omitsStorageLocation: number;
         };
+        const stockIntakeGroup =
+          r.stockIntakeGroup === "PALM_OIL" ||
+          r.stockIntakeGroup === "SLUDGE_OIL" ||
+          r.stockIntakeGroup === "PALM_KERNEL"
+            ? r.stockIntakeGroup
+            : null;
+        const excludeFromSales = Number(r.excludeFromSales ?? 0) !== 0;
         return {
           productId: r.productId,
           productName: r.productName,
           uom: r.uom,
           isBottled: r.isBottled === 1,
           productCatCode: r.productCode,
-          omitsStorageLocation: productOmitsStorageLocation(r.productCode),
+          omitsStorageLocation: Number(r.omitsStorageLocation ?? 0) !== 0,
+          stockIntakeGroup,
+          stockPoolProductId: r.stockPoolProductId ?? null,
+          excludeFromSales,
+          isStockPool: isStockPoolProduct({
+            excludeFromSales,
+            stockPoolProductId: r.stockPoolProductId ?? null,
+            stockIntakeGroup,
+          }),
         };
       }),
     salesPoints: db

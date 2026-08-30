@@ -9,7 +9,7 @@
 }
 
 .report-overlay-panel {
-  width: min(1000px, 100%);
+  width: min(1200px, 100%);
   height: min(90svh, 900px);
   max-height: min(90svh, 900px);
   display: flex;
@@ -33,9 +33,12 @@
 }
 
 .report-overlay-title {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: #111827;
+  font-family: "Arial Black", Arial, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .report-overlay-body {

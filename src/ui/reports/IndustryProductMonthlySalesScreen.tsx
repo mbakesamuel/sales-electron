@@ -9,9 +9,14 @@ import type {
 } from "../../shared/reports.types.ts";
 import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
+import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
+import {
+  HIDE_ZERO_ROWS_HINT,
+  isIndustryProductMonthlySalesReportEmpty,
+} from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 import "./IndustryProductMonthlySalesReport.css";
 
@@ -197,24 +202,20 @@ function ProductSection({
 }
 
 function ReportDocument({ report }: { report: IndustryProductMonthlySalesReport }) {
-  if (report.sections.length === 0) {
+  const empty = isIndustryProductMonthlySalesReportEmpty(report);
+
+  if (empty) {
     return (
-      <div class="scr-document ipms-document">
-        <ReportHeader
-          companyName={report.settings.companyName}
-          department={report.settings.department ?? null}
-          serviceName={report.settings.serviceName ?? null}
-          title={report.reportTitle}
-        />
-        <p class="ipms-empty">
-          No Industry sales for non-LPO / non-bottled products in this period.
-        </p>
-        <ReportCommentsSection comments={report.comments} />
-        <ReportFooter
-          name={report.settings.signatoryName}
-          label={report.settings.signatoryTitle}
-        />
-      </div>
+      <ReportDocumentShell
+        className="scr-document ipms-document"
+        isEmpty
+        emptyMessage="No Industry sales for non-LPO / non-bottled products in this period."
+        emptyHint={HIDE_ZERO_ROWS_HINT}
+        showComments={false}
+        showFooter={false}
+      >
+        {null}
+      </ReportDocumentShell>
     );
   }
 

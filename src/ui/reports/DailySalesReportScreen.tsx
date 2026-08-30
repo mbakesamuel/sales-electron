@@ -7,10 +7,10 @@ import type { OpenPostingPeriod } from "../../shared/financialYears.types.ts";
 import type { DailySalesReport } from "../../shared/reports.types.ts";
 import { clampIsoDateToRange, utcIsoDateToday } from "../stock/stockUtils.ts";
 import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
-import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
-import { ReportFooter } from "./ReportFooter.tsx";
+import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
+import { isDailySalesReportEmpty } from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 import "./SalesBudgetCrosstab.css";
 
@@ -106,87 +106,84 @@ function downloadCsv(report: DailySalesReport): void {
 }
 
 export function DailySalesReportDocument({ report }: { report: DailySalesReport }) {
+  const empty = isDailySalesReportEmpty(report);
+
   return (
-    <div class="scr-document wpp-pack-page">
-      <ReportHeader
-        companyName={report.settings.companyName}
-        department={report.settings.department ?? null}
-        serviceName={report.settings.serviceName ?? null}
-        title={`DAILY SALES REPORT OF ${formatDisplayDate(report.reportDateIso)}`}
-       /*  meta={
-          <p class="dsr-sales-point-meta">
-            SALES POINT NAME : {report.salesPointLabel}
-          </p>
-        } */
-      />
-
-    {/*   <p class="scr-generated">
-        Report date: {formatDisplayDate(report.reportDateIso)}
-      </p> */}
-
-      {report.sections.length === 0 ? (
-        <p class="scr-status">No validated sales for this date.</p>
-      ) : (
-        <div class="scr-bottled-block">
-          <table class="scr-table dsr-table">
-            <thead>
-              <tr>
-                <th>SN</th>
-                <th>CUSTOMER</th>
-                <th>DO. NO.</th>
-                <th>DATE ISSUED</th>
-                <th>VEHICLE. NO</th>
-                <th class="scr-num">QUANTITY</th>
-                <th class="scr-num">DO. BALANCE</th>
-              </tr>
-            </thead>
-            <tbody>
-              {report.sections.map((section) => (
-                <Fragment key={section.productName}>
-                  <tr key={`${section.productName}-header`} class="scr-row-header">
-                    <td colSpan={7}>
-                      <strong>{section.productName.toUpperCase()}</strong>
-                    </td>
+    <ReportDocumentShell
+      className="scr-document wpp-pack-page"
+      isEmpty={empty}
+      emptyMessage="No validated sales for this date."
+      comments={report.comments}
+      signatoryName={report.settings.signatoryName}
+      signatoryTitle={report.settings.signatoryTitle}
+      header={
+        <ReportHeader
+          companyName={report.settings.companyName}
+          department={report.settings.department ?? null}
+          serviceName={report.settings.serviceName ?? null}
+          title={`DAILY SALES REPORT OF ${formatDisplayDate(report.reportDateIso)}`}
+        />
+      }
+    >
+      <div class="scr-bottled-block">
+        <table class="scr-table dsr-table">
+          <thead>
+            <tr>
+              <th>SN</th>
+              <th>CUSTOMER</th>
+              <th>DO. NO.</th>
+              <th>DATE ISSUED</th>
+              <th>VEHICLE. NO</th>
+              <th class="scr-num">QUANTITY</th>
+              <th class="scr-num">DO. BALANCE</th>
+            </tr>
+          </thead>
+          <tbody>
+            {report.sections.map((section) => (
+              <Fragment key={section.productName}>
+                <tr key={`${section.productName}-header`} class="scr-row-header">
+                  <td colSpan={7}>
+                    <strong>{section.productName.toUpperCase()}</strong>
+                  </td>
+                </tr>
+                {section.rows.map((row) => (
+                  <tr key={`${section.productName}-${row.sn}`} class="scr-row">
+                    <td>{row.sn}</td>
+                    <td>{row.customerName}</td>
+                    <td>{row.deliveryOrderNo ?? ""}</td>
+                    <td>{formatDisplayDate(row.dateIssuedIso)}</td>
+                    <td>{row.vehicleNumber ?? ""}</td>
+                    <td class="scr-num">{formatQty(row.quantity)}</td>
+                    <td class="scr-num">{formatQty(row.doBalance)}</td>
                   </tr>
-                  {section.rows.map((row) => (
-                    <tr key={`${section.productName}-${row.sn}`} class="scr-row">
-                      <td>{row.sn}</td>
-                      <td>{row.customerName}</td>
-                      <td>{row.deliveryOrderNo ?? ""}</td>
-                      <td>{formatDisplayDate(row.dateIssuedIso)}</td>
-                      <td>{row.vehicleNumber ?? ""}</td>
-                      <td class="scr-num">{formatQty(row.quantity)}</td>
-                      <td class="scr-num">{formatQty(row.doBalance)}</td>
-                    </tr>
-                  ))}
-                  <tr key={`${section.productName}-subtotal`} class="scr-row scr-row-total">
-                    <td colSpan={5} class="scr-row-label">
-                      SUBTOTAL
-                    </td>
-                    <td class="scr-num scr-total-cell">
-                      {formatQty(section.subtotalQuantity)}
-                    </td>
-                    <td class="scr-num scr-total-cell">
-                      {formatQty(section.subtotalDoBalance)}
-                    </td>
-                  </tr>
-                </Fragment>
-              ))}
-              <tr class="scr-row scr-row-total">
-                <td colSpan={5} class="scr-row-label">
-                  GRAND TOTAL
-                </td>
-                <td class="scr-num scr-total-cell">
-                  {formatQty(report.grandTotalQuantity)}
-                </td>
-                <td class="scr-num scr-total-cell">
-                  {formatQty(report.grandTotalDoBalance)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
+                ))}
+                <tr key={`${section.productName}-subtotal`} class="scr-row scr-row-total">
+                  <td colSpan={5} class="scr-row-label">
+                    SUBTOTAL
+                  </td>
+                  <td class="scr-num scr-total-cell">
+                    {formatQty(section.subtotalQuantity)}
+                  </td>
+                  <td class="scr-num scr-total-cell">
+                    {formatQty(section.subtotalDoBalance)}
+                  </td>
+                </tr>
+              </Fragment>
+            ))}
+            <tr class="scr-row scr-row-total">
+              <td colSpan={5} class="scr-row-label">
+                GRAND TOTAL
+              </td>
+              <td class="scr-num scr-total-cell">
+                {formatQty(report.grandTotalQuantity)}
+              </td>
+              <td class="scr-num scr-total-cell">
+                {formatQty(report.grandTotalDoBalance)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       <div class="scr-bottled-block">
         <table class="scr-table dsr-summary-table">
@@ -211,10 +208,7 @@ export function DailySalesReportDocument({ report }: { report: DailySalesReport 
           </tbody>
         </table>
       </div>
-
-      <ReportCommentsSection comments={report.comments} />
-      <ReportFooter name={report.settings.signatoryName} label={report.settings.signatoryTitle} />
-    </div>
+    </ReportDocumentShell>
   );
 }
 

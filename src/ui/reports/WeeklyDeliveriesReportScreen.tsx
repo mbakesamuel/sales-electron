@@ -8,10 +8,13 @@ import type {
   WeeklyDeliveriesReport,
 } from "../../shared/reports.types.ts";
 import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
-import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
-import { ReportFooter } from "./ReportFooter.tsx";
+import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
+import {
+  HIDE_ZERO_ROWS_HINT,
+  isWeeklyDeliveriesReportEmpty,
+} from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 import "./SalesBudgetCrosstab.css";
 
@@ -209,21 +212,30 @@ export function WeeklyDeliveriesReportDocument({
 }: {
   report: WeeklyDeliveriesReport;
 }) {
-  return (
-    <div class="scr-document wpp-pack-page">
-      <ReportHeader
-        companyName={report.settings.companyName}
-        department={report.settings.department ?? null}
-        serviceName={report.settings.serviceName ?? null}
-        title={`Deliveries of the week (KGs) ${formatDisplayDate(report.weekFromIso)} – ${formatDisplayDate(report.weekToIso)}`}
-      />
+  const empty = isWeeklyDeliveriesReportEmpty(report);
 
+  return (
+    <ReportDocumentShell
+      className="scr-document wpp-pack-page"
+      isEmpty={empty}
+      emptyMessage="No deliveries recorded for this week."
+      emptyHint={HIDE_ZERO_ROWS_HINT}
+      comments={report.comments}
+      signatoryName={report.settings.signatoryName}
+      signatoryTitle={report.settings.signatoryTitle}
+      header={
+        <ReportHeader
+          companyName={report.settings.companyName}
+          department={report.settings.department ?? null}
+          serviceName={report.settings.serviceName ?? null}
+          title={`Deliveries of the week (KGs) ${formatDisplayDate(report.weekFromIso)} – ${formatDisplayDate(report.weekToIso)}`}
+        />
+      }
+    >
       <LooseSection section={report.looseSection} />
       <BottledSection section={report.bottledSection} />
       <MiscSection section={report.miscSection} />
-      <ReportCommentsSection comments={report.comments} />
-      <ReportFooter name={report.settings.signatoryName} label={report.settings.signatoryTitle} />
-    </div>
+    </ReportDocumentShell>
   );
 }
 

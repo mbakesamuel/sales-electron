@@ -153,6 +153,10 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("reports:getSalesBudgetWeeklyCrosstab", authToken, reportYear),
     getDailySales: (authToken, reportDateIso, salesPointId) =>
       ipcRenderer.invoke("reports:getDailySales", authToken, reportDateIso, salesPointId),
+    getDailySalesMatrix: (authToken, salesPointId, productId) =>
+      ipcRenderer.invoke("reports:getDailySalesMatrix", authToken, salesPointId, productId),
+    getPalmOilSalesActivity: (authToken) =>
+      ipcRenderer.invoke("reports:getPalmOilSalesActivity", authToken),
     saveReportComments: (authToken, input) =>
       ipcRenderer.invoke("reports:saveReportComments", authToken, input),
     listSignatories: (authToken) =>
@@ -229,6 +233,10 @@ contextBridge.exposeInMainWorld("api", {
     listReceiveQueue: (userId) =>
       ipcRenderer.invoke("stock:listReceiveQueue", userId),
     validateMany: (payload) => ipcRenderer.invoke("stock:validateMany", payload),
+    getIntakeOilGroupingStatus: () =>
+      ipcRenderer.invoke("stock:getIntakeOilGroupingStatus"),
+    applyIntakeOilGrouping: (payload) =>
+      ipcRenderer.invoke("stock:applyIntakeOilGrouping", payload),
   },
   dialog: {
     confirm: (message) => ipcRenderer.sendSync("dialog:confirm", message),

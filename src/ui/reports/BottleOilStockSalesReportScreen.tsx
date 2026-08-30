@@ -8,10 +8,13 @@ import type {
   BottleOilStockSection,
 } from "../../shared/reports.types.ts";
 import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
-import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
-import { ReportFooter } from "./ReportFooter.tsx";
+import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
+import {
+  HIDE_ZERO_ROWS_HINT,
+  isBottleOilStockSalesReportEmpty,
+} from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 
 
@@ -295,20 +298,29 @@ export function BottleOilStockSalesReportDocument({
 }: {
   report: BottleOilStockSalesReport;
 }) {
-  return (
-    <div class="scr-document wpp-pack-page">
-      <ReportHeader
-        companyName={report.settings.companyName}
-        department={report.settings.department ?? null}
-        serviceName={report.settings.serviceName ?? null}
-        title={`BOTTLE OIL STOCK AND SALES TODATE AS AT ${formatDisplayDate(report.asAtIso)}`}
-      />
+  const empty = isBottleOilStockSalesReportEmpty(report);
 
+  return (
+    <ReportDocumentShell
+      className="scr-document wpp-pack-page"
+      isEmpty={empty}
+      emptyMessage="No bottle-oil stock or sales to display."
+      emptyHint={HIDE_ZERO_ROWS_HINT}
+      comments={report.comments}
+      signatoryName={report.settings.signatoryName}
+      signatoryTitle={report.settings.signatoryTitle}
+      header={
+        <ReportHeader
+          companyName={report.settings.companyName}
+          department={report.settings.department ?? null}
+          serviceName={report.settings.serviceName ?? null}
+          title={`BOTTLE OIL STOCK AND SALES TODATE AS AT ${formatDisplayDate(report.asAtIso)}`}
+        />
+      }
+    >
       <StockSection section={report.stockSection} />
       <SalesSection section={report.salesSection} />
-      <ReportCommentsSection comments={report.comments} />
-      <ReportFooter name={report.settings.signatoryName} label={report.settings.signatoryTitle} />
-    </div>
+    </ReportDocumentShell>
   );
 }
 

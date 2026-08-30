@@ -7,6 +7,8 @@ import { applyMovement } from "./post.js";
 import {
   productRequiresSalesTankForLooseSale,
   productOmitsStorageLocationById,
+  resolveStockProductId,
+  loadStockIntakeOilGrouping,
 } from "./productStorage.js";
 
 export { getSellableBalanceAsOf } from "./asOfBalance.js";
@@ -141,6 +143,7 @@ export function assertSaleLinesStockAsOf(
 ): void {
   const asOf = args.dateIssued.slice(0, 10);
   const reserved = new Map<string, number>();
+  const groupingEnabled = loadStockIntakeOilGrouping(db);
 
   for (const line of args.lines) {
     const rawQty = args.isBottleMode ? (line.qtyUnits ?? line.qtyKg) : line.qtyKg;
@@ -149,23 +152,28 @@ export function assertSaleLinesStockAsOf(
       continue;
     }
 
-    const omitsStorage = productOmitsStorageLocationById(db, line.productId);
+    const stockProductId = resolveStockProductId(
+      db,
+      line.productId,
+      groupingEnabled,
+    );
+    const omitsStorage = productOmitsStorageLocationById(db, stockProductId);
     const storageLocationId = omitsStorage
       ? null
       : resolveSaleLineStorageLocation(
           db,
           args.salesPointId,
-          line.productId,
+          stockProductId,
           line.storageLocationId ?? null,
           args.isBottleMode,
         );
 
-    const key = `${line.productId}:${storageLocationId ?? "null"}`;
+    const key = `${stockProductId}:${storageLocationId ?? "null"}`;
     const alreadyReserved = reserved.get(key) ?? 0;
     const available = getSellableBalanceAsOf(
       db,
       args.salesPointId,
-      line.productId,
+      stockProductId,
       storageLocationId,
       asOf,
       args.excludeSaleId,
@@ -256,6 +264,7 @@ export function deductStockForValidatedSale(
   const movementAt = sale.dateIssued
     ? noonOnDate(String(sale.dateIssued))
     : occurredAt;
+  const groupingEnabled = loadStockIntakeOilGrouping(db);
 
   const lines = db
     .prepare(
@@ -278,20 +287,25 @@ export function deductStockForValidatedSale(
       continue;
     }
 
-    const omitsStorage = productOmitsStorageLocationById(db, line.productId);
+    const stockProductId = resolveStockProductId(
+      db,
+      line.productId,
+      groupingEnabled,
+    );
+    const omitsStorage = productOmitsStorageLocationById(db, stockProductId);
     const storageLocationId = omitsStorage
       ? null
       : resolveSaleLineStorageLocation(
           db,
           sale.salesPointId,
-          line.productId,
+          stockProductId,
           line.storageLocationId,
           isBottleMode,
         );
 
     applyMovement(db, {
       salesPointId: sale.salesPointId,
-      productId: line.productId,
+      productId: stockProductId,
       storageLocationId,
       qty: formatQty(qty),
       kind: "SALE",

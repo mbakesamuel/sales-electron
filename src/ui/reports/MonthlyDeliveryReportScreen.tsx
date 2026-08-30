@@ -5,10 +5,13 @@ import type {
   MonthlyDeliveryReport,
 } from "../../shared/reports.types.ts";
 import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
-import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
-import { ReportFooter } from "./ReportFooter.tsx";
+import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
+import {
+  HIDE_ZERO_ROWS_HINT,
+  isMonthlyDeliveryReportEmpty,
+} from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 import "./MonthlyDeliveryReport.css";
 
@@ -444,24 +447,23 @@ export function MonthlyDeliveryReportScreen({
         </button>
       </div>
 
-      <div class="scr-document mdr-document sr-stock-compact">
-        <ReportHeader
-          companyName={report.settings.companyName}
-          department={report.settings.department ?? null}
-          serviceName={report.settings.serviceName ?? null}
-          title="Monthly delivery / value"
-         /*  meta={
-            <>
-              <p class="scr-meta-line">{report.reportTitle}</p>
-              <p class="scr-as-at">
-                AS at{" "}
-                <span class="scr-as-at-date">{formatDisplayDate(report.asAtIso)}</span>
-              </p>
-              <p class="scr-generated">{formatDisplayDate(report.asAtIso)}</p>
-            </>
-          } */
-        />
-
+      <ReportDocumentShell
+        className="scr-document mdr-document sr-stock-compact"
+        isEmpty={isMonthlyDeliveryReportEmpty(report)}
+        emptyMessage="No delivery data for this period."
+        emptyHint={HIDE_ZERO_ROWS_HINT}
+        comments={report.comments}
+        signatoryName={report.settings.signatoryName}
+        signatoryTitle={report.settings.signatoryTitle}
+        header={
+          <ReportHeader
+            companyName={report.settings.companyName}
+            department={report.settings.department ?? null}
+            serviceName={report.settings.serviceName ?? null}
+            title="Monthly delivery / value"
+          />
+        }
+      >
         {report.sections.map((section) => (
           <div key={section.sectionNo} class="scr-bottled-block mdr-section">
             <table class="scr-table mdr-table">
@@ -549,9 +551,7 @@ export function MonthlyDeliveryReportScreen({
           or before as-at. G.TOTAL includes P. KERNEL (000 FCFA). Delivery tables above remain
           half-scoped (Jan–Jun or Jul–Dec).
         </p>
-        <ReportCommentsSection comments={report.comments} />
-        <ReportFooter name={report.settings.signatoryName} label={report.settings.signatoryTitle} />
-      </div>
+      </ReportDocumentShell>
     </div>
   );
 }

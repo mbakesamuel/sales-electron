@@ -3,9 +3,17 @@ import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts"
 import { canWriteRouteFromSnapshot } from "../../shared/permissionUtils.ts";
 import type {
   CarryForwardStockFormOptions,
+  CarryForwardStockProductOption,
   CarryForwardStockRow,
 } from "../../shared/carryForwardStock.types.ts";
+import type { ProductOption } from "../../shared/stock.types.ts";
 import type { OpenPostingPeriod } from "../../shared/financialYears.types.ts";
+import {
+  buildReceiptIntakeGroups,
+  filterReceiptPickerProducts,
+  receiptIntakeDisplayName,
+  resolveIntakeProductId,
+} from "../../shared/stockIntakeGroups.ts";
 import type { AuthUser } from "../auth/session.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
@@ -53,9 +61,9 @@ function isBottleOilStoreLocation(name: string): boolean {
 }
 
 function productsForLocation(
-  products: CarryForwardStockFormOptions["products"],
+  products: CarryForwardStockProductOption[],
   locationName: string | null,
-): CarryForwardStockFormOptions["products"] {
+): CarryForwardStockProductOption[] {
   const withLocation = products.filter(
     (product) => !product.omitsStorageLocation,
   );
@@ -68,14 +76,49 @@ function productsForLocation(
   );
 }
 
+function toProductOptions(
+  products: CarryForwardStockProductOption[],
+): ProductOption[] {
+  return products.map((product) => ({
+    productId: product.productId,
+    productName: product.productName,
+    uom: product.uom,
+    isBottled: product.isBottled,
+    isLoosePalmOil: false,
+    omitsStorageLocation: product.omitsStorageLocation,
+    stockIntakeGroup: product.stockIntakeGroup,
+    stockPoolProductId: product.stockPoolProductId,
+    excludeFromSales: product.excludeFromSales,
+    isStockPool: product.isStockPool,
+  }));
+}
+
+function pickerProductsForLine(
+  allProducts: CarryForwardStockProductOption[],
+  locationName: string | null,
+  lineOmitsStorage: boolean,
+  storageLocationId: string,
+  groupingEnabled: boolean,
+): ProductOption[] {
+  const base = lineOmitsStorage
+    ? omitStorageProducts(allProducts)
+    : storageLocationId
+      ? productsForLocation(allProducts, locationName)
+      : [
+          ...productsForLocation(allProducts, locationName),
+          ...omitStorageProducts(allProducts),
+        ];
+  return filterReceiptPickerProducts(toProductOptions(base), groupingEnabled);
+}
+
 function omitStorageProducts(
-  products: CarryForwardStockFormOptions["products"],
-): CarryForwardStockFormOptions["products"] {
+  products: CarryForwardStockProductOption[],
+): CarryForwardStockProductOption[] {
   return products.filter((product) => product.omitsStorageLocation);
 }
 
 function findProduct(
-  products: CarryForwardStockFormOptions["products"],
+  products: CarryForwardStockProductOption[],
   productId: string,
 ) {
   if (!productId) {
@@ -209,6 +252,13 @@ export function CarryForwardStockScreen({
     setBatchOccurredAt(clampIsoDateToRange(utcIsoDateToday(), postingPeriod));
     if (prefill) {
       setBatchSalesPointId(String(prefill.salesPointId));
+      const allProducts = options?.products ?? [];
+      const prefillProduct = findProduct(allProducts, String(prefill.productId));
+      const resolvedProductId = resolveIntakeProductId(
+        String(prefill.productId),
+        prefillProduct,
+        options?.stockIntakeOilGrouping ?? false,
+      );
       setBatchLines([
         {
           key: newLineKey(),
@@ -216,7 +266,7 @@ export function CarryForwardStockScreen({
             prefill.storageLocationId != null
               ? String(prefill.storageLocationId)
               : "",
-          productId: String(prefill.productId),
+          productId: resolvedProductId,
           onHandQty: String(Math.round(prefill.currentQty)),
         },
       ]);
@@ -289,10 +339,17 @@ export function CarryForwardStockScreen({
       if (!line.productId || line.onHandQty.trim() === "") {
         continue;
       }
-      const productId = Number.parseInt(line.productId, 10);
       const onHandQty = Number.parseFloat(
         line.onHandQty.trim().replace(",", "."),
       );
+
+      const product = findProduct(options?.products ?? [], line.productId);
+      const postingProductId = resolveIntakeProductId(
+        line.productId,
+        product,
+        options?.stockIntakeOilGrouping ?? false,
+      );
+      const productId = Number.parseInt(postingProductId, 10);
       if (
         !Number.isFinite(productId) ||
         !Number.isFinite(onHandQty) ||
@@ -302,7 +359,6 @@ export function CarryForwardStockScreen({
         return;
       }
 
-      const product = findProduct(options?.products ?? [], line.productId);
       let storageLocationId: number | null;
       if (product?.omitsStorageLocation) {
         if (line.storageLocationId) {
@@ -592,33 +648,63 @@ export function CarryForwardStockScreen({
                   <tbody>
                     {batchLines.map((line) => {
                       const allProducts = options?.products ?? [];
-                      const selectedProduct = findProduct(
+                      const groupingEnabled =
+                        options?.stockIntakeOilGrouping ?? false;
+                      const rawSelectedProduct = findProduct(
                         allProducts,
                         line.productId,
                       );
+                      const selectProductId = resolveIntakeProductId(
+                        line.productId,
+                        rawSelectedProduct,
+                        groupingEnabled,
+                      );
+                      const selectedProduct =
+                        findProduct(allProducts, selectProductId) ??
+                        rawSelectedProduct;
                       const lineOmitsStorage =
                         selectedProduct?.omitsStorageLocation ?? false;
                       const selectedLocation = locationsForSalesPoint.find(
                         (loc) => String(loc.id) === line.storageLocationId,
                       );
-                      const locationProductOptions = productsForLocation(
+                      const bottledLocation = selectedLocation
+                        ? isBottleOilStoreLocation(selectedLocation.name)
+                        : false;
+                      const pickerProducts = pickerProductsForLine(
                         allProducts,
                         selectedLocation?.name ?? null,
+                        lineOmitsStorage,
+                        line.storageLocationId,
+                        groupingEnabled,
                       );
-                      const productOptions = lineOmitsStorage
-                        ? omitStorageProducts(allProducts)
-                        : line.storageLocationId
-                          ? locationProductOptions
-                          : [
-                              ...locationProductOptions,
-                              ...omitStorageProducts(allProducts),
-                            ];
+                      const intakeGroups =
+                        groupingEnabled &&
+                        !lineOmitsStorage &&
+                        !bottledLocation &&
+                        pickerProducts.length > 0
+                          ? buildReceiptIntakeGroups(
+                              toProductOptions(
+                                line.storageLocationId
+                                  ? productsForLocation(
+                                      allProducts,
+                                      selectedLocation?.name ?? null,
+                                    )
+                                  : [
+                                      ...productsForLocation(
+                                        allProducts,
+                                        selectedLocation?.name ?? null,
+                                      ),
+                                      ...omitStorageProducts(allProducts),
+                                    ],
+                              ),
+                            )
+                          : null;
                       return (
                         <tr key={line.key}>
                           <td>
                             <select
                               class="cf-line-select"
-                              value={line.productId}
+                              value={selectProductId}
                               disabled={saving}
                               onChange={(event) => {
                                 const nextProductId = (
@@ -638,17 +724,37 @@ export function CarryForwardStockScreen({
                               }}
                             >
                               <option value="">Select product…</option>
-                              {productOptions.map((product) => (
-                                <option
-                                  key={product.productId}
-                                  value={product.productId}
-                                >
-                                  {product.productName} ({product.uom})
-                                  {product.omitsStorageLocation
-                                    ? " · no location"
-                                    : ""}
-                                </option>
-                              ))}
+                              {intakeGroups
+                                ? intakeGroups.map((group) => (
+                                    <optgroup
+                                      key={group.key}
+                                      label={group.label}
+                                    >
+                                      {group.products.map((product) => (
+                                        <option
+                                          key={product.productId}
+                                          value={product.productId}
+                                        >
+                                          {receiptIntakeDisplayName(product)} (
+                                          {product.uom})
+                                          {product.omitsStorageLocation
+                                            ? " · no location"
+                                            : ""}
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  ))
+                                : pickerProducts.map((product) => (
+                                    <option
+                                      key={product.productId}
+                                      value={product.productId}
+                                    >
+                                      {product.productName} ({product.uom})
+                                      {product.omitsStorageLocation
+                                        ? " · no location"
+                                        : ""}
+                                    </option>
+                                  ))}
                             </select>
                           </td>
                           <td>
@@ -668,16 +774,19 @@ export function CarryForwardStockScreen({
                                       (loc) =>
                                         String(loc.id) === nextLocationId,
                                     );
-                                  const nextProducts = productsForLocation(
+                                  const nextProducts = pickerProductsForLine(
                                     allProducts,
                                     nextLocation?.name ?? null,
+                                    false,
+                                    nextLocationId,
+                                    groupingEnabled,
                                   );
                                   const productStillValid =
-                                    !line.productId ||
+                                    !selectProductId ||
                                     nextProducts.some(
                                       (product) =>
                                         String(product.productId) ===
-                                        line.productId,
+                                        selectProductId,
                                     );
                                   updateLine(line.key, {
                                     storageLocationId: nextLocationId,

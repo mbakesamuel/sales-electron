@@ -7,10 +7,13 @@ import type {
   StockCommitmentReportRow,
 } from "../../shared/reports.types.ts";
 import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
-import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
-import { ReportFooter } from "./ReportFooter.tsx";
+import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
+import {
+  HIDE_ZERO_ROWS_HINT,
+  isStockCommitmentReportEmpty,
+} from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 
 
@@ -189,15 +192,26 @@ export function StockCommitmentReportDocument({
 }: {
   report: StockCommitmentReport;
 }) {
-  return (
-    <div class="scr-document sr-stock-compact wpp-pack-page">
-      <ReportHeader
-        companyName={report.settings.companyName}
-        department={report.settings.department ?? null}
-        serviceName={report.settings.serviceName ?? null}
-        title={`STOCK VS COMMITMENTS AS AT ${formatDisplayDate(report.asAtIso)}`}
-      />
+  const empty = isStockCommitmentReportEmpty(report);
 
+  return (
+    <ReportDocumentShell
+      className="scr-document sr-stock-compact wpp-pack-page"
+      isEmpty={empty}
+      emptyMessage="No stock or commitment quantities to display."
+      emptyHint={HIDE_ZERO_ROWS_HINT}
+      comments={report.comments}
+      signatoryName={report.settings.signatoryName}
+      signatoryTitle={report.settings.signatoryTitle}
+      header={
+        <ReportHeader
+          companyName={report.settings.companyName}
+          department={report.settings.department ?? null}
+          serviceName={report.settings.serviceName ?? null}
+          title={`STOCK VS COMMITMENTS AS AT ${formatDisplayDate(report.asAtIso)}`}
+        />
+      }
+    >
       <table class="scr-table">
         <thead>
           <tr>
@@ -232,11 +246,10 @@ export function StockCommitmentReportDocument({
         </tbody>
       </table>
 
-      {report.bottledSection ? <BottledSection section={report.bottledSection} /> : null}
-
-      <ReportCommentsSection comments={report.comments} />
-      <ReportFooter name={report.settings.signatoryName} label={report.settings.signatoryTitle} />
-    </div>
+      {report.bottledSection ? (
+        <BottledSection section={report.bottledSection} />
+      ) : null}
+    </ReportDocumentShell>
   );
 }
 

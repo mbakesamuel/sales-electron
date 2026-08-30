@@ -7,131 +7,18 @@ import {
   loadReportCompanySettings,
   loadReportComments,
 } from "./companySettings.js";
-import { loadSalesPoints, nowIso, parseQty } from "./shared.js";
-
-const SUMMARY_ROWS = [
-  { id: "industries", label: "INDUSTRIES" },
-  { id: "wholesales", label: "WHOLE SALE" },
-  { id: "retail", label: "RETAIL" },
-  { id: "cdcWorkers", label: "CDC WORKERS" },
-  { id: "proSamples", label: "PRO/SAMPLES" },
-] as const;
-
-type DailyCustomerCategory = (typeof SUMMARY_ROWS)[number]["id"];
-
-interface RawSaleLine {
-  saleId: string;
-  soldAt: string;
-  createdAt: string;
-  customerName: string;
-  deliveryOrderNo: string | null;
-  dateIssued: string;
-  vehicleNumber: string;
-  saleDisposition: string | null;
-  productId: number;
-  productName: string;
-  isBottled: number;
-  qtyKg: number;
-  qtyUnits: number | null;
-  customerTypeCode: string;
-  customerTypeName: string;
-}
+import {
+  DAILY_SALES_SUMMARY_ROWS,
+  lineQuantity,
+  loadRawSaleLinesForRange,
+  resolveDailyCustomerCategory,
+  type DailyCustomerCategory,
+} from "./dailySalesShared.js";
+import { loadSalesPoints, nowIso } from "./shared.js";
 
 function normalizeReportDate(value: string): string | null {
   const trimmed = value.trim();
   return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null;
-}
-
-function resolveDailyCustomerCategory(
-  saleDisposition: string | null,
-  customerTypeCode: string,
-  customerTypeName: string,
-): DailyCustomerCategory {
-  if (saleDisposition === "PUBLIC_RELATION") {
-    return "proSamples";
-  }
-  if (saleDisposition === "RATION") {
-    return "cdcWorkers";
-  }
-
-  const text = `${customerTypeCode} ${customerTypeName}`.toUpperCase();
-  if (text.includes("WHOLESALE")) {
-    return "wholesales";
-  }
-  if (text.includes("RETAIL")) {
-    return "retail";
-  }
-  if (text.includes("INDUSTR")) {
-    return "industries";
-  }
-  return "cdcWorkers";
-}
-
-function lineQuantity(line: RawSaleLine): number {
-  if (line.isBottled === 1) {
-    return line.qtyUnits ?? line.qtyKg;
-  }
-  return line.qtyKg;
-}
-
-function loadRawSaleLines(
-  reportDateIso: string,
-  salesPointId: number | null,
-): RawSaleLine[] {
-  const params: Array<string | number> = [reportDateIso];
-  let salesPointClause = "";
-
-  if (salesPointId != null && Number.isFinite(salesPointId)) {
-    salesPointClause = " AND s.salesPointId = ?";
-    params.push(salesPointId);
-  }
-
-  return getDatabase()
-    .prepare(
-      `SELECT s.id AS saleId, s.soldAt, s.createdAt,
-              s.customerNameSnapshot AS customerName, s.deliveryOrderNo, s.dateIssued,
-              s.vehicleNumber, s.saleDisposition,
-              sl.productId, p.productName,
-              COALESCE(pc.isBottled, 0) AS isBottled,
-              sl.qtyKg, sl.qtyUnits,
-              ct.code AS customerTypeCode, ct.name AS customerTypeName
-       FROM Sale s
-       INNER JOIN SaleLine sl ON sl.saleId = s.id
-       INNER JOIN Product p ON p.productId = sl.productId
-       LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
-       LEFT JOIN Customer c ON c.id = s.customerId
-       LEFT JOIN CustomerTypeDefinition ct ON ct.id = c.customerTypeId
-       WHERE s.status = 'VALIDATED'
-         AND substr(s.dateIssued, 1, 10) = ?
-         ${salesPointClause}
-       ORDER BY p.productName ASC, s.soldAt ASC, s.createdAt ASC, s.id ASC, sl.id ASC`,
-    )
-    .all(...params)
-    .map((row) => ({
-      saleId: String((row as { saleId: string }).saleId),
-      soldAt: String((row as { soldAt: string }).soldAt),
-      createdAt: String((row as { createdAt: string }).createdAt),
-      customerName: String((row as { customerName: string }).customerName),
-      deliveryOrderNo: (row as { deliveryOrderNo: string | null }).deliveryOrderNo
-        ? String((row as { deliveryOrderNo: string }).deliveryOrderNo)
-        : null,
-      dateIssued: String((row as { dateIssued: string }).dateIssued),
-      vehicleNumber: String((row as { vehicleNumber: string }).vehicleNumber),
-      saleDisposition: (row as { saleDisposition: string | null }).saleDisposition,
-      productId: (row as { productId: number }).productId,
-      productName: String((row as { productName: string }).productName),
-      isBottled: (row as { isBottled: number }).isBottled,
-      qtyKg: parseQty((row as { qtyKg: string }).qtyKg),
-      qtyUnits: (row as { qtyUnits: string | null }).qtyUnits
-        ? parseQty((row as { qtyUnits: string }).qtyUnits)
-        : null,
-      customerTypeCode: String(
-        (row as { customerTypeCode: string | null }).customerTypeCode ?? "",
-      ),
-      customerTypeName: String(
-        (row as { customerTypeName: string | null }).customerTypeName ?? "",
-      ),
-    }));
 }
 
 function loadDoOrderQty(deliveryOrderNo: string, productId: number): number | null {
@@ -219,7 +106,7 @@ function resolveDoBalance(
 }
 
 export function getDailySalesReport(
-  _userId: string,
+  userId: string,
   reportDateIso: string,
   salesPointId?: number | null,
 ): DailySalesReport {
@@ -239,7 +126,12 @@ export function getDailySalesReport(
       : (salesPointOptions.find((point) => point.id === selectedSalesPointId)?.name ??
         "UNKNOWN SALES POINT");
 
-  const rawLines = loadRawSaleLines(normalizedDate, selectedSalesPointId);
+  const rawLines = loadRawSaleLinesForRange(
+    normalizedDate,
+    normalizedDate,
+    selectedSalesPointId,
+    null,
+  );
 
   const doPairs = Array.from(
     new Map(
@@ -257,7 +149,7 @@ export function getDailySalesReport(
   const doBalanceLookup = buildDoBalanceLookup(normalizedDate, doPairs);
 
   const summaryTotals = new Map<DailyCustomerCategory, number>(
-    SUMMARY_ROWS.map((row) => [row.id, 0]),
+    DAILY_SALES_SUMMARY_ROWS.map((row) => [row.id, 0]),
   );
 
   const sectionsByProduct = new Map<
@@ -323,7 +215,7 @@ export function getDailySalesReport(
     0,
   );
 
-  const summaryRows = SUMMARY_ROWS.map((row) => ({
+  const summaryRows = DAILY_SALES_SUMMARY_ROWS.map((row) => ({
     id: row.id,
     label: row.label,
     quantity: summaryTotals.get(row.id) ?? 0,
@@ -331,7 +223,7 @@ export function getDailySalesReport(
   const summaryGrandTotal = summaryRows.reduce((total, row) => total + row.quantity, 0);
 
   return {
-    settings: loadReportCompanySettings(undefined, normalizedDate),
+    settings: loadReportCompanySettings(userId, normalizedDate),
     reportDateIso: normalizedDate,
     selectedSalesPointId,
     salesPointLabel,

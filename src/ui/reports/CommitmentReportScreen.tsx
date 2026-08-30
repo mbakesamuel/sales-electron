@@ -3,10 +3,10 @@ import { getAuthenticatedReports } from "../auth/reports.ts";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type { CommitmentReport, CommitmentReportSection } from "../../shared/reports.types.ts";
 import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
-import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
-import { ReportFooter } from "./ReportFooter.tsx";
+import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
+import { isCommitmentReportEmpty, HIDE_ZERO_ROWS_HINT } from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 
 
@@ -114,48 +114,51 @@ function CommitmentSection({ section }: { section: CommitmentReportSection }) {
 }
 
 export function CommitmentReportDocument({ report }: { report: CommitmentReport }) {
-  return (
-    <div class="scr-document sr-stock-compact wpp-pack-page">
-      <ReportHeader
-        companyName={report.settings.companyName}
-        department={report.settings.department ?? null}
-        serviceName={report.settings.serviceName ?? null}
-        title={`COMMITMENTS AS AT ${formatDisplayDate(report.asAtIso)}`}
-      />
+  const empty = isCommitmentReportEmpty(report);
 
-      {report.sections.length === 0 ? (
-        <p class="scr-status">No product categories configured.</p>
-      ) : (
-        <>
-          {report.sections.map((section) => (
-            <CommitmentSection key={section.sectionLetter} section={section} />
-          ))}
-          {report.salesPointNames.length > 0 ? (
-            <div class="scr-bottled-block">
-              <table class="scr-table scr-category-matrix">
-                <thead>
-                  <tr />
-                  <tr />
-                </thead>
-                <tbody>
-                  <tr class="scr-row scr-row-total">
-                    <td>GRAND TOTAL</td>
-                    {report.columnTotals.map((qty, index) => (
-                      <td key={`gt-${index}`} class="scr-num">
-                        {formatQty(qty)}
-                      </td>
-                    ))}
-                    <td class="scr-num">{formatQty(report.grandTotal)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          ) : null}
-        </>
-      )}
-      <ReportCommentsSection comments={report.comments} />
-      <ReportFooter name={report.settings.signatoryName} label={report.settings.signatoryTitle} />
-    </div>
+  return (
+    <ReportDocumentShell
+      className="scr-document sr-stock-compact wpp-pack-page"
+      isEmpty={empty}
+      emptyMessage="No commitment quantities to display."
+      emptyHint={HIDE_ZERO_ROWS_HINT}
+      comments={report.comments}
+      signatoryName={report.settings.signatoryName}
+      signatoryTitle={report.settings.signatoryTitle}
+      header={
+        <ReportHeader
+          companyName={report.settings.companyName}
+          department={report.settings.department ?? null}
+          serviceName={report.settings.serviceName ?? null}
+          title={`COMMITMENTS AS AT ${formatDisplayDate(report.asAtIso)}`}
+        />
+      }
+    >
+      {report.sections.map((section) => (
+        <CommitmentSection key={section.sectionLetter} section={section} />
+      ))}
+      {report.salesPointNames.length > 0 ? (
+        <div class="scr-bottled-block">
+          <table class="scr-table scr-category-matrix">
+            <thead>
+              <tr />
+              <tr />
+            </thead>
+            <tbody>
+              <tr class="scr-row scr-row-total">
+                <td>GRAND TOTAL</td>
+                {report.columnTotals.map((qty, index) => (
+                  <td key={`gt-${index}`} class="scr-num">
+                    {formatQty(qty)}
+                  </td>
+                ))}
+                <td class="scr-num">{formatQty(report.grandTotal)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </ReportDocumentShell>
   );
 }
 

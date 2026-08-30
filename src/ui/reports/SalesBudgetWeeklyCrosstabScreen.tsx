@@ -9,10 +9,10 @@ import {
   salesBudgetCrosstabCellKey,
 } from "../../shared/salesBudgetPhase.ts";
 import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
-import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
-import { ReportFooter } from "./ReportFooter.tsx";
+import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
+import { salesBudgetWeeklyCrosstabEmptyMessage } from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 import "./SalesBudgetCrosstab.css";
 
@@ -104,15 +104,25 @@ export function SalesBudgetWeeklyCrosstabDocument({
   report: SalesBudgetWeeklyCrosstabReport;
   qtyMap: Map<string, number>;
 }) {
-  return (
-    <div class="scr-document wpp-pack-page wpp-pack-crosstab">
-      <ReportHeader
-        companyName={report.settings.companyName}
-        department={report.settings.department}
-        serviceName={report.settings.serviceName}
-        title="Sales budget — weekly phasing crosstab (kg)"
-      />
+  const emptyMessage = salesBudgetWeeklyCrosstabEmptyMessage(report);
 
+  return (
+    <ReportDocumentShell
+      className="scr-document wpp-pack-page wpp-pack-crosstab"
+      isEmpty={emptyMessage !== null}
+      emptyMessage={emptyMessage ?? ""}
+      comments={report.comments}
+      signatoryName={report.settings.signatoryName}
+      signatoryTitle={report.settings.signatoryTitle}
+      header={
+        <ReportHeader
+          companyName={report.settings.companyName}
+          department={report.settings.department}
+          serviceName={report.settings.serviceName}
+          title="Sales budget — weekly phasing crosstab (kg)"
+        />
+      }
+    >
       <div>
         <p class="sbc-intro">
           Calendar year <strong>{report.reportYear}</strong>. Rows are ISO weeks; columns are
@@ -122,22 +132,8 @@ export function SalesBudgetWeeklyCrosstabDocument({
         <p class="sbc-intro-meta">Generated {formatGeneratedAt(report.generatedAtIso)}</p>
       </div>
 
-      {!report.hasAnyBudget ? (
-        <p class="sbc-empty">
-          No product sales budgets are defined yet. Use Sales budgets to add annual quantities.
-        </p>
-      ) : report.categoriesInReport.length === 0 ? (
-        <p class="sbc-empty">
-          No category budgets for this year. Use Sales budgets to add annual quantities.
-        </p>
-      ) : report.sortedWeeks.length === 0 ? (
-        <p class="sbc-empty">
-          No phased weeks fall in this calendar year for the loaded budgets (check financial year
-          boundaries and budgets).
-        </p>
-      ) : (
-        <div class="sbc-table-wrap">
-          <table class="sbc-table sbc-table-weekly">
+      <div class="sbc-table-wrap">
+        <table class="sbc-table sbc-table-weekly">
             <thead>
               <tr>
                 <th rowSpan={2} class="sbc-sticky-col sbc-week-col">
@@ -219,11 +215,7 @@ export function SalesBudgetWeeklyCrosstabDocument({
             </tfoot>
           </table>
         </div>
-      )}
-
-      <ReportCommentsSection comments={report.comments} />
-      <ReportFooter name={report.settings.signatoryName} label={report.settings.signatoryTitle} />
-    </div>
+    </ReportDocumentShell>
   );
 }
 
@@ -327,14 +319,22 @@ export function SalesBudgetWeeklyCrosstabScreen({
         </div>
       </div>
 
-      <div class="scr-document">
-        <ReportHeader
-          companyName={report.settings.companyName}
-          department={report.settings.department}
-          serviceName={report.settings.serviceName}
-          title="Sales budget — weekly phasing crosstab (kg)"
-        />
-
+      <ReportDocumentShell
+        className="scr-document wpp-pack-page wpp-pack-crosstab"
+        isEmpty={salesBudgetWeeklyCrosstabEmptyMessage(report) !== null}
+        emptyMessage={salesBudgetWeeklyCrosstabEmptyMessage(report) ?? ""}
+        comments={report.comments}
+        signatoryName={report.settings.signatoryName}
+        signatoryTitle={report.settings.signatoryTitle}
+        header={
+          <ReportHeader
+            companyName={report.settings.companyName}
+            department={report.settings.department}
+            serviceName={report.settings.serviceName}
+            title="Sales budget — weekly phasing crosstab (kg)"
+          />
+        }
+      >
         <div>
           <p class="sbc-intro">
             Calendar year <strong>{report.reportYear}</strong>. Rows are ISO weeks; columns are
@@ -356,22 +356,8 @@ export function SalesBudgetWeeklyCrosstabScreen({
           <p class="sbc-intro-meta">Generated {formatGeneratedAt(report.generatedAtIso)}</p>
         </div>
 
-        {!report.hasAnyBudget ? (
-          <p class="sbc-empty">
-            No product sales budgets are defined yet. Use Sales budgets to add annual quantities.
-          </p>
-        ) : report.categoriesInReport.length === 0 ? (
-          <p class="sbc-empty">
-            No category budgets for this year. Use Sales budgets to add annual quantities.
-          </p>
-        ) : report.sortedWeeks.length === 0 ? (
-          <p class="sbc-empty">
-            No phased weeks fall in this calendar year for the loaded budgets (check financial year
-            boundaries and budgets).
-          </p>
-        ) : (
-          <div class="sbc-table-wrap">
-            <table class="sbc-table sbc-table-weekly">
+        <div class="sbc-table-wrap">
+          <table class="sbc-table sbc-table-weekly">
               <thead>
                 <tr>
                   <th rowSpan={2} class="sbc-sticky-col sbc-week-col">
@@ -453,11 +439,7 @@ export function SalesBudgetWeeklyCrosstabScreen({
               </tfoot>
             </table>
           </div>
-        )}
-
-        <ReportCommentsSection comments={report.comments} />
-        <ReportFooter name={report.settings.signatoryName} label={report.settings.signatoryTitle} />
-      </div>
+      </ReportDocumentShell>
     </div>
   );
 }

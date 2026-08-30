@@ -1,9 +1,13 @@
 import type Database from "better-sqlite3";
-import {
-  STORAGE_OMIT_STOCK_DOC_ERROR,
-  productOmitsStorageLocation,
-} from "../../shared/productStorageRules.js";
+import { STORAGE_OMIT_STOCK_DOC_ERROR } from "../../shared/productStorageRules.js";
 import { getDatabase } from "../db/index.js";
+
+function productHasOmitsStorageLocationColumn(db: Database.Database): boolean {
+  const columns = db
+    .prepare(`PRAGMA table_info(Product)`)
+    .all() as Array<{ name: string }>;
+  return columns.some((column) => column.name === "omitsStorageLocation");
+}
 
 export function productCatCodeForId(
   db: Database.Database,
@@ -24,7 +28,56 @@ export function productOmitsStorageLocationById(
   db: Database.Database,
   productId: number,
 ): boolean {
-  return productOmitsStorageLocation(productCatCodeForId(db, productId));
+  if (!productHasOmitsStorageLocationColumn(db)) {
+    return false;
+  }
+
+  const row = db
+    .prepare(`SELECT omitsStorageLocation FROM Product WHERE productId = ?`)
+    .get(productId) as { omitsStorageLocation: number } | undefined;
+
+  return Number(row?.omitsStorageLocation ?? 0) !== 0;
+}
+
+export function productHasStockBalance(
+  db: Database.Database,
+  productId: number,
+): boolean {
+  const row = db
+    .prepare(`SELECT 1 AS ok FROM StockBalance WHERE productId = ? LIMIT 1`)
+    .get(productId) as { ok: number } | undefined;
+  return row != null;
+}
+
+/** Block toggling omitsStorageLocation when product already has stock. */
+export function assertProductOmitsStorageLocationChangeAllowed(
+  db: Database.Database,
+  productId: number,
+  nextOmitsStorageLocation: unknown,
+): void {
+  if (!productHasOmitsStorageLocationColumn(db)) {
+    return;
+  }
+
+  const current = db
+    .prepare(`SELECT omitsStorageLocation FROM Product WHERE productId = ?`)
+    .get(productId) as { omitsStorageLocation: number } | undefined;
+
+  if (!current) {
+    return;
+  }
+
+  const prev = Number(current.omitsStorageLocation ?? 0) !== 0;
+  const next = Number(nextOmitsStorageLocation ?? 0) !== 0;
+  if (prev === next) {
+    return;
+  }
+
+  if (productHasStockBalance(db, productId)) {
+    throw new Error(
+      "Cannot change storage location setting while this product has stock. Clear or transfer stock first.",
+    );
+  }
 }
 
 /** Loose Palm Oil = ProductCat.isMain = 1. */
@@ -153,7 +206,7 @@ export function productRequiresSalesTankForLooseSale(
   );
 }
 
-/** Throws when any product is PKCP/PKP (no location-bound stock docs). */
+/** Throws when any product omits storage locations (no location-bound stock docs). */
 export function assertProductsAllowStorageLocation(
   db: Database.Database,
   productIds: number[],
@@ -165,7 +218,7 @@ export function assertProductsAllowStorageLocation(
   }
 }
 
-/** PKCP/PKP must use null location; all other products must not. */
+/** Products that use storage locations must have a location; no-location products must not. */
 export function assertMovementLocationRules(
   db: Database.Database,
   productId: number,
@@ -180,7 +233,90 @@ export function assertMovementLocationRules(
   }
 }
 
-/** SQL fragment: exclude PKCP/PKP category codes (alias for ProductCat). */
-export function storageOmitProductCatSql(aliasPc = "pc"): string {
-  return `UPPER(TRIM(COALESCE(${aliasPc}.productCode, ''))) NOT IN ('PKCP', 'PKP')`;
+/** SQL fragment: products that use storage locations (alias for Product). */
+export function storageLocationProductSql(aliasP = "p"): string {
+  return `COALESCE(${aliasP}.omitsStorageLocation, 0) = 0`;
+}
+
+function storageLocationHasAllowsMultiProductColumn(db: Database.Database): boolean {
+  const columns = db
+    .prepare(`PRAGMA table_info(StorageLocation)`)
+    .all() as Array<{ name: string }>;
+  return columns.some((column) => column.name === "allowsMultiProduct");
+}
+
+/** Drum / small-tank locations may hold multiple bulk products. */
+export function storageLocationAllowsMultiProductById(
+  db: Database.Database,
+  storageLocationId: number,
+): boolean {
+  if (!storageLocationHasAllowsMultiProductColumn(db)) {
+    return false;
+  }
+
+  const row = db
+    .prepare(`SELECT allowsMultiProduct FROM StorageLocation WHERE id = ?`)
+    .get(storageLocationId) as { allowsMultiProduct: number } | undefined;
+
+  return Number(row?.allowsMultiProduct ?? 0) !== 0;
+}
+
+export function loadStockIntakeOilGrouping(
+  db: ReturnType<typeof getDatabase> = getDatabase(),
+): boolean {
+  try {
+    const columns = db
+      .prepare(`PRAGMA table_info(CompanySettings)`)
+      .all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === "stockIntakeOilGrouping")) {
+      return false;
+    }
+
+    const row = db
+      .prepare(
+        `SELECT stockIntakeOilGrouping
+         FROM CompanySettings
+         WHERE id = 'default'`,
+      )
+      .get() as { stockIntakeOilGrouping: number | null } | undefined;
+
+    return Number(row?.stockIntakeOilGrouping ?? 0) !== 0;
+  } catch {
+    return false;
+  }
+}
+
+/** When grouping is on, invoice/sale lines on sludge grades deduct from the pool product. */
+export function resolveStockProductId(
+  db: Database.Database,
+  productId: number,
+  groupingEnabled = loadStockIntakeOilGrouping(db),
+): number {
+  if (!groupingEnabled) {
+    return productId;
+  }
+
+  const row = db
+    .prepare(`SELECT stockPoolProductId FROM Product WHERE productId = ?`)
+    .get(productId) as { stockPoolProductId: number | null } | undefined;
+
+  return row?.stockPoolProductId ?? productId;
+}
+
+export function productExcludeFromSalesById(
+  db: Database.Database,
+  productId: number,
+): boolean {
+  const columns = db
+    .prepare(`PRAGMA table_info(Product)`)
+    .all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === "excludeFromSales")) {
+    return false;
+  }
+
+  const row = db
+    .prepare(`SELECT excludeFromSales FROM Product WHERE productId = ?`)
+    .get(productId) as { excludeFromSales: number } | undefined;
+
+  return Number(row?.excludeFromSales ?? 0) !== 0;
 }

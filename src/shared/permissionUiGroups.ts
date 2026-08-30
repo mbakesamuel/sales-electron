@@ -118,6 +118,7 @@ export const PERMISSION_UI_GROUPS: readonly PermissionUiGroup[] = [
     routeIds: [
       // Daily
       "daily-sales-report",
+      "daily-sales-matrix-report",
       // Weekly
       "stock-commitment-report",
       "stock-report",
@@ -137,6 +138,8 @@ export const PERMISSION_UI_GROUPS: readonly PermissionUiGroup[] = [
       "bottled-palm-oil-sales-return-report",
       "monthly-bottled-oil-report",
       "other-product-sales-deliveries-report",
+      // Annual
+      "palm-oil-sales-activity-report",
       // Opened from bin card (not sidebar)
       "stock-bin-card-report",
     ],

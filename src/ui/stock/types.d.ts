@@ -1,4 +1,4 @@
-import type { BinCardQuery, BinCardReport, ReceiveTransferInput, SaveAdjustmentInput, SaveReceiptInput, SaveTransferInput, StockBalanceRow, StockBootstrap, StockGenericResult, StockMutationResult, StockProductFilter, StockValidateManyResult, StockValidationItem, StockValidationQueuePage, StockReceiveQueuePage } from "../../shared/stock.types.ts";
+import type { BinCardQuery, BinCardReport, ReceiveTransferInput, SaveAdjustmentInput, SaveReceiptInput, SaveTransferInput, StockBalanceRow, StockBootstrap, StockGenericResult, StockMutationResult, StockProductFilter, StockValidateManyResult, StockValidationItem, StockValidationQueuePage, StockReceiveQueuePage, ApplyStockIntakeOilGroupingResult, StockIntakeOilGroupingStatus } from "../../shared/stock.types.ts";
 type DocFilterPayload = {
     userId: string;
     productFilter?: StockProductFilter | null;
@@ -110,5 +110,10 @@ export interface StockApi {
         userId: string;
         items: StockValidationItem[];
     }): Promise<StockValidateManyResult>;
+    getIntakeOilGroupingStatus(): Promise<StockIntakeOilGroupingStatus>;
+    applyIntakeOilGrouping(payload: {
+        userId: string;
+        enabled: boolean;
+    }): Promise<ApplyStockIntakeOilGroupingResult>;
 }
 export {};

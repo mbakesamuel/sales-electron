@@ -17,6 +17,7 @@ import type {
   StockValidationItem,
   StockValidationQueuePage,
   StockReceiveQueuePage,
+  ApplyStockIntakeOilGroupingResult,
 } from "../../shared/stock.types.js";
 import { normalizeStockProductFilter } from "../../shared/stockModule.js";
 import {
@@ -27,6 +28,8 @@ import {
   findAdjustmentByNumber,
   findReceiptByNumber,
   findTransferByNumber,
+  applyStockIntakeOilGrouping,
+  getStockIntakeOilGroupingStatus,
   getStockBootstrap,
   listOnHandAsOf,
   loadAdjustmentForReview,
@@ -353,6 +356,23 @@ export function registerStockHandlers(): void {
         return { ok: false, error: "Login required." };
       }
       return validateStockDocuments(payload.userId, payload.items ?? []);
+    },
+  );
+
+  ipcMain.handle("stock:getIntakeOilGroupingStatus", () => {
+    return getStockIntakeOilGroupingStatus();
+  });
+
+  ipcMain.handle(
+    "stock:applyIntakeOilGrouping",
+    (
+      _event,
+      payload: { userId: string; enabled: boolean },
+    ): ApplyStockIntakeOilGroupingResult => {
+      if (!payload?.userId?.trim()) {
+        return { ok: false, error: "Login required." };
+      }
+      return applyStockIntakeOilGrouping(payload.userId, Boolean(payload.enabled));
     },
   );
 }

@@ -33,6 +33,7 @@ interface ProductRow {
   commercialServiceId: string;
   commercialServiceLabel: string;
   uom: string;
+  omitsStorageLocation: boolean;
   createdAt: string;
   updatedAt: string;
   raw: Record<string, unknown>;
@@ -316,6 +317,8 @@ export function ProductsScreen({ readOnly = false }: ProductsScreenProps = {}) {
               ? serviceMap.get(commercialServiceId) ?? commercialServiceId
               : "—",
             uom: String(row.uom ?? "Kg"),
+            omitsStorageLocation:
+              row.omitsStorageLocation === 1 || row.omitsStorageLocation === true,
             createdAt: formatDate(row.createdAt),
             updatedAt: formatDate(row.updatedAt),
             raw: row,
@@ -411,6 +414,12 @@ export function ProductsScreen({ readOnly = false }: ProductsScreenProps = {}) {
         value: categoryTabs.length,
         icon: IconLayers,
         className: "customers-stat-icon-violet",
+      },
+      {
+        label: "No location",
+        value: rows.filter((row) => row.omitsStorageLocation).length,
+        icon: IconLayers,
+        className: "customers-stat-icon-slate",
       },
       {
         label: "Main Products",
@@ -717,6 +726,7 @@ export function ProductsScreen({ readOnly = false }: ProductsScreenProps = {}) {
                 </th>
                 <SortableTh label="Product" col="productName" />
                 <SortableTh label="Category" col="categoryLabel" />
+                <th class="customers-col-hide-md">Location</th>
                 <SortableTh label="UOM" col="uom" className="customers-col-hide-md" />
                 <SortableTh
                   label="Created"
@@ -729,13 +739,13 @@ export function ProductsScreen({ readOnly = false }: ProductsScreenProps = {}) {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} class="customers-table-empty">
+                  <td colSpan={7} class="customers-table-empty">
                     Loading products…
                   </td>
                 </tr>
               ) : paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={6} class="customers-table-empty">
+                  <td colSpan={7} class="customers-table-empty">
                     No products match your search.
                   </td>
                 </tr>
@@ -766,6 +776,14 @@ export function ProductsScreen({ readOnly = false }: ProductsScreenProps = {}) {
                       <span class={categoryBadgeClass(row.categoryLabel)}>
                         {row.categoryLabel}
                       </span>
+                    </td>
+
+                    <td class="customers-col-hide-md">
+                      {row.omitsStorageLocation ? (
+                        <span class="customers-badge customers-badge-slate">No location</span>
+                      ) : (
+                        <span class="customers-muted">Required</span>
+                      )}
                     </td>
 
                     <td class="customers-col-hide-md">
@@ -847,6 +865,7 @@ export function ProductsScreen({ readOnly = false }: ProductsScreenProps = {}) {
               ["Category", viewRow.categoryLabel],
               ["Category code", viewRow.categoryCode],
               ["UOM", viewRow.uom],
+              ["Storage location", viewRow.omitsStorageLocation ? "No location" : "Required"],
               ["Commercial service", viewRow.commercialServiceLabel],
               ["Main category", viewRow.categoryIsMain ? "Yes" : "No"],
               ["Bottled category", viewRow.categoryIsBottled ? "Yes" : "No"],

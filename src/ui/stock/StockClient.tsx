@@ -9,6 +9,10 @@ import {
 } from "../../shared/stockModule.ts";
 import type { AuthUser } from "../auth/session.ts";
 import type { StockBootstrap } from "../../shared/stock.types.ts";
+import {
+  filterOnHandForStockModule,
+  filterStockModuleProducts,
+} from "../../shared/stockIntakeGroups.ts";
 import { BinCardScreen } from "./BinCardScreen.tsx";
 import { OnHandTab } from "./OnHandTab.tsx";
 import { MovementsTab } from "./MovementsTab.tsx";
@@ -122,6 +126,25 @@ export function StockClient({
     permissions,
     variant,
     activeStockTabId,
+  );
+
+  const stockModuleProducts = useMemo(
+    () =>
+      filterStockModuleProducts(
+        bootstrap.products,
+        bootstrap.stockIntakeOilGrouping,
+      ),
+    [bootstrap.products, bootstrap.stockIntakeOilGrouping],
+  );
+
+  const stockModuleOnHand = useMemo(
+    () =>
+      filterOnHandForStockModule(
+        bootstrap.onHand,
+        bootstrap.products,
+        bootstrap.stockIntakeOilGrouping,
+      ),
+    [bootstrap.onHand, bootstrap.products, bootstrap.stockIntakeOilGrouping],
   );
 
   function announceOk(text: string) {
@@ -254,6 +277,7 @@ export function StockClient({
             autoGenerateReceiptNo={bootstrap.autoGenerateReceiptNo}
             userId={user.id}
             viewProductFilter={productFilter}
+            stockIntakeOilGrouping={bootstrap.stockIntakeOilGrouping}
             onOk={announceOk}
             onErr={announceErr}
           />
@@ -264,8 +288,8 @@ export function StockClient({
             rows={bootstrap.transfers}
             salesPoints={bootstrap.salesPoints}
             storageLocations={bootstrap.storageLocations}
-            products={bootstrap.products}
-            onHand={bootstrap.onHand}
+            products={stockModuleProducts}
+            onHand={stockModuleOnHand}
             scopedSalesPointId={bootstrap.scopedSalesPointId}
             canDispatch={!tabReadOnly && bootstrap.canDispatchTransfers}
             canReceive={
@@ -295,8 +319,8 @@ export function StockClient({
             rows={bootstrap.adjustments}
             salesPoints={bootstrap.salesPoints}
             storageLocations={bootstrap.storageLocations}
-            products={bootstrap.products}
-            onHand={bootstrap.onHand}
+            products={stockModuleProducts}
+            onHand={stockModuleOnHand}
             scopedSalesPointId={bootstrap.scopedSalesPointId}
             canPost={!tabReadOnly && bootstrap.canPostAdjustments}
             canReclassify={!tabReadOnly && bootstrap.canReclassifyStock}

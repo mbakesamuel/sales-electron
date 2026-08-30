@@ -43,6 +43,7 @@ const ROUTE_GROUPS = {
     "bottled-weekly-issues-report",
     "sales-delivery-report",
     "daily-sales-report",
+    "daily-sales-matrix-report",
     "monthly-delivery-report-h1",
     "monthly-delivery-report-h2",
     "monthly-stock-reconciliation-report",
@@ -54,6 +55,7 @@ const ROUTE_GROUPS = {
     "bottled-palm-oil-sales-return-report",
     "monthly-bottled-oil-report",
     "other-product-sales-deliveries-report",
+    "palm-oil-sales-activity-report",
   ],
   organization: [
     "commercial-services",
