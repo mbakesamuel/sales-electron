@@ -25,7 +25,9 @@ export const REPORT_WINDOW_ROUTE_IDS = new Set([
   "palm-oil-sales-activity-report",
   "stock-bin-card-report",
   "sales-budget-monthly-crosstab",
+  "sales-budget-monthly-revenue-crosstab",
   "sales-budget-weekly-crosstab",
+  "sales-budget-weekly-revenue-crosstab",
 ]);
 
 export function parseReportWindowHash(hash = window.location.hash): string | null {

@@ -29,6 +29,28 @@ export function getCustomerTypeLabel(customerTypeId: string): string {
   return row?.name ?? row?.code ?? customerTypeId;
 }
 
+/** Staff/Worker (CDC workers) type — used for Ration disposition pricing. */
+export function getStaffWorkerCustomerTypeId(): string | null {
+  const row = getDatabase()
+    .prepare(
+      `SELECT id FROM CustomerTypeDefinition
+       WHERE isActive = 1
+         AND (
+           UPPER(code) LIKE '%STAFF%'
+           OR UPPER(name) LIKE '%STAFF%'
+           OR UPPER(code) LIKE '%WORKER%'
+           OR UPPER(name) LIKE '%WORKER%'
+           OR UPPER(code) LIKE '%RATION%'
+           OR UPPER(name) LIKE '%RATION%'
+         )
+       ORDER BY sortOrder ASC
+       LIMIT 1`,
+    )
+    .get() as { id: string } | undefined;
+
+  return row?.id ?? null;
+}
+
 /**
  * Latest schedule row with effectiveFrom <= transaction calendar day.
  * Bottled products use a single direct price (customerTypeId null).

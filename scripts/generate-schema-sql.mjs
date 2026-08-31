@@ -144,7 +144,8 @@ CREATE TABLE IF NOT EXISTS CompanySettings (
   stockTransferReceiveUsesDocumentDate INTEGER NOT NULL DEFAULT 0 CHECK (stockTransferReceiveUsesDocumentDate IN (0, 1)),
   looseSalesAllowPublicRelation INTEGER NOT NULL DEFAULT 0 CHECK (looseSalesAllowPublicRelation IN (0, 1)),
   looseSalesAllowUnregisteredCustomer INTEGER NOT NULL DEFAULT 0 CHECK (looseSalesAllowUnregisteredCustomer IN (0, 1)),
-  loosePalmOilRequireSalesTank INTEGER NOT NULL DEFAULT 1 CHECK (loosePalmOilRequireSalesTank IN (0, 1))
+  loosePalmOilRequireSalesTank INTEGER NOT NULL DEFAULT 1 CHECK (loosePalmOilRequireSalesTank IN (0, 1)),
+  salesInvoiceLockUnitPrice INTEGER NOT NULL DEFAULT 1 CHECK (salesInvoiceLockUnitPrice IN (0, 1))
 );
 
 CREATE TABLE IF NOT EXISTS DeliveryOrderSequence (

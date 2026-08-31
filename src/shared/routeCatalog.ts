@@ -63,8 +63,18 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
     sectionId: "sales-budget",
   },
   {
+    id: "sales-budget-monthly-revenue-crosstab",
+    label: "Sales budget revenue phasing (monthly)",
+    sectionId: "sales-budget",
+  },
+  {
     id: "sales-budget-weekly-crosstab",
     label: "Sales budget phasing (weekly)",
+    sectionId: "sales-budget",
+  },
+  {
+    id: "sales-budget-weekly-revenue-crosstab",
+    label: "Sales budget revenue phasing (weekly)",
     sectionId: "sales-budget",
   },
   {

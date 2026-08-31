@@ -9,6 +9,7 @@ import type {
   SalesProductOption,
   SalesStorageLocationBalanceOption,
 } from "./types.ts";
+import type { SaleDisposition } from "../../shared/sales.types.ts";
 
 export interface SalesLineDraft {
   productId: string;
@@ -25,13 +26,14 @@ interface SalesLineModalProps {
   salesPointId: number | null;
   preferredStorageLocationId?: string;
   isBottleMode: boolean;
-  isSpecialDisposition: boolean;
+  saleDisposition: SaleDisposition;
   useRegisteredCustomer: boolean;
   customerId: string;
   transactionDate: string;
   /** When true, Loose Palm Oil lines only list sales tank locations. */
   loosePalmOilRequireSalesTank?: boolean;
   mode: "add" | "edit";
+  lockUnitPriceFromSchedule: boolean;
   onClose: () => void;
   onSave: (line: SalesLineDraft) => void;
 }
@@ -54,12 +56,13 @@ export function SalesLineModal({
   salesPointId,
   preferredStorageLocationId = "",
   isBottleMode,
-  isSpecialDisposition: _isSpecialDisposition,
+  saleDisposition,
   useRegisteredCustomer,
   customerId,
   transactionDate,
   loosePalmOilRequireSalesTank = true,
   mode,
+  lockUnitPriceFromSchedule,
   onClose,
   onSave,
 }: SalesLineModalProps) {
@@ -89,8 +92,7 @@ export function SalesLineModal({
         ? "Enter the loose product, sales tank, and weight."
         : "Enter the loose product, location, and weight.";
 
-  const allowAutoUnitPrice =
-    isBottleMode || (useRegisteredCustomer && customerId.trim().length > 0);
+  const allowAutoUnitPrice = lockUnitPriceFromSchedule || isBottleMode;
 
   useEffect(() => {
     setDraft(line);
@@ -132,6 +134,7 @@ export function SalesLineModal({
       .sales.previewUnitPrice({
         productId,
         asOfDate: transactionDate,
+        saleDisposition,
         customerId:
           useRegisteredCustomer && customerId.trim()
             ? Number.parseInt(customerId, 10)
@@ -173,6 +176,7 @@ export function SalesLineModal({
     mode,
     transactionDate,
     useRegisteredCustomer,
+    saleDisposition,
   ]);
 
   useEffect(() => {
@@ -501,18 +505,24 @@ export function SalesLineModal({
             type="number"
             min="0"
             step="1"
+            readOnly={lockUnitPriceFromSchedule}
             value={
               isBottleMode ? draft.unitPricePerUnit : draft.unitPricePerKg
             }
-            onInput={(event) => {
-              const value = (event.currentTarget as HTMLInputElement).value;
-              setPriceError(null);
-              updateDraft(
-                isBottleMode
-                  ? { unitPricePerUnit: value, unitPricePerKg: value }
-                  : { unitPricePerKg: value },
-              );
-            }}
+            onInput={
+              lockUnitPriceFromSchedule
+                ? undefined
+                : (event) => {
+                    const value = (event.currentTarget as HTMLInputElement)
+                      .value;
+                    setPriceError(null);
+                    updateDraft(
+                      isBottleMode
+                        ? { unitPricePerUnit: value, unitPricePerKg: value }
+                        : { unitPricePerKg: value },
+                    );
+                  }
+            }
           />
           {priceLoading ? (
             <p class="form-dialog-hint">Resolving price from schedule…</p>
@@ -520,7 +530,10 @@ export function SalesLineModal({
             <p class="form-dialog-error">{priceError}</p>
           ) : allowAutoUnitPrice && draft.productId ? (
             <p class="form-dialog-hint">
-              Price from schedule as of {transactionDate}. You can override it manually.
+              Price from schedule as of {transactionDate}.
+              {lockUnitPriceFromSchedule
+                ? ""
+                : " You can override it manually."}
             </p>
           ) : null}
         </div>

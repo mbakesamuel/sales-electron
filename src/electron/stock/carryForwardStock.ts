@@ -6,7 +6,10 @@ import type {
   CarryForwardStockRow,
   UpsertCarryForwardStockBatchInput,
 } from "../../shared/carryForwardStock.types.js";
-import { assertRouteWrite } from "../auth/permissions/service.js";
+import {
+  assertRouteWrite,
+  carryForwardRequiresValidation,
+} from "../auth/permissions/service.js";
 import { getDatabase } from "../db/index.js";
 import { getOpenPostingPeriod, assertDateInOpenMonth } from "../financialYears/service.js";
 import { formatQty, parseQty } from "./decimal.js";
@@ -369,6 +372,7 @@ export function upsertCarryForwardStockBatch(
 
   const occurredAt = noonUtcIsoDate(occurredDate);
   const reason = (input.notes ?? "").trim() || "Carry-forward stock";
+  const requiresValidation = carryForwardRequiresValidation(input.userId);
 
   try {
     const result = db.transaction(() => {
@@ -395,6 +399,10 @@ export function upsertCarryForwardStockBatch(
         );
       }
 
+      if (requiresValidation) {
+        return { adjustmentNo, pendingValidation: true as const };
+      }
+
       for (const line of deltas) {
         applyMovement(db, {
           salesPointId,
@@ -417,10 +425,15 @@ export function upsertCarryForwardStockBatch(
          WHERE id = ?`,
       ).run(input.userId, nowIso(), nowIso(), id);
 
-      return adjustmentNo;
+      return { adjustmentNo, pendingValidation: false as const };
     })();
 
-    return { ok: true, saved: deltas.length, adjustmentNo: result };
+    return {
+      ok: true,
+      saved: deltas.length,
+      adjustmentNo: result.adjustmentNo,
+      pendingValidation: result.pendingValidation,
+    };
   } catch (error) {
     return {
       ok: false,

@@ -151,6 +151,10 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("reports:getSalesBudgetMonthlyCrosstab", authToken, reportYear),
     getSalesBudgetWeeklyCrosstab: (authToken, reportYear) =>
       ipcRenderer.invoke("reports:getSalesBudgetWeeklyCrosstab", authToken, reportYear),
+    getSalesBudgetMonthlyRevenueCrosstab: (authToken, reportYear) =>
+      ipcRenderer.invoke("reports:getSalesBudgetMonthlyRevenueCrosstab", authToken, reportYear),
+    getSalesBudgetWeeklyRevenueCrosstab: (authToken, reportYear) =>
+      ipcRenderer.invoke("reports:getSalesBudgetWeeklyRevenueCrosstab", authToken, reportYear),
     getDailySales: (authToken, reportDateIso, salesPointId) =>
       ipcRenderer.invoke("reports:getDailySales", authToken, reportDateIso, salesPointId),
     getDailySalesMatrix: (authToken, salesPointId, productId) =>

@@ -57,6 +57,7 @@ export type CarryForwardMutationResult = {
     ok: true;
     deliveryOrderNo: string;
     detailId: number;
+    pendingValidation?: boolean;
 } | {
     ok: false;
     error: string;
@@ -64,6 +65,7 @@ export type CarryForwardMutationResult = {
 export type CarryForwardBatchResult = {
     ok: true;
     saved: number;
+    pendingValidation?: boolean;
 } | {
     ok: false;
     error: string;

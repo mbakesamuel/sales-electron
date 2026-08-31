@@ -1,45 +1,54 @@
 .ipms-document {
   overflow-x: auto;
-}
-
-.ipms-product-section {
-  margin-top: 18px;
-}
-
-.ipms-product-section + .ipms-product-section {
-  page-break-before: always;
-  margin-top: 28px;
-  padding-top: 8px;
-  border-top: 1px solid #d1d5db;
-}
-
-.ipms-meta {
-  margin: 8px 0 0;
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.ipms-meta p {
-  margin: 0;
+  --ipms-label-pct: 20%;
+  --ipms-data-pct: 80%;
+  --ipms-period-count: 7;
 }
 
 .ipms-section {
   overflow-x: auto;
-  margin-top: 12px;
+  margin-top: 14px;
 }
 
 .ipms-table {
-  min-width: 980px;
   table-layout: fixed;
+}
+
+/* Jul–Dec + TOTAL: full width, 7 period pairs (14 metric cols). */
+.ipms-section-h2 .ipms-table {
+  width: 100%;
+  min-width: 980px;
+}
+
+/* Jan–Jun: same period width as H2, but only 6 periods → 6/7 of data width. */
+.ipms-section-h1 .ipms-table {
+  width: calc(
+    var(--ipms-label-pct) + var(--ipms-data-pct) * 6 / var(--ipms-period-count)
+  );
+  min-width: 840px;
+}
+
+.ipms-col-label {
+  width: var(--ipms-label-pct);
+}
+
+.ipms-col-metric {
+  width: calc(var(--ipms-data-pct) / (var(--ipms-period-count) * 2));
+}
+
+.ipms-table thead th {
+  text-align: center;
+}
+
+.ipms-table.scr-table thead th,
+.ipms-table.scr-table thead th:first-child {
+  text-align: center;
 }
 
 .ipms-label-col,
 .ipms-table tbody td.ipms-label-col {
-  width: 160px;
-  min-width: 140px;
-  max-width: 180px;
-  white-space: normal;
-  word-break: break-word;
+  min-width: 180px;
+  white-space: nowrap;
 }
 
 .ipms-footnote {
@@ -57,17 +66,50 @@
 }
 
 @media print {
-  body.scr-print-mode .ipms-table {
+  @page {
+    size: A4 landscape;
+    margin: 6mm 10mm;
+  }
+
+  body.ipms-print-landscape .ipms-document {
+    overflow: visible;
+  }
+
+  body.ipms-print-landscape .ipms-section {
+    overflow: visible;
+    page-break-inside: avoid;
+  }
+
+  body.ipms-print-landscape .ipms-section-h2 .ipms-table {
+    font-size: 10px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  body.ipms-print-landscape .ipms-section-h1 .ipms-table {
+    font-size: 10px;
+    min-width: 0;
+    width: calc(
+      var(--ipms-label-pct) + var(--ipms-data-pct) * 6 / var(--ipms-period-count)
+    );
+  }
+
+  body.ipms-print-landscape .ipms-table th,
+  body.ipms-print-landscape .ipms-table td {
+    padding: 2px 4px !important;
+  }
+
+  body.scr-print-mode .ipms-section-h2 .ipms-table {
+    min-width: 0;
+  }
+
+  body.scr-print-mode .ipms-section-h1 .ipms-table {
     min-width: 0;
   }
 
   body.scr-print-mode .ipms-label-col,
   body.scr-print-mode .ipms-table tbody td.ipms-label-col {
-    width: 100px;
-    min-width: 100px;
-  }
-
-  body.scr-print-mode .ipms-product-section + .ipms-product-section {
-    border-top: none;
+    min-width: 140px;
+    white-space: nowrap;
   }
 }

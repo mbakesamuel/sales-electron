@@ -16,7 +16,9 @@ const ROUTE_GROUPS = {
     "sales-budgets",
     "budget-phase-profiles",
     "sales-budget-monthly-crosstab",
+    "sales-budget-monthly-revenue-crosstab",
     "sales-budget-weekly-crosstab",
+    "sales-budget-weekly-revenue-crosstab",
   ],
   inventoryWrite: [
     "stock",
@@ -110,7 +112,9 @@ function buildDefaultRouteMatrix(): Record<string, RouteMatrix> {
           "budget-phase-profiles",
           "sales-budget",
           "sales-budget-monthly-crosstab",
+          "sales-budget-monthly-revenue-crosstab",
           "sales-budget-weekly-crosstab",
+          "sales-budget-weekly-revenue-crosstab",
           ...ROUTE_GROUPS.inventoryRead,
           "financial-year-periods",
           "financial-months",
@@ -121,6 +125,8 @@ function buildDefaultRouteMatrix(): Record<string, RouteMatrix> {
       );
       matrix["stock"] = "write";
       matrix["bottled-stock"] = "write";
+      matrix["carry-forward-stock"] = "write";
+      matrix["carry-forward-commitments"] = "write";
       return matrix;
     })(),
     STORE_KEEPER: buildRouteAccess([

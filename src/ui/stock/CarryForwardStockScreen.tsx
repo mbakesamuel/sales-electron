@@ -142,6 +142,7 @@ export function CarryForwardStockScreen({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [batchOpen, setBatchOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -248,6 +249,7 @@ export function CarryForwardStockScreen({
     currentQty: number;
   }) {
     setActionError(null);
+    setActionSuccess(null);
     setBatchNotes("Opening On-hand Balance");
     setBatchOccurredAt(clampIsoDateToRange(utcIsoDateToday(), postingPeriod));
     if (prefill) {
@@ -404,6 +406,7 @@ export function CarryForwardStockScreen({
 
     setSaving(true);
     setActionError(null);
+    setActionSuccess(null);
     try {
       const result = await getElectronApi().carryForwardStock.upsertBatch({
         userId: user.id,
@@ -417,6 +420,21 @@ export function CarryForwardStockScreen({
         return;
       }
       setBatchOpen(false);
+      if (result.pendingValidation) {
+        const adjLabel = result.adjustmentNo ? ` (${result.adjustmentNo})` : "";
+        setActionSuccess(
+          result.saved > 0
+            ? `Submitted ${result.saved} line${result.saved === 1 ? "" : "s"} for stock validation${adjLabel}. Balances update after a supervisor validates the adjustment.`
+            : "No quantity changes to submit.",
+        );
+      } else if (result.saved > 0) {
+        const adjLabel = result.adjustmentNo ? ` (${result.adjustmentNo})` : "";
+        setActionSuccess(
+          `Posted ${result.saved} line${result.saved === 1 ? "" : "s"}${adjLabel}. Balances and reports are updated.`,
+        );
+      } else {
+        setActionSuccess("No quantity changes to post.");
+      }
       await reload();
     } catch (saveError) {
       setActionError(
@@ -436,8 +454,8 @@ export function CarryForwardStockScreen({
           <h2 class="cf-title">Brought-forward stock entry</h2>
           <p class="cf-subtitle">
             Batch-set opening balances by location and collection point: pick the date, then
-            add location, product, and desired quantity rows. Posts as stock
-            adjustments so balances and reports update immediately.
+            add location, product, and desired quantity rows. Statistics clerks submit drafts
+            for stock validation; supervisors and managers with validate access post immediately.
           </p>
         </div>
         <div class="cf-header-actions">
@@ -462,6 +480,7 @@ export function CarryForwardStockScreen({
       </header>
 
       {error ? <p class="cf-error">{error}</p> : null}
+      {actionSuccess ? <p class="cf-success">{actionSuccess}</p> : null}
       {actionError && !batchOpen ? <p class="cf-error">{actionError}</p> : null}
 
       <div class="cf-toolbar">

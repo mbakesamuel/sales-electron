@@ -279,9 +279,15 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
     const weeklyRoutes: SchemaRoute[] = [
       {
         id: "sales-budget-weekly-crosstab",
-        label: "Budget Phasing",
+        label: "Quantity Phasing",
         table: "ProductSalesBudget",
         description: "Weekly phased budget kg crosstab by product and month.",
+      },
+      {
+        id: "sales-budget-weekly-revenue-crosstab",
+        label: "Revenue Phasing",
+        table: "ProductSalesBudget",
+        description: "Weekly phased budget revenue (XAF) crosstab by product and month.",
       },
       {
         id: "stock-commitment-report",
@@ -327,9 +333,15 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
     const monthlyRoutes: SchemaRoute[] = [
       {
         id: "sales-budget-monthly-crosstab",
-        label: "Budget Phasing",
+        label: "12-MTH Quantity Phasing",
         table: "ProductSalesBudget",
         description: "Monthly phased budget kg crosstab by product.",
+      },
+      {
+        id: "sales-budget-monthly-revenue-crosstab",
+        label: "12-MTH Revenue Phasing",
+        table: "ProductSalesBudget",
+        description: "Monthly phased budget revenue (XAF) crosstab by product.",
       },
       {
         id: "monthly-delivery-report-h1",
@@ -352,7 +364,7 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
       },
       {
         id: "monthly-payment-delivery-report",
-        label: "Palm Oil Payment/Delivery",
+        label: "Payments $ Delivery",
         table: "Sale",
         description:
           "Open-month weekly bottled (Payments) vs other-product (Deliveries) sales kg and value.",

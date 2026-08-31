@@ -58,6 +58,7 @@ export type CarryForwardStockBatchResult = {
     ok: true;
     saved: number;
     adjustmentNo: string | null;
+    pendingValidation?: boolean;
 } | {
     ok: false;
     error: string;

@@ -1,21 +1,21 @@
 import { useEffect, useState } from "preact/hooks";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import { formatDisplayDateTime } from "../../shared/formatDisplayDate.ts";
-import type { SalesBudgetMonthlyCrosstabReport } from "../../shared/reports.types.ts";
+import type { SalesBudgetMonthlyRevenueCrosstabReport } from "../../shared/reports.types.ts";
 import {
   CAL_MONTHS,
-  formatPhasedQtyKgDisplay,
+  formatPhasedAmountDisplay,
   monthName,
 } from "../../shared/salesBudgetPhase.ts";
 import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
-import { salesBudgetMonthlyCrosstabEmptyMessage } from "./reportEmpty.ts";
+import { salesBudgetMonthlyRevenueCrosstabEmptyMessage } from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 import "./SalesBudgetCrosstab.css";
 
-interface SalesBudgetMonthlyCrosstabScreenProps {
+interface SalesBudgetMonthlyRevenueCrosstabScreenProps {
   onNavigate?: (routeId: string) => void;
   windowMode?: boolean;
 }
@@ -44,7 +44,7 @@ function handlePrint(): void {
   });
 }
 
-function buildCsv(report: SalesBudgetMonthlyCrosstabReport): string {
+function buildCsv(report: SalesBudgetMonthlyRevenueCrosstabReport): string {
   const header = [
     "Budget group",
     ...CAL_MONTHS.map((month) => monthName(month)),
@@ -70,7 +70,7 @@ function buildCsv(report: SalesBudgetMonthlyCrosstabReport): string {
 
   lines.push(
     [
-      "Column totals (kg)",
+      "Column totals (XAF)",
       ...report.colTotals.map((value) => value),
       report.grandTotal,
     ].join(","),
@@ -79,12 +79,12 @@ function buildCsv(report: SalesBudgetMonthlyCrosstabReport): string {
   return lines.join("\n");
 }
 
-function downloadCsv(report: SalesBudgetMonthlyCrosstabReport): void {
+function downloadCsv(report: SalesBudgetMonthlyRevenueCrosstabReport): void {
   const blob = new Blob([buildCsv(report)], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `sales-budget-monthly-crosstab-${report.reportYear}.csv`;
+  link.download = `sales-budget-monthly-revenue-crosstab-${report.reportYear}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }
@@ -93,11 +93,11 @@ function formatGeneratedAt(iso: string): string {
   return formatDisplayDateTime(iso);
 }
 
-export function SalesBudgetMonthlyCrosstabScreen({
+export function SalesBudgetMonthlyRevenueCrosstabScreen({
   onNavigate,
   windowMode = false,
-}: SalesBudgetMonthlyCrosstabScreenProps) {
-  const [report, setReport] = useState<SalesBudgetMonthlyCrosstabReport | null>(null);
+}: SalesBudgetMonthlyRevenueCrosstabScreenProps) {
+  const [report, setReport] = useState<SalesBudgetMonthlyRevenueCrosstabReport | null>(null);
   const [reportYear, setReportYear] = useState<number | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -109,7 +109,7 @@ export function SalesBudgetMonthlyCrosstabScreen({
     setError(null);
 
     getAuthenticatedReports()
-      .getSalesBudgetMonthlyCrosstab(reportYear ?? undefined)
+      .getSalesBudgetMonthlyRevenueCrosstab(reportYear ?? undefined)
       .then((data) => {
         if (!cancelled) {
           setReport(data);
@@ -133,7 +133,7 @@ export function SalesBudgetMonthlyCrosstabScreen({
   }, [reportYear, reloadKey]);
 
   if (loading && !report) {
-    return <p class="scr-status">Loading sales budget monthly crosstab…</p>;
+    return <p class="scr-status">Loading sales budget monthly revenue crosstab…</p>;
   }
 
   if (error) {
@@ -145,7 +145,7 @@ export function SalesBudgetMonthlyCrosstabScreen({
   }
 
   return (
-    <div class="scr-page sbc-root" data-print-page="sales-budget-monthly-crosstab">
+    <div class="scr-page sbc-root" data-print-page="sales-budget-monthly-revenue-crosstab">
       <div class="sbc-toolbar no-print">
         <div class="sbc-year-picker">
           {report.yearChoices.map((year) => (
@@ -166,14 +166,14 @@ export function SalesBudgetMonthlyCrosstabScreen({
           </button>
           {windowMode ? (
             <ReportWindowSaveButton
-              fileName={`sales-budget-monthly-${report.reportYear}.pdf`}
+              fileName={`sales-budget-monthly-revenue-${report.reportYear}.pdf`}
             />
           ) : null}
           <button type="button" class="scr-btn" onClick={() => downloadCsv(report)}>
             Export CSV
           </button>
           <ReportCommentsEditor
-            reportId="sales-budget-monthly-crosstab"
+            reportId="sales-budget-monthly-revenue-crosstab"
             comments={report.comments}
             onSaved={() => setReloadKey((value) => value + 1)}
           />
@@ -189,8 +189,8 @@ export function SalesBudgetMonthlyCrosstabScreen({
 
       <ReportDocumentShell
         className="scr-document"
-        isEmpty={salesBudgetMonthlyCrosstabEmptyMessage(report) !== null}
-        emptyMessage={salesBudgetMonthlyCrosstabEmptyMessage(report) ?? ""}
+        isEmpty={salesBudgetMonthlyRevenueCrosstabEmptyMessage(report) !== null}
+        emptyMessage={salesBudgetMonthlyRevenueCrosstabEmptyMessage(report) ?? ""}
         comments={report.comments}
         signatoryName={report.settings.signatoryName}
         signatoryTitle={report.settings.signatoryTitle}
@@ -199,35 +199,35 @@ export function SalesBudgetMonthlyCrosstabScreen({
             companyName={report.settings.companyName}
             department={report.settings.department}
             serviceName={report.settings.serviceName}
-            title="Sales budget — monthly phasing crosstab (kg)"
+            title="Sales budget — monthly phasing crosstab (XAF)"
           />
         }
       >
         <div>
           <p class="sbc-intro">
             Calendar year <strong>{report.reportYear}</strong>. Rows are budget groups; columns are
-            January–December. Each cell is phased budget kg for the fiscal period that contains
-            that calendar month (from Sales budgets).{" "}
+            January–December. Each cell is phased budget revenue (XAF) for the fiscal period that
+            contains that calendar month (from Sales budgets).{" "}
             {onNavigate ? (
               <>
                 <button
                   type="button"
                   class="sbc-link-btn"
-                  onClick={() => onNavigate("sales-budget-weekly-crosstab")}
+                  onClick={() => onNavigate("sales-budget-weekly-revenue-crosstab")}
                 >
-                  Weekly phasing crosstab
+                  Weekly revenue phasing crosstab
                 </button>
                 {" · "}
                 <button
                   type="button"
                   class="sbc-link-btn"
-                  onClick={() => onNavigate("sales-budget-monthly-revenue-crosstab")}
+                  onClick={() => onNavigate("sales-budget-monthly-crosstab")}
                 >
-                  Monthly revenue phasing crosstab
+                  Monthly kg phasing crosstab
                 </button>
               </>
             ) : (
-              "See also the weekly phasing and monthly revenue phasing crosstabs."
+              "See also the weekly revenue and monthly kg phasing crosstabs."
             )}
             .
           </p>
@@ -251,30 +251,30 @@ export function SalesBudgetMonthlyCrosstabScreen({
                 {report.rows.map((row) => (
                   <tr key={row.productCatId}>
                     <td class="sbc-sticky-col sbc-product-col">{row.label}</td>
-                    {row.cells.map((kg, index) => (
+                    {row.cells.map((amount, index) => (
                       <td
                         key={index}
-                        class={`sbc-num${kg === 0 ? " sbc-zero" : ""}`}
+                        class={`sbc-num${amount === 0 ? " sbc-zero" : ""}`}
                       >
-                        {kg === 0 ? "—" : formatPhasedQtyKgDisplay(kg)}
+                        {amount === 0 ? "—" : formatPhasedAmountDisplay(amount)}
                       </td>
                     ))}
                     <td class={`sbc-num sbc-total-col${row.rowTotal === 0 ? " sbc-zero" : ""}`}>
-                      {row.rowTotal === 0 ? "—" : formatPhasedQtyKgDisplay(row.rowTotal)}
+                      {row.rowTotal === 0 ? "—" : formatPhasedAmountDisplay(row.rowTotal)}
                     </td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr class="sbc-foot">
-                  <td class="sbc-sticky-col">Column totals (kg)</td>
+                  <td class="sbc-sticky-col">Column totals (XAF)</td>
                   {report.colTotals.map((value, index) => (
                     <td key={index} class={`sbc-num${value === 0 ? " sbc-zero" : ""}`}>
-                      {value === 0 ? "—" : formatPhasedQtyKgDisplay(value)}
+                      {value === 0 ? "—" : formatPhasedAmountDisplay(value)}
                     </td>
                   ))}
                   <td class={`sbc-num sbc-total-col${report.grandTotal === 0 ? " sbc-zero" : ""}`}>
-                    {report.grandTotal === 0 ? "—" : formatPhasedQtyKgDisplay(report.grandTotal)}
+                    {report.grandTotal === 0 ? "—" : formatPhasedAmountDisplay(report.grandTotal)}
                   </td>
                 </tr>
               </tfoot>

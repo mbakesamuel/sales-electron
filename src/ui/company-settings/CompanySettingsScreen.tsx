@@ -138,6 +138,12 @@ export function CompanySettingsScreen({
   const [bottleOilSettingSavedHint, setBottleOilSettingSavedHint] = useState<
     string | null
   >(null);
+  const [salesInvoiceLockUnitPrice, setSalesInvoiceLockUnitPrice] =
+    useState(true);
+  const [salesInvoiceSettingSaving, setSalesInvoiceSettingSaving] =
+    useState(false);
+  const [salesInvoiceSettingSavedHint, setSalesInvoiceSettingSavedHint] =
+    useState<string | null>(null);
   const [
     stockTransferReceiveUsesDocumentDate,
     setStockTransferReceiveUsesDocumentDate,
@@ -200,6 +206,7 @@ export function CompanySettingsScreen({
           setLooseSalesAllowPublicRelation(false);
           setLooseSalesAllowUnregisteredCustomer(false);
           setLoosePalmOilRequireSalesTank(true);
+          setSalesInvoiceLockUnitPrice(true);
           return;
         }
         setAutoGenerateStockReceiptNo(
@@ -237,6 +244,9 @@ export function CompanySettingsScreen({
             ? true
             : Number(row.loosePalmOilRequireSalesTank) !== 0,
         );
+        setSalesInvoiceLockUnitPrice(
+          Number(row.salesInvoiceLockUnitPrice ?? 1) !== 0,
+        );
       } catch {
         if (!cancelled) {
           setAutoGenerateStockReceiptNo(true);
@@ -250,6 +260,7 @@ export function CompanySettingsScreen({
           setLooseSalesAllowPublicRelation(false);
           setLooseSalesAllowUnregisteredCustomer(false);
           setLoosePalmOilRequireSalesTank(true);
+          setSalesInvoiceLockUnitPrice(true);
         }
       }
     }
@@ -313,6 +324,33 @@ export function CompanySettingsScreen({
       );
     } finally {
       setBottleOilSettingSaving(false);
+    }
+  }
+
+  async function onSaveSalesInvoiceSettings() {
+    if (!canWrite || salesInvoiceSettingSaving) {
+      return;
+    }
+    setSalesInvoiceSettingSaving(true);
+    setActionError(null);
+    setSalesInvoiceSettingSavedHint(null);
+    try {
+      await getAuthenticatedDb().updateRow({
+        table: "CompanySettings",
+        primaryKey: { id: "default" },
+        values: {
+          salesInvoiceLockUnitPrice: salesInvoiceLockUnitPrice ? 1 : 0,
+        },
+      });
+      setSalesInvoiceSettingSavedHint("Sales invoice options saved.");
+    } catch (saveError) {
+      setActionError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to save sales invoice options.",
+      );
+    } finally {
+      setSalesInvoiceSettingSaving(false);
     }
   }
 
@@ -747,6 +785,55 @@ export function CompanySettingsScreen({
               When unchecked (default), Bottle Oil sales hides the Ration option.
               When checked, clerks can mark Bottle Oil invoices as Ration.
               Public relation is always available.
+            </span>
+          </span>
+        </label>
+      </section>
+
+      <section class="company-settings-stock-numbering">
+        <div class="company-settings-stock-numbering-header">
+          <div>
+            <h3>Sales invoices</h3>
+            <p>
+              Options for Add item and Edit item on loose Sales Invoicing and
+              Bottle Oil sales.
+            </p>
+          </div>
+          {canWrite ? (
+            <button
+              type="button"
+              class="company-settings-primary-btn"
+              disabled={isLoading || salesInvoiceSettingSaving}
+              onClick={() => void onSaveSalesInvoiceSettings()}
+            >
+              {salesInvoiceSettingSaving ? "Saving…" : "Save sales invoice options"}
+            </button>
+          ) : null}
+        </div>
+        {salesInvoiceSettingSavedHint && !actionError ? (
+          <p class="company-settings-stock-numbering-hint">
+            {salesInvoiceSettingSavedHint}
+          </p>
+        ) : null}
+        <label class="company-settings-stock-numbering-option">
+          <input
+            type="checkbox"
+            checked={salesInvoiceLockUnitPrice}
+            disabled={isLoading || !canWrite || salesInvoiceSettingSaving}
+            onChange={(event) => {
+              setSalesInvoiceLockUnitPrice(
+                (event.currentTarget as HTMLInputElement).checked,
+              );
+              setSalesInvoiceSettingSavedHint(null);
+            }}
+          />
+          <span>
+            <strong>Lock unit price from schedule</strong>
+            <span>
+              When checked (default), Add item and Edit item modals resolve unit
+              price from the product pricing schedule and block manual edits.
+              When unchecked, clerks can override the price when the field is
+              editable (walk-in loose sales without auto-fill).
             </span>
           </span>
         </label>

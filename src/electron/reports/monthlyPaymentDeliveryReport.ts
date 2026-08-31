@@ -43,15 +43,24 @@ function compactDatesLabel(weekFromIso: string, weekToIso: string): string {
   return `${fromDay}-${toDay}`;
 }
 
-function bottledLineKg(qtyKg: number, qtyUnits: number | null, product: ProductRow | undefined): number {
+function bottledLineKg(
+  qtyKg: number,
+  qtyUnits: number | null,
+  product: ProductRow | undefined,
+): number {
   if (!product || product.isBottled !== 1) {
     return qtyKg;
   }
   const units = qtyUnits ?? qtyKg;
-  return units * detectBottledPack(product).litresPerUnit * PALM_OIL_KG_PER_LITRE;
+  return (
+    units * detectBottledPack(product).litresPerUnit * PALM_OIL_KG_PER_LITRE
+  );
 }
 
-function loadValidatedSaleLines(fromIso: string, toIso: string): SaleLineRecord[] {
+function loadValidatedSaleLines(
+  fromIso: string,
+  toIso: string,
+): SaleLineRecord[] {
   return getDatabase()
     .prepare(
       `SELECT s.dateIssued, sl.productId,
@@ -67,7 +76,10 @@ function loadValidatedSaleLines(fromIso: string, toIso: string): SaleLineRecord[
     )
     .all(fromIso, toIso)
     .map((row) => ({
-      dateIssued: String((row as { dateIssued: string }).dateIssued).slice(0, 10),
+      dateIssued: String((row as { dateIssued: string }).dateIssued).slice(
+        0,
+        10,
+      ),
       productId: (row as { productId: number }).productId,
       isBottled: (row as { isBottled: number }).isBottled,
       qtyKg: parseQty((row as { qtyKg: string }).qtyKg),
@@ -96,24 +108,29 @@ export function getMonthlyPaymentDeliveryReport(
   const settings = loadReportCompanySettings(undefined, asAtIso);
   const comments = loadReportComments(ROUTE_ID);
   const products = loadProducts();
-  const productById = new Map(products.map((product) => [product.productId, product]));
+  const productById = new Map(
+    products.map((product) => [product.productId, product]),
+  );
 
   const weekChoices = buildWeekChoices(monthStartIso, monthEndIso, asAtIso);
-  const weeks: MonthlyPaymentDeliveryWeekRow[] = weekChoices.map((week, index) => ({
-    weekIndex: index + 1,
-    weekFromIso: week.weekFromIso,
-    weekToIso: week.weekToIso,
-    datesLabel: compactDatesLabel(week.weekFromIso, week.weekToIso),
-    paymentsKg: 0,
-    paymentsValue: 0,
-    deliveriesKg: 0,
-    deliveriesValue: 0,
-  }));
+  const weeks: MonthlyPaymentDeliveryWeekRow[] = weekChoices.map(
+    (week, index) => ({
+      weekIndex: index + 1,
+      weekFromIso: week.weekFromIso,
+      weekToIso: week.weekToIso,
+      datesLabel: compactDatesLabel(week.weekFromIso, week.weekToIso),
+      paymentsKg: 0,
+      paymentsValue: 0,
+      deliveriesKg: 0,
+      deliveriesValue: 0,
+    }),
+  );
 
   const lines = loadValidatedSaleLines(monthStartIso, asAtIso);
   for (const line of lines) {
     const week = weeks.find(
-      (row) => line.dateIssued >= row.weekFromIso && line.dateIssued <= row.weekToIso,
+      (row) =>
+        line.dateIssued >= row.weekFromIso && line.dateIssued <= row.weekToIso,
     );
     if (!week) {
       continue;
@@ -141,7 +158,7 @@ export function getMonthlyPaymentDeliveryReport(
   }, emptyTotals());
 
   const monthLabel = period.monthName.toUpperCase();
-  const reportTitle = `WEEKLY PALM OIL SALES AND DELIVERIES FOR ${monthLabel} ${period.financialYear}`;
+  const reportTitle = `PALM OIL SALES AND DELIVERIES FOR ${monthLabel} ${period.financialYear}`;
 
   return {
     settings,

@@ -154,6 +154,21 @@ export function getUserRoleById(userId: string): string | null {
   return row?.role ?? null;
 }
 
+/** True when the user must submit carry-forward data for supervisor validation (statistics clerk path). */
+export function carryForwardRequiresValidation(userId: string): boolean {
+  const role = getUserRoleById(userId);
+  if (!role) {
+    return true;
+  }
+  if (canPerformAction(role, "validate_stock_documents")) {
+    return false;
+  }
+  if (canPerformAction(role, "validate_delivery_orders")) {
+    return false;
+  }
+  return true;
+}
+
 export function assertRouteWrite(role: string, routeId: string): void {
   if (!canWriteRoute(role, routeId)) {
     throw new Error("You do not have permission to modify this module.");

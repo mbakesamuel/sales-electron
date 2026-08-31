@@ -148,7 +148,7 @@ export function ConsignmentNotesClient({
     try {
       const result =
         await api.vehicleConsignmentNotes.loadSaleByInvoice(invoiceLookup);
-      if (!result.ok) {
+      if (result.ok === false) {
         setBanner({
           type: "error",
           text: result.error,

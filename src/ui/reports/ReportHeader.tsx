@@ -34,7 +34,7 @@ function ReportLogo({ companyName }: { companyName?: string }) {
 }
 
 export function ReportHeader({
-/*   companyName, */
+  companyName,
   department,
   serviceName,
   title,
@@ -48,7 +48,7 @@ export function ReportHeader({
       {meta ? <div class="report-header-meta">{meta}</div> : null}
 
       <div class="report-header-company">
-      {/*   <p class="report-header-company-name">{companyName}</p> */}
+        <p class="report-header-company-name">{companyName}</p>
         {department ? <p class="report-header-department">{department}</p> : null}
         {serviceName ? (
           <p class="report-header-commercial-service">{serviceName}</p>

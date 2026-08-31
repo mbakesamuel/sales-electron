@@ -37,7 +37,9 @@ import type {
   RevenueTaxesPeriod,
   RevenueTaxesReport,
   SalesBudgetMonthlyCrosstabReport,
+  SalesBudgetMonthlyRevenueCrosstabReport,
   SalesBudgetWeeklyCrosstabReport,
+  SalesBudgetWeeklyRevenueCrosstabReport,
   WeeklyDeliveriesReport,
   DailySalesReport,
   DailySalesMatrixReport,
@@ -237,6 +239,14 @@ interface ReportsApi {
     authToken: string,
     reportYear?: number,
   ): Promise<SalesBudgetWeeklyCrosstabReport>;
+  getSalesBudgetMonthlyRevenueCrosstab(
+    authToken: string,
+    reportYear?: number,
+  ): Promise<SalesBudgetMonthlyRevenueCrosstabReport>;
+  getSalesBudgetWeeklyRevenueCrosstab(
+    authToken: string,
+    reportYear?: number,
+  ): Promise<SalesBudgetWeeklyRevenueCrosstabReport>;
   getDailySales(
     authToken: string,
     reportDateIso: string,

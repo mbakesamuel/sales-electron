@@ -1,7 +1,11 @@
 import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import { ReportHeader } from "../reports/ReportHeader.tsx";
 import { ReportFooter } from "../reports/ReportFooter.tsx";
+import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
+import { ReportWindowSaveButton } from "../reports/ReportWindowSaveButton.tsx";
+import { printPortraitDocument } from "../reports/printPortraitDocument.ts";
 import type { DeliveryOrderTrackPayload } from "./types.ts";
+import "../reports/StockCommitmentReport.css";
 import "./DeliveryOrderPrintView.css";
 
 interface DeliveryOrderTrackingPrintViewProps {
@@ -54,39 +58,26 @@ export function DeliveryOrderTrackingPrintView({
   onClose,
 }: DeliveryOrderTrackingPrintViewProps) {
   const { order, totals, products, lifts, transfersOut } = payload;
-
-  function handlePrint() {
-    const style = document.createElement("style");
-    style.id = "do-print-portrait-style";
-    style.textContent =
-      "@media print { @page { size: A4 portrait; margin: 8mm; } }";
-    document.head.appendChild(style);
-
-    document.body.classList.add("do-print-mode");
-    window.addEventListener(
-      "afterprint",
-      () => {
-        document.body.classList.remove("do-print-mode");
-        style.remove();
-      },
-      { once: true },
-    );
-    window.print();
-  }
+  const shellTitle = `Delivery Order Tracking #${order.deliveryOrderNo}`;
+  const pdfFileName = `delivery-order-tracking-${order.deliveryOrderNo}.pdf`;
 
   return (
-    <div class="do-print-backdrop" onClick={onClose}>
-      <div class="do-print-modal" onClick={(event) => event.stopPropagation()}>
-        <div class="do-print-toolbar no-print">
-          <button type="button" class="sales-btn-primary" onClick={handlePrint}>
-            Print
-          </button>
-          <button type="button" class="sales-btn-secondary" onClick={onClose}>
-            Close
-          </button>
+    <ReportOverlayShell title={shellTitle} onClose={onClose}>
+      <div class="scr-page">
+        <div class="scr-toolbar no-print">
+          <div class="scr-toolbar-actions">
+            <button
+              type="button"
+              class="scr-btn"
+              onClick={() => printPortraitDocument()}
+            >
+              Print
+            </button>
+            <ReportWindowSaveButton fileName={pdfFileName} />
+          </div>
         </div>
 
-        <article class="do-print-document">
+        <article class="scr-document do-print-document">
           <ReportHeader
             companyName={payload.companyName}
             department={payload.department}
@@ -316,6 +307,6 @@ export function DeliveryOrderTrackingPrintView({
           </section>
         </article>
       </div>
-    </div>
+    </ReportOverlayShell>
   );
 }

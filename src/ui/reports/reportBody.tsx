@@ -20,7 +20,9 @@ import { MonthlyBottledOilReportScreen } from "./MonthlyBottledOilReportScreen.t
 import { OtherProductSalesDeliveriesScreen } from "./OtherProductSalesDeliveriesScreen.tsx";
 import { RevenueTaxesReportScreen } from "./RevenueTaxesReportScreen.tsx";
 import { SalesBudgetMonthlyCrosstabScreen } from "./SalesBudgetMonthlyCrosstabScreen.tsx";
+import { SalesBudgetMonthlyRevenueCrosstabScreen } from "./SalesBudgetMonthlyRevenueCrosstabScreen.tsx";
 import { SalesBudgetWeeklyCrosstabScreen } from "./SalesBudgetWeeklyCrosstabScreen.tsx";
+import { SalesBudgetWeeklyRevenueCrosstabScreen } from "./SalesBudgetWeeklyRevenueCrosstabScreen.tsx";
 import { PalmOilSalesActivityScreen } from "./PalmOilSalesActivityScreen.tsx";
 import { BinCardReportScreen } from "../stock/BinCardReportScreen.tsx";
 import "./ReportLightSurface.css";
@@ -84,6 +86,10 @@ export function ReportBody({
       return <SalesBudgetMonthlyCrosstabScreen windowMode={windowMode} />;
     case "sales-budget-weekly-crosstab":
       return <SalesBudgetWeeklyCrosstabScreen windowMode={windowMode} />;
+    case "sales-budget-monthly-revenue-crosstab":
+      return <SalesBudgetMonthlyRevenueCrosstabScreen windowMode={windowMode} />;
+    case "sales-budget-weekly-revenue-crosstab":
+      return <SalesBudgetWeeklyRevenueCrosstabScreen windowMode={windowMode} />;
     case "palm-oil-sales-activity-report":
       return <PalmOilSalesActivityScreen windowMode={windowMode} />;
     default:

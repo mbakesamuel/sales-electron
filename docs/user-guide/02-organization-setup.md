@@ -17,6 +17,14 @@ On **App settings**, under **Bottle Oil sales**:
 
 Save with **Save Bottle Oil options**. Clerks must reopen Bottle Oil sales (or refresh the screen) after you change these settings.
 
+### Sales invoice options
+
+On **App settings**, under **Sales invoices**:
+
+- **Lock unit price from schedule** — On by default. When on, **Add item** and **Edit item** on loose Sales Invoicing and Bottle Oil sales resolve unit price from the product pricing schedule and block manual edits. When off, clerks can override the price when the field is editable (for example walk-in loose sales without auto-fill).
+
+Save with **Save sales invoice options**. Clerks must reopen the sales screen after you change this setting.
+
 ## Report settings
 
 **Report settings** controls display options shared by several stock and delivery reports, notably:

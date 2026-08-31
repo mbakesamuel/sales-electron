@@ -32,15 +32,27 @@ function formatValue(value: number): string {
 }
 
 function handlePrint(): void {
-  document.body.classList.add("scr-print-mode");
+  const style = document.createElement("style");
+  style.id = "opsd-print-landscape-style";
+  style.textContent =
+    "@media print { @page { size: A4 landscape; margin: 6mm 10mm; } }";
+  document.head.appendChild(style);
+  document.body.classList.add("scr-print-mode", "opsd-print-landscape");
+
   window.addEventListener(
     "afterprint",
     () => {
-      document.body.classList.remove("scr-print-mode");
+      document.body.classList.remove("scr-print-mode", "opsd-print-landscape");
+      style.remove();
     },
     { once: true },
   );
-  window.print();
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      window.print();
+    });
+  });
 }
 
 function csvKg(value: number): string {

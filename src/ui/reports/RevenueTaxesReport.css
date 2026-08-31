@@ -19,3 +19,50 @@
   margin-top: 8px;
   margin-bottom: 8px;
 }
+
+.rtr-document .rtr-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.rtr-col-label {
+  width: 28%;
+}
+
+.rtr-col-invoices {
+  width: 11%;
+}
+
+.rtr-col-money {
+  width: 15.25%;
+}
+
+.rtr-table th.scr-num,
+.rtr-table td.scr-num {
+  text-align: center;
+}
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 6mm 10mm;
+  }
+
+  body.rtr-print-landscape .rtr-document {
+    overflow: visible;
+  }
+
+  body.rtr-print-landscape .rtr-section {
+    overflow: visible;
+    page-break-inside: avoid;
+  }
+
+  body.rtr-print-landscape .rtr-table {
+    font-size: 11px;
+  }
+
+  body.rtr-print-landscape .rtr-table th,
+  body.rtr-print-landscape .rtr-table td {
+    padding: 3px 5px !important;
+  }
+}

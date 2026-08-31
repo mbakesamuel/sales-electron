@@ -34,6 +34,28 @@ export function normalizeFiscalMonthPercents(pcts: number[]): number[] {
   return asFractions.map((value) => value / fractionTotal);
 }
 
+function parsePercentInput(v: string): number {
+  const s = String(v ?? "").trim().replace(",", ".");
+  if (!s) return 0;
+  const n = Number.parseFloat(s);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Round 12 month % inputs to 2 dp and adjust the last month so they sum to exactly 100. */
+export function balancePercentStringsTo100(pcts: string[]): string[] {
+  const source =
+    pcts.length === 12 ? pcts : Array.from({ length: 12 }, (_, i) => pcts[i] ?? "0");
+  const percents = source.map((v) => parsePercentInput(v));
+  const fractions = normalizeFiscalMonthPercents(percents);
+
+  const rounded = fractions.map((f) => Math.round(f * 10000) / 100);
+  const sum = rounded.reduce((acc, n) => acc + n, 0);
+  const remainder = Math.round((100 - sum) * 100) / 100;
+  rounded[11] = Math.round((rounded[11] + remainder) * 100) / 100;
+
+  return rounded.map((n) => n.toFixed(2));
+}
+
 export function fiscalMonthKgFromAnnual(
   annualQtyKg: number,
   pcts: number[],
@@ -154,11 +176,26 @@ export function computeMonthlyBudgetQtyKgByFiscalMonth(args: {
   return line;
 }
 
+export function computeMonthlyBudgetAmountFcfaByFiscalMonth(args: {
+  financialYear: number;
+  fiscalYearStartMonth: number;
+  fyStartIso: string;
+  fyEndIso: string;
+  annualQtyKg: number;
+  budgetUnitPricePerKg: number;
+  fiscalMonthPercents: number[];
+}): number[] {
+  const kgLine = computeMonthlyBudgetQtyKgByFiscalMonth(args);
+  const unitPrice = args.budgetUnitPricePerKg;
+  return kgLine.map((kg) => Math.round(kg * unitPrice));
+}
+
 export interface SalesBudgetPhaseWeek {
   label: string;
   isoWeekYear: number;
   isoWeek: number;
   qtyKg: number;
+  amountFcfa: number;
 }
 
 export interface SalesBudgetPhaseMonth {
@@ -200,7 +237,7 @@ export function buildSalesBudgetPhase(args: {
   budgetUnitPricePerKg: number;
   fiscalMonthPercents: number[];
 }): SalesBudgetPhaseResult {
-  void args.budgetUnitPricePerKg;
+  const unitPrice = args.budgetUnitPricePerKg;
 
   const fiscalMonthKg = computeMonthlyBudgetQtyKgByFiscalMonth({
     financialYear: args.financialYear,
@@ -257,6 +294,7 @@ export function buildSalesBudgetPhase(args: {
           isoWeekYear,
           isoWeek,
           qtyKg: kgPerDay,
+          amountFcfa: 0,
         });
       }
 
@@ -268,6 +306,9 @@ export function buildSalesBudgetPhase(args: {
       const bKey = `${String(b.isoWeekYear).padStart(4, "0")}-W${String(b.isoWeek).padStart(2, "0")}`;
       return aKey.localeCompare(bKey);
     });
+    for (const week of weeks) {
+      week.amountFcfa = Math.round(week.qtyKg * unitPrice);
+    }
 
     months.push({
       calendarYear,
@@ -284,6 +325,13 @@ export function formatPhasedQtyKgDisplay(kg: number): string {
     return "—";
   }
   return Math.round(kg).toLocaleString("en-US");
+}
+
+export function formatPhasedAmountDisplay(fcfa: number): string {
+  if (!Number.isFinite(fcfa) || fcfa === 0) {
+    return "—";
+  }
+  return Math.round(fcfa).toLocaleString("en-US");
 }
 
 export function salesBudgetCrosstabCellKey(

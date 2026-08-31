@@ -21,6 +21,12 @@
   background: #f3f4f6;
 }
 
+/* Beat .scr-table th:first-child { text-align: left } from StockCommitmentReport.css */
+.mpd-table.scr-table thead th,
+.mpd-table.scr-table thead th:first-child {
+  text-align: center;
+}
+
 .mpd-banner {
   letter-spacing: 0.04em;
 }
@@ -34,6 +40,15 @@
 }
 
 .mpd-center {
+  text-align: center;
+}
+
+.mpd-table .scr-row-total td.mpd-center {
+  text-align: center;
+}
+
+.mpd-table.scr-table th.mpd-kgs,
+.mpd-table.scr-table td.mpd-kgs {
   text-align: center;
 }
 

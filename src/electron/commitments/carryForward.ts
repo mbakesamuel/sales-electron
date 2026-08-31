@@ -8,7 +8,7 @@ import type {
   UpsertCarryForwardBatchInput,
   UpsertCarryForwardInput,
 } from "../../shared/carryForward.types.js";
-import { assertRouteWrite } from "../auth/permissions/service.js";
+import { assertRouteWrite, carryForwardRequiresValidation } from "../auth/permissions/service.js";
 import { getDatabase } from "../db/index.js";
 import { getOpenPostingPeriod } from "../financialYears/service.js";
 import { resolveUnitPriceExTax } from "../pricing/resolveUnitPrice.js";
@@ -305,49 +305,90 @@ export function upsertCarryForwardCommitment(
   const postingPeriod = openPeriod;
 
   const notes = input.notes?.trim() || "Carry-forward commitment";
+  const requiresValidation = carryForwardRequiresValidation(input.userId);
 
   try {
     const result = db.transaction(() => {
       let order = db
         .prepare(
-          `SELECT id, deliveryOrderNo FROM DeliveryOrder
+          `SELECT id, deliveryOrderNo, status FROM DeliveryOrder
            WHERE customerId = ? AND salesPointId = ?
-             AND sourceKind = 'CARRY_FORWARD' AND status = 'VALIDATED'
-           ORDER BY id ASC
+             AND sourceKind = 'CARRY_FORWARD'
+             AND status IN ('PENDING', 'VALIDATED')
+           ORDER BY CASE WHEN status = 'PENDING' THEN 0 ELSE 1 END, id ASC
            LIMIT 1`,
         )
         .get(input.customerId, input.salesPointId) as
-        | { id: number; deliveryOrderNo: string }
+        | { id: number; deliveryOrderNo: string; status: string }
         | undefined;
+
+      const markOrderPending = (orderId: number) => {
+        if (!requiresValidation) {
+          return;
+        }
+        db.prepare(
+          `UPDATE DeliveryOrder
+           SET status = 'PENDING', validatedAt = NULL, validatedByUserId = NULL
+           WHERE id = ?`,
+        ).run(orderId);
+      };
 
       if (!order) {
         const deliveryOrderNo = allocateCarryForwardDeliveryOrderNo(db);
         const stamp = nowIso();
-        const insert = db
-          .prepare(
-            `INSERT INTO DeliveryOrder (
-              deliveryOrderNo, dateIssued, customerId, orderRef, salesPointId,
-              financialYear, financialMonth, postingCalendarYear, createdByUserId,
-              status, validatedAt, validatedByUserId, sourceKind
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'VALIDATED', ?, ?, 'CARRY_FORWARD')`,
-          )
-          .run(
+        if (requiresValidation) {
+          const insert = db
+            .prepare(
+              `INSERT INTO DeliveryOrder (
+                deliveryOrderNo, dateIssued, customerId, orderRef, salesPointId,
+                financialYear, financialMonth, postingCalendarYear, createdByUserId,
+                status, sourceKind
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', 'CARRY_FORWARD')`,
+            )
+            .run(
+              deliveryOrderNo,
+              dateIssued,
+              input.customerId,
+              notes,
+              input.salesPointId,
+              postingPeriod.financialYear,
+              postingPeriod.calendarMonth,
+              postingPeriod.financialYear,
+              input.userId,
+            );
+          order = {
+            id: Number(insert.lastInsertRowid),
             deliveryOrderNo,
-            dateIssued,
-            input.customerId,
-            notes,
-            input.salesPointId,
-            postingPeriod.financialYear,
-            postingPeriod.calendarMonth,
-            postingPeriod.financialYear,
-            input.userId,
-            stamp,
-            input.userId,
-          );
-        order = {
-          id: Number(insert.lastInsertRowid),
-          deliveryOrderNo,
-        };
+            status: "PENDING",
+          };
+        } else {
+          const insert = db
+            .prepare(
+              `INSERT INTO DeliveryOrder (
+                deliveryOrderNo, dateIssued, customerId, orderRef, salesPointId,
+                financialYear, financialMonth, postingCalendarYear, createdByUserId,
+                status, validatedAt, validatedByUserId, sourceKind
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'VALIDATED', ?, ?, 'CARRY_FORWARD')`,
+            )
+            .run(
+              deliveryOrderNo,
+              dateIssued,
+              input.customerId,
+              notes,
+              input.salesPointId,
+              postingPeriod.financialYear,
+              postingPeriod.calendarMonth,
+              postingPeriod.financialYear,
+              input.userId,
+              stamp,
+              input.userId,
+            );
+          order = {
+            id: Number(insert.lastInsertRowid),
+            deliveryOrderNo,
+            status: "VALIDATED",
+          };
+        }
       } else if (notes) {
         db.prepare(`UPDATE DeliveryOrder SET orderRef = ? WHERE id = ?`).run(
           notes,
@@ -387,6 +428,7 @@ export function upsertCarryForwardCommitment(
           ok: true as const,
           deliveryOrderNo: order.deliveryOrderNo,
           detailId: existingLine.id,
+          pendingValidation: requiresValidation,
         };
       }
 
@@ -419,10 +461,12 @@ export function upsertCarryForwardCommitment(
           amounts.amount,
           existingLine.id,
         );
+        markOrderPending(order.id);
         return {
           ok: true as const,
           deliveryOrderNo: order.deliveryOrderNo,
           detailId: existingLine.id,
+          pendingValidation: requiresValidation,
         };
       }
 
@@ -447,10 +491,12 @@ export function upsertCarryForwardCommitment(
           amounts.amount,
         );
 
+      markOrderPending(order.id);
       return {
         ok: true as const,
         deliveryOrderNo: order.deliveryOrderNo,
         detailId: Number(insertLine.lastInsertRowid),
+        pendingValidation: requiresValidation,
       };
     })();
 
@@ -591,7 +637,7 @@ export function upsertCarryForwardBatch(
       return count;
     })();
 
-    return { ok: true, saved };
+    return { ok: true, saved, pendingValidation: carryForwardRequiresValidation(input.userId) };
   } catch (error) {
     return {
       ok: false,

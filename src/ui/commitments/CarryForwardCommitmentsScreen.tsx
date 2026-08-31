@@ -40,6 +40,7 @@ export function CarryForwardCommitmentsScreen({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [batchDialog, setBatchDialog] = useState<BatchDialogState | null>(null);
   const [saving, setSaving] = useState(false);
@@ -137,6 +138,7 @@ export function CarryForwardCommitmentsScreen({
     focusCustomerId?: number;
   }) {
     setActionError(null);
+    setActionSuccess(null);
     setCustomerFilter("");
     setBatchNotes("Carry-forward commitment");
     const salesPointId = prefill ? String(prefill.salesPointId) : "";
@@ -197,6 +199,7 @@ export function CarryForwardCommitmentsScreen({
 
     setSaving(true);
     setActionError(null);
+    setActionSuccess(null);
     try {
       const result = await getElectronApi().carryForward.upsertBatch({
         userId: user.id,
@@ -210,6 +213,19 @@ export function CarryForwardCommitmentsScreen({
         return;
       }
       setBatchDialog(null);
+      if (result.pendingValidation) {
+        setActionSuccess(
+          result.saved > 0
+            ? `Submitted ${result.saved} line${result.saved === 1 ? "" : "s"} for delivery-order validation. Commitments appear on reports and Pick DO after a supervisor validates them.`
+            : "No quantity changes to submit.",
+        );
+      } else if (result.saved > 0) {
+        setActionSuccess(
+          `Saved ${result.saved} line${result.saved === 1 ? "" : "s"}. Commitments are live on reports and Pick DO.`,
+        );
+      } else {
+        setActionSuccess("No quantity changes to save.");
+      }
       await reload();
     } catch (saveError) {
       setActionError(
@@ -231,6 +247,7 @@ export function CarryForwardCommitmentsScreen({
       return;
     }
     setActionError(null);
+    setActionSuccess(null);
     try {
       const result = await getElectronApi().carryForward.delete({
         userId: user.id,
@@ -266,7 +283,8 @@ export function CarryForwardCommitmentsScreen({
           <h2 class="cf-title">Carry-forward commitments</h2>
           <p class="cf-subtitle">
             Batch-enter opening balances per collection point and product across customers.
-            Saved as sellable CF delivery orders for the commitment report and POS.
+            Statistics clerks submit pending CF delivery orders for validation; supervisors and
+            managers with validate access save them as live commitments immediately.
           </p>
         </div>
         <div class="cf-header-actions">
@@ -291,6 +309,7 @@ export function CarryForwardCommitmentsScreen({
       </header>
 
       {error ? <p class="cf-error">{error}</p> : null}
+      {actionSuccess ? <p class="cf-success">{actionSuccess}</p> : null}
       {actionError && !batchDialog ? <p class="cf-error">{actionError}</p> : null}
 
       <div class="cf-toolbar">

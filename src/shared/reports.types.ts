@@ -488,6 +488,26 @@ export interface SalesBudgetMonthlyCrosstabReport {
   comments: string | null;
 }
 
+export interface SalesBudgetMonthlyRevenueCrosstabRow {
+  productCatId: number;
+  label: string;
+  cells: number[];
+  rowTotal: number;
+}
+
+export interface SalesBudgetMonthlyRevenueCrosstabReport {
+  settings: ReportCompanySettings;
+  yearChoices: number[];
+  reportYear: number;
+  hasAnyBudget: boolean;
+  categoriesInReportCount: number;
+  rows: SalesBudgetMonthlyRevenueCrosstabRow[];
+  colTotals: number[];
+  grandTotal: number;
+  generatedAtIso: string;
+  comments: string | null;
+}
+
 export interface SalesBudgetWeeklyCrosstabWeekMeta {
   label: string;
   wy: number;
@@ -513,6 +533,27 @@ export interface SalesBudgetWeeklyCrosstabReport {
   sortedWeeks: SalesBudgetWeeklyCrosstabWeekMeta[];
   cols: Array<{ productCatId: number; month: number }>;
   qtyByCell: SalesBudgetWeeklyCrosstabCellQty[];
+  rowTotals: number[];
+  colTotals: number[];
+  grandTotal: number;
+  generatedAtIso: string;
+  comments: string | null;
+}
+
+export interface SalesBudgetWeeklyRevenueCrosstabCellAmount {
+  key: string;
+  amountFcfa: number;
+}
+
+export interface SalesBudgetWeeklyRevenueCrosstabReport {
+  settings: ReportCompanySettings;
+  yearChoices: number[];
+  reportYear: number;
+  hasAnyBudget: boolean;
+  categoriesInReport: SalesBudgetWeeklyCrosstabCategory[];
+  sortedWeeks: SalesBudgetWeeklyCrosstabWeekMeta[];
+  cols: Array<{ productCatId: number; month: number }>;
+  amountByCell: SalesBudgetWeeklyRevenueCrosstabCellAmount[];
   rowTotals: number[];
   colTotals: number[];
   grandTotal: number;
@@ -867,8 +908,7 @@ export interface IndustryProductMonthlySalesSection {
   productId: number;
   productName: string;
   sectionTitle: string;
-  salesPointRows: IndustryProductMonthlySalesRow[];
-  totalRow: IndustryProductMonthlySalesRow;
+  productRow: IndustryProductMonthlySalesRow;
 }
 
 export interface IndustryProductMonthlySalesReport {
@@ -882,6 +922,7 @@ export interface IndustryProductMonthlySalesReport {
   monthColumnsH1: IndustryProductMonthlySalesMonthColumn[];
   monthColumnsH2: IndustryProductMonthlySalesMonthColumn[];
   sections: IndustryProductMonthlySalesSection[];
+  grandTotalRow: IndustryProductMonthlySalesRow;
   comments: string | null;
 }
 

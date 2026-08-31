@@ -1,4 +1,5 @@
 import "./SalesBudgetScreen.css";
+import "../components/FormDialog.css";
 interface SalesBudgetScreenProps {
     readOnly?: boolean;
 }

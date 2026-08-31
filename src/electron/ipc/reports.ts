@@ -19,7 +19,9 @@ import type {
   RevenueTaxesReport,
   ReportSignatoryRow,
   SalesBudgetMonthlyCrosstabReport,
+  SalesBudgetMonthlyRevenueCrosstabReport,
   SalesBudgetWeeklyCrosstabReport,
+  SalesBudgetWeeklyRevenueCrosstabReport,
   WeeklyDeliveriesReport,
   DailySalesReport,
   DailySalesMatrixReport,
@@ -40,7 +42,9 @@ import { getBottleOilStockSalesReport } from "../reports/bottleOilStockSalesRepo
 import { getBottledWeeklyIssuesReport } from "../reports/bottledWeeklyIssuesReport.js";
 import { getCommitmentReport } from "../reports/commitmentReport.js";
 import { getSalesBudgetMonthlyCrosstabReport } from "../reports/salesBudgetMonthlyCrosstab.js";
+import { getSalesBudgetMonthlyRevenueCrosstabReport } from "../reports/salesBudgetMonthlyRevenueCrosstab.js";
 import { getSalesBudgetWeeklyCrosstabReport } from "../reports/salesBudgetWeeklyCrosstab.js";
+import { getSalesBudgetWeeklyRevenueCrosstabReport } from "../reports/salesBudgetWeeklyRevenueCrosstab.js";
 import { getStockCommitmentReport } from "../reports/stockCommitment.js";
 import { getStockReport } from "../reports/stockReport.js";
 import { getWeeklyDeliveriesReport } from "../reports/weeklyDeliveriesReport.js";
@@ -263,6 +267,30 @@ export function registerReportsHandlers(): void {
     (_event, authToken: string, reportYear?: unknown): SalesBudgetWeeklyCrosstabReport => {
       const user = requireAuthUser(authToken);
       return getSalesBudgetWeeklyCrosstabReport(user.id, parseReportYear(reportYear));
+    },
+  );
+
+  ipcMain.handle(
+    "reports:getSalesBudgetMonthlyRevenueCrosstab",
+    (
+      _event,
+      authToken: string,
+      reportYear?: unknown,
+    ): SalesBudgetMonthlyRevenueCrosstabReport => {
+      const user = requireAuthUser(authToken);
+      return getSalesBudgetMonthlyRevenueCrosstabReport(user.id, parseReportYear(reportYear));
+    },
+  );
+
+  ipcMain.handle(
+    "reports:getSalesBudgetWeeklyRevenueCrosstab",
+    (
+      _event,
+      authToken: string,
+      reportYear?: unknown,
+    ): SalesBudgetWeeklyRevenueCrosstabReport => {
+      const user = requireAuthUser(authToken);
+      return getSalesBudgetWeeklyRevenueCrosstabReport(user.id, parseReportYear(reportYear));
     },
   );
 

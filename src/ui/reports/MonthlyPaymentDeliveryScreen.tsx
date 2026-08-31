@@ -89,9 +89,9 @@ function ReportTable({ report }: { report: MonthlyPaymentDeliveryReport }) {
             <th colSpan={2}>DELIVERIES</th>
           </tr>
           <tr>
-            <th>KGS</th>
+            <th class="mpd-kgs">KGS</th>
             <th>F.CFA</th>
-            <th>KGS</th>
+            <th class="mpd-kgs">KGS</th>
             <th>F.CFA</th>
           </tr>
         </thead>
@@ -100,18 +100,19 @@ function ReportTable({ report }: { report: MonthlyPaymentDeliveryReport }) {
             <tr key={week.weekIndex} class="scr-row">
               <td class="mpd-center">{week.weekIndex}</td>
               <td class="mpd-center">{week.datesLabel}</td>
-              <td class="scr-num">{formatKg(week.paymentsKg)}</td>
+              <td class="scr-num mpd-kgs">{formatKg(week.paymentsKg)}</td>
               <td class="scr-num">{formatMoney(week.paymentsValue)}</td>
-              <td class="scr-num">{formatKg(week.deliveriesKg)}</td>
+              <td class="scr-num mpd-kgs">{formatKg(week.deliveriesKg)}</td>
               <td class="scr-num">{formatMoney(week.deliveriesValue)}</td>
             </tr>
           ))}
           <tr class="scr-row scr-row-total">
-            <td />
-            <td class="mpd-center">TOTAL</td>
-            <td class="scr-num">{formatKg(report.totals.paymentsKg)}</td>
+            <td colSpan={2} class="mpd-center">
+              TOTAL
+            </td>
+            <td class="scr-num mpd-kgs">{formatKg(report.totals.paymentsKg)}</td>
             <td class="scr-num">{formatMoney(report.totals.paymentsValue)}</td>
-            <td class="scr-num">{formatKg(report.totals.deliveriesKg)}</td>
+            <td class="scr-num mpd-kgs">{formatKg(report.totals.deliveriesKg)}</td>
             <td class="scr-num">{formatMoney(report.totals.deliveriesValue)}</td>
           </tr>
         </tbody>

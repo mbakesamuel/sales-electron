@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
+import { PanelLeft, PanelLeftClose } from "lucide-react";
 import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts";
 import {
   canAccessRouteFromSnapshot,
@@ -64,6 +65,7 @@ import {
   OVERVIEW_ROUTE,
   SCHEMA_ROUTE_SECTIONS,
   type SchemaRoute,
+  type SchemaRouteSection,
 } from "../navigation/schemaRoutes.ts";
 import {
   LOGOUT_ICON,
@@ -79,11 +81,70 @@ import { DashboardScreen } from "../dashboard/DashboardScreen.tsx";
 import { AppThemeToggle } from "../theme/AppThemeToggle.tsx";
 import "./HomeScreen.css";
 
+const SIDEBAR_COLLAPSED_KEY = "home-sidebar-collapsed";
+
 interface HomeScreenProps {
   user: AuthUser;
   permissions: RolePermissionsSnapshot;
   onPermissionsSaved: (next: RolePermissionsSnapshot) => void;
   onLogout: () => void;
+}
+
+function SectionRouteList({
+  section,
+  activeRouteId,
+  nested,
+  onSelectRoute,
+}: {
+  section: SchemaRouteSection;
+  activeRouteId: string;
+  nested?: boolean;
+  onSelectRoute: (routeId: string) => void;
+}) {
+  const nestedClass = nested ? " sidebar-route-nested" : "";
+
+  if (section.groups?.length) {
+    return (
+      <>
+        {section.groups.map((group) => (
+          <div key={group.id} class="sidebar-route-group">
+            <div class="sidebar-route-group-label">{group.label}</div>
+            {group.routes.map((route) => (
+              <button
+                key={route.id}
+                type="button"
+                class={`sidebar-route${nestedClass}${
+                  activeRouteId === route.id ? " is-active" : ""
+                }`}
+                onClick={() => onSelectRoute(route.id)}
+              >
+                <SidebarIcon icon={getRouteIcon(route.id)} className="sidebar-route-icon" />
+                <span class="sidebar-route-label">{route.label}</span>
+              </button>
+            ))}
+          </div>
+        ))}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {section.routes.map((route) => (
+        <button
+          key={route.id}
+          type="button"
+          class={`sidebar-route${nestedClass}${
+            activeRouteId === route.id ? " is-active" : ""
+          }`}
+          onClick={() => onSelectRoute(route.id)}
+        >
+          <SidebarIcon icon={getRouteIcon(route.id)} className="sidebar-route-icon" />
+          <span class="sidebar-route-label">{route.label}</span>
+        </button>
+      ))}
+    </>
+  );
 }
 
 function RouteContent({
@@ -419,6 +480,16 @@ export function HomeScreen({
   } | null>(null);
   const [openPostingPeriod, setOpenPostingPeriod] =
     useState<OpenPostingPeriod | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1",
+  );
+  const [openFlyoutSectionId, setOpenFlyoutSectionId] = useState<string | null>(
+    null,
+  );
+  const [flyoutAnchor, setFlyoutAnchor] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
 
   const visibleSections = useMemo(() => {
     const permitted = filterSectionsForPermissions(SCHEMA_ROUTE_SECTIONS, permissions);
@@ -489,6 +560,79 @@ export function HomeScreen({
     }
   }, [activeRouteId, permissions, openPostingPeriod]);
 
+  useEffect(() => {
+    if (!openFlyoutSectionId) {
+      return;
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpenFlyoutSectionId(null);
+        setFlyoutAnchor(null);
+      }
+    }
+
+    function onMouseDown(event: MouseEvent) {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+      if (
+        target.closest(".sidebar-flyout") ||
+        target.closest(".sidebar-flyout-backdrop") ||
+        target.closest(".accordion-trigger")
+      ) {
+        return;
+      }
+      setOpenFlyoutSectionId(null);
+      setFlyoutAnchor(null);
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("mousedown", onMouseDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("mousedown", onMouseDown);
+    };
+  }, [openFlyoutSectionId]);
+
+  function toggleSidebarCollapsed() {
+    setSidebarCollapsed((current) => {
+      const next = !current;
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? "1" : "0");
+      return next;
+    });
+    setOpenFlyoutSectionId(null);
+    setFlyoutAnchor(null);
+  }
+
+  function closeSidebarFlyout() {
+    setOpenFlyoutSectionId(null);
+    setFlyoutAnchor(null);
+  }
+
+  function handleSectionTriggerClick(
+    sectionId: string,
+    event: Event,
+  ) {
+    if (sidebarCollapsed) {
+      const target = event.currentTarget;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      if (openFlyoutSectionId === sectionId) {
+        closeSidebarFlyout();
+        return;
+      }
+      const rect = target.getBoundingClientRect();
+      setFlyoutAnchor({ top: rect.top, left: rect.right + 4 });
+      setOpenFlyoutSectionId(sectionId);
+      return;
+    }
+
+    toggleSection(sectionId);
+  }
+
   function toggleSection(sectionId: string) {
     setOpenSections((current) => {
       const isCurrentlyOpen = Boolean(current[sectionId]);
@@ -524,6 +668,7 @@ export function HomeScreen({
 
   function selectRoute(routeId: string, sectionId?: string) {
     setActiveRouteId(routeId);
+    closeSidebarFlyout();
     if (routeId !== "delivery-orders") {
       setPendingDeliveryOrderLookup("");
     }
@@ -578,7 +723,9 @@ export function HomeScreen({
     "other-product-sales-deliveries-report",
     "palm-oil-sales-activity-report",
     "sales-budget-monthly-crosstab",
+    "sales-budget-monthly-revenue-crosstab",
     "sales-budget-weekly-crosstab",
+    "sales-budget-weekly-revenue-crosstab",
     "sales-budget",
     "customers",
     "customer-types",
@@ -632,9 +779,13 @@ export function HomeScreen({
     activeRouteId === "roles" ||
     activeRouteId === "role-permissions";
 
+  const flyoutSection = openFlyoutSectionId
+    ? visibleSections.find((section) => section.id === openFlyoutSectionId) ?? null
+    : null;
+
   return (
     <ReportOverlayContext.Provider value={reportOverlayContextValue}>
-    <div class="home-layout">
+    <div class={`home-layout${sidebarCollapsed ? " is-sidebar-collapsed" : ""}`}>
       <aside class="home-sidebar">
         <div class="sidebar-header">
           <div class="sidebar-avatar">{user.name.charAt(0).toUpperCase()}</div>
@@ -642,12 +793,27 @@ export function HomeScreen({
             <span class="sidebar-username">{user.name}</span>
             <span class="sidebar-role">{formatRoleLabel(user.role)}</span>
           </div>
+          <button
+            type="button"
+            class="sidebar-collapse-toggle no-print"
+            aria-expanded={!sidebarCollapsed}
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={toggleSidebarCollapsed}
+          >
+            <SidebarIcon
+              icon={sidebarCollapsed ? PanelLeft : PanelLeftClose}
+              className="sidebar-route-icon"
+              size={18}
+            />
+          </button>
         </div>
 
         <nav class="sidebar-nav" aria-label="Application modules">
           <button
             type="button"
             class={`sidebar-route${activeRouteId === DEFAULT_ROUTE_ID ? " is-active" : ""}`}
+            title="Overview"
             onClick={() => selectRoute(DEFAULT_ROUTE_ID)}
           >
             <SidebarIcon icon={OVERVIEW_ICON} className="sidebar-route-icon" />
@@ -657,65 +823,37 @@ export function HomeScreen({
           <div class="sidebar-accordion">
             {visibleSections.map((section) => {
               const isOpen = Boolean(openSections[section.id]);
+              const isFlyoutOpen = openFlyoutSectionId === section.id;
 
               return (
                 <section key={section.id} class="accordion-section">
                   <button
                     type="button"
-                    class="accordion-trigger"
-                    aria-expanded={isOpen}
-                    onClick={() => toggleSection(section.id)}
+                    class={`accordion-trigger${
+                      isFlyoutOpen ? " is-flyout-open" : ""
+                    }`}
+                    aria-expanded={sidebarCollapsed ? isFlyoutOpen : isOpen}
+                    title={section.label}
+                    onClick={(event) => handleSectionTriggerClick(section.id, event)}
                   >
                     <span class="accordion-trigger-label">
                       <SidebarIcon
                         icon={getSectionIcon(section.id)}
                         className="sidebar-route-icon"
                       />
-                      <span>{section.label}</span>
+                      <span class="accordion-trigger-text">{section.label}</span>
                     </span>
                     <SidebarChevron isOpen={isOpen} />
                   </button>
 
-                  {isOpen ? (
+                  {isOpen && !sidebarCollapsed ? (
                     <div class="accordion-panel">
-                      {section.groups?.length
-                        ? section.groups.map((group) => (
-                            <div key={group.id} class="sidebar-route-group">
-                              <div class="sidebar-route-group-label">{group.label}</div>
-                              {group.routes.map((route) => (
-                                <button
-                                  key={route.id}
-                                  type="button"
-                                  class={`sidebar-route sidebar-route-nested${
-                                    activeRouteId === route.id ? " is-active" : ""
-                                  }`}
-                                  onClick={() => selectRoute(route.id, section.id)}
-                                >
-                                  <SidebarIcon
-                                    icon={getRouteIcon(route.id)}
-                                    className="sidebar-route-icon"
-                                  />
-                                  <span class="sidebar-route-label">{route.label}</span>
-                                </button>
-                              ))}
-                            </div>
-                          ))
-                        : section.routes.map((route) => (
-                            <button
-                              key={route.id}
-                              type="button"
-                              class={`sidebar-route sidebar-route-nested${
-                                activeRouteId === route.id ? " is-active" : ""
-                              }`}
-                              onClick={() => selectRoute(route.id, section.id)}
-                            >
-                              <SidebarIcon
-                                icon={getRouteIcon(route.id)}
-                                className="sidebar-route-icon"
-                              />
-                              <span class="sidebar-route-label">{route.label}</span>
-                            </button>
-                          ))}
+                      <SectionRouteList
+                        section={section}
+                        activeRouteId={activeRouteId}
+                        nested
+                        onSelectRoute={(routeId) => selectRoute(routeId, section.id)}
+                      />
                     </div>
                   ) : null}
                 </section>
@@ -727,12 +865,40 @@ export function HomeScreen({
         <button
           type="button"
           class="sidebar-logout"
+          title="Log out"
           onClick={() => setLogoutConfirmOpen(true)}
         >
           <SidebarIcon icon={LOGOUT_ICON} className="sidebar-route-icon" />
           <span class="sidebar-route-label">Log out</span>
         </button>
       </aside>
+
+      {sidebarCollapsed && flyoutSection && flyoutAnchor ? (
+        <>
+          <button
+            type="button"
+            class="sidebar-flyout-backdrop no-print"
+            aria-label="Close navigation menu"
+            onClick={closeSidebarFlyout}
+          />
+          <div
+            class="sidebar-flyout no-print"
+            style={{
+              top: `${flyoutAnchor.top}px`,
+              left: `${flyoutAnchor.left}px`,
+            }}
+          >
+            <div class="sidebar-flyout-title">{flyoutSection.label}</div>
+            <div class="sidebar-flyout-routes">
+              <SectionRouteList
+                section={flyoutSection}
+                activeRouteId={activeRouteId}
+                onSelectRoute={(routeId) => selectRoute(routeId, flyoutSection.id)}
+              />
+            </div>
+          </div>
+        </>
+      ) : null}
 
       {logoutConfirmOpen ? (
         <ConfirmDialog

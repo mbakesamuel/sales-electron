@@ -1,4 +1,4 @@
-import type { BottleOilStockSalesReport, BottledPalmOilSalesReturnReport, BottledWeeklyIssuesReport, CommitmentReport, DailySalesReport, IndustryProductMonthlySalesReport, MonthlyBottledOilReport, MonthlyDeliveriesByDestinationReport, MonthlyDeliveryReport, MonthlyPalmOilSalesReport, PalmOilSalesActivityReport, MonthlyPaymentDeliveryReport, MonthlyStockReconciliationReport, OtherProductSalesDeliveriesReport, RevenueTaxesReport, SalesBudgetMonthlyCrosstabReport, SalesBudgetWeeklyCrosstabReport, StockCommitmentReport, StockReport, WeeklyDeliveriesReport } from "../../shared/reports.types.ts";
+import type { BottleOilStockSalesReport, BottledPalmOilSalesReturnReport, BottledWeeklyIssuesReport, CommitmentReport, DailySalesReport, IndustryProductMonthlySalesReport, MonthlyBottledOilReport, MonthlyDeliveriesByDestinationReport, MonthlyDeliveryReport, MonthlyPalmOilSalesReport, PalmOilSalesActivityReport, MonthlyPaymentDeliveryReport, MonthlyStockReconciliationReport, OtherProductSalesDeliveriesReport, RevenueTaxesReport, SalesBudgetMonthlyCrosstabReport, SalesBudgetMonthlyRevenueCrosstabReport, SalesBudgetWeeklyCrosstabReport, SalesBudgetWeeklyRevenueCrosstabReport, StockCommitmentReport, StockReport, WeeklyDeliveriesReport } from "../../shared/reports.types.ts";
 import type { BinCardReport } from "../../shared/stock.types.ts";
 export declare const HIDE_ZERO_ROWS_HINT = "Turn off Hide rows with zero or empty quantities in Report settings to see zero-balance rows.";
 export declare function isStockReportEmpty(report: StockReport): boolean;
@@ -23,4 +23,8 @@ export declare function isSalesBudgetMonthlyCrosstabReportEmpty(report: SalesBud
 export declare function isSalesBudgetWeeklyCrosstabReportEmpty(report: SalesBudgetWeeklyCrosstabReport): boolean;
 export declare function salesBudgetWeeklyCrosstabEmptyMessage(report: SalesBudgetWeeklyCrosstabReport): string | null;
 export declare function salesBudgetMonthlyCrosstabEmptyMessage(report: SalesBudgetMonthlyCrosstabReport): string | null;
+export declare function isSalesBudgetMonthlyRevenueCrosstabReportEmpty(report: SalesBudgetMonthlyRevenueCrosstabReport): boolean;
+export declare function isSalesBudgetWeeklyRevenueCrosstabReportEmpty(report: SalesBudgetWeeklyRevenueCrosstabReport): boolean;
+export declare function salesBudgetWeeklyRevenueCrosstabEmptyMessage(report: SalesBudgetWeeklyRevenueCrosstabReport): string | null;
+export declare function salesBudgetMonthlyRevenueCrosstabEmptyMessage(report: SalesBudgetMonthlyRevenueCrosstabReport): string | null;
 export declare function isBinCardReportMovementsEmpty(report: BinCardReport): boolean;

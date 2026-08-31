@@ -23,6 +23,8 @@ export declare function getAuthenticatedReports(): {
     getRevenueTaxes: (period?: import("../../shared/reports.types.ts").RevenueTaxesPeriod, salesPointId?: number | null) => Promise<import("../../shared/reports.types.ts").RevenueTaxesReport>;
     getSalesBudgetMonthlyCrosstab: (reportYear?: number) => Promise<import("../../shared/reports.types.ts").SalesBudgetMonthlyCrosstabReport>;
     getSalesBudgetWeeklyCrosstab: (reportYear?: number) => Promise<import("../../shared/reports.types.ts").SalesBudgetWeeklyCrosstabReport>;
+    getSalesBudgetMonthlyRevenueCrosstab: (reportYear?: number) => Promise<import("../../shared/reports.types.ts").SalesBudgetMonthlyRevenueCrosstabReport>;
+    getSalesBudgetWeeklyRevenueCrosstab: (reportYear?: number) => Promise<import("../../shared/reports.types.ts").SalesBudgetWeeklyRevenueCrosstabReport>;
     getDailySales: (reportDateIso: string, salesPointId?: number | null) => Promise<import("../../shared/reports.types.ts").DailySalesReport>;
     getDailySalesMatrix: (salesPointId?: number | null, productId?: number | null) => Promise<import("../../shared/reports.types.ts").DailySalesMatrixReport>;
     saveReportComments: (input: {

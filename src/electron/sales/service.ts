@@ -9,6 +9,7 @@ import type {
   SalesValidateManyResult,
   SalesValidationQueuePage,
   SaveSaleResult,
+  SaleDisposition,
   SaleMutationResult,
   UnitPricePreviewResult,
 } from "../../shared/sales.types.js";
@@ -31,6 +32,7 @@ import { assertRouteWrite, assertAction, canPerformAction, canWriteRoute } from 
 import { getDatabase } from "../db/index.js";
 import {
   getCustomerTypeIdForCustomer,
+  getStaffWorkerCustomerTypeId,
   resolveUnitPriceExTax,
 } from "../pricing/resolveUnitPrice.js";
 import { loadTaxRatesAsOf } from "../tax/resolveRates.js";
@@ -145,6 +147,31 @@ function loadLooseSalesAllowUnregisteredCustomer(
       .get() as { looseSalesAllowUnregisteredCustomer: number | null } | undefined;
 
     return Number(row?.looseSalesAllowUnregisteredCustomer ?? 0) !== 0;
+  } catch {
+    return false;
+  }
+}
+
+function loadSalesInvoiceLockUnitPrice(
+  db: ReturnType<typeof getDatabase>,
+): boolean {
+  try {
+    const columns = db
+      .prepare(`PRAGMA table_info(CompanySettings)`)
+      .all() as Array<{ name: string }>;
+    if (!columns.some((col) => col.name === "salesInvoiceLockUnitPrice")) {
+      return false;
+    }
+
+    const row = db
+      .prepare(
+        `SELECT salesInvoiceLockUnitPrice
+         FROM CompanySettings
+         WHERE id = 'default'`,
+      )
+      .get() as { salesInvoiceLockUnitPrice: number | null } | undefined;
+
+    return Number(row?.salesInvoiceLockUnitPrice ?? 1) !== 0;
   } catch {
     return false;
   }
@@ -558,6 +585,7 @@ export function getSalesFormOptions(userId: string): SalesFormOptions {
     looseSalesAllowPublicRelation: loadLooseSalesAllowPublicRelation(db),
     looseSalesAllowUnregisteredCustomer: loadLooseSalesAllowUnregisteredCustomer(db),
     loosePalmOilRequireSalesTank: loadLoosePalmOilRequireSalesTank(db),
+    salesInvoiceLockUnitPrice: loadSalesInvoiceLockUnitPrice(db),
     rationPaymentMethodId: SYS_PM_RATION,
     publicRelationPaymentMethodId: SYS_PM_PUBLIC_RELATION,
   };
@@ -567,6 +595,7 @@ export function previewSaleUnitPrice(input: {
   productId: number;
   asOfDate: string;
   customerId?: number | null;
+  saleDisposition?: SaleDisposition | null;
 }): UnitPricePreviewResult {
   if (!Number.isFinite(input.productId) || input.productId <= 0) {
     return { ok: false, error: "Product is required." };
@@ -592,6 +621,18 @@ export function previewSaleUnitPrice(input: {
     }
 
     customerTypeId = getCustomerTypeIdForCustomer(cid);
+  } else if (input.saleDisposition === "RATION") {
+    customerTypeId = getStaffWorkerCustomerTypeId();
+  } else {
+    const posPlaceholder = getDatabase()
+      .prepare(
+        `SELECT customerTypeId FROM Customer
+         WHERE COALESCE(isPosPlaceholder, 0) = 1
+         LIMIT 1`,
+      )
+      .get() as { customerTypeId: string | null } | undefined;
+
+    customerTypeId = posPlaceholder?.customerTypeId ?? null;
   }
 
   const result = resolveUnitPriceExTax(input.productId, customerTypeId, asOfDate);

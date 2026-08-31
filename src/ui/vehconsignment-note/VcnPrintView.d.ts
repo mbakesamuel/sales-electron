@@ -1,3 +1,4 @@
+import "../reports/StockCommitmentReport.css";
 import "./VcnPrintView.css";
 interface ConsignmentNotePrintViewProps {
     noteId: string;

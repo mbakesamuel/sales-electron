@@ -155,7 +155,7 @@ export function listStockValidationQueue(userId: string): StockValidationQueuePa
        LEFT JOIN User u ON u.id = a.createdByUserId
        LEFT JOIN StockAdjustmentLine al ON al.adjustmentId = a.id
        WHERE a.status = 'DRAFT'
-         AND COALESCE(a.sourceKind, 'NORMAL') = 'NORMAL'${adjustmentScope}
+         AND COALESCE(a.sourceKind, 'NORMAL') IN ('NORMAL', 'CARRY_FORWARD')${adjustmentScope}
        GROUP BY a.id
        ORDER BY a.occurredAt ASC, a.adjustmentNo ASC`,
     )

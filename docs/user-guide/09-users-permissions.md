@@ -16,7 +16,7 @@ Default route access is defined per role (admins can change the matrix):
 | **MANAGER** | Most routes write (not user admin); validate sales/DOs/consignments; can cancel validated DOs. Commercial Overview. |
 | **SENIOR_SALES_SUPERVISOR** | Operations, customers, inventory read/write; validate sales/DOs/consignments. **Supervisor Overview** (queues + stock). |
 | **JNR_SALES_SUP** (junior sales supervisor) | Custom/manageable role (may already exist in production DBs). Shares **Supervisor Overview** with senior supervisors when granted matching routes; consignment validation route seeded in migration `086`. |
-| **STATISTICS_CLERK** | Broad **read** on operations, budgets, reports, and financial/tax screens; **write** on **Stock** and **Bottled Stock** for company-wide transfers (bulk + bottled). Primary transfer operator — draft, dispatch, and location moves across all collection points. No validate actions by default. Commercial Overview. |
+| **STATISTICS_CLERK** | Broad **read** on operations, budgets, reports, and financial/tax screens; **write** on **Stock**, **Bottled Stock**, **Opening Stock balances**, and **Opening commitment balances** for company-wide transfers (bulk + bottled) and carry-forward entry. Primary transfer operator — draft, dispatch, and location moves across all collection points. Carry-forward saves stay pending until a supervisor validates them. No validate actions by default. Commercial Overview. |
 | **STORE_KEEPER** | Bottled stock and Bottle Oil sales at their assigned collection point; **receive only** for incoming stock transfers (cannot draft or dispatch). Selected reports; **Bottle Oil Overview**. Cannot validate by default. |
 
 ## Route access vs actions
@@ -65,8 +65,14 @@ The **Stock** sidebar screen combines several permission routes. After changing 
 | `stock-receipts` | Receipts | Hidden | View list | Needed for any receipt changes (also requires draft/post **actions**) |
 | `stock-transfers` | Transfers | Hidden | View list | Needed for any transfer changes (also requires draft/post **actions**) |
 | `stock-adjustments` | Adjustments | Hidden | View list | Needed for any adjustment changes (also requires draft/post **actions**) |
-| `carry-forward-stock` | Opening Stock balances | Hidden | View | Batch-set opening quantities |
+| `carry-forward-stock` | Opening Stock balances | Hidden | View | Batch-set opening quantities (clerks submit drafts; supervisors with validate post immediately) |
 | `stock-bin-card` | Bin card (ledger + printable report) | Hidden | View / filter / open report | Same as read unless write on related stock routes |
+
+## Delivery order module routes
+
+| Route | Screen | None | Read | Write |
+|-------|--------|------|------|-------|
+| `carry-forward-commitments` | Opening commitment balances | Hidden | View | Batch-set opening commitments (clerks submit pending DOs; supervisors with validate save live) |
 
 **Write** on balance or movements does not add create buttons — those tabs are always view-only. Grant **write** on receipts, transfers, or adjustments **plus** the matching action flags below.
 

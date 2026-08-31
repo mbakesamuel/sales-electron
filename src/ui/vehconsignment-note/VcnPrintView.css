@@ -147,3 +147,179 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Dual-copy print sheet (Original + Duplicate on one A4 page) */
+.vcn-print-page {
+  min-height: 0;
+}
+
+.vcn-print-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: #fff;
+  color: #111827;
+}
+
+.vcn-print-copy {
+  position: relative;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  min-height: 0;
+  padding: 12px 8px 16px;
+  border-bottom: 1px dashed #9ca3af;
+}
+
+.vcn-print-copy:last-child {
+  border-bottom: none;
+}
+
+.vcn-print-stamp {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  padding: 4px 10px;
+  border: 2px solid #111827;
+  font-family: "Arial Narrow", Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: #fff;
+}
+
+.vcn-print-copy-body {
+  padding-top: 4px;
+}
+
+.vcn-print-copy-body .vcn-products-document,
+.vcn-print-copy-body .vcn-bordereau-document {
+  padding: 4px 0 8px;
+  font-size: 0.85rem;
+}
+
+.vcn-print-copy-body .vcn-products-header h1,
+.vcn-print-copy-body .report-header-title {
+  font-size: 1rem;
+}
+
+.vcn-print-copy-body .vcn-products-table,
+.vcn-print-copy-body .vcn-bordereau-table {
+  font-size: 0.8rem;
+}
+
+.vcn-print-copy-body .vcn-products-table th,
+.vcn-print-copy-body .vcn-products-table td,
+.vcn-print-copy-body .vcn-bordereau-table th,
+.vcn-print-copy-body .vcn-bordereau-table td {
+  padding: 4px 6px;
+}
+
+.vcn-print-copy-body .vcn-products-signatories,
+.vcn-print-copy-body .vcn-bordereau-signatories {
+  margin: 12px 0;
+  gap: 12px;
+}
+
+.vcn-print-copy-body .vcn-products-signature-line,
+.vcn-print-copy-body .vcn-bordereau-signature-line {
+  margin: 12px 0 8px !important;
+  min-height: 20px;
+}
+
+.vcn-print-copy-body .vcn-products-footer,
+.vcn-print-copy-body .vcn-bordereau-footer {
+  font-size: 0.75rem;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
+  body.vcn-print-mode {
+    background: #fff !important;
+  }
+
+  /* Same hide-all-except-print-root pattern as sale-print-mode / scr-print-mode */
+  body.vcn-print-mode * {
+    visibility: hidden;
+  }
+
+  body.vcn-print-mode .vcn-print-sheet,
+  body.vcn-print-mode .vcn-print-sheet * {
+    visibility: visible;
+  }
+
+  body.vcn-print-mode .vcn-print-sheet {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: block;
+    width: 100%;
+    height: auto;
+    color: #111;
+    background: #fff;
+    page-break-after: avoid;
+  }
+
+  body.vcn-print-mode .no-print {
+    display: none !important;
+  }
+
+  body.vcn-print-mode .report-overlay-backdrop,
+  body.vcn-print-mode .report-overlay-panel,
+  body.vcn-print-mode .report-overlay-body,
+  body.vcn-print-mode .vcn-print-page,
+  body.vcn-print-mode .home-layout,
+  body.vcn-print-mode .home-main,
+  body.vcn-print-mode .home-content {
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    max-height: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  body.vcn-print-mode .vcn-print-copy {
+    height: calc((297mm - 16mm) / 2);
+    max-height: calc((297mm - 16mm) / 2);
+    overflow: hidden;
+    padding: 6mm 4mm 4mm;
+    border-bottom: 1px dashed #666;
+    page-break-inside: avoid;
+  }
+
+  body.vcn-print-mode .vcn-print-copy:last-child {
+    border-bottom: none;
+  }
+
+  body.vcn-print-mode .vcn-print-stamp {
+    top: 4mm;
+    right: 4mm;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body.vcn-print-mode .vcn-print-copy-body .vcn-products-document,
+  body.vcn-print-mode .vcn-print-copy-body .vcn-bordereau-document {
+    transform-origin: top left;
+    transform: scale(0.92);
+    width: 108.7%;
+  }
+
+  body.vcn-print-mode .vcn-print-page .scr-toolbar {
+    display: none !important;
+  }
+}

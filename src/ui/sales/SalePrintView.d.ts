@@ -1,3 +1,4 @@
+import "../reports/StockCommitmentReport.css";
 import "./SalePrintView.css";
 interface SalePrintViewProps {
     saleId: string;

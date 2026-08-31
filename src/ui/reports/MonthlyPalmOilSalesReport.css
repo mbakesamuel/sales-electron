@@ -29,6 +29,31 @@
 }
 
 @media print {
+  @page {
+    size: A4 landscape;
+    margin: 6mm 10mm;
+  }
+
+  body.mpos-print-landscape .mpos-document {
+    overflow: visible;
+  }
+
+  body.mpos-print-landscape .mpos-section {
+    overflow: visible;
+    page-break-inside: avoid;
+  }
+
+  body.mpos-print-landscape .mpos-table {
+    font-size: 10px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  body.mpos-print-landscape .mpos-table th,
+  body.mpos-print-landscape .mpos-table td {
+    padding: 2px 4px !important;
+  }
+
   body.scr-print-mode .mpos-table {
     min-width: 0;
   }

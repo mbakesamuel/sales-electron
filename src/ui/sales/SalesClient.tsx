@@ -2299,7 +2299,7 @@ export function SalesClient({
               : ""
           }
           isBottleMode={isBottleMode}
-          isSpecialDisposition={isSpecialDisposition}
+          saleDisposition={saleDisposition}
           useRegisteredCustomer={useRegisteredCustomer}
           customerId={customerId}
           transactionDate={transactionDate}
@@ -2307,6 +2307,7 @@ export function SalesClient({
             options?.loosePalmOilRequireSalesTank ?? true
           }
           mode={lineModal.mode}
+          lockUnitPriceFromSchedule={options.salesInvoiceLockUnitPrice}
           onClose={() => setLineModal(null)}
           onSave={saveLineModal}
         />

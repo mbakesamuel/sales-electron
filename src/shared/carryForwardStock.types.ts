@@ -57,7 +57,7 @@ export interface UpsertCarryForwardStockBatchInput {
 }
 
 export type CarryForwardStockBatchResult =
-  | { ok: true; saved: number; adjustmentNo: string | null }
+  | { ok: true; saved: number; adjustmentNo: string | null; pendingValidation?: boolean }
   | { ok: false; error: string };
 
 export interface CarryForwardStockOnHandRow {

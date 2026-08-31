@@ -7,4 +7,4 @@ export interface ReportHeaderProps {
     title: string;
     meta?: ComponentChildren;
 }
-export declare function ReportHeader({ department, serviceName, title, meta, }: ReportHeaderProps): import("preact").JSX.Element;
+export declare function ReportHeader({ companyName, department, serviceName, title, meta, }: ReportHeaderProps): import("preact").JSX.Element;

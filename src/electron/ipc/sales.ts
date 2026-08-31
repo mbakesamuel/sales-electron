@@ -11,6 +11,7 @@ import type {
   SalesValidateManyResult,
   SalesValidationQueuePage,
   SaveSaleResult,
+  SaleDisposition,
   SaleMutationResult,
   SalePrintPayload,
   AvailableDeliveryOrderRow,
@@ -185,7 +186,12 @@ export function registerSalesHandlers(): void {
     "sales:previewUnitPrice",
     (
       _event,
-      payload: { productId: number; asOfDate: string; customerId?: number | null },
+      payload: {
+        productId: number;
+        asOfDate: string;
+        customerId?: number | null;
+        saleDisposition?: SaleDisposition | null;
+      },
     ): UnitPricePreviewResult => {
       if (!payload || typeof payload.productId !== "number") {
         return { ok: false, error: "Product is required." };

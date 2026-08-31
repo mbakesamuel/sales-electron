@@ -5,12 +5,9 @@ import type {
   IndustryProductMonthlySalesMonthColumn,
   IndustryProductMonthlySalesReport,
   IndustryProductMonthlySalesRow,
-  IndustryProductMonthlySalesSection,
 } from "../../shared/reports.types.ts";
 import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
-import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
-import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import {
@@ -39,21 +36,42 @@ function formatValue(value: number): string {
 }
 
 function handlePrint(): void {
-  document.body.classList.add("scr-print-mode");
+  const style = document.createElement("style");
+  style.id = "ipms-print-landscape-style";
+  style.textContent =
+    "@media print { @page { size: A4 landscape; margin: 6mm 10mm; } }";
+  document.head.appendChild(style);
+  document.body.classList.add("scr-print-mode", "ipms-print-landscape");
+
   window.addEventListener(
     "afterprint",
     () => {
-      document.body.classList.remove("scr-print-mode");
+      document.body.classList.remove("scr-print-mode", "ipms-print-landscape");
+      style.remove();
     },
     { once: true },
   );
-  window.print();
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      window.print();
+    });
+  });
 }
 
 function cellCsv(cell: IndustryProductMonthlySalesCell): [string, string] {
   return [
     Math.abs(cell.tons) < 0.0005 ? "" : String(Number(cell.tons.toFixed(3))),
     Math.abs(cell.value) < 500 ? "" : String(Math.round(cell.value / 1000)),
+  ];
+}
+
+function buildDisplayRows(
+  report: IndustryProductMonthlySalesReport,
+): IndustryProductMonthlySalesRow[] {
+  return [
+    ...report.sections.map((section) => section.productRow),
+    report.grandTotalRow,
   ];
 }
 
@@ -71,20 +89,15 @@ function downloadCsv(report: IndustryProductMonthlySalesReport): void {
     `Customer category:,${report.customerCategoryLabel}`,
     `Value unit:,000 FRS`,
     "",
+    report.reportTitle,
+    "",
+    ["PRODUCT", ...monthHeaders, "TOTAL TONS", "TOTAL VALUE"].join(","),
   ];
 
-  for (const section of report.sections) {
-    lines.push(section.sectionTitle);
-    lines.push(`PRODUCT:,${section.productName}`);
-    lines.push(["SALES POINT", ...monthHeaders, "TODATE TONS", "TODATE VALUE"].join(","));
-
-    const rows = [...section.salesPointRows, section.totalRow];
-    for (const row of rows) {
-      const monthValues = row.months.flatMap((cell) => cellCsv(cell));
-      const ytd = cellCsv(row.ytd);
-      lines.push([row.label, ...monthValues, ...ytd].join(","));
-    }
-    lines.push("");
+  for (const row of buildDisplayRows(report)) {
+    const monthValues = row.months.flatMap((cell) => cellCsv(cell));
+    const ytd = cellCsv(row.ytd);
+    lines.push([row.label, ...monthValues, ...ytd].join(","));
   }
 
   const csv = lines.filter((line) => line.length > 0).join("\n");
@@ -97,6 +110,18 @@ function downloadCsv(report: IndustryProductMonthlySalesReport): void {
   URL.revokeObjectURL(url);
 }
 
+function MonthColumnGroup({ periodCount }: { periodCount: number }) {
+  return (
+    <colgroup>
+      <col class="ipms-col-label" />
+      {Array.from({ length: periodCount }).flatMap((_, index) => [
+        <col key={`${index}-tons`} class="ipms-col-metric" />,
+        <col key={`${index}-value`} class="ipms-col-metric" />,
+      ])}
+    </colgroup>
+  );
+}
+
 function MonthBlock({
   columns,
   rows,
@@ -106,20 +131,21 @@ function MonthBlock({
   rows: IndustryProductMonthlySalesRow[];
   showYtd: boolean;
 }) {
+  const periodCount = columns.length + (showYtd ? 1 : 0);
+
   return (
-    <div class="ipms-section">
+    <div class={`ipms-section ${showYtd ? "ipms-section-h2" : "ipms-section-h1"}`}>
       <table class="scr-table ipms-table">
+        <MonthColumnGroup periodCount={periodCount} />
         <thead>
           <tr>
-            <th class="ipms-label-col" rowSpan={2}>
-              SALES POINT
-            </th>
+            <th class="ipms-label-col" rowSpan={2} />
             {columns.map((column) => (
               <th key={column.month} colSpan={2}>
                 {column.label}
               </th>
             ))}
-            {showYtd ? <th colSpan={2}>TODATE</th> : null}
+            {showYtd ? <th colSpan={2}>TOTAL</th> : null}
           </tr>
           <tr>
             {columns.flatMap((column) => [
@@ -169,71 +195,44 @@ function MonthBlock({
   );
 }
 
-function ProductSection({
-  report,
-  section,
-}: {
-  report: IndustryProductMonthlySalesReport;
-  section: IndustryProductMonthlySalesSection;
-}) {
-  const rows = [...section.salesPointRows, section.totalRow];
-
-  return (
-    <section class="ipms-product-section">
-      <ReportHeader
-        companyName={report.settings.companyName}
-        department={report.settings.department ?? null}
-        serviceName={report.settings.serviceName ?? null}
-        title={section.sectionTitle}
-      />
-      <div class="ipms-meta">
-        <p>CUSTOMER CATEGORY : {report.customerCategoryLabel}</p>
-        <p>PRODUCT: {section.productName.toUpperCase()}</p>
-      </div>
-      <MonthBlock
-        columns={report.monthColumnsH1}
-        rows={rows}
-        showYtd={false}
-      />
-      <MonthBlock columns={report.monthColumnsH2} rows={rows} showYtd />
-      <p class="ipms-footnote">Value in &apos;000 FRS · taxes excluded</p>
-    </section>
-  );
-}
-
 function ReportDocument({ report }: { report: IndustryProductMonthlySalesReport }) {
   const empty = isIndustryProductMonthlySalesReportEmpty(report);
-
-  if (empty) {
-    return (
-      <ReportDocumentShell
-        className="scr-document ipms-document"
-        isEmpty
-        emptyMessage="No Industry sales for non-LPO / non-bottled products in this period."
-        emptyHint={HIDE_ZERO_ROWS_HINT}
-        showComments={false}
-        showFooter={false}
-      >
-        {null}
-      </ReportDocumentShell>
-    );
-  }
+  const rows = buildDisplayRows(report);
 
   return (
-    <div class="scr-document ipms-document">
-      {report.sections.map((section) => (
-        <ProductSection
-          key={section.productId}
-          report={report}
-          section={section}
-        />
-      ))}
-      <ReportCommentsSection comments={report.comments} />
-      <ReportFooter
-        name={report.settings.signatoryName}
-        label={report.settings.signatoryTitle}
-      />
-    </div>
+    <ReportDocumentShell
+      className="scr-document ipms-document"
+      isEmpty={empty}
+      emptyMessage="No Industry sales for non-LPO / non-bottled products in this period."
+      emptyHint={HIDE_ZERO_ROWS_HINT}
+      comments={report.comments}
+      signatoryName={report.settings.signatoryName}
+      signatoryTitle={report.settings.signatoryTitle}
+      showComments={!empty}
+      showFooter={!empty}
+      header={
+        empty ? undefined : (
+          <ReportHeader
+            companyName={report.settings.companyName}
+            department={report.settings.department ?? null}
+            serviceName={report.settings.serviceName ?? null}
+            title={report.reportTitle}
+          />
+        )
+      }
+    >
+      {empty ? null : (
+        <>
+          <MonthBlock
+            columns={report.monthColumnsH1}
+            rows={rows}
+            showYtd={false}
+          />
+          <MonthBlock columns={report.monthColumnsH2} rows={rows} showYtd />
+          <p class="ipms-footnote">Value in &apos;000 FRS · taxes excluded</p>
+        </>
+      )}
+    </ReportDocumentShell>
   );
 }
 

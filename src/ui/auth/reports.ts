@@ -52,6 +52,10 @@ export function getAuthenticatedReports() {
       api.getSalesBudgetMonthlyCrosstab(requireAuthToken(), reportYear),
     getSalesBudgetWeeklyCrosstab: (reportYear?: number) =>
       api.getSalesBudgetWeeklyCrosstab(requireAuthToken(), reportYear),
+    getSalesBudgetMonthlyRevenueCrosstab: (reportYear?: number) =>
+      api.getSalesBudgetMonthlyRevenueCrosstab(requireAuthToken(), reportYear),
+    getSalesBudgetWeeklyRevenueCrosstab: (reportYear?: number) =>
+      api.getSalesBudgetWeeklyRevenueCrosstab(requireAuthToken(), reportYear),
     getDailySales: (reportDateIso: string, salesPointId?: number | null) =>
       api.getDailySales(requireAuthToken(), reportDateIso, salesPointId ?? null),
     getDailySalesMatrix: (salesPointId?: number | null, productId?: number | null) =>

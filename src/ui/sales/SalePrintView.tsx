@@ -6,8 +6,12 @@ import { getElectronApi } from "../auth/client.ts";
 import { QrCode } from "../components/QrCode.tsx";
 import { ReportHeader } from "../reports/ReportHeader.tsx";
 import { ReportFooter } from "../reports/ReportFooter.tsx";
+import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
+import { ReportWindowSaveButton } from "../reports/ReportWindowSaveButton.tsx";
+import { printPortraitDocument } from "../reports/printPortraitDocument.ts";
 import { buildCashReceiptSettlementPhrase, formatAmountInFrancsWords } from "./cashReceiptText.ts";
 import type { SalePrintPayload } from "./types.ts";
+import "../reports/StockCommitmentReport.css";
 import "./SalePrintView.css";
 
 interface SalePrintViewProps {
@@ -27,67 +31,35 @@ function formatMoney(value: string): string {
   });
 }
 
-function PrintChrome({
-  error,
-  loading,
+function DocumentPrintShell({
+  title,
+  pdfFileName,
   onClose,
-  onPrint,
   children,
 }: {
-  error: string | null;
-  loading: boolean;
+  title: string;
+  pdfFileName: string;
   onClose: () => void;
-  onPrint?: () => void;
-  children?: ComponentChildren;
+  children: ComponentChildren;
 }) {
-  if (error) {
-    return (
-      <div class="sale-print-backdrop" onClick={onClose}>
-        <div
-          class="sale-print-modal"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <p class="sales-error">{error}</p>
-          <button type="button" class="sales-btn-primary" onClick={onClose}>
-            Close
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div class="sale-print-backdrop" onClick={onClose}>
-        <div
-          class="sale-print-modal"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <p class="sales-muted">Loading print view…</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div class="sale-print-backdrop" onClick={onClose}>
-      <div
-        class="sale-print-modal"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div class="sale-print-toolbar no-print">
-          {onPrint ? (
-            <button type="button" class="sales-btn-primary" onClick={onPrint}>
+    <ReportOverlayShell title={title} onClose={onClose}>
+      <div class="scr-page">
+        <div class="scr-toolbar no-print">
+          <div class="scr-toolbar-actions">
+            <button
+              type="button"
+              class="scr-btn"
+              onClick={() => printPortraitDocument()}
+            >
               Print
             </button>
-          ) : null}
-          <button type="button" class="sales-btn-primary" onClick={onClose}>
-            Close
-          </button>
+            <ReportWindowSaveButton fileName={pdfFileName} />
+          </div>
         </div>
         {children}
       </div>
-    </div>
+    </ReportOverlayShell>
   );
 }
 
@@ -126,32 +98,19 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
     };
   }, [saleId]);
 
-  function handlePrint() {
-    const style = document.createElement("style");
-    style.id = "sale-print-portrait-style";
-    style.textContent =
-      "@media print { @page { size: A4 portrait; margin: 8mm; } }";
-    document.head.appendChild(style);
-
-    document.body.classList.add("sale-print-mode");
-    window.addEventListener(
-      "afterprint",
-      () => {
-        document.body.classList.remove("sale-print-mode");
-        style.remove();
-      },
-      { once: true },
+  if (error) {
+    return (
+      <ReportOverlayShell title="Sales Invoice" onClose={onClose}>
+        <p class="scr-status scr-status-error">{error}</p>
+      </ReportOverlayShell>
     );
-    window.print();
   }
 
-  if (error || !payload) {
+  if (!payload) {
     return (
-      <PrintChrome
-        error={error}
-        loading={!error && !payload}
-        onClose={onClose}
-      />
+      <ReportOverlayShell title="Sales Invoice" onClose={onClose}>
+        <p class="scr-status">Loading print view…</p>
+      </ReportOverlayShell>
     );
   }
 
@@ -161,22 +120,24 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
   if (isBottleMode) {
     const settlement = buildCashReceiptSettlementPhrase(sale.lines);
     const amountLabel = `${formatMoney(sale.grossAmount)} XAF`;
+    const shellTitle = `Cash Receipt ${sale.invoiceNo}`;
+    const pdfFileName = `cash-receipt-${sale.invoiceNo}.pdf`;
 
     return (
-      <PrintChrome error={null} loading={false} onClose={onClose} onPrint={handlePrint}>
-        <article class="sale-print-document sale-print-cash-receipt">
+      <DocumentPrintShell
+        title={shellTitle}
+        pdfFileName={pdfFileName}
+        onClose={onClose}
+      >
+        <article class="scr-document sale-print-document sale-print-cash-receipt">
           <ReportHeader
             companyName={payload.companyName}
             department="Bota Limbe, South West Region"
             serviceName={payload.serviceName}
-            title={`Cash Receipt No ${sale.invoiceNo}`}  
-            />
+            title={`Cash Receipt No ${sale.invoiceNo}`}
+          />
 
           <section class="sale-print-receipt-meta">
-           {/*  <p>
-              <span class="sale-print-label">Cash Receipt No:</span>{" "}
-              <strong>{sale.invoiceNo}</strong>
-            </p> */}
             <p>
               <span class="sale-print-label">Date:</span>{" "}
               {formatDisplayDate(sale.dateIssuedIso)}
@@ -197,10 +158,9 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
                 {formatAmountInFrancsWords(sale.grossAmount)}
               </strong>
               <br />
-              in settlement of <strong>{settlement}</strong>. 
+              in settlement of <strong>{settlement}</strong>.
               <br />
-              For and on behalf
-              of <strong>{payload.companyName}</strong>.
+              For and on behalf of <strong>{payload.companyName}</strong>.
             </p>
           </section>
 
@@ -237,15 +197,9 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
                 alt="Cash receipt verification QR code"
               />
             </div>
-           {/*  <div class="sale-print-signatures">
-              <ReportFooter
-                name={payload.signatoryName}
-                label={payload.signatoryTitle}
-              />
-            </div> */}
           </section>
         </article>
-      </PrintChrome>
+      </DocumentPrintShell>
     );
   }
 
@@ -264,10 +218,16 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
   const firstPaymentDate = sale.payments.find(
     (payment) => payment.paymentDate,
   )?.paymentDate;
+  const shellTitle = `Sales Invoice ${sale.invoiceNo}`;
+  const pdfFileName = `sales-invoice-${sale.invoiceNo}.pdf`;
 
   return (
-    <PrintChrome error={null} loading={false} onClose={onClose} onPrint={handlePrint}>
-      <article class="sale-print-document">
+    <DocumentPrintShell
+      title={shellTitle}
+      pdfFileName={pdfFileName}
+      onClose={onClose}
+    >
+      <article class="scr-document sale-print-document">
         <ReportHeader
           companyName={payload.companyName}
           department={payload.department}
@@ -462,6 +422,6 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
           </div>
         </section>
       </article>
-    </PrintChrome>
+    </DocumentPrintShell>
   );
 }

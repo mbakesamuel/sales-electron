@@ -16,7 +16,9 @@ import type {
   OtherProductSalesDeliveriesReport,
   RevenueTaxesReport,
   SalesBudgetMonthlyCrosstabReport,
+  SalesBudgetMonthlyRevenueCrosstabReport,
   SalesBudgetWeeklyCrosstabReport,
+  SalesBudgetWeeklyRevenueCrosstabReport,
   StockCommitmentReport,
   StockReport,
   WeeklyDeliveriesReport,
@@ -323,6 +325,55 @@ export function salesBudgetMonthlyCrosstabEmptyMessage(
   }
   if (isSalesBudgetMonthlyCrosstabReportEmpty(report)) {
     return "No budget rows to display for this year.";
+  }
+  return null;
+}
+
+export function isSalesBudgetMonthlyRevenueCrosstabReportEmpty(
+  report: SalesBudgetMonthlyRevenueCrosstabReport,
+): boolean {
+  return !report.hasAnyBudget || report.rows.length === 0;
+}
+
+export function isSalesBudgetWeeklyRevenueCrosstabReportEmpty(
+  report: SalesBudgetWeeklyRevenueCrosstabReport,
+): boolean {
+  return (
+    !report.hasAnyBudget ||
+    report.categoriesInReport.length === 0 ||
+    report.sortedWeeks.length === 0
+  );
+}
+
+export function salesBudgetWeeklyRevenueCrosstabEmptyMessage(
+  report: SalesBudgetWeeklyRevenueCrosstabReport,
+): string | null {
+  if (!report.hasAnyBudget) {
+    return "No product sales budgets are defined yet. Use Sales budgets to add annual quantities and unit prices.";
+  }
+  if (report.categoriesInReport.length === 0) {
+    return "No category budgets for this year. Use Sales budgets to add annual quantities and unit prices.";
+  }
+  if (report.sortedWeeks.length === 0) {
+    return "No phased weeks fall in this calendar year for the loaded budgets (check financial year boundaries and budgets).";
+  }
+  if (report.grandTotal === 0) {
+    return "No budget revenue to display for this year.";
+  }
+  return null;
+}
+
+export function salesBudgetMonthlyRevenueCrosstabEmptyMessage(
+  report: SalesBudgetMonthlyRevenueCrosstabReport,
+): string | null {
+  if (!report.hasAnyBudget) {
+    return "No product sales budgets are defined yet. Use Sales budgets to add annual quantities and unit prices.";
+  }
+  if (report.categoriesInReportCount === 0) {
+    return "No category budgets for this year. Use Sales budgets to add annual quantities and unit prices.";
+  }
+  if (isSalesBudgetMonthlyRevenueCrosstabReportEmpty(report)) {
+    return "No budget revenue rows to display for this year.";
   }
   return null;
 }

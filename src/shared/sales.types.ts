@@ -89,6 +89,8 @@ export interface SalesFormOptions {
   looseSalesAllowUnregisteredCustomer: boolean;
   /** Company setting: Loose Palm Oil must use a sales tank when true (default). */
   loosePalmOilRequireSalesTank: boolean;
+  /** Company setting: invoice line unit price is schedule-only (read-only) when true. */
+  salesInvoiceLockUnitPrice: boolean;
   /** System payment method id for Ration (deferred) disposition. */
   rationPaymentMethodId: string;
   /** System payment method id for Public relation (complimentary) disposition. */
@@ -370,6 +372,7 @@ export interface SalesApi {
     productId: number;
     asOfDate: string;
     customerId?: number | null;
+    saleDisposition?: SaleDisposition | null;
   }): Promise<UnitPricePreviewResult>;
   listStorageLocationsWithBalance(payload: {
     salesPointId: number;

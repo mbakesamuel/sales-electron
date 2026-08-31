@@ -81,12 +81,14 @@ Use this to enter **opening / carried-forward** customer commitments that should
 
 **How it is stored**
 
-- For each **customer + sales point**, the app maintains **one** validated delivery order with `sourceKind = CARRY_FORWARD`.
+- For each **customer + sales point**, the app maintains **one** carry-forward delivery order with `sourceKind = CARRY_FORWARD`.
 - Each product is a **line** on that DO (not a separate DO per product).
 - Adjusting outstanding qty updates the line while respecting quantities already sold against that DO number.
 - Numbers are auto-allocated as `CF-{year}-{seq}` (no booklet serial).
 
-**Dating:** The CF DO gets a **`dateIssued`** when first created (today within the open month, or month end). Commitment reports only include DOs with `dateIssued` on or before the report as-at date — so CF posted in July does not appear when January is open for reprinting. Pick DO always shows **live** remaining qty.
+**Clerk submit / supervisor validate:** Users without delivery-order validation access (for example **Statistics clerk**) save CF commitments as **pending** delivery orders. They do not appear on commitment reports or Pick DO until a supervisor validates them on **Delivery Order → Validation queue**. Supervisors and managers with **Validate delivery orders** still save them as **validated** immediately when they enter data themselves. If a clerk edits an already validated CF line, the DO returns to **pending** until re-validated.
+
+**Dating:** The CF DO gets a **`dateIssued`** when first created (today within the open month, or month end). Commitment reports only include **validated** DOs with `dateIssued` on or before the report as-at date — so CF posted in July does not appear when January is open for reprinting. Pick DO always shows **live** remaining qty on validated CF lines.
 
 On Sales → Pick DO, these rows show with a **CF** marker and are listed **per product** with remaining kg.
 

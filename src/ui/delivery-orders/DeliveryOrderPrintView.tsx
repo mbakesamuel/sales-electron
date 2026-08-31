@@ -10,7 +10,11 @@ import { getElectronApi } from "../auth/client.ts";
 import { QrCode } from "../components/QrCode.tsx";
 import { ReportHeader } from "../reports/ReportHeader.tsx";
 import { ReportFooter } from "../reports/ReportFooter.tsx";
+import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
+import { ReportWindowSaveButton } from "../reports/ReportWindowSaveButton.tsx";
+import { printPortraitDocument } from "../reports/printPortraitDocument.ts";
 import type { DeliveryOrderPrintPayload } from "./types.ts";
+import "../reports/StockCommitmentReport.css";
 import "./DeliveryOrderPrintView.css";
 
 interface DeliveryOrderPrintViewProps {
@@ -91,71 +95,48 @@ export function DeliveryOrderPrintView({
     };
   }, [orderId]);
 
-  function handlePrint() {
-    const style = document.createElement("style");
-    style.id = "do-print-portrait-style";
-    style.textContent =
-      "@media print { @page { size: A4 portrait; margin: 8mm; } }";
-    document.head.appendChild(style);
-
-    document.body.classList.add("do-print-mode");
-    window.addEventListener(
-      "afterprint",
-      () => {
-        document.body.classList.remove("do-print-mode");
-        style.remove();
-      },
-      { once: true },
-    );
-    window.print();
-  }
+  const shellTitle = payload
+    ? `Delivery Order #${payload.order.deliveryOrderNo}`
+    : "Delivery Order";
 
   if (error) {
     return (
-      <div class="do-print-backdrop" onClick={onClose}>
-        <div
-          class="do-print-modal"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <p class="sales-error">{error}</p>
-          <button type="button" class="sales-btn-secondary" onClick={onClose}>
-            Close
-          </button>
-        </div>
-      </div>
+      <ReportOverlayShell title={shellTitle} onClose={onClose}>
+        <p class="scr-status scr-status-error">{error}</p>
+      </ReportOverlayShell>
     );
   }
 
   if (!payload) {
     return (
-      <div class="do-print-backdrop" onClick={onClose}>
-        <div
-          class="do-print-modal"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <p class="sales-muted">Loading print view…</p>
-        </div>
-      </div>
+      <ReportOverlayShell title={shellTitle} onClose={onClose}>
+        <p class="scr-status">Loading print view…</p>
+      </ReportOverlayShell>
     );
   }
 
   const { order } = payload;
   const showVat = Number.parseFloat(order.vatAmount) > 0;
   const showOtherTax = Number.parseFloat(order.otherTaxAmount) > 0;
+  const pdfFileName = `delivery-order-${order.deliveryOrderNo}.pdf`;
 
   return (
-    <div class="do-print-backdrop" onClick={onClose}>
-      <div class="do-print-modal" onClick={(event) => event.stopPropagation()}>
-        <div class="do-print-toolbar no-print">
-          <button type="button" class="sales-btn-primary" onClick={handlePrint}>
-            Print
-          </button>
-          <button type="button" class="sales-btn-secondary" onClick={onClose}>
-            Close
-          </button>
+    <ReportOverlayShell title={shellTitle} onClose={onClose}>
+      <div class="scr-page">
+        <div class="scr-toolbar no-print">
+          <div class="scr-toolbar-actions">
+            <button
+              type="button"
+              class="scr-btn"
+              onClick={() => printPortraitDocument()}
+            >
+              Print
+            </button>
+            <ReportWindowSaveButton fileName={pdfFileName} />
+          </div>
         </div>
 
-        <article class="do-print-document">
+        <article class="scr-document do-print-document">
           <ReportHeader
             companyName={payload.companyName}
             department={payload.department}
@@ -339,6 +320,6 @@ export function DeliveryOrderPrintView({
           </section>
         </article>
       </div>
-    </div>
+    </ReportOverlayShell>
   );
 }

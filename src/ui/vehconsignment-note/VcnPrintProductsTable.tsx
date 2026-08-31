@@ -43,7 +43,7 @@ interface VcnPrintProductsTableProps {
 
 export function VcnPrintProductsTable({ payload }: VcnPrintProductsTableProps) {
   const { note, sale, companyName } = payload;
-  const subtitle = dispositionSubtitle(sale.saleDisposition);
+ /*  const subtitle = dispositionSubtitle(sale.saleDisposition); */
   const totalQty = sumQuantities(sale.saleLines);
 
   return (
@@ -51,7 +51,7 @@ export function VcnPrintProductsTable({ payload }: VcnPrintProductsTableProps) {
       <header class="vcn-products-header">
         <div class="vcn-products-company">{companyName ?? "—"}</div>
         <h1>VEHICLE CONSIGNMENT NOTE</h1>
-        {subtitle ? <p class="vcn-products-subtitle">{subtitle}</p> : null}
+      {/*   {subtitle ? <p class="vcn-products-subtitle">{subtitle}</p> : null} */}
       </header>
 
       <section class="vcn-products-meta">
@@ -101,14 +101,6 @@ export function VcnPrintProductsTable({ payload }: VcnPrintProductsTableProps) {
               </tr>
             ))
           )}
-          {[...Array(Math.max(0, 4 - sale.saleLines.length))].map((_, i) => (
-            <tr key={`empty-${i}`}>
-              <td>{sale.saleLines.length + i + 1}</td>
-              <td />
-              <td />
-              <td />
-            </tr>
-          ))}
           <tr class="vcn-products-total-row">
             <td colSpan={2}>
               <strong>TOTAL</strong>

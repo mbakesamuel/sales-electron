@@ -24,15 +24,27 @@ function formatMoney(value: number): string {
 }
 
 function handlePrint(): void {
-  document.body.classList.add("scr-print-mode");
+  const style = document.createElement("style");
+  style.id = "rtr-print-landscape-style";
+  style.textContent =
+    "@media print { @page { size: A4 landscape; margin: 6mm 10mm; } }";
+  document.head.appendChild(style);
+  document.body.classList.add("scr-print-mode", "rtr-print-landscape");
+
   window.addEventListener(
     "afterprint",
     () => {
-      document.body.classList.remove("scr-print-mode");
+      document.body.classList.remove("scr-print-mode", "rtr-print-landscape");
+      style.remove();
     },
     { once: true },
   );
-  window.print();
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      window.print();
+    });
+  });
 }
 
 function downloadCsv(report: RevenueTaxesReport): void {
@@ -85,13 +97,28 @@ function downloadCsv(report: RevenueTaxesReport): void {
   URL.revokeObjectURL(url);
 }
 
+function RevenueTaxesColumnGroup() {
+  return (
+    <colgroup>
+      <col class="rtr-col-label" />
+      <col class="rtr-col-invoices" />
+      <col class="rtr-col-money" />
+      <col class="rtr-col-money" />
+      <col class="rtr-col-money" />
+      <col class="rtr-col-money" />
+    </colgroup>
+  );
+}
+
 function SummaryTable({ totals }: { totals: RevenueTaxesTotals }) {
   return (
     <div class="rtr-section rtr-summary">
-      <table class="scr-table">
+      <table class="scr-table rtr-table">
+        <RevenueTaxesColumnGroup />
         <thead>
           <tr>
-            <th>Invoices</th>
+            <th />
+            <th class="scr-num">Invoices</th>
             <th class="scr-num">Net</th>
             <th class="scr-num">VAT</th>
             <th class="scr-num">Sales tax</th>
@@ -100,6 +127,7 @@ function SummaryTable({ totals }: { totals: RevenueTaxesTotals }) {
         </thead>
         <tbody>
           <tr class="scr-row scr-row-total">
+            <td />
             <td class="scr-num">{totals.invoiceCount.toLocaleString("en-US")}</td>
             <td class="scr-num">{formatMoney(totals.netAmount)}</td>
             <td class="scr-num">{formatMoney(totals.vatAmount)}</td>
@@ -125,6 +153,7 @@ function MoneyTable({
     <div class="rtr-section">
       <h3 class="rtr-section-title">{title}</h3>
       <table class="scr-table rtr-table">
+        <RevenueTaxesColumnGroup />
         <thead>
           <tr>
             <th>{title.startsWith("By collection") ? "Collection point" : "Period"}</th>

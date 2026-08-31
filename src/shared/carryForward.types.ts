@@ -51,11 +51,11 @@ export interface DeleteCarryForwardInput {
 }
 
 export type CarryForwardMutationResult =
-  | { ok: true; deliveryOrderNo: string; detailId: number }
+  | { ok: true; deliveryOrderNo: string; detailId: number; pendingValidation?: boolean }
   | { ok: false; error: string };
 
 export type CarryForwardBatchResult =
-  | { ok: true; saved: number }
+  | { ok: true; saved: number; pendingValidation?: boolean }
   | { ok: false; error: string };
 
 export type CarryForwardDeleteResult = { ok: true } | { ok: false; error: string };

@@ -1,14 +1,61 @@
 import { useEffect, useState } from "preact/hooks";
-import { layoutForDisposition } from "../../shared/consignmentNoteLayout.ts";
+import {
+  layoutForDisposition,
+  type ConsignmentNoteLayout,
+} from "../../shared/consignmentNoteLayout.ts";
 import type { ConsignmentPrintPayload } from "../../shared/vehicleConsignmentNotes.types.ts";
 import { getElectronApi } from "../auth/client.ts";
+import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
 import { VcnPrintBordereau } from "./VcnPrintBordereau.tsx";
 import { VcnPrintProductsTable } from "./VcnPrintProductsTable.tsx";
+import "../reports/StockCommitmentReport.css";
 import "./VcnPrintView.css";
+
+const COPY_LABELS = ["Original", "Duplicate"] as const;
 
 interface ConsignmentNotePrintViewProps {
   noteId: string;
   onClose: () => void;
+}
+
+function handlePrint(): void {
+  document.body.classList.add("vcn-print-mode");
+  window.addEventListener(
+    "afterprint",
+    () => {
+      document.body.classList.remove("vcn-print-mode");
+    },
+    { once: true },
+  );
+  window.print();
+}
+
+function VcnPrintDualSheet({
+  payload,
+  layout,
+}: {
+  payload: ConsignmentPrintPayload;
+  layout: ConsignmentNoteLayout;
+}) {
+  const Document =
+    layout === "bordereau" ? VcnPrintBordereau : VcnPrintProductsTable;
+
+  return (
+    <div class="vcn-print-sheet">
+      {COPY_LABELS.map((label) => (
+        <section
+          class="vcn-print-copy"
+          key={label}
+          aria-label={`${label} copy`}
+        >
+          <div class="vcn-print-stamp">{label}</div>
+          <div class="vcn-print-copy-body">
+            <Document payload={payload} />
+          </div>
+        </section>
+      ))}
+    </div>
+  );
 }
 
 export function ConsignmentNotePrintView({
@@ -46,62 +93,25 @@ export function ConsignmentNotePrintView({
     };
   }, [noteId]);
 
-  function onPrint() {
-    window.print();
-  }
-
-  if (error) {
-    return (
-      <div class="sale-print-backdrop" onClick={onClose}>
-        <div
-          class="sale-print-modal"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <p class="sales-error">{error}</p>
-          <button type="button" class="sales-btn-primary" onClick={onClose}>
-            Close
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading || !payload) {
-    return (
-      <div class="sale-print-backdrop" onClick={onClose}>
-        <div
-          class="sale-print-modal"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <p class="sales-muted">Loading print view…</p>
-        </div>
-      </div>
-    );
-  }
-
-  const layout = layoutForDisposition(payload.sale.saleDisposition);
-
   return (
-    <div class="sale-print-backdrop" onClick={onClose}>
-      <div
-        class="sale-print-modal"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div class="sale-print-toolbar no-print">
-          <button type="button" class="sales-btn-primary" onClick={onPrint}>
-            Print
-          </button>
-          <button type="button" class="sales-btn-secondary" onClick={onClose}>
-            Close
-          </button>
+    <ReportOverlayShell reportId="vehicle-consignment-notes" onClose={onClose}>
+      {error ? (
+        <p class="scr-status scr-status-error">{error}</p>
+      ) : loading || !payload ? (
+        <p class="scr-status">Loading print view…</p>
+      ) : (
+        <div class="scr-page vcn-print-page">
+          <div class="scr-toolbar no-print">
+            <button type="button" class="scr-btn" onClick={handlePrint}>
+              Print
+            </button>
+          </div>
+          <VcnPrintDualSheet
+            payload={payload}
+            layout={layoutForDisposition(payload.sale.saleDisposition)}
+          />
         </div>
-
-        {layout === "bordereau" ? (
-          <VcnPrintBordereau payload={payload} />
-        ) : (
-          <VcnPrintProductsTable payload={payload} />
-        )}
-      </div>
-    </div>
+      )}
+    </ReportOverlayShell>
   );
 }

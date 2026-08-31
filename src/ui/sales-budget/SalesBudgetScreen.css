@@ -270,28 +270,45 @@
 
 .sbb-budget-form {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: flex-end;
-  gap: 8px 10px;
+  gap: 8px;
+  width: max-content;
+  max-width: 100%;
 }
 
-.sbb-budget-cell {
+.sbb-budget-form .sbb-input {
+  width: 7.25rem;
+  flex: 0 1 auto;
+  min-width: 5.5rem;
+}
+
+.sbb-budget-actions {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: flex-start;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
 }
 
-.sbb-derived {
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
+.sbb-budget-actions .sbb-btn {
   white-space: nowrap;
 }
 
-.sbb-derived strong {
-  color: var(--accent);
-  font-weight: 650;
+.sbb-input-readonly {
+  background: var(--bg-soft);
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.sbb-input-readonly:focus {
+  outline: none;
+  border-color: var(--border-strong);
+}
+
+.form-dialog-panel-wide:has(.sbb-phase-form) {
+  max-width: 42rem;
 }
 
 .sbb-details {
@@ -424,6 +441,7 @@
 .sbb-preview-month > summary {
   font-size: 13px;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .sbb-week-list {
@@ -440,6 +458,7 @@
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: var(--text);
+  white-space: nowrap;
 }
 
 .sbb-empty {

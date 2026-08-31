@@ -38,7 +38,9 @@ Enter opening / carried-forward on-hand quantities by choosing a **collection po
 
 These post as stock adjustments with a carry-forward source kind so movements and reports can distinguish them from ordinary adjustments. Receipts, transfers, and manual adjustments remain unavailable for PKCP/PKP products.
 
-**Dating:** Choose a date in the batch form (must fall in the **open financial month**). That date becomes the adjustment / movement `occurredAt`. On the **Stock report** it counts from that date. On **Monthly stock reconciliation**, posted carry-forward LPO qty in the open month is included in **Opening stock** (one-time backlog), not under Reception.
+**Clerk submit / supervisor validate:** Users without stock validation access (for example **Statistics clerk**) save opening balances as **draft** carry-forward adjustments. They do not change on-hand balances or reports until a supervisor validates them on **Stock → Validation**. Supervisors and managers with **Validate stock documents** still post immediately when they enter data themselves.
+
+**Dating:** Choose a date in the batch form (must fall in the **open financial month**). That date becomes the adjustment / movement `occurredAt`. On the **Stock report** it counts from that date once posted. On **Monthly stock reconciliation**, posted carry-forward LPO qty in the open month is included in **Opening stock** (one-time backlog), not under Reception.
 
 ## Bin card
 
