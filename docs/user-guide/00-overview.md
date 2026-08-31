@@ -19,7 +19,7 @@ Staff who create invoices, validate delivery orders, post stock, or print weekly
 | **Stocks** | Balances, receipts, transfers, adjustments, opening stock, **bin card** ledger |
 | **Delivery Order** | Delivery orders, **DO tracking**, **transfer DO balance**, validation queue, and opening (carry-forward) commitments |
 | **Sales** | Sales invoices (POS), Bottle Oil sales, sales validation, vehicle **consignment notes** and **consignment validation** |
-| **Reports** | Daily sales, stock, commitment, bottle oil, weekly deliveries, monthly delivery/reconciliation, palm-oil sales, revenue & taxes, industry/PKO sections, bottled return, budget crosstabs |
+| **Reports** | Daily sales (+ daily summary matrix), stock, commitment, bottle oil, weekly deliveries, monthly delivery/reconciliation, palm-oil sales, revenue & taxes, industry/PKO sections, bottled return, budget kg/revenue crosstabs, annual palm-oil sales activity |
 | **Users & access** | Users and role permissions (admin) |
 | **Overview** | Role-based home dashboard (commercial, Store Keeper, or supervisor) |
 

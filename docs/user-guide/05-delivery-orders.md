@@ -49,7 +49,7 @@ DO tracking shows **Transferred from** on destination DOs and a **Transfers out*
 
 ### Print
 
-On a saved delivery order, use **Print delivery order** to preview and print a **Delivery Order Report**. The printout uses the company report header and includes order number, order date, customer (with address/phone when on file), sales point, line items, tax totals, payments, and Authorized By / Received By signature lines. There is no separate customer delivery date on the report. A **QR code** (top right) encodes the delivery order number, date, customer, sales point, and net/gross totals (plus taxpayer ID when present) so those fields can be verified against the printed report.
+On a saved delivery order, use **Print delivery order** to preview and print a **Delivery Order Report**. The printout uses the company report header (compact typography on DO and DO-tracking prints — smaller than management reports) and includes order number, order date, customer (with address/phone when on file), sales point, line items, tax totals, payments, and Authorized By / Received By signature lines. There is no separate customer delivery date on the report. A **QR code** (top right) encodes the delivery order number, date, customer, sales point, and net/gross totals (plus taxpayer ID when present) so those fields can be verified against the printed report.
 
 ### Booklet serial number
 

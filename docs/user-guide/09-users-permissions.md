@@ -91,8 +91,9 @@ These boolean actions appear on **Role permissions** next to Validate sales / Va
 | Post stock adjustments | Post (including reclassify) and cancel posted |
 | Post stock receipts directly (skip draft review) | Create and post a new receipt in one step |
 | Post stock transfers directly (skip draft review) | Create and finalize a new transfer in one step |
+| Validate stock documents | Validate pending stock documents on **Stock → Validation** (receipts, transfers, adjustments, including carry-forward opening balances) |
 
-Example: **Statistics clerk** drafts and dispatches transfers company-wide; **Store Keeper** at the destination collection point receives the stock into a storage location. Supervisors and managers can also initiate transfers when needed.
+Example: **Statistics clerk** drafts and dispatches transfers company-wide; **Store Keeper** at the destination collection point receives the stock into a storage location. Supervisors and managers can also initiate transfers when needed. Carry-forward opening balances submitted by clerks stay **draft** until a user with **Validate stock documents** posts them.
 
 Users with write access to both **Stock** and **Bottled Stock** (for example Statistics clerk) see a unified Stock screen that lists loose and bottled products together. Transfer, receipt, and adjustment documents still contain either loose or bottled lines only—not both on one document. Store Keepers continue to use **Bottled Stock** for bottled products only.
 

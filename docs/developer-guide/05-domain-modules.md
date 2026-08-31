@@ -121,7 +121,7 @@ Validation queue: `listValidationQueue` / `validateMany`. Route seed for supervi
 | Service | `src/electron/commitments/carryForward.ts` |
 | IPC | `src/electron/ipc/carryForward.ts` |
 
-One validated `CARRY_FORWARD` DO per customer + sales point; lines upserted per product. Uses auto CF numbering (not booklet serials).
+One validated `CARRY_FORWARD` DO per customer + sales point; lines upserted per product. Uses auto CF numbering (not booklet serials). Users without `validate_stock_documents` or `validate_delivery_orders` save as **draft** stock adjustments / **pending** DOs for supervisor validation (`carryForwardRequiresValidation` in `permissions/service.ts`).
 
 ## Stock
 
@@ -152,6 +152,7 @@ The main screen posts filters to `windows:openReport` with a **`query`** payload
 | Piece | Path |
 |-------|------|
 | Unit price resolve | `src/electron/pricing/resolveUnitPrice.ts` |
+| Lock unit price on invoices | `CompanySettings.salesInvoiceLockUnitPrice` (migration `106`); enforced in `SalesLineModal` via sales bootstrap |
 | Tax rates | `src/electron/tax/resolveRates.ts` |
 
 Customer types may set `exemptFromSalesTax` (migration `036`). Sales for those types follow exemption rules; `npm run recalc:sales-tax-exempt` recalculates affected historical sales when needed.

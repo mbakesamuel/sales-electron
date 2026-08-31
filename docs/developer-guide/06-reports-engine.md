@@ -46,6 +46,16 @@ File: `dailySalesReport.ts`
 - Permissions seeded in migration `035_daily_sales_report_permissions.sql`.
 - UI: `DailySalesReportScreen.tsx` — validated sales by product for the date; DO / vehicle / balance columns; customer-type summary; print / CSV / comments.
 
+## Daily sales summary (matrix)
+
+File: `dailySalesMatrixReport.ts`
+
+- IPC: `reports:getDailySalesMatrix` with optional `salesPointId` and `productId`.
+- Route: `daily-sales-matrix-report` (Reports → Daily).
+- Permissions seeded in migration `102_daily_sales_matrix_report_permissions.sql`.
+- Open month through as-at; validated sales kg by day × customer category (Industry, Wholesale, Retail, CDC/Worker, Staff) plus transfer-out (`trnsfr` from `loadTransferOutQtyByDate`).
+- UI: `DailySalesMatrixReportScreen.tsx` — collection point / product filters; print / CSV / comments.
+
 ## Weekly deliveries (Sales/delivery)
 
 File: `weeklyDeliveriesReport.ts`
@@ -146,6 +156,27 @@ File: `otherProductSalesDeliveriesReport.ts`
 - Open month through as-at; non-LPO (`!isMain`) non-bottled products only; grouped by sales point × product with activity; all qty/value under DELIVERIES (`qtyKg` + `lineNet`); PAYMENTS blank.
 - UI: `OtherProductSalesDeliveriesScreen.tsx` — SUBTOTAL per SP + GRAND TOTAL; print / CSV / comments.
 
+## Palm Oil Sales Activity (annual)
+
+File: `palmOilSalesActivityReport.ts`
+
+- IPC: `reports:getPalmOilSalesActivity`.
+- Route: `palm-oil-sales-activity-report` (Reports → Annual).
+- Permissions seeded in migration `103_palm_oil_sales_activity_permissions.sql` (copied from monthly palm oil sales).
+- Shared helpers: `palmOilSalesShared.ts` (sale lines, destination mapping, budget unit price).
+- Full calendar FY through as-at; two sections (`looseOil`, `looseAndBtldOil`) with customer-category rows, totals, average price, and budget price rows; values in '000 FRS.
+- UI: `PalmOilSalesActivityScreen.tsx` — A4 landscape print / Save PDF; CSV / comments.
+
+## Sales budget revenue crosstabs
+
+Files: `salesBudgetMonthlyRevenueCrosstab.ts`, `salesBudgetWeeklyRevenueCrosstab.ts`
+
+- IPC: `reports:getSalesBudgetMonthlyRevenueCrosstab` / `getSalesBudgetWeeklyRevenueCrosstab` with optional `reportYear`.
+- Routes: `sales-budget-monthly-revenue-crosstab`, `sales-budget-weekly-revenue-crosstab` (Sales budget section).
+- Permissions seeded in migration `107_sales_budget_revenue_crosstab_permissions.sql` (copied from kg crosstab routes).
+- Uses `computeMonthlyBudgetAmountFcfaByFiscalMonth` / phased weekly amounts from `salesBudgetPhase.ts`; `formatPhasedAmountDisplay` for cells.
+- UI: `SalesBudgetMonthlyRevenueCrosstabScreen.tsx`, `SalesBudgetWeeklyRevenueCrosstabScreen.tsx` — cross-links to kg crosstabs; weekly prints landscape.
+
 ## Bin card report (stock)
 
 Not a sidebar report route — opened from **Bin card** with filter query.
@@ -160,8 +191,9 @@ Not a sidebar report route — opened from **Bin card** with filter query.
 | Builder | Report |
 |---------|--------|
 | `dailySalesReport.ts` | Daily sales report |
+| `dailySalesMatrixReport.ts` | Daily sales summary (matrix) |
 | `stockCommitment.ts` | Stock summary / stock & commitment |
-| `stockReport.ts` | Stock report |
+| `stockReport.ts` | Stock report (bottled last; aligned non-bottled grid in UI) |
 | `commitmentReport.ts` | Commitment report |
 | `bottleOilStockSalesReport.ts` | Bottle oil stock & sales |
 | `bottledWeeklyIssuesReport.ts` | Bottled Sales Report (sidebar label; route still `bottled-weekly-issues-report`) |
@@ -175,7 +207,9 @@ Not a sidebar report route — opened from **Bin card** with filter query.
 | `bottledPalmOilSalesReturnReport.ts` | Bottled palm oil sales return (open-month B/F / reception / issues / balance) |
 | `monthlyBottledOilReport.ts` | Bottled Oil monthly (Ration/PR invoice rows + packs + VCN) |
 | `otherProductSalesDeliveriesReport.ts` | Other product sales and deliveries (SP × product, deliveries only) |
-| `salesBudgetMonthlyCrosstab.ts` / `Weekly` | Budget crosstabs |
+| `palmOilSalesActivityReport.ts` | Palm Oil Sales Activity (FY category matrices, tons/'000 FRS) |
+| `salesBudgetMonthlyCrosstab.ts` / `Weekly` | Budget kg crosstabs |
+| `salesBudgetMonthlyRevenueCrosstab.ts` / `Weekly` | Budget revenue (XAF) crosstabs |
 | `binCard.ts` (stock) | Bin card printable ledger (parameterized report window) |
 
 ## UI / print
@@ -185,10 +219,15 @@ Shared report chrome lives in **`StockCommitmentReport.css`** (`scr-page`, `scr-
 - Class **`scr-print-mode`** on `body` during print (preferred over injecting `@page` styles per screen, except landscape packs and bin-card portrait).
 - **`no-print`** hides toolbars and filters.
 - Printable reports open in a secondary Electron window (`REPORT_WINDOW_ROUTE_IDS`); `windows:openReport` accepts optional **`query`** for parameterized reports (bin card).
-- **`formatPhasedQtyKgDisplay`** (`salesBudgetPhase.ts`) — kg cells in budget phasing / crosstabs: thousand separators, 0 decimal places.
-- Sidebar groups reports under **Daily / Weekly / Monthly** in `schemaRoutes.ts`.
+- **`formatPhasedQtyKgDisplay`** / **`formatPhasedAmountDisplay`** (`salesBudgetPhase.ts`) — kg and revenue cells in budget phasing / crosstabs: thousand separators, 0 decimal places.
+- Sidebar groups reports under **Daily / Weekly / Monthly / Annual** in `schemaRoutes.ts`.
+- **In-app overlay:** `HomeScreen` → `ReportOverlayShell` (not a separate Electron window for sidebar reports). Panel width capped in `ReportOverlayShell.css` (`min(1200px, 100%)`). `ReportBody` receives `windowMode` for Print / Save PDF toolbar.
 
 ### Sales budget UI
 
-- Phasing screen: `SalesBudgetScreen.tsx` + `SalesBudgetScreen.css` (14px base; annual qty saved rounded, displayed with `toLocaleString`).
-- Crosstabs: `SalesBudgetMonthlyCrosstabScreen.tsx`, `SalesBudgetWeeklyCrosstabScreen.tsx` + `SalesBudgetCrosstab.css` (shared 14px root on `.sbc-root`).
+- Phasing screen: `SalesBudgetScreen.tsx` + `SalesBudgetScreen.css` (14px base; annual qty saved rounded, displayed with `toLocaleString`; phasing in `FormDialog` modal; read-only revenue XAF on budget row).
+- Crosstabs: `SalesBudgetMonthlyCrosstabScreen.tsx`, `SalesBudgetWeeklyCrosstabScreen.tsx`, `SalesBudgetMonthlyRevenueCrosstabScreen.tsx`, `SalesBudgetWeeklyRevenueCrosstabScreen.tsx` + `SalesBudgetCrosstab.css` (shared 14px root on `.sbc-root`).
+
+### Transaction print headers (compact)
+
+Sales invoice, cash receipt, delivery order, and DO tracking prints use scoped CSS overrides on `.report-header` inside `SalePrintView.css` and `DeliveryOrderPrintView.css` (smaller company name / title than management reports). VCN print (`VcnPrintView.tsx`) uses `ReportOverlayShell` and dual **Original** / **Duplicate** copies per A4 page.

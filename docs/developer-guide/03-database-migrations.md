@@ -12,7 +12,7 @@
 | Path | Role |
 |------|------|
 | `src/electron/db/migrations/001_init.sql` | Baseline schema for new databases |
-| `src/electron/db/migrations/00N_*.sql` | Incremental migrations (latest: **087**) |
+| `src/electron/db/migrations/00N_*.sql` | Incremental migrations (latest: **107**) |
 | `scripts/generate-schema-sql.mjs` | Schema generation helper |
 | `db:seed` / seed migrations | Demo/admin seed data |
 
@@ -49,6 +49,14 @@ Recent notable migrations:
 | `085_consignment_details.sql` | Consignment note detail columns |
 | `086_supervisor_overview.sql` | `vehicle-consignment-validation` route for supervisors (`JNR_SALES_SUP` included) |
 | `087_monthly_bottled_oil_report_permissions.sql` | Bottled Oil monthly report route |
+| `100_product_omits_storage_location.sql` | Product flag to skip storage location on sales lines |
+| `101_storage_location_multi_product.sql` | Storage location multi-product occupancy rules |
+| `102_daily_sales_matrix_report_permissions.sql` | Daily sales summary (matrix) report route |
+| `103_palm_oil_sales_activity_permissions.sql` | Palm Oil Sales Activity report route |
+| `104_disposition_payment_methods.sql` | Ration / Public relation payment method seeds |
+| `105_carry_forward_clerk_write.sql` | Statistics clerk write on carry-forward input routes |
+| `106_sales_invoice_lock_unit_price.sql` | `CompanySettings.salesInvoiceLockUnitPrice` (default on) |
+| `107_sales_budget_revenue_crosstab_permissions.sql` | Sales budget revenue crosstab routes |
 
 When adding a migration:
 

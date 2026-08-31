@@ -24,6 +24,7 @@
 - Stock report qty is **as of the open month’s as-at** (earlier of today and month end), from movements — not the live On-hand tab.
 - Carry-forward / receipts only count from their **posting date**. CF posted in July does not appear when January is open.
 - Inventory **On hand** always shows current live balance; that is expected.
+- **Section order** on the Stock report is Palm Oil → PKO → Palm Kernel → PKC → Bottled (last). Non-bottled qty columns align to Palm Oil’s grid; bottled uses its own pack matrix.
 
 ## Commitment report shows unexpected outstanding
 

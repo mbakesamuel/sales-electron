@@ -1,6 +1,6 @@
 # Reports
 
-Sidebar section: **Reports**, grouped as **Daily**, **Weekly**, and **Monthly**. Printable report screens open in an **in-app overlay** (dimmed backdrop over the main window) with **Print** and **Save PDF**; close the overlay to return to the app. Use **Open report** on the placeholder if you closed the overlay. Most reports use company header settings and an **as-at** date of the earlier of **today** and the **open financial month’s end** (so reopening January prints as at 31 Jan). Stock quantities on stock / stock-commitment / bottle-oil stock sections are rebuilt from movements through that as-at date. **Commitment** outstanding (Commitment report and stock-commitment commitment column) uses validated DOs and linked sales with `dateIssued` on or before as-at — not today’s live Pick DO balances. Several support **Comments** (toolbar) — company-wide text shown above the footer when non-empty.
+Sidebar section: **Reports**, grouped as **Daily**, **Weekly**, **Monthly**, and **Annual**. Printable report screens open in an **in-app overlay** (dimmed backdrop over the main window) with **Print** and **Save PDF**; close the overlay to return to the app. Use **Open report** on the placeholder if you closed the overlay. Most reports use company header settings and an **as-at** date of the earlier of **today** and the **open financial month’s end** (so reopening January prints as at 31 Jan). Stock quantities on stock / stock-commitment / bottle-oil stock sections are rebuilt from movements through that as-at date. **Commitment** outstanding (Commitment report and stock-commitment commitment column) uses validated DOs and linked sales with `dateIssued` on or before as-at — not today’s live Pick DO balances. Several support **Comments** (toolbar) — company-wide text shown above the footer when non-empty.
 
 **Report settings** (General Parameters) can hide zero/empty rows across stock and delivery-style reports. The same screen manages the **report signatory** history (name + title + effective-from date). Printed footers use the latest entry whose effective date is on or before the report’s as-at date.
 
@@ -11,13 +11,14 @@ Sidebar section: **Reports**, grouped as **Daily**, **Weekly**, and **Monthly**.
 | Screen | Purpose |
 |--------|---------|
 | **Daily sales report** | Validated sales for a chosen date (and optional sales point): by product with DO no., vehicle, qty, DO balance; customer-type summary; print / CSV / comments. |
+| **Daily sales summary (matrix)** | Open-month day-by-day matrix of validated sales kg by customer category (Industry, Wholesale, Retail, CDC/Worker, Staff) plus transfer-out column; optional collection point and product filters. |
 
 ### Weekly
 
 | Screen | Purpose |
 |--------|---------|
 | **Stock summary report** | Combined stock and commitment view for management. |
-| **Stock report** | Stock by sales point / storage layout (loose, bottled packs, kernel splits, etc.). |
+| **Stock report** | Stock by sales point / storage layout. Non-bottled sections (Palm Oil, PKO, Palm Kernel, PKC) share a common quantity-column grid; **Bottled Palm Oil** appears last with its own pack matrix. |
 | **Commitment report** | Outstanding validated DO balances by customer / sales point (**as of** report as-at). |
 | **Bottle oil stock & sales** | Bottled stock matrix and sales by pack. |
 | **Bottled Sales Report** | Bottled issues for a chosen week in the open month (Mon–Fri detail; estimate basis options). |
@@ -38,7 +39,13 @@ Sidebar section: **Reports**, grouped as **Daily**, **Weekly**, and **Monthly**.
 | **Bottled palm oil sales return** | Open-month bottled B/F (carry-forward), receptions by supplier, Cash Sales / GM's Public Relations issues, and balance by pack (qty, kg, value without taxes). |
 | **Bottled Oil monthly** | Open-month Bottle Oil **Ration** and **Public relation** sales by invoice: date, customer, address, pack qty (1x20L / 3x5L / 1x15L), received by, amount, VEH. C. NO (consignment note). |
 | **Other product sales and deliveries** | Open-month non-LPO / non-bottled sales by sales point and product; DELIVERIES kg + F.CFA (tax excluded); PAYMENTS blank. |
-| Budget monthly/weekly crosstabs | See [Sales budgets](07-sales-budgets.md). |
+| Budget monthly/weekly crosstabs | See [Sales budgets](07-sales-budgets.md) (kg and revenue phasing). |
+
+### Annual
+
+| Screen | Purpose |
+|--------|---------|
+| **Palm Oil Sales Activity** | Full calendar year through as-at: validated loose + bottled palm oil sales by customer category in tons and tax-excluded value ('000 FRS); **LOOSE OIL** and **LOOSE AND BTLD OIL** sections with TODATE and %TAGE; average selling price and budget price rows. Prints **A4 landscape**. |
 
 ## Daily sales report
 
@@ -47,6 +54,14 @@ Sidebar section: **Reports**, grouped as **Daily**, **Weekly**, and **Monthly**.
 - Lines grouped by product; each line can show DO number, vehicle, quantity, and remaining DO balance where linked.
 - Customer-type summary block at the end.
 - Supports print, CSV export, and report comments.
+
+## Daily sales summary (matrix)
+
+- **Open financial month** only (through report as-at).
+- One row per calendar day; columns: Industry, Whole sale, Retail, CDC/Worker, Staff, Trnsfr (transfer-out kg), Total.
+- Optional **collection point** and **product** filters (default: all).
+- Validated sales only; customer category from customer type (and ration disposition → CDC/Worker).
+- Print / CSV / comments.
 
 ## Sales/delivery report (weekly)
 
@@ -119,6 +134,21 @@ If a PKO sale is “missing”, open the correct week and scroll to section 3 �
 - Rows grouped by sales point × product; **DELIVERIES** kg + F.CFA (tax excluded); **PAYMENTS** columns blank.
 - **SUBTOTAL** per sales point and **GRAND TOTAL**.
 
+## Stock report (weekly)
+
+Section order: **Palm Oil** (main loose) → **Palm Kernel Oil** → **Palm Kernel** (cracked / uncracked) → **Palm Kernel Cake** → **Bottled Palm Oil** (last).
+
+Non-bottled sections share Palm Oil’s four-column grid (Sales point | Storage or cracked | Qty or uncracked | Remarks). Palm Kernel uses cracked and uncracked in the storage and qty columns; PKC quantity aligns with the Palm Oil qty column. Bottled keeps its own pack matrix and is not aligned to that grid.
+
+## Palm Oil Sales Activity (annual)
+
+- Full **calendar financial year** through report as-at.
+- Two matrix sections: **LOOSE OIL** (Industry, Wholesale, Retail, Others + total) and **LOOSE AND BTLD OIL** (BPO + same categories + total).
+- Per month (through current month): **TONS** and **FCFA** ('000 FRS, taxes excluded); **TODATE** and **%TAGE** columns.
+- Footer rows: **AV. S. PRICE** (average selling price) and **BUDG.** (budget unit price from sales budget, with % of budget achieved).
+- Current month column is labelled **AS AT {day} {Mon}. {year}** (partial month).
+- Print / Save PDF use **A4 landscape**; CSV / comments supported.
+
 ## Report comments
 
 Each report route can store its own comments (shared for the company). Empty comments hide the section. Stock & commitment legacy comments were migrated into the shared map.
@@ -129,7 +159,9 @@ Use **Print** on each screen. Print CSS hides toolbars (`no-print`) and applies 
 
 - Body class **`scr-print-mode`** during print (no per-report portrait/landscape body hacks on the newer monthly reports).
 - Document chrome: **`scr-page`** / **`scr-document`** / **`scr-table`**; total rows use **`scr-row-total`**.
-- Landscape is still used where needed (e.g. some monthly delivery layouts and the **weekly** sales-budget crosstab).
+- Landscape is still used where needed (e.g. some monthly delivery layouts, **Palm Oil Sales Activity**, and the **weekly** sales-budget crosstabs).
+
+Management report headers use the standard `ReportHeader` sizes. **Sales invoice**, **cash receipt**, **delivery order**, and **DO tracking** prints use a **compact header** (smaller company name and title) so more room remains for line items.
 
 The **bin card report** window opens in **A4 portrait**; use Print or Save from that window like other report routes.
 

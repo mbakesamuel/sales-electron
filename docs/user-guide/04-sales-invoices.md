@@ -24,6 +24,8 @@ Each area has two tabs: **Sales screen** (create / edit) and **Invoice list**.
 6. Enter payments so paid total matches the invoice total — see **Payments** below.
 7. Save. The sale is typically **pending** until validated (unless your role has direct validate — see below).
 
+**Unit price on lines** — By default (**App settings → Lock unit price from schedule**), **Add item** / **Edit item** resolve unit price from the product pricing schedule and the price field is read-only. Turn the setting off to allow manual overrides when the field is editable. See [Organization setup](02-organization-setup.md).
+
 Vehicle number is required for loose/normal sales that need it.
 
 ## Payments
@@ -102,7 +104,7 @@ Screen tab: **Invoice list**. Default filter is the **open posting month** (`dat
 
 ## Print
 
-Use the print flow from the sales screen after save. Company header comes from app settings. The printout includes a **QR code** encoding the invoice/receipt number, date, customer, net/gross totals, and taxpayer ID when present — scan it to verify those fields against the printed document.
+Use the print flow from the sales screen after save. Company header comes from app settings (compact header typography on invoice/receipt prints — smaller than management reports). The printout includes a **QR code** encoding the invoice/receipt number, date, customer, net/gross totals, and taxpayer ID when present — scan it to verify those fields against the printed document.
 
 - **Loose sales** — Prints a **sales invoice** (line items, taxes, payments, totals).
 - **Bottle Oil sales** — Prints a **cash receipt**: same company header and QR, with receipt wording (“Received from … the sum of … in settlement of … For and on behalf of …”) instead of the invoice line table.
@@ -113,7 +115,7 @@ Under **Sales**:
 
 | Screen | Purpose |
 |--------|---------|
-| **Consignment notes** | Prepare vehicle consignment notes linked to validated sales (lookup by invoice / VCN number, save, print). Allowed for **loose** sales and Bottle Oil **Ration** / **Public relation**; not for **normal** Bottle Oil cash sales. |
+| **Consignment notes** | Prepare vehicle consignment notes linked to validated sales (lookup by invoice / VCN number, save, print). Allowed for **loose** sales and Bottle Oil **Ration** / **Public relation**; not for **normal** Bottle Oil cash sales. Print opens in the same report-style overlay as analytics reports; each A4 page shows **Original** and **Duplicate** stamped copies of the note. |
 | **Consignment validation** | Queue of **pending** consignment notes for supervisors to review and validate (including bulk validate). |
 
 Validation requires the `validate_vehicle_consignment_notes` action (default: ADMIN, MANAGER, SENIOR_SALES_SUPERVISOR; also grantable to custom roles such as junior supervisors). Pending notes appear on the **supervisor Overview** as a queue tile when that role uses the supervisor dashboard.

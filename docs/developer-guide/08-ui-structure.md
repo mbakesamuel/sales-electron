@@ -26,13 +26,17 @@ Route **Overview** (`overview`) renders `src/ui/dashboard/DashboardScreen.tsx`. 
 
 Under `src/ui/reports/`:
 
-- Sidebar groups: **Daily / Weekly / Monthly** in `schemaRoutes.ts`
+- Sidebar groups: **Daily / Weekly / Monthly / Annual** in `schemaRoutes.ts`
 - `*Screen.tsx` — toolbar (print, CSV, comments, week/year/date pickers) + document
+- `reportBody.tsx` — shared route switch for overlay and report-window bootstrap
+- `ReportOverlayShell` — in-app modal overlay (primary path from sidebar via `HomeScreen.openReportOverlay`)
 - `*Document` export — used by Weekly Print Pack where applicable
 - Shared: `ReportHeader`, `ReportFooter`, `ReportComments*`
-- Secondary windows: [`ReportWindowApp.tsx`](../../src/ui/pages/ReportWindowApp.tsx) bootstraps printable routes from `REPORT_WINDOW_ROUTE_IDS` (including parameterized bin card via `query`).
+- Secondary windows: [`ReportWindowApp.tsx`](../../src/ui/pages/ReportWindowApp.tsx) bootstraps printable routes from `REPORT_WINDOW_ROUTE_IDS` (including parameterized bin card via `query`). Sidebar reports use the overlay instead.
 
-CSS: `StockCommitmentReport.css` (shared report chrome), plus report-specific **thin overlays** (column widths, section spacing — e.g. `MonthlyPalmOilSalesReport.css`, `SalesBudgetCrosstab.css`, `BinCardReport.css`).
+CSS: `StockCommitmentReport.css` (shared report chrome), plus report-specific **thin overlays** (column widths, section spacing — e.g. `MonthlyPalmOilSalesReport.css`, `SalesBudgetCrosstab.css`, `BinCardReport.css`, `PalmOilSalesActivityReport.css`). Overlay panel width: `ReportOverlayShell.css` (`min(1200px, 100%)`).
+
+**Compact print headers** — `SalePrintView.css` and `DeliveryOrderPrintView.css` scope smaller `.report-header` typography for invoices, receipts, DO, and DO-tracking prints. VCN print (`VcnPrintView.tsx`) uses the overlay shell and dual **Original** / **Duplicate** A4 copies.
 
 ## Forms and dialogs
 
