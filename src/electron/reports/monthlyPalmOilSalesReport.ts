@@ -131,7 +131,7 @@ export function getMonthlyPalmOilSalesReport(
       continue;
     }
 
-    if (line.isMain !== 1) {
+    if (!line.isLooseLpo) {
       continue;
     }
 

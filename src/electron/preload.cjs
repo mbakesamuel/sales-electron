@@ -131,6 +131,8 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("reports:getMonthlyDelivery", half, authToken),
     getMonthlyStockReconciliation: (authToken) =>
       ipcRenderer.invoke("reports:getMonthlyStockReconciliation", authToken),
+    getLooseLpoStockSummary: (authToken) =>
+      ipcRenderer.invoke("reports:getLooseLpoStockSummary", authToken),
     getMonthlyPaymentDelivery: (authToken) =>
       ipcRenderer.invoke("reports:getMonthlyPaymentDelivery", authToken),
     getMonthlyDeliveriesByDestination: (authToken) =>
@@ -249,6 +251,18 @@ contextBridge.exposeInMainWorld("api", {
   print: {
     exportPdf: (defaultFileName) =>
       ipcRenderer.invoke("print:exportPdf", defaultFileName),
+  },
+  backup: {
+    getInfo: (authToken) => ipcRenderer.invoke("backup:getInfo", authToken),
+    create: (authToken) => ipcRenderer.invoke("backup:create", authToken),
+    restore: (authToken) => ipcRenderer.invoke("backup:restore", authToken),
+    getSchedule: (authToken) => ipcRenderer.invoke("backup:getSchedule", authToken),
+    updateSchedule: (authToken, patch) =>
+      ipcRenderer.invoke("backup:updateSchedule", authToken, patch),
+    chooseDestinationFolder: (authToken) =>
+      ipcRenderer.invoke("backup:chooseDestinationFolder", authToken),
+    runScheduledNow: (authToken) =>
+      ipcRenderer.invoke("backup:runScheduledNow", authToken),
   },
   windows: {
     openReport: (authToken, reportId, query) =>

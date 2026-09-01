@@ -118,7 +118,7 @@ export function CommitmentReportDocument({ report }: { report: CommitmentReport 
 
   return (
     <ReportDocumentShell
-      className="scr-document sr-stock-compact wpp-pack-page"
+      className="scr-document sr-stock-compact cr-commitment-report wpp-pack-page"
       isEmpty={empty}
       emptyMessage="No commitment quantities to display."
       emptyHint={HIDE_ZERO_ROWS_HINT}

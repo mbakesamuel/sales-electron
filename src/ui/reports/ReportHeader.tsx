@@ -17,7 +17,10 @@ function ReportLogo({ companyName }: { companyName?: string }) {
 
   if (hasError) {
     return (
-      <div class="report-header-logo report-header-logo-placeholder" aria-hidden="true">
+      <div
+        class="report-header-logo report-header-logo-placeholder"
+        aria-hidden="true"
+      >
         <ImageOff size={40} />
       </div>
     );
@@ -42,14 +45,16 @@ export function ReportHeader({
 }: ReportHeaderProps) {
   return (
     <header class="report-header">
-    {/*   <div class="report-header-logo-wrap">
+      {/*   <div class="report-header-logo-wrap">
         <ReportLogo companyName={companyName} />
       </div> */}
       {meta ? <div class="report-header-meta">{meta}</div> : null}
 
       <div class="report-header-company">
         <p class="report-header-company-name">{companyName}</p>
-        {department ? <p class="report-header-department">{department}</p> : null}
+        {department ? (
+          <p class="report-header-department">{department}</p>
+        ) : null}
         {serviceName ? (
           <p class="report-header-commercial-service">{serviceName}</p>
         ) : null}

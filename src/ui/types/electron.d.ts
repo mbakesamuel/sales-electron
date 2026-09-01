@@ -26,6 +26,7 @@ import type {
   StockReport,
   MonthlyDeliveryReport,
   MonthlyStockReconciliationReport,
+  LooseLpoStockSummaryReport,
   MonthlyPaymentDeliveryReport,
   MonthlyDeliveriesByDestinationReport,
   MonthlyPalmOilSalesReport,
@@ -210,6 +211,7 @@ interface ReportsApi {
   ): Promise<WeeklyDeliveriesReport>;
   getMonthlyDelivery(half: 1 | 2, authToken: string): Promise<MonthlyDeliveryReport>;
   getMonthlyStockReconciliation(authToken: string): Promise<MonthlyStockReconciliationReport>;
+  getLooseLpoStockSummary(authToken: string): Promise<LooseLpoStockSummaryReport>;
   getMonthlyPaymentDelivery(authToken: string): Promise<MonthlyPaymentDeliveryReport>;
   getMonthlyDeliveriesByDestination(
     authToken: string,
@@ -374,6 +376,28 @@ export interface ElectronAppApi {
       | { ok: false; cancelled: true }
       | { ok: false; cancelled: false; error: string }
     >;
+  };
+  backup: {
+    getInfo(authToken: string): Promise<import("../../shared/backup.types.ts").BackupInfo>;
+    create(
+      authToken: string,
+    ): Promise<import("../../shared/backup.types.ts").BackupCreateResult>;
+    restore(
+      authToken: string,
+    ): Promise<import("../../shared/backup.types.ts").BackupRestoreResult>;
+    getSchedule(
+      authToken: string,
+    ): Promise<import("../../shared/backup.types.ts").BackupScheduleStatus>;
+    updateSchedule(
+      authToken: string,
+      patch: Partial<import("../../shared/backup.types.ts").BackupScheduleConfig>,
+    ): Promise<import("../../shared/backup.types.ts").BackupScheduleUpdateResult>;
+    chooseDestinationFolder(
+      authToken: string,
+    ): Promise<import("../../shared/backup.types.ts").BackupChooseFolderResult>;
+    runScheduledNow(
+      authToken: string,
+    ): Promise<import("../../shared/backup.types.ts").BackupRunScheduledResult>;
   };
   windows: {
     openReport(

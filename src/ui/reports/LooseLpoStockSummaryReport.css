@@ -1,0 +1,71 @@
+.lpo-summary-document .lpo-summary-title {
+  margin: 1rem 0 1.25rem;
+  color: #000;
+  font-family: "Arial Black", "Arial Bold", Arial, sans-serif;
+  font-size: 1rem;
+  font-weight: 900;
+  text-align: center;
+  line-height: 1.3;
+  text-decoration: underline;
+}
+
+.lpo-summary-document .report-header {
+  padding-top: 0;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  --report-header-logo-width: 0px;
+}
+
+.lpo-summary-document .report-header-company,
+.lpo-summary-document .report-header-title {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.lpo-summary-document .report-header-company-name {
+  font-size: 18px;
+}
+
+.lpo-summary-document .report-header-department {
+  font-size: 14px;
+}
+
+.lpo-summary-document .report-header-commercial-service {
+  font-size: 14px;
+}
+
+.lpo-summary-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.lpo-summary-table th:first-child,
+.lpo-summary-table td:first-child {
+  width: 68%;
+}
+
+.lpo-summary-table th:nth-child(2),
+.lpo-summary-table td:nth-child(2),
+.lpo-summary-table th:nth-child(3),
+.lpo-summary-table td:nth-child(3) {
+  width: 16%;
+}
+
+.lpo-summary-table th,
+.lpo-summary-table td {
+  vertical-align: middle;
+  padding: 10px 8px;
+  line-height: 1.4;
+}
+
+.lpo-summary-table.scr-table td.scr-num,
+.lpo-summary-table.scr-table th.scr-num {
+  text-align: center;
+}
+
+.lpo-summary-cc {
+  margin: 0.75rem 0 0;
+  font-size: 14px;
+  text-transform: uppercase;
+  text-align: left;
+}

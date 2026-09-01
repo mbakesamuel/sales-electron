@@ -18,6 +18,9 @@ import {
   quoteIdentifier,
 } from "./tableMeta.js";
 import { assertProductOmitsStorageLocationChangeAllowed } from "../stock/productStorage.js";
+import { assertProductCanBeDeleted } from "../products/productDeleteGuard.js";
+
+type DbOperation = "insert" | "update" | "delete";
 
 function maybeSyncCompanyVatFromTaxSchedule(table: string): void {
   if (table === "TaxRateSchedule") {
@@ -109,11 +112,17 @@ function coerceValue(
   return String(rawValue);
 }
 
-function wrapDatabaseError(error: unknown): Error {
+function wrapDatabaseError(error: unknown, operation?: DbOperation): Error {
   if (error instanceof Error) {
     const code = "code" in error ? String(error.code) : "";
 
     if (code === "SQLITE_CONSTRAINT_FOREIGNKEY") {
+      if (operation === "delete") {
+        return new Error(
+          "This record cannot be deleted because other data still references it.",
+        );
+      }
+
       return new Error(
         "A linked record was not found. Check category, product, service, or customer type selections.",
       );
@@ -431,6 +440,14 @@ export function deleteRow(input: TableDeleteInput): void {
     const quotedTable = quoteIdentifier(table);
     const { clause, params } = buildPrimaryKeyWhere(primaryKey);
 
+    if (table === "Product") {
+      const productId = Number(primaryKey.productId);
+      if (!Number.isFinite(productId)) {
+        throw new Error("Product id is invalid");
+      }
+      assertProductCanBeDeleted(getDatabase(), productId);
+    }
+
     const result = getDatabase()
       .prepare(`DELETE FROM ${quotedTable} WHERE ${clause}`)
       .run(...params);
@@ -441,7 +458,7 @@ export function deleteRow(input: TableDeleteInput): void {
 
     maybeSyncCompanyVatFromTaxSchedule(table);
   } catch (error) {
-    throw wrapDatabaseError(error);
+    throw wrapDatabaseError(error, "delete");
   }
 }
 

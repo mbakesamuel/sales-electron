@@ -11,7 +11,12 @@ export const DAILY_SALES_SUMMARY_ROWS = [
 
 export type DailyCustomerCategory = (typeof DAILY_SALES_SUMMARY_ROWS)[number]["id"];
 
-export type DailySalesMatrixSaleCategory = "industry" | "wholeSale" | "retail" | "cdcWorker";
+export type DailySalesMatrixSaleCategory =
+  | "industry"
+  | "wholeSale"
+  | "retail"
+  | "cdcWorker"
+  | "staff";
 
 export interface RawDailySaleLine {
   saleId: string;
@@ -68,6 +73,8 @@ export function mapCategoryToMatrixColumn(
       return "retail";
     case "cdcWorkers":
       return "cdcWorker";
+    case "proSamples":
+      return "staff";
     default:
       return null;
   }

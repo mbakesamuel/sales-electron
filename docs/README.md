@@ -16,7 +16,8 @@ Step-by-step workflows for day-to-day use.
 8. [Sales budgets](user-guide/07-sales-budgets.md)
 9. [Reports](user-guide/08-reports.md)
 10. [Users and permissions](user-guide/09-users-permissions.md)
-11. [Troubleshooting](user-guide/10-troubleshooting.md)
+11. [Data backup and restore](user-guide/11-data-backup-restore.md)
+12. [Troubleshooting](user-guide/10-troubleshooting.md)
 
 ## Developer guide
 

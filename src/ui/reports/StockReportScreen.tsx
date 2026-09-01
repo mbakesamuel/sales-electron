@@ -379,7 +379,7 @@ export function StockReportDocument({ report }: { report: StockReport }) {
 
   return (
     <ReportDocumentShell
-      className="scr-document sr-stock-compact wpp-pack-page"
+      className="scr-document sr-stock-compact sr-stock-report wpp-pack-page"
       isEmpty={empty}
       emptyMessage={`No stock quantities to display as at ${formatDisplayDate(report.asAtIso)}.`}
       emptyHint={HIDE_ZERO_ROWS_HINT}

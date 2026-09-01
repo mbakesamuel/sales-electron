@@ -12,7 +12,7 @@
 | Path | Role |
 |------|------|
 | `src/electron/db/migrations/001_init.sql` | Baseline schema for new databases |
-| `src/electron/db/migrations/00N_*.sql` | Incremental migrations (latest: **107**) |
+| `src/electron/db/migrations/00N_*.sql` | Incremental migrations (latest: **109**) |
 | `scripts/generate-schema-sql.mjs` | Schema generation helper |
 | `db:seed` / seed migrations | Demo/admin seed data |
 
@@ -57,6 +57,8 @@ Recent notable migrations:
 | `105_carry_forward_clerk_write.sql` | Statistics clerk write on carry-forward input routes |
 | `106_sales_invoice_lock_unit_price.sql` | `CompanySettings.salesInvoiceLockUnitPrice` (default on) |
 | `107_sales_budget_revenue_crosstab_permissions.sql` | Sales budget revenue crosstab routes |
+| `108_data_backup_permissions.sql` | Data backup route (ADMIN write) |
+| `109_loose_lpo_stock_summary_permissions.sql` | Loose LPO stock summary report route |
 
 When adding a migration:
 

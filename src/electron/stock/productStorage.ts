@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import { isLooseLpoProduct } from "../../shared/looseLpoProduct.js";
 import { STORAGE_OMIT_STOCK_DOC_ERROR } from "../../shared/productStorageRules.js";
 import { getDatabase } from "../db/index.js";
 
@@ -80,20 +81,31 @@ export function assertProductOmitsStorageLocationChangeAllowed(
   }
 }
 
-/** Loose Palm Oil = ProductCat.isMain = 1. */
+/** Loose Palm Oil = product code LPO (canonical loose LPO SKU). */
 export function productIsLoosePalmOilById(
   db: Database.Database,
   productId: number,
 ): boolean {
   const row = db
     .prepare(
-      `SELECT COALESCE(pc.isMain, 0) AS isMain
+      `SELECT p.productCode, p.productName, COALESCE(pc.isBottled, 0) AS isBottled
        FROM Product p
        INNER JOIN ProductCat pc ON pc.productCatId = p.productCatId
        WHERE p.productId = ?`,
     )
-    .get(productId) as { isMain: number } | undefined;
-  return Number(row?.isMain ?? 0) === 1;
+    .get(productId) as
+    | { productCode: string | null; productName: string; isBottled: number }
+    | undefined;
+
+  if (!row) {
+    return false;
+  }
+
+  return isLooseLpoProduct({
+    productCode: row.productCode,
+    productName: row.productName,
+    isBottled: row.isBottled,
+  });
 }
 
 export function productIsBottledById(

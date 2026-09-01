@@ -119,7 +119,7 @@ function aggregateSection(
       continue;
     }
 
-    if (line.isMain !== 1) {
+    if (!line.isLooseLpo) {
       continue;
     }
 
@@ -295,10 +295,10 @@ export function getPalmOilSalesActivityReport(userId: string): PalmOilSalesActiv
   );
 
   const palmOilLines = allLines.filter(
-    (line) => line.isBottled === 1 || line.isMain === 1,
+    (line) => line.isBottled === 1 || line.isLooseLpo,
   );
   const looseLines = palmOilLines.filter(
-    (line) => line.isMain === 1 && line.isBottled !== 1,
+    (line) => line.isLooseLpo && line.isBottled !== 1,
   );
 
   const looseMonthColumns = buildLooseMonthColumns(financialYear, asAtIso, currentMonth);

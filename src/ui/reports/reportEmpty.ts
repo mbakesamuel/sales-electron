@@ -13,6 +13,7 @@ import type {
   MonthlyPaymentDeliveryReport,
   MonthlyStockReconciliationMatrixRow,
   MonthlyStockReconciliationReport,
+  LooseLpoStockSummaryReport,
   OtherProductSalesDeliveriesReport,
   RevenueTaxesReport,
   SalesBudgetMonthlyCrosstabReport,
@@ -164,6 +165,17 @@ export function isMonthlyStockReconciliationReportEmpty(
     ...report.otherRows,
   ];
   return !rows.some(matrixRowHasData);
+}
+
+export function isLooseLpoStockSummaryReportEmpty(
+  report: LooseLpoStockSummaryReport,
+): boolean {
+  return !report.rows.some((row) => {
+    if (row.kind === "blank") {
+      return false;
+    }
+    return isNonZero(row.values.thisMonth) || isNonZero(row.values.toDate);
+  });
 }
 
 export function isMonthlyPaymentDeliveryReportEmpty(

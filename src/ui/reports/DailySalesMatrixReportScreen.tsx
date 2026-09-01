@@ -37,7 +37,7 @@ function buildCsv(report: DailySalesMatrixReport): string {
     `Collection point:,${report.salesPointLabel}`,
     `Product:,${report.productLabel}`,
     "",
-    "DAY,INDUSTRY,WHOLE SALE,RETAIL,CDC/WORKER,STAFF,TRNSFR,TOTAL",
+    "DAY,INDUSTRY,WHOLE SALE,RETAIL,STAFF/WORKER,PUB. RELATION,TRANSFER,TOTAL",
   ];
 
   for (const row of report.rows) {
@@ -124,9 +124,9 @@ export function DailySalesMatrixReportDocument({
               <th class="scr-num">INDUSTRY</th>
               <th class="scr-num">WHOLE SALE</th>
               <th class="scr-num">RETAIL</th>
-              <th class="scr-num">CDC/WORKER</th>
-              <th class="scr-num">STAFF</th>
-              <th class="scr-num">TRNSFR</th>
+              <th class="scr-num">STAFF/WORKER</th>
+              <th class="scr-num">PUB. RELATION</th>
+              <th class="scr-num">TRANSFER</th>
               <th class="scr-num">TOTAL</th>
             </tr>
           </thead>

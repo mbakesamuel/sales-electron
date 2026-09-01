@@ -1,4 +1,5 @@
 import { getDatabase } from "../db/index.js";
+import { isLooseLpoProduct } from "../../shared/looseLpoProduct.js";
 
 export type ResolveUnitPriceResult =
   | { ok: true; unitPriceExTax: string; productName: string }
@@ -54,7 +55,7 @@ export function getStaffWorkerCustomerTypeId(): string | null {
 /**
  * Latest schedule row with effectiveFrom <= transaction calendar day.
  * Bottled products use a single direct price (customerTypeId null).
- * Main-category loose products use the customer's type; others use direct price.
+ * Loose LPO (product code LPO) uses the customer's type; others use direct price.
  */
 export function resolveUnitPriceExTax(
   productId: number,
@@ -65,23 +66,27 @@ export function resolveUnitPriceExTax(
 
   const product = getDatabase()
     .prepare(
-      `SELECT p.productName, pc.isMain, pc.isBottled
+      `SELECT p.productName, p.productCode, pc.isBottled
        FROM Product p
        INNER JOIN ProductCat pc ON pc.productCatId = p.productCatId
        WHERE p.productId = ?`,
     )
     .get(productId) as
-    | { productName: string; isMain: number; isBottled: number }
+    | { productName: string; productCode: string | null; isBottled: number }
     | undefined;
 
   if (!product) {
     return { ok: false, error: `Product ${productId} was not found.` };
   }
 
-  const isMainCategory = product.isMain === 1;
+  const isLooseLpo = isLooseLpoProduct({
+    productCode: product.productCode,
+    productName: product.productName,
+    isBottled: product.isBottled,
+  });
   const isBottled = product.isBottled === 1;
 
-  if (isMainCategory && !isBottled && !customerTypeId) {
+  if (isLooseLpo && !isBottled && !customerTypeId) {
     return {
       ok: false,
       error: `Select a registered customer to resolve the price for "${product.productName}".`,
@@ -99,7 +104,7 @@ export function resolveUnitPriceExTax(
            LIMIT 1`,
         )
         .get(productId, dayIso) as { unitPriceExTax: string } | undefined)
-    : isMainCategory
+    : isLooseLpo
       ? (getDatabase()
           .prepare(
             `SELECT unitPriceExTax FROM ProductUnitPriceSchedule
@@ -129,7 +134,7 @@ export function resolveUnitPriceExTax(
       };
     }
 
-    if (isMainCategory) {
+    if (isLooseLpo) {
       const typeLabel = customerTypeId
         ? getCustomerTypeLabel(customerTypeId)
         : "customer type";

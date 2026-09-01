@@ -594,6 +594,29 @@ export interface MonthlyStockReconciliationReport {
     otherRows: MonthlyStockReconciliationMatrixRow[];
     comments: string | null;
 }
+export interface LooseLpoStockSummaryColumnPair {
+    thisMonth: number | null;
+    toDate: number | null;
+}
+export type LooseLpoStockSummaryRowKind = "data" | "subtotal" | "total" | "blank";
+export interface LooseLpoStockSummaryRow {
+    id: string;
+    label: string;
+    kind: LooseLpoStockSummaryRowKind;
+    values: LooseLpoStockSummaryColumnPair;
+}
+export interface LooseLpoStockSummaryReport {
+    settings: ReportCompanySettings;
+    asAtIso: string;
+    monthStartIso: string;
+    monthLabel: string;
+    monthIndexInFy: number;
+    toDateColumnLabel: string;
+    reportTitle: string;
+    rows: LooseLpoStockSummaryRow[];
+    comments: string | null;
+    generatedAtIso: string;
+}
 export type ExportExcelResult = {
     ok: true;
     filePath: string;

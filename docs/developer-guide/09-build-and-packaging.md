@@ -34,6 +34,17 @@ npm run dist:win
 
 Uses **electron-builder** with NSIS as configured above.
 
+### Release (bump version + build)
+
+```bash
+npm run release:patch   # 1.0.0 → 1.0.1
+npm run release:minor   # 1.0.0 → 1.1.0
+npm run release:major   # 1.0.0 → 2.0.0
+npm run release -- minor   # same as release:minor
+```
+
+[`scripts/release.mjs`](../../scripts/release.mjs) runs `npm version <bump> --no-git-tag-version` (updates `package.json` and `package-lock.json` only — no git commit or tag), then `npm run dist:win`. Use `dist:win` alone when you only need a rebuild without changing the version number.
+
 ### Packaging notes
 
 - `files`: `dist-electron/**`, `dist-react/**`, `package.json`
@@ -50,6 +61,6 @@ Uses **electron-builder** with NSIS as configured above.
 
 1. `npm run build` clean
 2. Smoke-test login, open month, create sale (booklet serial), one report print
-3. `npm run dist:win` on a clean machine if possible
+3. `npm run release:minor` (or `dist:win` if version already bumped) on a clean machine if possible
 4. Confirm `sales.db` migrations apply on first launch of the installed app
 5. Confirm window title shows **Sales Management Application**

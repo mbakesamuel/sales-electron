@@ -1,3 +1,4 @@
+import { isLooseLpoReportProduct } from "../../shared/looseLpoProduct.js";
 import type {
   WeeklyDeliveriesBottledSection,
   WeeklyDeliveriesLooseRow,
@@ -53,7 +54,7 @@ interface SaleLineRecord {
   customerTypeName: string;
   productId: number;
   productName: string;
-  isMain: number;
+  productCode: string | null;
   isBottled: number;
   qtyKg: number;
   qtyUnits: number | null;
@@ -85,7 +86,7 @@ function loadSaleLines(weekFromIso: string, weekToIso: string): SaleLineRecord[]
   return getDatabase()
     .prepare(
       `SELECT s.salesPointId, s.saleDisposition, ct.code AS customerTypeCode, ct.name AS customerTypeName,
-              sl.productId, p.productName, COALESCE(pc.isMain, 0) AS isMain,
+              sl.productId, p.productName, p.productCode,
               COALESCE(pc.isBottled, 0) AS isBottled, sl.qtyKg, sl.qtyUnits
        FROM Sale s
        INNER JOIN SaleLine sl ON sl.saleId = s.id
@@ -105,7 +106,7 @@ function loadSaleLines(weekFromIso: string, weekToIso: string): SaleLineRecord[]
       customerTypeName: String((row as { customerTypeName: string | null }).customerTypeName ?? ""),
       productId: (row as { productId: number }).productId,
       productName: String((row as { productName: string }).productName),
-      isMain: (row as { isMain: number }).isMain,
+      productCode: (row as { productCode: string | null }).productCode,
       isBottled: (row as { isBottled: number }).isBottled,
       qtyKg: parseQty((row as { qtyKg: string }).qtyKg),
       qtyUnits: (row as { qtyUnits: string | null }).qtyUnits
@@ -122,13 +123,23 @@ function bottledLineUnits(line: SaleLineRecord): number {
   return line.qtyUnits ?? line.qtyKg;
 }
 
+function saleLineIsLooseLpo(line: SaleLineRecord): boolean {
+  return isLooseLpoReportProduct({
+    productCode: line.productCode,
+    productName: line.productName,
+    isBottled: line.isBottled,
+  });
+}
+
 function buildLooseSection(
   salesPoints: SalesPointRow[],
   saleLines: SaleLineRecord[],
   hideZero: boolean,
 ): WeeklyDeliveriesLooseSection {
   const salesPointNames = salesPoints.map((salesPoint) => salesPoint.name.toUpperCase());
-  const looseLines = saleLines.filter((line) => line.isBottled !== 1 && line.isMain === 1);
+  const looseLines = saleLines.filter(
+    (line) => line.isBottled !== 1 && saleLineIsLooseLpo(line),
+  );
 
   const dataRows: WeeklyDeliveriesLooseRow[] = LOOSE_CATEGORY_ROWS.map((category) => {
     const quantities = salesPoints.map((salesPoint) =>
@@ -224,8 +235,18 @@ function buildMiscSection(
   products: ProductRow[],
   hideZero: boolean,
 ): WeeklyDeliveriesMiscSection {
-  const miscProducts = products.filter((product) => product.isBottled !== 1 && product.isMain !== 1);
-  const miscLines = saleLines.filter((line) => line.isBottled !== 1 && line.isMain !== 1);
+  const miscProducts = products.filter(
+    (product) =>
+      product.isBottled !== 1 &&
+      !isLooseLpoReportProduct({
+        productCode: product.productCode,
+        productName: product.productName,
+        isBottled: product.isBottled,
+      }),
+  );
+  const miscLines = saleLines.filter(
+    (line) => line.isBottled !== 1 && !saleLineIsLooseLpo(line),
+  );
 
   const rows = miscProducts
     .map((product) => ({

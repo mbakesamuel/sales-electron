@@ -37,6 +37,8 @@ Each report:
 
 Reports branch on `ProductCat.isMain` and `isBottled`. Kernel/PKO detection also uses name heuristics in stock/monthly builders (`KERNEL OIL`, `PKO`).
 
+**LPO report bucketing** uses `isLooseLpoReportProduct()` in `src/shared/looseLpoProduct.ts` (canonical LPO + sludge member grades). **Operational** LPO rules (sales, pricing, transfers) still use `isLooseLpoProduct()` (code `LPO` only). Sludge pool product (`Sludge Oil` / `SLU`) is included in LPO opening/reception stock metrics when intake grouping is on.
+
 ## Daily sales report
 
 File: `dailySalesReport.ts`
@@ -53,7 +55,7 @@ File: `dailySalesMatrixReport.ts`
 - IPC: `reports:getDailySalesMatrix` with optional `salesPointId` and `productId`.
 - Route: `daily-sales-matrix-report` (Reports → Daily).
 - Permissions seeded in migration `102_daily_sales_matrix_report_permissions.sql`.
-- Open month through as-at; validated sales kg by day × customer category (Industry, Wholesale, Retail, CDC/Worker, Staff) plus transfer-out (`trnsfr` from `loadTransferOutQtyByDate`).
+- Open month through as-at; validated sales kg by day × customer category (Industry, Wholesale, Retail, Staff/Worker, Pub. relation) plus transfer-out (`trnsfr` from `loadTransferOutQtyByDate`).
 - UI: `DailySalesMatrixReportScreen.tsx` — collection point / product filters; print / CSV / comments.
 
 ## Weekly deliveries (Sales/delivery)
@@ -74,6 +76,18 @@ File: `monthlyStockReconciliationReport.ts`
 - Permissions seeded in migration `036_monthly_stock_reconciliation_permissions.sql`.
 - Open-month only: opening LPO = balances as of day before month start **plus** posted **carry-forward** (Opening Stock balances) LPO adjustments in the open month through as-at; posted receipts by `supplierLabel`; validated LPO sales by customer-type buckets; calculated = opening + reception − issues; physical/variance blank; BPO issued + stock C/F; fixed palm-kernel / related product rows.
 - UI: `MonthlyStockReconciliationScreen.tsx` — print / CSV / comments.
+
+Shared LPO metrics: `looseLpoReconciliationMetrics.ts` (opening, reception, issues helpers used by reconciliation and summary; uses `isLooseLpoReportProduct` via `isLooseLpo()`).
+
+## Loose LPO stock summary
+
+File: `looseLpoStockSummaryReport.ts`
+
+- IPC: `reports:getLooseLpoStockSummary`.
+- Route: `loose-lpo-stock-summary-report` (Reports → Monthly).
+- Permissions seeded in migration `109_loose_lpo_stock_summary_permissions.sql`.
+- Company-total memo layout: **THIS MONTH** (open month) vs **TO DATE N MONTH** (FY YTD); same LPO rules as reconciliation; physical/variance blank.
+- UI: `LooseLpoStockSummaryScreen.tsx` — memo routing, print / PDF window / CSV / comments.
 
 ## Monthly Payment/Delivery
 
@@ -186,19 +200,30 @@ Not a sidebar report route — opened from **Bin card** with filter query.
 - UI: `BinCardReportScreen.tsx` — `ReportHeader`, `scr-document` / `scr-table`, opening/closing as `scr-row-total`.
 - Window: `openOrFocusReportWindow` uses portrait dimensions for this route id; print injects `@page { size: A4 portrait }` in `BinCardReport.css`.
 
+## Stock summary / stock & commitment
+
+File: `stockCommitment.ts`
+
+- IPC: `reports:getStockCommitment`.
+- Per loose product: sellable stock (as-of balances) and outstanding DO commitments (as-of) by sales point; `balance = stock − commitment`.
+- Sludge member grades (Bottom Tank Oil Grade A, Palm Sludge Oil Grade B/C) are **report-bucketed** into one section titled **PALM SLUDGE OIL** (`PALM_SLUDGE_OIL_REPORT_BUCKET_NAME`); stock sums member balances plus the Sludge Oil pool when intake grouping is on; commitments sum member grades only.
+- Bottled category: stock-only matrix (no commitments).
+
 ## Other builders (quick index)
 
 | Builder | Report |
 |---------|--------|
 | `dailySalesReport.ts` | Daily sales report |
 | `dailySalesMatrixReport.ts` | Daily sales summary (matrix) |
-| `stockCommitment.ts` | Stock summary / stock & commitment |
+| `stockCommitment.ts` | Stock summary / stock & commitment (sludge members → PALM SLUDGE OIL section) |
 | `stockReport.ts` | Stock report (bottled last; aligned non-bottled grid in UI) |
 | `commitmentReport.ts` | Commitment report |
 | `bottleOilStockSalesReport.ts` | Bottle oil stock & sales |
 | `bottledWeeklyIssuesReport.ts` | Bottled Sales Report (sidebar label; route still `bottled-weekly-issues-report`) |
 | `monthlyDeliveryReport.ts` | Monthly H1/H2 |
 | `monthlyStockReconciliationReport.ts` | Monthly stock reconciliation (open month; LPO + BPO + kernel) |
+| `looseLpoReconciliationMetrics.ts` | Shared LPO opening / reception / issues metrics |
+| `looseLpoStockSummaryReport.ts` | Loose LPO stock summary (company total; month + FY YTD) |
 | `monthlyPaymentDeliveryReport.ts` | Monthly Payment/Delivery (weekly bottled vs other kg + value) |
 | `monthlyDeliveriesByDestinationReport.ts` | Deliveries by Destination (weekly non-bottled kg by customer type) |
 | `monthlyPalmOilSalesReport.ts` | Monthly Palm Oil Sales (FY LPO destinations + BPO tons/'000 FRS) |

@@ -36,6 +36,12 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         description: "Display options for stock and delivery reports.",
       },
       {
+        id: "data-backup",
+        label: "Data backup",
+        table: "",
+        description: "Create and restore full database backups (ADMIN).",
+      },
+      {
         id: "financial-year-periods",
         label: "Financial year",
         table: "FinancialYearPeriod",
@@ -356,39 +362,47 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         description: "Monthly deliveries and value for July through December.",
       },
       {
+        id: "loose-lpo-stock-summary-report",
+        label: "Stock Summary",
+        table: "StockBalance",
+        description:
+          "Company-total loose palm oil opening, reception, issues, and calculated stock for the month and fiscal YTD.",
+      },
+      {
         id: "monthly-stock-reconciliation-report",
         label: "Stock Reconciliation",
         table: "StockBalance",
         description:
           "Open-month LPO opening/reception/issues reconciliation with BPO and palm-kernel rows.",
       },
+     
       {
         id: "monthly-payment-delivery-report",
-        label: "Payments $ Delivery",
+        label: "Sales/Delivery LPO",
         table: "Sale",
         description:
           "Open-month weekly bottled (Payments) vs other-product (Deliveries) sales kg and value.",
       },
       {
         id: "monthly-deliveries-by-destination-report",
-        label: "Palm Oil Deliveries/Destination",
+        label: "Deliveries By Cust. Cat",
         table: "Sale",
         description:
           "Open-month weekly non-bottled deliveries (kg) by customer-type destination.",
       },
       {
         id: "monthly-palm-oil-sales-report",
-        label: "Monthly By Month Palm Oil Sales",
+        label: "Monthly Sales - LPO",
         table: "Sale",
         description:
           "Full-year LPO by destination and BPO in tons and '000 FRS (taxes excluded).",
       },
       {
-        id: "revenue-taxes-report",
-        label: "Revenue & taxes",
+        id: "other-product-sales-deliveries-report",
+        label: "Sales/Deliveries - Other Prod.",
         table: "Sale",
         description:
-          "Validated invoice net, VAT, sales tax, and gross for the open month or FY to date.",
+          "Open-month non-LPO / non-bottled sales by collection point and product (deliveries kg and F.CFA without taxes).",
       },
       {
         id: "industry-product-monthly-sales-report",
@@ -396,7 +410,7 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         table: "Sale",
         description:
           "Full-year Industry sales by collection point for each non-LPO, non-bottled product (tons and '000 FRS).",
-      },
+      },      
       {
         id: "bottled-palm-oil-sales-return-report",
         label: "Bottled Palm Oil Stock Reconciliation",
@@ -412,12 +426,13 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
           "Open-month Bottle Oil Ration and Public relation sales by invoice (packs, amount, receiver, VCN no.).",
       },
       {
-        id: "other-product-sales-deliveries-report",
-        label: "Other Products Sales/Deliveries",
+        id: "revenue-taxes-report",
+        label: "Revenue & taxes",
         table: "Sale",
         description:
-          "Open-month non-LPO / non-bottled sales by collection point and product (deliveries kg and F.CFA without taxes).",
+          "Validated invoice net, VAT, sales tax, and gross for the open month or FY to date.",
       },
+      
     ];
     const annualRoutes: SchemaRoute[] = [
       {

@@ -49,6 +49,7 @@ const ROUTE_GROUPS = {
     "monthly-delivery-report-h1",
     "monthly-delivery-report-h2",
     "monthly-stock-reconciliation-report",
+    "loose-lpo-stock-summary-report",
     "monthly-payment-delivery-report",
     "monthly-deliveries-by-destination-report",
     "monthly-palm-oil-sales-report",
@@ -245,6 +246,7 @@ export function getDefaultRouteMatrix(): Record<string, RouteMatrix> {
     matrix[role]["roles"] = role === "ADMIN" ? "write" : "none";
     matrix[role]["role-permissions"] =
       role === "ADMIN" ? "write" : "none";
+    matrix[role]["data-backup"] = role === "ADMIN" ? "write" : "none";
   }
   return matrix;
 }

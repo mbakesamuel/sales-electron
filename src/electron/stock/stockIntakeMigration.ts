@@ -59,6 +59,13 @@ function defaultProductCatId(db: Database.Database, memberIds: number[]): number
   return row?.productCatId ?? null;
 }
 
+function productHasOmitsStorageLocationColumn(db: Database.Database): boolean {
+  const columns = db
+    .prepare(`PRAGMA table_info(Product)`)
+    .all() as Array<{ name: string }>;
+  return columns.some((column) => column.name === "omitsStorageLocation");
+}
+
 function ensurePoolProduct(
   db: Database.Database,
   poolName: string,
@@ -67,6 +74,8 @@ function ensurePoolProduct(
   memberIds: number[],
 ): number | null {
   let poolId = findProductByName(db, poolName);
+  const poolOmitsStorageLocation =
+    stockIntakeGroup === "PALM_KERNEL" && productHasOmitsStorageLocationColumn(db);
 
   if (poolId == null) {
     const productCatId = defaultProductCatId(db, memberIds);
@@ -75,14 +84,35 @@ function ensurePoolProduct(
       return null;
     }
 
-    const result = db
-      .prepare(
-        `INSERT INTO Product (
-           productName, productCode, productCatId, commercialServiceId, uom,
-           stockIntakeGroup, excludeFromSales
-         ) VALUES (?, ?, ?, ?, 'Kg', ?, 1)`,
-      )
-      .run(poolName, productCode, productCatId, commercialServiceId, stockIntakeGroup);
+    const result = poolOmitsStorageLocation
+      ? db
+          .prepare(
+            `INSERT INTO Product (
+               productName, productCode, productCatId, commercialServiceId, uom,
+               stockIntakeGroup, excludeFromSales, omitsStorageLocation
+             ) VALUES (?, ?, ?, ?, 'Kg', ?, 1, 1)`,
+          )
+          .run(
+            poolName,
+            productCode,
+            productCatId,
+            commercialServiceId,
+            stockIntakeGroup,
+          )
+      : db
+          .prepare(
+            `INSERT INTO Product (
+               productName, productCode, productCatId, commercialServiceId, uom,
+               stockIntakeGroup, excludeFromSales
+             ) VALUES (?, ?, ?, ?, 'Kg', ?, 1)`,
+          )
+          .run(
+            poolName,
+            productCode,
+            productCatId,
+            commercialServiceId,
+            stockIntakeGroup,
+          );
     poolId = Number(result.lastInsertRowid);
   } else {
     db.prepare(
@@ -92,6 +122,11 @@ function ensurePoolProduct(
            stockPoolProductId = NULL
        WHERE productId = ?`,
     ).run(stockIntakeGroup, poolId);
+    if (poolOmitsStorageLocation) {
+      db.prepare(
+        `UPDATE Product SET omitsStorageLocation = 1 WHERE productId = ?`,
+      ).run(poolId);
+    }
   }
 
   for (const memberId of memberIds) {

@@ -1,4 +1,4 @@
-import type { BottleOilStockSalesReport, BottledPalmOilSalesReturnReport, BottledWeeklyIssuesReport, CommitmentReport, DailySalesReport, IndustryProductMonthlySalesReport, MonthlyBottledOilReport, MonthlyDeliveriesByDestinationReport, MonthlyDeliveryReport, MonthlyPalmOilSalesReport, PalmOilSalesActivityReport, MonthlyPaymentDeliveryReport, MonthlyStockReconciliationReport, OtherProductSalesDeliveriesReport, RevenueTaxesReport, SalesBudgetMonthlyCrosstabReport, SalesBudgetMonthlyRevenueCrosstabReport, SalesBudgetWeeklyCrosstabReport, SalesBudgetWeeklyRevenueCrosstabReport, StockCommitmentReport, StockReport, WeeklyDeliveriesReport } from "../../shared/reports.types.ts";
+import type { BottleOilStockSalesReport, BottledPalmOilSalesReturnReport, BottledWeeklyIssuesReport, CommitmentReport, DailySalesReport, IndustryProductMonthlySalesReport, MonthlyBottledOilReport, MonthlyDeliveriesByDestinationReport, MonthlyDeliveryReport, MonthlyPalmOilSalesReport, PalmOilSalesActivityReport, MonthlyPaymentDeliveryReport, MonthlyStockReconciliationReport, LooseLpoStockSummaryReport, OtherProductSalesDeliveriesReport, RevenueTaxesReport, SalesBudgetMonthlyCrosstabReport, SalesBudgetMonthlyRevenueCrosstabReport, SalesBudgetWeeklyCrosstabReport, SalesBudgetWeeklyRevenueCrosstabReport, StockCommitmentReport, StockReport, WeeklyDeliveriesReport } from "../../shared/reports.types.ts";
 import type { BinCardReport } from "../../shared/stock.types.ts";
 export declare const HIDE_ZERO_ROWS_HINT = "Turn off Hide rows with zero or empty quantities in Report settings to see zero-balance rows.";
 export declare function isStockReportEmpty(report: StockReport): boolean;
@@ -9,6 +9,7 @@ export declare function isWeeklyDeliveriesReportEmpty(report: WeeklyDeliveriesRe
 export declare function isDailySalesReportEmpty(report: DailySalesReport): boolean;
 export declare function isMonthlyDeliveryReportEmpty(report: MonthlyDeliveryReport): boolean;
 export declare function isMonthlyStockReconciliationReportEmpty(report: MonthlyStockReconciliationReport): boolean;
+export declare function isLooseLpoStockSummaryReportEmpty(report: LooseLpoStockSummaryReport): boolean;
 export declare function isMonthlyPaymentDeliveryReportEmpty(report: MonthlyPaymentDeliveryReport): boolean;
 export declare function isMonthlyDeliveriesByDestinationReportEmpty(report: MonthlyDeliveriesByDestinationReport): boolean;
 export declare function isMonthlyPalmOilSalesReportEmpty(report: MonthlyPalmOilSalesReport): boolean;

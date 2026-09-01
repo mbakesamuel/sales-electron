@@ -5,6 +5,8 @@ export declare const SLUDGE_MEMBER_PRODUCT_NAMES: readonly ["Bottom Tank Oil Gra
 export declare const PALM_KERNEL_POOL_PRODUCT_NAME = "Palm Kernel";
 export declare const PALM_KERNEL_MEMBER_PRODUCT_NAMES: readonly ["Cracked Palm Kernel", "Uncracked Palm Kernel"];
 export declare const LOOSE_PALM_OIL_PRODUCT_NAME = "Loose Palm Oil";
+/** Stock vs commitment report section title for pooled sludge member grades. */
+export declare const PALM_SLUDGE_OIL_REPORT_BUCKET_NAME = "Palm Sludge Oil";
 export interface IntakeProductGroup {
     key: string;
     label: string;

@@ -11,6 +11,7 @@ import {
   MonthlyDeliveryReportH2Screen,
 } from "./MonthlyDeliveryReportScreen.tsx";
 import { MonthlyStockReconciliationScreen } from "./MonthlyStockReconciliationScreen.tsx";
+import { LooseLpoStockSummaryScreen } from "./LooseLpoStockSummaryScreen.tsx";
 import { MonthlyPaymentDeliveryScreen } from "./MonthlyPaymentDeliveryScreen.tsx";
 import { MonthlyDeliveriesByDestinationScreen } from "./MonthlyDeliveriesByDestinationScreen.tsx";
 import { MonthlyPalmOilSalesScreen } from "./MonthlyPalmOilSalesScreen.tsx";
@@ -59,6 +60,8 @@ export function ReportBody({
       return <MonthlyDeliveryReportH2Screen windowMode={windowMode} />;
     case "monthly-stock-reconciliation-report":
       return <MonthlyStockReconciliationScreen windowMode={windowMode} />;
+    case "loose-lpo-stock-summary-report":
+      return <LooseLpoStockSummaryScreen windowMode={windowMode} />;
     case "monthly-payment-delivery-report":
       return <MonthlyPaymentDeliveryScreen windowMode={windowMode} />;
     case "monthly-deliveries-by-destination-report":

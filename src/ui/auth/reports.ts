@@ -28,6 +28,8 @@ export function getAuthenticatedReports() {
       api.getMonthlyDelivery(half, requireAuthToken()),
     getMonthlyStockReconciliation: () =>
       api.getMonthlyStockReconciliation(requireAuthToken()),
+    getLooseLpoStockSummary: () =>
+      api.getLooseLpoStockSummary(requireAuthToken()),
     getMonthlyPaymentDelivery: () =>
       api.getMonthlyPaymentDelivery(requireAuthToken()),
     getMonthlyDeliveriesByDestination: () =>

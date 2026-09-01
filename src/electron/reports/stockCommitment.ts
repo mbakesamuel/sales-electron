@@ -5,9 +5,14 @@ import type {
   StockCommitmentReportRow,
   StockCommitmentReportSection,
 } from "../../shared/reports.types.js";
+import { isSludgeMemberReportProduct } from "../../shared/looseLpoProduct.js";
+import { PALM_SLUDGE_OIL_REPORT_BUCKET_NAME } from "../../shared/stockIntakeGroups.js";
+import type Database from "better-sqlite3";
 import { getDatabase } from "../db/index.js";
 import { resolveReportAsAt } from "../financialYears/service.js";
 import { loadStockBalancesAsOf } from "../stock/asOfBalance.js";
+import { loadStockIntakeOilGrouping } from "../stock/productStorage.js";
+import { getSludgeOilPoolProductId } from "../stock/stockIntakeMigration.js";
 import { loadCommitmentMetricsAsOf } from "./commitmentAsOf.js";
 import { loadReportCompanySettings, loadReportDisplaySettings, loadReportComments } from "./companySettings.js";
 
@@ -121,6 +126,59 @@ function metricForProductAtSalesPoint(
   };
 }
 
+function metricForProductsAtSalesPoint(
+  stockProductIds: number[],
+  commitmentProductIds: number[],
+  salesPointId: number,
+  stockMetrics: MetricRow[],
+  commitmentMetrics: MetricRow[],
+): { stockKg: number; commitmentKg: number; balanceKg: number } {
+  let stockKg = 0;
+  let commitmentKg = 0;
+  for (const productId of stockProductIds) {
+    stockKg +=
+      stockMetrics.find(
+        (metric) => metric.salesPointId === salesPointId && metric.productId === productId,
+      )?.qty ?? 0;
+  }
+  for (const productId of commitmentProductIds) {
+    commitmentKg +=
+      commitmentMetrics.find(
+        (metric) => metric.salesPointId === salesPointId && metric.productId === productId,
+      )?.qty ?? 0;
+  }
+  return {
+    stockKg,
+    commitmentKg,
+    balanceKg: stockKg - commitmentKg,
+  };
+}
+
+function isSludgeMemberProduct(product: ProductRow): boolean {
+  return isSludgeMemberReportProduct({
+    productCode: product.productCode,
+    productName: product.productName,
+  });
+}
+
+function resolveSludgeMemberProductIds(products: ProductRow[]): number[] {
+  return products.filter(isSludgeMemberProduct).map((product) => product.productId);
+}
+
+function resolveSludgeStockProductIds(
+  memberProductIds: number[],
+  db: Database.Database,
+): number[] {
+  const ids = new Set(memberProductIds);
+  if (loadStockIntakeOilGrouping(db)) {
+    const poolId = getSludgeOilPoolProductId(db);
+    if (poolId != null) {
+      ids.add(poolId);
+    }
+  }
+  return [...ids];
+}
+
 function makeDataRow(
   label: string,
   salesPointName: string | null,
@@ -206,6 +264,80 @@ function buildProductSection(
     title,
     rows,
   };
+}
+
+function buildBucketedProductSection(
+  sectionNo: number,
+  title: string,
+  stockProductIds: number[],
+  commitmentProductIds: number[],
+  salesPoints: SalesPointRow[],
+  stockMetrics: MetricRow[],
+  commitmentMetrics: MetricRow[],
+  hideZero: boolean,
+): StockCommitmentReportSection | null {
+  const sectionTitle = title.toUpperCase();
+
+  const dataRows = salesPoints
+    .map((salesPoint) => {
+      const metrics = metricForProductsAtSalesPoint(
+        stockProductIds,
+        commitmentProductIds,
+        salesPoint.id,
+        stockMetrics,
+        commitmentMetrics,
+      );
+      return makeDataRow("", salesPoint.name, metrics);
+    })
+    .filter((row) => {
+      if (!hideZero) {
+        return true;
+      }
+      const stock = row.stockKg ?? 0;
+      const commitment = row.commitmentKg ?? 0;
+      return Math.abs(stock) > 0.0001 || Math.abs(commitment) > 0.0001;
+    });
+
+  if (hideZero && dataRows.length === 0) {
+    return null;
+  }
+
+  const rows: StockCommitmentReportRow[] = [
+    {
+      label: `${sectionNo}. ${sectionTitle}`,
+      salesPointName: null,
+      stockKg: null,
+      commitmentKg: null,
+      balanceKg: null,
+      kind: "header",
+    },
+    ...dataRows,
+    makeTotalRow("SUBTOTAL", dataRows, "subtotal"),
+  ];
+
+  return {
+    sectionNo,
+    title: sectionTitle,
+    rows,
+  };
+}
+
+function assignSectionNumbers(
+  sections: StockCommitmentReportSection[],
+): StockCommitmentReportSection[] {
+  const sorted = [...sections].sort((left, right) => left.title.localeCompare(right.title));
+  return sorted.map((section, index) => {
+    const sectionNo = index + 1;
+    return {
+      ...section,
+      sectionNo,
+      rows: section.rows.map((row) =>
+        row.kind === "header"
+          ? { ...row, label: `${sectionNo}. ${section.title}` }
+          : row,
+      ),
+    };
+  });
 }
 
 function detectBottledPack(product: ProductRow): BottledPackColumn {
@@ -302,8 +434,8 @@ export function getStockCommitmentReport(
   const looseCategories = categories.filter((category) => category.isBottled !== 1);
   const bottledCategory = categories.find((category) => category.isBottled === 1) ?? null;
 
-  const sections: StockCommitmentReportSection[] = [];
-  let sectionNo = 1;
+  const db = getDatabase();
+  const pendingSections: StockCommitmentReportSection[] = [];
 
   for (const category of looseCategories) {
     const categoryProducts = products
@@ -311,8 +443,11 @@ export function getStockCommitmentReport(
       .sort((left, right) => left.productName.localeCompare(right.productName));
 
     for (const product of categoryProducts) {
+      if (isSludgeMemberProduct(product)) {
+        continue;
+      }
       const section = buildProductSection(
-        sectionNo,
+        0,
         product,
         salesPoints,
         stockMetrics,
@@ -322,13 +457,32 @@ export function getStockCommitmentReport(
       if (!section) {
         continue;
       }
-      sections.push(section);
-      sectionNo += 1;
+      pendingSections.push(section);
     }
   }
 
+  const sludgeMemberProductIds = resolveSludgeMemberProductIds(products);
+  if (sludgeMemberProductIds.length > 0) {
+    const sludgeStockProductIds = resolveSludgeStockProductIds(sludgeMemberProductIds, db);
+    const sludgeSection = buildBucketedProductSection(
+      0,
+      PALM_SLUDGE_OIL_REPORT_BUCKET_NAME,
+      sludgeStockProductIds,
+      sludgeMemberProductIds,
+      salesPoints,
+      stockMetrics,
+      commitmentMetrics,
+      hideZero,
+    );
+    if (sludgeSection) {
+      pendingSections.push(sludgeSection);
+    }
+  }
+
+  const sections = assignSectionNumbers(pendingSections);
+
   const bottledSection = bottledCategory
-    ? buildBottledSection(sectionNo, bottledCategory, products, stockMetrics)
+    ? buildBottledSection(sections.length + 1, bottledCategory, products, stockMetrics)
     : null;
 
   const looseDataRows = sections.flatMap((section) =>

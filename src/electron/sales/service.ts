@@ -28,6 +28,7 @@ import {
   resolveCustomerTaxProfile,
   SALES_TAX_LABEL,
 } from "../../shared/taxRules.js";
+import { isLooseLpoProduct } from "../../shared/looseLpoProduct.js";
 import { assertRouteWrite, assertAction, canPerformAction, canWriteRoute } from "../auth/permissions/service.js";
 import { getDatabase } from "../db/index.js";
 import {
@@ -444,8 +445,8 @@ export function getSalesFormOptions(userId: string): SalesFormOptions {
 
   const products = db
     .prepare(
-      `SELECT p.productId, p.productName, pc.productCat, pc.productCode, pc.isBottled,
-              COALESCE(pc.isMain, 0) AS isMain,
+      `SELECT p.productId, p.productName, p.productCode, pc.productCat,
+              pc.productCode AS productCatCode, pc.isBottled,
               COALESCE(p.excludeFromSales, 0) AS excludeFromSales,
               COALESCE(p.omitsStorageLocation, 0) AS omitsStorageLocation
        FROM Product p
@@ -457,32 +458,40 @@ export function getSalesFormOptions(userId: string): SalesFormOptions {
     .all() as Array<{
     productId: number;
     productName: string;
+    productCode: string | null;
     productCat: string;
-    productCode: string;
+    productCatCode: string;
     isBottled: number;
-    isMain: number;
     omitsStorageLocation: number;
   }>;
 
   const looseProducts = products
     .filter((product) => product.isBottled !== 1)
-    .map(({ productId, productName, productCat, productCode, isMain, omitsStorageLocation }) => ({
+    .map(({ productId, productName, productCat, productCode, productCatCode, isBottled, omitsStorageLocation }) => ({
       productId,
       productName,
       productCat,
-      productCatCode: productCode,
-      isMain: isMain === 1,
+      productCatCode,
+      isMain: isLooseLpoProduct({
+        productCode,
+        productName,
+        isBottled,
+      }),
       omitsStorageLocation: omitsStorageLocation === 1,
     }));
 
   const bottledProducts = products
     .filter((product) => product.isBottled === 1)
-    .map(({ productId, productName, productCat, productCode, isMain, omitsStorageLocation }) => ({
+    .map(({ productId, productName, productCat, productCode, productCatCode, isBottled, omitsStorageLocation }) => ({
       productId,
       productName,
       productCat,
-      productCatCode: productCode,
-      isMain: isMain === 1,
+      productCatCode,
+      isMain: isLooseLpoProduct({
+        productCode,
+        productName,
+        isBottled,
+      }),
       omitsStorageLocation: omitsStorageLocation === 1,
     }));
 

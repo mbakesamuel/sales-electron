@@ -100,12 +100,12 @@ function emptyTotals(): MonthlyPaymentDeliveryTotals {
 }
 
 export function getMonthlyPaymentDeliveryReport(
-  _userId?: string,
+  userId?: string,
 ): MonthlyPaymentDeliveryReport {
   const { asAtIso, period } = resolveReportAsAt();
   const monthStartIso = period.startDate;
   const monthEndIso = period.endDate;
-  const settings = loadReportCompanySettings(undefined, asAtIso);
+  const settings = loadReportCompanySettings(userId, asAtIso);
   const comments = loadReportComments(ROUTE_ID);
   const products = loadProducts();
   const productById = new Map(

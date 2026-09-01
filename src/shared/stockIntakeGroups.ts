@@ -19,6 +19,9 @@ export const PALM_KERNEL_MEMBER_PRODUCT_NAMES = [
 
 export const LOOSE_PALM_OIL_PRODUCT_NAME = "Loose Palm Oil";
 
+/** Stock vs commitment report section title for pooled sludge member grades. */
+export const PALM_SLUDGE_OIL_REPORT_BUCKET_NAME = "Palm Sludge Oil";
+
 const POOL_DISPLAY_NAMES: Record<Exclude<StockIntakeGroup, "PALM_OIL">, string> = {
   SLUDGE_OIL: SLUDGE_OIL_POOL_PRODUCT_NAME,
   PALM_KERNEL: PALM_KERNEL_POOL_PRODUCT_NAME,

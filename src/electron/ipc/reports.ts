@@ -25,10 +25,12 @@ import type {
   WeeklyDeliveriesReport,
   DailySalesReport,
   DailySalesMatrixReport,
+  LooseLpoStockSummaryReport,
 } from "../../shared/reports.types.js";
 import { requireAuthUser } from "../auth/requireUser.js";
 import { getMonthlyDeliveryReport } from "../reports/monthlyDeliveryReport.js";
 import { getMonthlyStockReconciliationReport } from "../reports/monthlyStockReconciliationReport.js";
+import { getLooseLpoStockSummaryReport } from "../reports/looseLpoStockSummaryReport.js";
 import { getMonthlyPaymentDeliveryReport } from "../reports/monthlyPaymentDeliveryReport.js";
 import { getMonthlyDeliveriesByDestinationReport } from "../reports/monthlyDeliveriesByDestinationReport.js";
 import { getMonthlyPalmOilSalesReport } from "../reports/monthlyPalmOilSalesReport.js";
@@ -162,6 +164,14 @@ export function registerReportsHandlers(): void {
     (_event, authToken: string): MonthlyStockReconciliationReport => {
       const user = requireAuthUser(authToken);
       return getMonthlyStockReconciliationReport(user.id);
+    },
+  );
+
+  ipcMain.handle(
+    "reports:getLooseLpoStockSummary",
+    (_event, authToken: string): LooseLpoStockSummaryReport => {
+      const user = requireAuthUser(authToken);
+      return getLooseLpoStockSummaryReport(user.id);
     },
   );
 

@@ -77,6 +77,7 @@ import {
   isStockPoolProduct,
   type StockIntakeGroup,
 } from "../../shared/stockIntakeGroups.js";
+import { isLooseLpoProduct } from "../../shared/looseLpoProduct.js";
 import {
   consolidateIntakePoolBalances,
   getIntakePoolTotalQty,
@@ -341,6 +342,22 @@ function assertReceiptProductLines(
   }
 }
 
+/** Validates adjustment lines: bottled filter + per-line location rules (null for PKCP/PKP). */
+function assertAdjustmentProductLines(
+  db: import("better-sqlite3").Database,
+  lines: Array<{ productId: number; storageLocationId: number | null }>,
+  productFilter: DocumentStockProductFilter,
+): void {
+  assertProductsMatchBottledFilter(
+    db,
+    lines.map((line) => line.productId),
+    productFilter,
+  );
+  for (const line of lines) {
+    assertMovementLocationRules(db, line.productId, line.storageLocationId);
+  }
+}
+
 function assertProductsMatchBottledFilter(
   db: import("better-sqlite3").Database,
   productIds: number[],
@@ -530,7 +547,6 @@ export function getStockBootstrap(
     productName: string;
     uom: string | null;
     isBottled: number;
-    isMain: number;
     productCode: string | null;
     stockIntakeGroup?: string | null;
     stockPoolProductId?: number | null;
@@ -549,7 +565,11 @@ export function getStockBootstrap(
       productId: row.productId,
       productName: row.productName,
       isBottled,
-      isLoosePalmOil: row.isMain === 1 && !isBottled,
+      isLoosePalmOil: isLooseLpoProduct({
+        productCode: row.productCode,
+        productName: row.productName,
+        isBottled,
+      }),
       omitsStorageLocation: Number(row.omitsStorageLocation ?? 0) !== 0,
       uom: uomForBottled(isBottled, row.uom),
       stockIntakeGroup,
@@ -563,10 +583,8 @@ export function getStockBootstrap(
     };
   }
 
-  const productSelectSql = `SELECT p.productId, p.productName, p.uom,
+  const productSelectSql = `SELECT p.productId, p.productName, p.productCode, p.uom,
               COALESCE(pc.isBottled, 0) AS isBottled,
-              COALESCE(pc.isMain, 0) AS isMain,
-              pc.productCode,
               p.stockIntakeGroup,
               p.stockPoolProductId,
               COALESCE(p.excludeFromSales, 0) AS excludeFromSales,
@@ -2568,9 +2586,9 @@ export function saveAdjustment(input: SaveAdjustmentInput): StockMutationResult 
       }
       return line;
     });
-    assertProductsMatchStockFilter(
+    assertAdjustmentProductLines(
       db,
-      lines.map((line) => line.productId),
+      lines,
       resolveMutationProductFilter(
         db,
         uiProductFilter,
@@ -2580,7 +2598,13 @@ export function saveAdjustment(input: SaveAdjustmentInput): StockMutationResult 
 
     const tx = db.transaction(() => {
       for (const line of lines) {
-        assertStorageLocationForSalesPoint(db, input.salesPointId, line.storageLocationId);
+        if (line.storageLocationId != null) {
+          assertStorageLocationForSalesPoint(
+            db,
+            input.salesPointId,
+            line.storageLocationId,
+          );
+        }
       }
 
       if (input.id) {
@@ -2693,9 +2717,12 @@ export function postAdjustment(
       if (lines.length === 0) {
         throw new Error("Add at least one line before posting.");
       }
-      assertProductsMatchStockFilter(
+      assertAdjustmentProductLines(
         db,
-        lines.map((line) => line.productId as number),
+        lines.map((line) => ({
+          productId: line.productId as number,
+          storageLocationId: (line.storageLocationId as number | null) ?? null,
+        })),
         documentFilterForLines(
           db,
           productFilter,
@@ -2900,11 +2927,13 @@ function cancelStockDocument(
         .prepare(`SELECT productId FROM StockAdjustmentLine WHERE adjustmentId = ?`)
         .all(documentId) as Array<{ productId: number }>;
       const adjustmentProductIds = productRows.map((row) => row.productId);
-      assertProductsMatchStockFilter(
-        db,
-        adjustmentProductIds,
-        documentFilterForLines(db, productFilter, adjustmentProductIds),
-      );
+      if (adjustmentProductIds.length > 0) {
+        assertProductsMatchBottledFilter(
+          db,
+          adjustmentProductIds,
+          documentFilterForLines(db, productFilter, adjustmentProductIds),
+        );
+      }
       if (existing.status === "DRAFT") {
         assertAction(actor.role, draftAction);
         db.prepare(`DELETE FROM StockAdjustment WHERE id = ?`).run(documentId);

@@ -1,3 +1,4 @@
+import { isLooseLpoReportProduct } from "../../shared/looseLpoProduct.js";
 import type {
   IndustryProductMonthlySalesCell,
   IndustryProductMonthlySalesMonthColumn,
@@ -37,7 +38,7 @@ interface SaleLineRecord {
   customerTypeName: string;
   productId: number;
   productName: string;
-  isMain: number;
+  productCode: string | null;
   isBottled: number;
   qtyKg: number;
   lineNet: number;
@@ -110,8 +111,7 @@ function loadSaleLines(yearFromIso: string, yearToIso: string): SaleLineRecord[]
       `SELECT s.dateIssued, s.saleDisposition,
               COALESCE(ct.code, '') AS customerTypeCode,
               COALESCE(ct.name, '') AS customerTypeName,
-              sl.productId, p.productName,
-              COALESCE(pc.isMain, 0) AS isMain,
+              sl.productId, p.productName, p.productCode,
               COALESCE(pc.isBottled, 0) AS isBottled,
               sl.qtyKg, sl.lineNet
        FROM Sale s
@@ -136,7 +136,7 @@ function loadSaleLines(yearFromIso: string, yearToIso: string): SaleLineRecord[]
       ),
       productId: (row as { productId: number }).productId,
       productName: String((row as { productName: string }).productName),
-      isMain: (row as { isMain: number }).isMain,
+      productCode: (row as { productCode: string | null }).productCode,
       isBottled: (row as { isBottled: number }).isBottled,
       qtyKg: parseQty((row as { qtyKg: string }).qtyKg),
       lineNet: parseQty((row as { lineNet: string }).lineNet),
@@ -157,7 +157,11 @@ export function getIndustryProductMonthlySalesReport(
     (line) =>
       line.dateIssued <= asAtIso &&
       line.isBottled !== 1 &&
-      line.isMain !== 1 &&
+      !isLooseLpoReportProduct({
+        productCode: line.productCode,
+        productName: line.productName,
+        isBottled: line.isBottled,
+      }) &&
       isIndustryCustomer(
         line.saleDisposition,
         line.customerTypeCode,

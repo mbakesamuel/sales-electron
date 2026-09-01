@@ -10,18 +10,28 @@ import {
 } from "./companySettings.js";
 import { resolveReportAsAt } from "../financialYears/service.js";
 import {
+  addVectors,
+  dayBeforeIso,
+  isLooseLpo,
+  loadLpoReceiptLines,
+  loadLpoSaleLines,
+  subtractVectors,
+  sumCarryForwardLpoInRange,
+  sumSellableLpoBySalesPoint,
+  type LpoReceiptLineRecord,
+  type LpoSaleLineRecord,
+} from "./looseLpoReconciliationMetrics.js";
+import {
   PALM_OIL_KG_PER_LITRE,
   detectBottledPack,
   loadProducts,
   loadSalesPoints,
   nowIso,
-  parseQty,
   type ProductRow,
   type SalesPointRow,
 } from "./shared.js";
 import { getDatabase } from "../db/index.js";
 import { loadStockBalancesAsOf } from "../stock/asOfBalance.js";
-import { parseLocalIso, toIsoDate } from "./weekChoices.js";
 
 const ISSUE_CATEGORY_ROWS = [
   { id: "industries", label: "INDUSTRIES" },
@@ -54,7 +64,12 @@ const OTHER_PRODUCT_ROWS = [
     label: "CRACKED PALM KERNEL DELIVERED",
     match: (product: ProductRow) => {
       const text = productNameUpper(product);
-      if (text.includes("KERNEL OIL") || text.includes("KERNEL CAKE") || /\bPKO\b/.test(text) || /\bPKC\b/.test(text)) {
+      if (
+        text.includes("KERNEL OIL") ||
+        text.includes("KERNEL CAKE") ||
+        /\bPKO\b/.test(text) ||
+        /\bPKC\b/.test(text)
+      ) {
         return false;
       }
       return text.includes("CRACKED") && !text.includes("UNCRACKED");
@@ -63,7 +78,8 @@ const OTHER_PRODUCT_ROWS = [
   {
     id: "uncracked",
     label: "UNCRACKED PALM KERNEL DELIVERED",
-    match: (product: ProductRow) => productNameUpper(product).includes("UNCRACKED"),
+    match: (product: ProductRow) =>
+      productNameUpper(product).includes("UNCRACKED"),
   },
   {
     id: "selected_nuts",
@@ -75,43 +91,22 @@ const OTHER_PRODUCT_ROWS = [
   },
 ] as const;
 
-interface SaleLineRecord {
-  salesPointId: number | null;
-  saleDisposition: string | null;
-  customerTypeCode: string;
-  customerTypeName: string;
-  productId: number;
-  productName: string;
-  isMain: number;
-  isBottled: number;
-  qtyKg: number;
-  qtyUnits: number | null;
-}
+type SaleLineRecord = LpoSaleLineRecord;
+type ReceiptLineRecord = LpoReceiptLineRecord;
 
-interface ReceiptLineRecord {
-  salesPointId: number;
-  supplierLabel: string;
-  productId: number;
-  isMain: number;
-  isBottled: number;
-  qty: number;
-}
-
-function productNameUpper(product: Pick<ProductRow, "productName" | "productCode">): string {
+function productNameUpper(
+  product: Pick<ProductRow, "productName" | "productCode">,
+): string {
   return `${product.productName} ${product.productCode ?? ""}`.toUpperCase();
-}
-
-function dayBeforeIso(isoDate: string): string {
-  const date = parseLocalIso(isoDate);
-  date.setDate(date.getDate() - 1);
-  return toIsoDate(date);
 }
 
 function spKey(salesPointId: number): string {
   return String(salesPointId);
 }
 
-function zeroValues(salesPoints: SalesPointRow[]): Record<string, number | null> {
+function zeroValues(
+  salesPoints: SalesPointRow[],
+): Record<string, number | null> {
   const values: Record<string, number | null> = {};
   for (const salesPoint of salesPoints) {
     values[spKey(salesPoint.id)] = 0;
@@ -119,7 +114,9 @@ function zeroValues(salesPoints: SalesPointRow[]): Record<string, number | null>
   return values;
 }
 
-function blankValues(salesPoints: SalesPointRow[]): Record<string, number | null> {
+function blankValues(
+  salesPoints: SalesPointRow[],
+): Record<string, number | null> {
   const values: Record<string, number | null> = {};
   for (const salesPoint of salesPoints) {
     values[spKey(salesPoint.id)] = null;
@@ -152,32 +149,6 @@ function makeRow(
   };
 }
 
-function addVectors(
-  salesPoints: SalesPointRow[],
-  left: Record<string, number | null>,
-  right: Record<string, number | null>,
-): Record<string, number | null> {
-  const values = zeroValues(salesPoints);
-  for (const salesPoint of salesPoints) {
-    const key = spKey(salesPoint.id);
-    values[key] = (left[key] ?? 0) + (right[key] ?? 0);
-  }
-  return values;
-}
-
-function subtractVectors(
-  salesPoints: SalesPointRow[],
-  left: Record<string, number | null>,
-  right: Record<string, number | null>,
-): Record<string, number | null> {
-  const values = zeroValues(salesPoints);
-  for (const salesPoint of salesPoints) {
-    const key = spKey(salesPoint.id);
-    values[key] = (left[key] ?? 0) - (right[key] ?? 0);
-  }
-  return values;
-}
-
 function resolveIssueCategoryId(
   saleDisposition: string | null,
   customerTypeCode: string,
@@ -194,7 +165,11 @@ function resolveIssueCategoryId(
   if (text.includes("ESTATE") || text.includes("SERVICE")) {
     return "estates";
   }
-  if (text.includes("STAFF") || text.includes("WORKER") || text.includes("RATION")) {
+  if (
+    text.includes("STAFF") ||
+    text.includes("WORKER") ||
+    text.includes("RATION")
+  ) {
     return "staff";
   }
   if (text.includes("WHOLESALE")) {
@@ -209,136 +184,16 @@ function resolveIssueCategoryId(
   return "staff";
 }
 
-function loadSaleLines(fromIso: string, toIso: string): SaleLineRecord[] {
-  return getDatabase()
-    .prepare(
-      `SELECT s.salesPointId, s.saleDisposition, ct.code AS customerTypeCode, ct.name AS customerTypeName,
-              sl.productId, p.productName, COALESCE(pc.isMain, 0) AS isMain,
-              COALESCE(pc.isBottled, 0) AS isBottled, sl.qtyKg, sl.qtyUnits
-       FROM Sale s
-       INNER JOIN SaleLine sl ON sl.saleId = s.id
-       INNER JOIN Product p ON p.productId = sl.productId
-       LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
-       LEFT JOIN Customer c ON c.id = s.customerId
-       LEFT JOIN CustomerTypeDefinition ct ON ct.id = c.customerTypeId
-       WHERE s.status = 'VALIDATED'
-         AND s.dateIssued >= ?
-         AND s.dateIssued <= ?`,
-    )
-    .all(fromIso, toIso)
-    .map((row) => ({
-      salesPointId: (row as { salesPointId: number | null }).salesPointId,
-      saleDisposition: (row as { saleDisposition: string | null }).saleDisposition,
-      customerTypeCode: String((row as { customerTypeCode: string | null }).customerTypeCode ?? ""),
-      customerTypeName: String((row as { customerTypeName: string | null }).customerTypeName ?? ""),
-      productId: (row as { productId: number }).productId,
-      productName: String((row as { productName: string }).productName),
-      isMain: (row as { isMain: number }).isMain,
-      isBottled: (row as { isBottled: number }).isBottled,
-      qtyKg: parseQty((row as { qtyKg: string }).qtyKg),
-      qtyUnits: (row as { qtyUnits: string | null }).qtyUnits
-        ? parseQty((row as { qtyUnits: string }).qtyUnits)
-        : null,
-    }));
-}
-
-function loadReceiptLines(fromIso: string, toIso: string): ReceiptLineRecord[] {
-  return getDatabase()
-    .prepare(
-      `SELECT r.salesPointId, r.supplierLabel, l.productId,
-              COALESCE(pc.isMain, 0) AS isMain, COALESCE(pc.isBottled, 0) AS isBottled, l.qty
-       FROM StockReceipt r
-       INNER JOIN StockReceiptLine l ON l.receiptId = r.id
-       INNER JOIN Product p ON p.productId = l.productId
-       LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
-       WHERE r.status = 'POSTED'
-         AND substr(r.receivedAt, 1, 10) >= ?
-         AND substr(r.receivedAt, 1, 10) <= ?`,
-    )
-    .all(fromIso, toIso)
-    .map((row) => ({
-      salesPointId: (row as { salesPointId: number }).salesPointId,
-      supplierLabel: String((row as { supplierLabel: string }).supplierLabel),
-      productId: (row as { productId: number }).productId,
-      isMain: (row as { isMain: number }).isMain,
-      isBottled: (row as { isBottled: number }).isBottled,
-      qty: parseQty((row as { qty: string }).qty),
-    }));
-}
-
-function isLooseLpo(product: { isMain: number; isBottled: number }): boolean {
-  return product.isMain === 1 && product.isBottled !== 1;
-}
-
-function sumSellableLpoBySalesPoint(
-  salesPoints: SalesPointRow[],
-  products: ProductRow[],
-  asOfIso: string,
-): Record<string, number | null> {
-  const lpoProductIds = new Set(
-    products.filter((product) => isLooseLpo(product)).map((product) => product.productId),
-  );
-  const values = zeroValues(salesPoints);
-  for (const row of loadStockBalancesAsOf(getDatabase(), asOfIso)) {
-    if (row.condition !== "SELLABLE" || !lpoProductIds.has(row.productId)) {
-      continue;
-    }
-    const key = spKey(row.salesPointId);
-    if (key in values) {
-      values[key] = (values[key] ?? 0) + row.qty;
-    }
-  }
-  return values;
-}
-
-/**
- * One-time opening backlog posted via Opening Stock balances (CARRY_FORWARD)
- * during the open month. Dated inside the month, so it is not in day-before as-of;
- * add it into the reconciliation opening row.
- */
-function sumCarryForwardLpoInRange(
-  salesPoints: SalesPointRow[],
-  products: ProductRow[],
-  fromIso: string,
-  toIso: string,
-): Record<string, number | null> {
-  const lpoProductIds = new Set(
-    products.filter((product) => isLooseLpo(product)).map((product) => product.productId),
-  );
-  const values = zeroValues(salesPoints);
-  const rows = getDatabase()
-    .prepare(
-      `SELECT a.salesPointId, l.productId, l.deltaQty
-       FROM StockAdjustment a
-       INNER JOIN StockAdjustmentLine l ON l.adjustmentId = a.id
-       WHERE a.sourceKind = 'CARRY_FORWARD'
-         AND a.status = 'POSTED'
-         AND substr(a.occurredAt, 1, 10) >= ?
-         AND substr(a.occurredAt, 1, 10) <= ?`,
-    )
-    .all(fromIso, toIso) as Array<{
-    salesPointId: number;
-    productId: number;
-    deltaQty: string;
-  }>;
-
-  for (const row of rows) {
-    if (!lpoProductIds.has(row.productId)) {
-      continue;
-    }
-    const key = spKey(row.salesPointId);
-    if (key in values) {
-      values[key] = (values[key] ?? 0) + parseQty(row.deltaQty);
-    }
-  }
-  return values;
-}
-
 function bottledUnitsToKg(units: number, product: ProductRow): number {
-  return units * detectBottledPack(product).litresPerUnit * PALM_OIL_KG_PER_LITRE;
+  return (
+    units * detectBottledPack(product).litresPerUnit * PALM_OIL_KG_PER_LITRE
+  );
 }
 
-function bottledLineKg(line: SaleLineRecord, product: ProductRow | undefined): number {
+function bottledLineKg(
+  line: SaleLineRecord,
+  product: ProductRow | undefined,
+): number {
   if (!product) {
     return line.qtyKg;
   }
@@ -352,7 +207,9 @@ function sumSellableBottledBySalesPoint(
   asOfIso: string,
 ): Record<string, number | null> {
   const bottledById = new Map(
-    products.filter((product) => product.isBottled === 1).map((product) => [product.productId, product]),
+    products
+      .filter((product) => product.isBottled === 1)
+      .map((product) => [product.productId, product]),
   );
   const values = zeroValues(salesPoints);
   for (const row of loadStockBalancesAsOf(getDatabase(), asOfIso)) {
@@ -423,8 +280,11 @@ function buildIssueRows(
     const values = zeroValues(salesPoints);
     for (const line of looseLines) {
       if (
-        resolveIssueCategoryId(line.saleDisposition, line.customerTypeCode, line.customerTypeName) !==
-        category.id
+        resolveIssueCategoryId(
+          line.saleDisposition,
+          line.customerTypeCode,
+          line.customerTypeName,
+        ) !== category.id
       ) {
         continue;
       }
@@ -446,12 +306,14 @@ function buildOtherRows(
   products: ProductRow[],
   hideZero: boolean,
 ): MonthlyStockReconciliationMatrixRow[] {
-  const productById = new Map(products.map((product) => [product.productId, product]));
+  const productById = new Map(
+    products.map((product) => [product.productId, product]),
+  );
 
   return OTHER_PRODUCT_ROWS.map((definition) => {
     const values = zeroValues(salesPoints);
     for (const line of saleLines) {
-      if (line.isBottled === 1 || line.isMain === 1) {
+      if (line.isBottled === 1 || isLooseLpo(line)) {
         continue;
       }
       const product = productById.get(line.productId);
@@ -484,11 +346,12 @@ export function getMonthlyStockReconciliationReport(
   const products = loadProducts();
   const monthStartIso = period.startDate;
   const openingAsOfIso = dayBeforeIso(monthStartIso);
-  const monthLabel = `${period.monthName} ${period.financialYear}`.toUpperCase();
-  const reportTitle = `LOOSE PALM OIL/PALM KERNEL SALES/STOCK RECONCILIATION FOR ${monthLabel} (IN KGS)`;
+  const monthLabel =
+    `${period.monthName} ${period.financialYear}`.toUpperCase();
+  const reportTitle = `STOCK RECONCILIATION FOR ${monthLabel} (IN KGS)`;
 
-  const saleLines = loadSaleLines(monthStartIso, asAtIso);
-  const receiptLines = loadReceiptLines(monthStartIso, asAtIso);
+  const saleLines = loadLpoSaleLines(monthStartIso, asAtIso);
+  const receiptLines = loadLpoReceiptLines(monthStartIso, asAtIso);
 
   const priorOpeningValues = sumSellableLpoBySalesPoint(
     salesPoints,
@@ -514,8 +377,16 @@ export function getMonthlyStockReconciliationReport(
 
   const receptionRows = buildReceptionRows(salesPoints, receiptLines, hideZero);
   const totalReceptionValues = sumDataRows(salesPoints, receptionRows);
-  const totalReceptionRow = makeRow("TOTAL RECEPTION - LPO", "total", totalReceptionValues);
-  const openingPlusReceptionValues = addVectors(salesPoints, openingValues, totalReceptionValues);
+  const totalReceptionRow = makeRow(
+    "TOTAL RECEPTION - LPO",
+    "total",
+    totalReceptionValues,
+  );
+  const openingPlusReceptionValues = addVectors(
+    salesPoints,
+    openingValues,
+    totalReceptionValues,
+  );
   const openingPlusReceptionRow = makeRow(
     "TOTAL (OPENING + RECEPTION)",
     "subtotal",
@@ -531,15 +402,25 @@ export function getMonthlyStockReconciliationReport(
     openingPlusReceptionValues,
     totalIssuesValues,
   );
-  const calculatedStockRow = makeRow("CALCULATED STOCK", "subtotal", calculatedValues);
+  const calculatedStockRow = makeRow(
+    "CALCULATED STOCK",
+    "subtotal",
+    calculatedValues,
+  );
   const physicalStockRow = makeRow(
     `PHYSICAL STOCK AS AT ${formatDisplayDate(asAtIso)}`,
     "blank",
     blankValues(salesPoints),
   );
-  const varianceRow = makeRow("STOCK VARIANCE", "blank", blankValues(salesPoints));
+  const varianceRow = makeRow(
+    "STOCK VARIANCE",
+    "blank",
+    blankValues(salesPoints),
+  );
 
-  const productById = new Map(products.map((product) => [product.productId, product]));
+  const productById = new Map(
+    products.map((product) => [product.productId, product]),
+  );
   const bottledIssuedValues = zeroValues(salesPoints);
   for (const line of saleLines) {
     if (line.isBottled !== 1 || line.salesPointId == null) {
@@ -548,12 +429,16 @@ export function getMonthlyStockReconciliationReport(
     const key = spKey(line.salesPointId);
     if (key in bottledIssuedValues) {
       bottledIssuedValues[key] =
-        (bottledIssuedValues[key] ?? 0) + bottledLineKg(line, productById.get(line.productId));
+        (bottledIssuedValues[key] ?? 0) +
+        bottledLineKg(line, productById.get(line.productId));
     }
   }
-  const bottledCfValues = sumSellableBottledBySalesPoint(salesPoints, products, asAtIso);
+  const bottledCfValues = sumSellableBottledBySalesPoint(
+    salesPoints,
+    products,
+    asAtIso,
+  );
 
-  // Always show BPO rows (sample layout); zeros remain visible even when hide-zero is on.
   const bpoRows = [
     makeRow("BOTTLED PALM OIL ISSUED IN KGS", "data", bottledIssuedValues),
     makeRow("BOTTLED PALM OIL STOCK C/F IN KGS", "data", bottledCfValues),
@@ -569,7 +454,9 @@ export function getMonthlyStockReconciliationReport(
     reportTitle,
     generatedAtIso: nowIso(),
     salesPointIds: salesPoints.map((salesPoint) => salesPoint.id),
-    salesPointNames: salesPoints.map((salesPoint) => salesPoint.name.toUpperCase()),
+    salesPointNames: salesPoints.map((salesPoint) =>
+      salesPoint.name.toUpperCase(),
+    ),
     openingRow,
     receptionSectionTitle: "RECEPTION — LOOSE PALM OIL - LPO",
     receptionRows,

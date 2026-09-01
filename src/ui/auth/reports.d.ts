@@ -12,6 +12,7 @@ export declare function getAuthenticatedReports(): {
     getWeeklyDeliveries: (weekMondayIso?: string) => Promise<import("../../shared/reports.types.ts").WeeklyDeliveriesReport>;
     getMonthlyDelivery: (half: 1 | 2) => Promise<import("../../shared/reports.types.ts").MonthlyDeliveryReport>;
     getMonthlyStockReconciliation: () => Promise<import("../../shared/reports.types.ts").MonthlyStockReconciliationReport>;
+    getLooseLpoStockSummary: () => Promise<import("../../shared/reports.types.ts").LooseLpoStockSummaryReport>;
     getMonthlyPaymentDelivery: () => Promise<import("../../shared/reports.types.ts").MonthlyPaymentDeliveryReport>;
     getMonthlyDeliveriesByDestination: () => Promise<import("../../shared/reports.types.ts").MonthlyDeliveriesByDestinationReport>;
     getMonthlyPalmOilSales: () => Promise<import("../../shared/reports.types.ts").MonthlyPalmOilSalesReport>;

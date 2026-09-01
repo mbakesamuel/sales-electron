@@ -1635,6 +1635,10 @@ export function getDatabase(): Database.Database {
   return db;
 }
 
+export function getDatabaseFilePath(): string {
+  return path.join(app.getPath("userData"), "sales.db");
+}
+
 export function closeDatabase(): void {
   if (!db) {
     return;

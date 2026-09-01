@@ -41,3 +41,7 @@
   letter-spacing: 0;
   color: #555;
 }
+
+.bwi-document .bwi-day-col {
+  text-align: center;
+}

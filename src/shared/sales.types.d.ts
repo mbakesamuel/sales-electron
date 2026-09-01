@@ -20,7 +20,7 @@ export interface SalesProductOption {
     productCat: string;
     /** ProductCat.productCode — used for storage-location exceptions (PKCP/PKP). */
     productCatCode: string;
-    /** ProductCat.isMain — Loose Palm Oil category. */
+    /** True when this product is loose LPO (product code LPO), not other SKUs in the main category. */
     isMain: boolean;
     /** When true, stock is tracked at collection-point level (no storage location). */
     omitsStorageLocation: boolean;

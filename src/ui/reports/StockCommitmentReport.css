@@ -48,7 +48,7 @@
   padding: 20px 24px 28px;
   color: #111827;
   font-family: "Arial Narrow", Arial, sans-serif;
-  font-size: 12px;
+  font-size: 14px;
   text-transform: uppercase;
 }
 
@@ -86,7 +86,7 @@
 .scr-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.15;
 }
 
@@ -108,7 +108,7 @@
   text-align: left;
 }
 
-.scr-table td:nth-child(2) {
+.scr-table td.scr-row-label:nth-child(2) {
   text-align: left;
 }
 
@@ -145,14 +145,38 @@
 
 .scr-category-matrix th:first-child,
 .scr-category-matrix td:first-child {
-  width: 22%;
+  width: 32%;
   white-space: normal;
   word-break: break-word;
 }
 
+.scr-category-matrix th:not(:first-child),
+.scr-category-matrix td:not(:first-child) {
+  width: auto;
+}
+
+.scr-category-matrix td.scr-num {
+  text-align: center;
+}
+
+.scr-stock-main-table .scr-col-sales-point {
+  text-align: center;
+}
+
+.scr-bottled-pack-col,
+.scr-bottled-pack-col.scr-num,
+.sr-bottled-product-head.scr-bottled-pack-col {
+  text-align: center;
+}
+
+.wd-weekly-deliveries .wd-matrix-table td.scr-num,
+.wd-weekly-deliveries .wd-matrix-table th:not(:first-child):not(.scr-section-title) {
+  text-align: center;
+}
+
 .scr-section-title {
   text-align: left !important;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .scr-bottled-table th:not(.scr-section-title) {
@@ -249,6 +273,16 @@
   min-width: 0;
 }
 
+/* Stock report: bottled matrix matches 14px body tables (not compact 11px). */
+.sr-stock-report .sr-bottled-products {
+  font-size: 14px;
+}
+
+.sr-stock-report .sr-bottled-product-head {
+  font-size: 14px;
+  line-height: 1.15;
+}
+
 /* Compact document layout for page-fit (tables/footer); header uses ReportHeader.css. */
 .sr-stock-compact {
   padding: 10px 14px 12px;
@@ -319,6 +353,30 @@
     margin: 8mm;
   }
 
+  @page scrCompactTopTight {
+    size: A4 portrait;
+    margin: 2mm 8mm 2mm 8mm;
+  }
+
+  body.scr-print-mode .sr-stock-report.scr-document,
+  body.scr-print-mode .cr-commitment-report.scr-document {
+    page: scrCompactTopTight;
+  }
+
+  body.scr-print-mode .sr-stock-report .report-header,
+  body.scr-print-mode .cr-commitment-report .report-header {
+    padding-top: 4px;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+    min-height: auto;
+  }
+
+  body.scr-print-mode .sr-stock-report .scr-bottled-block:first-of-type,
+  body.scr-print-mode .cr-commitment-report .scr-bottled-block:first-of-type {
+    margin-top: 4px;
+    padding-top: 0;
+  }
+
   body.scr-print-mode {
     background: #fff !important;
   }
@@ -342,7 +400,8 @@
     padding: 0;
     background: #fff !important;
     color: #111 !important;
-    font-family: Arial, sans-serif !important;
+    font-family: "Arial Narrow", Arial, sans-serif !important;
+    font-size: 14px !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -426,6 +485,16 @@
     page-break-inside: avoid;
   }
 
+  /* Watermark + attribution footer use position:fixed; keep them printable. */
+  body.scr-print-mode .report-watermark,
+  body.scr-print-mode .report-watermark *,
+  body.scr-print-mode .report-attribution-footer,
+  body.scr-print-mode .report-attribution-footer * {
+    visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   body.scr-print-mode .scr-document thead {
     display: table-header-group;
   }
@@ -500,6 +569,21 @@
 .dsr-summary-table th,
 .dsr-summary-table td {
   vertical-align: top;
+}
+
+.dsr-table th:nth-child(n + 3),
+.dsr-table td:nth-child(n + 3) {
+  text-align: center;
+}
+
+.dsr-table tr.scr-row-total td.scr-num,
+.dsr-table tr.scr-row-total td.scr-total-cell {
+  text-align: center;
+}
+
+.dsr-summary-table tr.scr-row-total td.scr-num,
+.dsr-summary-table tr.scr-row-total td.scr-total-cell {
+  text-align: center;
 }
 
 .dsr-summary-table {

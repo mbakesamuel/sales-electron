@@ -166,6 +166,19 @@ Customer types may set `exemptFromSalesTax` (migration `036`). Sales for those t
 
 `getOpenPostingPeriod()` and `resolveReportAsAt()` are shared by posting validation and reports. On startup, `backfillFinancialMonths()` fills missing month rows for open years. `openYear(year)` rejects years after the local calendar year so a future period cannot become the posting year by mistake; past and current years can still be opened.
 
+## Database backup
+
+| Piece | Path |
+|-------|------|
+| Service | `src/electron/db/backup.ts` — `getBackupInfo`, `createBackup` (SQLite `.backup()`), `restoreBackup` |
+| Schedule | `src/electron/db/backupSchedule.ts` — daily auto-backup while app runs; config `{userData}/backup-schedule.json` |
+| IPC | `src/electron/ipc/backup.ts` |
+| UI | `src/ui/organization/DataBackupScreen.tsx` |
+| Route | `data-backup` (ADMIN write by default; migration `108`) |
+| IT script | `scripts/backup-windows.ps1` — Task Scheduler copy when app is closed |
+
+Restore closes the DB, renames live `sales.db` to `.old-{timestamp}`, copies the backup, and triggers `app.relaunch()`. Metadata for last in-app backup: `{userData}/backup-meta.json`. Automatic backups write `sales-auto-backup-*.db` to a configured folder and prune by retention count.
+
 ## Dashboard
 
 | Piece | Path |

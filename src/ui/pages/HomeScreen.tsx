@@ -24,6 +24,7 @@ import { LocationsScreen } from "../locations/LocationsScreen.tsx";
 import { SalesPointsScreen } from "../sales-points/SalesPointsScreen.tsx";
 import { CommercialServicesScreen } from "../commercial-services/CommercialServicesScreen.tsx";
 import { CompanySettingsScreen } from "../company-settings/CompanySettingsScreen.tsx";
+import { DataBackupScreen } from "../organization/DataBackupScreen.tsx";
 import { ReportSettingsScreen } from "../reports/ReportSettingsScreen.tsx";
 import { StorageLocationsScreen } from "../storage-locations/StorageLocationsScreen.tsx";
 import { TaxRegimesScreen } from "../tax/TaxRegimesScreen.tsx";
@@ -423,6 +424,10 @@ function RouteContent({
     return <ReportSettingsScreen readOnly={readOnly} />;
   }
 
+  if (route.id === "data-backup") {
+    return <DataBackupScreen readOnly={readOnly} />;
+  }
+
   if (route.id === "locations") {
     return <LocationsScreen readOnly={readOnly} />;
   }
@@ -713,6 +718,7 @@ export function HomeScreen({
     "monthly-delivery-report-h1",
     "monthly-delivery-report-h2",
     "monthly-stock-reconciliation-report",
+    "loose-lpo-stock-summary-report",
     "monthly-payment-delivery-report",
     "monthly-deliveries-by-destination-report",
     "monthly-palm-oil-sales-report",
@@ -736,6 +742,7 @@ export function HomeScreen({
     "commercial-services",
     "company-settings",
     "report-settings",
+    "data-backup",
     "locations",
     "storage-locations",
     "tax-regimes",

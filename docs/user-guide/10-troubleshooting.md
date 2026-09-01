@@ -66,6 +66,13 @@
 - Use the in-app **Print** control so `scr-print-mode` styles apply.
 - Toolbars are hidden via `no-print`; if content is clipped, try landscape where the screen offers it.
 
+## Lost data or need to restore a backup
+
+- **ADMIN** — use **General Parameters → Data backup** to create or restore a full `.db` backup, or configure **automatic daily backup** (while the app is running). See [Data backup and restore](11-data-backup-restore.md).
+- **IT / overnight** — `scripts/backup-windows.ps1` + Windows Task Scheduler when the app is closed (same guide).
+- Manual restore: close the app, replace `sales.db` in the user data folder, remove `-wal`/`-shm`, relaunch.
+- Report CSV/PDF exports are **not** full backups.
+
 ## App shows a blank screen or never reaches login
 
 - Run the desktop app via **`npm run dev`** (or the installed **Sales Management Application** shortcut) — do **not** open `http://localhost:5173` in a browser tab. The UI requires the Electron preload API (`window.api`).

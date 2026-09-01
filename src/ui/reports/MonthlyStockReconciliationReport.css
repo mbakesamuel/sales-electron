@@ -24,6 +24,11 @@
   font-weight: 700;
 }
 
+.msr-document .msr-table th:not(:first-child),
+.msr-document .msr-table td.scr-num {
+  text-align: center;
+}
+
 .msr-document .msr-section-title-row td {
   text-align: left;
   font-weight: 700;

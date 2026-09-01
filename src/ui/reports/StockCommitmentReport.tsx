@@ -38,6 +38,19 @@ function formatUnits(value: number | null | undefined): string {
   return Math.round(value).toLocaleString("en-US");
 }
 
+function isJugPackLabel(label: string): boolean {
+  const text = label.toUpperCase();
+  return text.includes("20L") || text.includes("JUG");
+}
+
+function bottledPackColClass(label: string): string {
+  const classes = ["scr-bottled-pack-col", "sr-bottled-product-col"];
+  if (isJugPackLabel(label)) {
+    classes.push("scr-bottled-pack-col--jug");
+  }
+  return classes.join(" ");
+}
+
 function rowClassName(row: StockCommitmentReportRow): string {
   if (row.kind === "header") {
     return "scr-row scr-row-header";
@@ -133,7 +146,7 @@ function BottledSection({ section }: { section: StockCommitmentBottledSection })
         <colgroup>
           <col class="sr-col-label" />
           {section.columns.map((column) => (
-            <col key={column.id} class="sr-bottled-product-col" />
+            <col key={column.id} class={bottledPackColClass(column.label)} />
           ))}
           <col class="sr-col-last" />
         </colgroup>
@@ -146,7 +159,11 @@ function BottledSection({ section }: { section: StockCommitmentBottledSection })
           <tr>
             <th />
             {section.columns.map((column) => (
-              <th key={column.id} class="sr-bottled-product-head" title={column.label}>
+              <th
+                key={column.id}
+                class={`sr-bottled-product-head ${bottledPackColClass(column.label)}`}
+                title={column.label}
+              >
                 {column.label}
               </th>
             ))}
@@ -157,7 +174,10 @@ function BottledSection({ section }: { section: StockCommitmentBottledSection })
           <tr>
             <td class="scr-row-label">UNITS</td>
             {section.unitCounts.map((count, index) => (
-              <td key={`units-${index}`} class="scr-num">
+              <td
+                key={`units-${index}`}
+                class={`scr-num ${bottledPackColClass(section.columns[index]?.label ?? "")}`}
+              >
                 {formatUnits(count)}
               </td>
             ))}
@@ -166,7 +186,10 @@ function BottledSection({ section }: { section: StockCommitmentBottledSection })
           <tr>
             <td class="scr-row-label">LITRES</td>
             {section.litres.map((litre, index) => (
-              <td key={`litres-${index}`} class="scr-num">
+              <td
+                key={`litres-${index}`}
+                class={`scr-num ${bottledPackColClass(section.columns[index]?.label ?? "")}`}
+              >
                 {formatUnits(litre)}
               </td>
             ))}
@@ -175,7 +198,10 @@ function BottledSection({ section }: { section: StockCommitmentBottledSection })
           <tr>
             <td class="scr-row-label">KGS</td>
             {section.kgs.map((kg, index) => (
-              <td key={`kgs-${index}`} class="scr-num">
+              <td
+                key={`kgs-${index}`}
+                class={`scr-num ${bottledPackColClass(section.columns[index]?.label ?? "")}`}
+              >
                 {formatKg(kg)}
               </td>
             ))}
@@ -212,11 +238,11 @@ export function StockCommitmentReportDocument({
         />
       }
     >
-      <table class="scr-table">
+      <table class="scr-table scr-stock-main-table">
         <thead>
           <tr>
             <th>PRODUCT</th>
-            <th>SALES POINT</th>
+            <th class="scr-col-sales-point">SALES POINT</th>
             <th>STOCK (KG)</th>
             <th>COMMITMENTS (KG)</th>
             <th>BALANCE (KG)</th>
@@ -227,7 +253,9 @@ export function StockCommitmentReportDocument({
             section.rows.map((row, index) => (
               <tr key={`${section.sectionNo}-${index}`} class={rowClassName(row)}>
                 <td>{row.kind === "header" ? row.label : row.label}</td>
-                <td>{row.salesPointName ?? (row.kind === "data" ? "" : "")}</td>
+                <td class="scr-col-sales-point">
+                  {row.salesPointName ?? (row.kind === "data" ? "" : "")}
+                </td>
                 <td class="scr-num">{formatKg(row.stockKg)}</td>
                 <td class="scr-num">{formatKg(row.commitmentKg)}</td>
                 <td class="scr-num">{formatKg(row.balanceKg)}</td>
@@ -237,7 +265,9 @@ export function StockCommitmentReportDocument({
           {report.looseGrandTotal ? (
             <tr class={rowClassName(report.looseGrandTotal)}>
               <td>{report.looseGrandTotal.label}</td>
-              <td>{report.looseGrandTotal.salesPointName ?? ""}</td>
+              <td class="scr-col-sales-point">
+                {report.looseGrandTotal.salesPointName ?? ""}
+              </td>
               <td class="scr-num">{formatKg(report.looseGrandTotal.stockKg)}</td>
               <td class="scr-num">{formatKg(report.looseGrandTotal.commitmentKg)}</td>
               <td class="scr-num">{formatKg(report.looseGrandTotal.balanceKg)}</td>

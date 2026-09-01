@@ -209,7 +209,9 @@ export function BottledWeeklyIssuesReportDocument({
               <th>METHOD PAYMT</th>
               <th>METRIC</th>
               {report.detail.dayColumns.map((column) => (
-                <th key={column.id}>{column.label}</th>
+                <th key={column.id} class="bwi-day-col">
+                  {column.label}
+                </th>
               ))}
               <th>TOTAL</th>
               <th>VALUE FCFA</th>
@@ -235,7 +237,10 @@ export function BottledWeeklyIssuesReportDocument({
                   ) : null}
                   <td class="scr-row-label">{row.label}</td>
                   {row.dayValues.map((value, index) => (
-                    <td key={`${method.method}-${row.kind}-${index}`} class="scr-num">
+                    <td
+                      key={`${method.method}-${row.kind}-${index}`}
+                      class="scr-num bwi-day-col"
+                    >
                       {row.kind === "kgs" ? formatQty(value) : formatFcfa(value)}
                     </td>
                   ))}
@@ -258,7 +263,7 @@ export function BottledWeeklyIssuesReportDocument({
                 ) : null}
                 <td class="scr-row-label">{row.label}</td>
                 {row.dayValues.map((value, index) => (
-                  <td key={`total-${row.kind}-${index}`} class="scr-num">
+                  <td key={`total-${row.kind}-${index}`} class="scr-num bwi-day-col">
                     {row.kind === "kgs" ? formatQty(value) : formatFcfa(value)}
                   </td>
                 ))}

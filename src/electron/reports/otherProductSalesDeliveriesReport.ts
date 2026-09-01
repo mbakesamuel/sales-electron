@@ -1,3 +1,4 @@
+import { isLooseLpoReportProduct } from "../../shared/looseLpoProduct.js";
 import type {
   OtherProductSalesDeliveriesMetrics,
   OtherProductSalesDeliveriesReport,
@@ -19,7 +20,7 @@ interface SaleLineRecord {
   salesPointName: string;
   productId: number;
   productName: string;
-  isMain: number;
+  productCode: string | null;
   isBottled: number;
   qtyKg: number;
   lineNet: number;
@@ -75,8 +76,7 @@ function loadSaleLines(fromIso: string, toIso: string): SaleLineRecord[] {
     .prepare(
       `SELECT s.salesPointId,
               COALESCE(sp.name, 'Unassigned') AS salesPointName,
-              sl.productId, p.productName,
-              COALESCE(pc.isMain, 0) AS isMain,
+              sl.productId, p.productName, p.productCode,
               COALESCE(pc.isBottled, 0) AS isBottled,
               sl.qtyKg, sl.lineNet
        FROM Sale s
@@ -97,7 +97,7 @@ function loadSaleLines(fromIso: string, toIso: string): SaleLineRecord[] {
       salesPointName: String((row as { salesPointName: string }).salesPointName),
       productId: (row as { productId: number }).productId,
       productName: String((row as { productName: string }).productName),
-      isMain: (row as { isMain: number }).isMain,
+      productCode: (row as { productCode: string | null }).productCode,
       isBottled: (row as { isBottled: number }).isBottled,
       qtyKg: parseQty((row as { qtyKg: string }).qtyKg),
       lineNet: parseQty((row as { lineNet: string }).lineNet),
@@ -115,7 +115,13 @@ export function getOtherProductSalesDeliveriesReport(
   const reportTitle = `OTHER PRODUCT SALES AND DELIVERIES FOR ${monthLabel}`;
 
   const lines = loadSaleLines(monthStartIso, asAtIso).filter(
-    (line) => line.isBottled !== 1 && line.isMain !== 1,
+    (line) =>
+      line.isBottled !== 1 &&
+      !isLooseLpoReportProduct({
+        productCode: line.productCode,
+        productName: line.productName,
+        isBottled: line.isBottled,
+      }),
   );
 
   type ProductAgg = {

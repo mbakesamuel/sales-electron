@@ -132,6 +132,7 @@ export const PERMISSION_UI_GROUPS: readonly PermissionUiGroup[] = [
       "monthly-delivery-report-h1",
       "monthly-delivery-report-h2",
       "monthly-stock-reconciliation-report",
+      "loose-lpo-stock-summary-report",
       "monthly-payment-delivery-report",
       "monthly-deliveries-by-destination-report",
       "monthly-palm-oil-sales-report",
@@ -153,6 +154,7 @@ export const PERMISSION_UI_GROUPS: readonly PermissionUiGroup[] = [
     routeIds: [
       "company-settings",
       "report-settings",
+      "data-backup",
       "financial-year-periods",
       "financial-months",
       "commercial-services",

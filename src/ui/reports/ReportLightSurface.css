@@ -13,10 +13,19 @@ html[data-theme="dark"] .report-overlay-body .scr-document {
 html[data-theme="dark"] .scr-document .report-header,
 html[data-theme="dark"] .scr-document .report-card,
 html[data-theme="dark"] .scr-document .scr-card,
-html[data-theme="dark"] .scr-document .report-footer {
+html[data-theme="dark"] .scr-document .report-footer,
+html[data-theme="dark"] .scr-document .report-attribution-footer {
   background: #ffffff !important;
   border-color: #111827 !important;
   color: #111827 !important;
+}
+
+html[data-theme="dark"] .scr-document .report-attribution-footer-line {
+  border-top-color: #111827 !important;
+}
+
+html[data-theme="dark"] .scr-document .report-attribution-footer-text {
+  color: #374151 !important;
 }
 
 html[data-theme="dark"] .scr-document .report-header-logo-placeholder {

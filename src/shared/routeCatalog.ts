@@ -211,6 +211,11 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
     sectionId: "reports",
   },
   {
+    id: "loose-lpo-stock-summary-report",
+    label: "Loose LPO stock summary",
+    sectionId: "reports",
+  },
+  {
     id: "monthly-payment-delivery-report",
     label: "Monthly Payment/Delivery",
     sectionId: "reports",
@@ -322,6 +327,11 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
     label: "Report settings",
     sectionId: "organization",
     table: "CompanySettings",
+  },
+  {
+    id: "data-backup",
+    label: "Data backup",
+    sectionId: "organization",
   },
   {
     id: "tax-rate-schedules",

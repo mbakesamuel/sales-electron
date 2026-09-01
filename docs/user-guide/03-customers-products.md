@@ -44,10 +44,14 @@ Each type can be marked **exempt from sales tax**. When set, sales for customers
 
 | Flag | Meaning for reporting |
 |------|------------------------|
-| **Main** (`isMain`) | Treated as loose / main palm oil on weekly and many stock/commitment layouts. |
+| **Main** (`isMain`) | Marks the Palm Oil **category** for budget grouping and category-level report layout. |
 | **Bottled** (`isBottled`) | Treated as bottled palm oil (jug/carton packs). |
 
-Products that are **neither** main nor bottled (for example Palm Kernel Oil, kernel cake) appear under **Other products / PKO** on the Sales/delivery report and in dedicated sections on other reports (stock, monthly delivery).
+**Loose LPO (operations)** — customer-type pricing, sales-tank rules, Ration/PR dispositions — applies only to the product with code **LPO**, not to sludge grades in the same category.
+
+**Loose Palm Oil (reports)** — weekly/monthly LPO sections, stock summary, and reconciliation — include canonical **LPO** plus sludge member grades (Bottom Tank Oil Grade A, Palm Sludge Oil Grade B/C). Sludge is not listed separately under **Other products / PKO**.
+
+Products that are **neither** loose LPO (operations) nor bottled (for example Palm Kernel Oil, kernel cake) appear under **Other products / PKO** on the Sales/delivery report and in dedicated sections on other reports.
 
 If a product shows in the wrong report section, check its category flags first.
 

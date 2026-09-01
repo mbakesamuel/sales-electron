@@ -1,0 +1,73 @@
+.scr-document {
+  position: relative;
+}
+
+.scr-document > :not(.report-watermark):not(.report-attribution-footer) {
+  position: relative;
+  z-index: 1;
+}
+
+.report-watermark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.report-watermark-image {
+  width: 90%;
+  height: 60%;
+  object-fit: contain;
+  opacity: 0.08;
+}
+
+.report-attribution-footer {
+  position: relative;
+  z-index: 3;
+}
+
+@media print {
+  body.scr-print-mode .report-watermark {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 2 !important;
+    visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body.scr-print-mode .report-watermark-image {
+    opacity: 0.12 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body.scr-print-mode .report-attribution-footer {
+    position: fixed !important;
+    z-index: 9999 !important;
+    visibility: visible !important;
+  }
+
+  /* printToPDF ignores position:fixed; use a fixed background on the document instead. */
+  body.scr-print-mode.scr-pdf-export .report-watermark,
+  body.scr-print-mode.scr-pdf-export .report-attribution-footer {
+    display: none !important;
+  }
+
+  body.scr-print-mode.scr-pdf-export .scr-document {
+    background-color: #fff !important;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.88)),
+      var(--report-watermark-url) !important;
+    background-repeat: no-repeat, no-repeat !important;
+    background-position: center center, center center !important;
+    background-size: auto, 90% 60% !important;
+    background-attachment: fixed, fixed !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

@@ -86,7 +86,7 @@ function downloadCsv(report: WeeklyDeliveriesReport): void {
 function LooseSection({ section }: { section: WeeklyDeliveriesLooseSection }) {
   return (
     <div class="scr-bottled-block">
-      <table class="scr-table">
+      <table class="scr-table wd-matrix-table">
         <thead>
           <tr>
             <th colSpan={section.salesPointNames.length + 2} class="scr-section-title">
@@ -125,7 +125,7 @@ function LooseSection({ section }: { section: WeeklyDeliveriesLooseSection }) {
 function BottledSection({ section }: { section: WeeklyDeliveriesBottledSection }) {
   return (
     <div class="scr-bottled-block">
-      <table class="scr-table scr-bottled-table">
+      <table class="scr-table scr-bottled-table wd-matrix-table">
         <thead>
           <tr>
             <th colSpan={section.columns.length + 2} class="scr-section-title">
@@ -186,7 +186,7 @@ function MiscSection({ section }: { section: WeeklyDeliveriesMiscSection }) {
 
   return (
     <div class="scr-bottled-block">
-      <table class="scr-table">
+      <table class="scr-table wd-matrix-table">
         <thead>
           <tr>
             <th colSpan={2} class="scr-section-title">
@@ -216,7 +216,7 @@ export function WeeklyDeliveriesReportDocument({
 
   return (
     <ReportDocumentShell
-      className="scr-document wpp-pack-page"
+      className="scr-document wpp-pack-page wd-weekly-deliveries"
       isEmpty={empty}
       emptyMessage="No deliveries recorded for this week."
       emptyHint={HIDE_ZERO_ROWS_HINT}

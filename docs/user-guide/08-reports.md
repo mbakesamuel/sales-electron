@@ -11,7 +11,7 @@ Sidebar section: **Reports**, grouped as **Daily**, **Weekly**, **Monthly**, and
 | Screen | Purpose |
 |--------|---------|
 | **Daily sales report** | Validated sales for a chosen date (and optional sales point): by product with DO no., vehicle, qty, DO balance; customer-type summary; print / CSV / comments. |
-| **Daily sales summary (matrix)** | Open-month day-by-day matrix of validated sales kg by customer category (Industry, Wholesale, Retail, CDC/Worker, Staff) plus transfer-out column; optional collection point and product filters. |
+| **Daily sales summary (matrix)** | Open-month day-by-day matrix of validated sales kg by customer category (Industry, Wholesale, Retail, Staff/Worker, Pub. relation) plus transfer-out column; optional collection point and product filters. |
 
 ### Weekly
 
@@ -31,6 +31,7 @@ Sidebar section: **Reports**, grouped as **Daily**, **Weekly**, **Monthly**, and
 | **Monthly delivery (Jan–Jun)** | Half-year delivery report H1. |
 | **Monthly delivery (Jul–Dec)** | Half-year delivery report H2. |
 | **Monthly stock reconciliation** | Open-month LPO opening (prior balance + **Opening Stock / carry-forward** backlog) / reception / issues / calculated stock (physical & variance blank in v1), plus BPO and palm-kernel rows by sales point. |
+| **Loose LPO stock summary** | Company-total loose palm oil memo: opening, reception, total stock, issues, calculated stock for **THIS MONTH** and fiscal **TO DATE N MONTH**; physical / variance / % blank (same LPO rules as reconciliation; all collection points summed). |
 | **Monthly Payment/Delivery** | Open-month weekly breakdown: **Payments** = bottled oil kg + value; **Deliveries** = other products kg + value (sales without taxes). |
 | **Deliveries by Destination** | Open-month weekly non-bottled deliveries (kg) by destination: Industries, Wholesales, Retail, CDC Workers, Makoko Farms. |
 | **Monthly Palm Oil Sales** | Full-year LPO by destination (incl. Makoko) and BPO in tons and '000 FRS (taxes excluded); Jan–Jul and Aug–Dec + TOTAL. |
@@ -58,9 +59,9 @@ Sidebar section: **Reports**, grouped as **Daily**, **Weekly**, **Monthly**, and
 ## Daily sales summary (matrix)
 
 - **Open financial month** only (through report as-at).
-- One row per calendar day; columns: Industry, Whole sale, Retail, CDC/Worker, Staff, Trnsfr (transfer-out kg), Total.
+- One row per calendar day; columns: Industry, Whole sale, Retail, Staff/Worker, Pub. relation, Transfer (transfer-out kg), Total.
 - Optional **collection point** and **product** filters (default: all).
-- Validated sales only; customer category from customer type (and ration disposition → CDC/Worker).
+- Validated sales only; customer category from customer type (and ration disposition → Staff/Worker); Public relation disposition → Pub. relation column.
 - Print / CSV / comments.
 
 ## Sales/delivery report (weekly)
@@ -72,6 +73,16 @@ Sidebar section: **Reports**, grouped as **Daily**, **Weekly**, **Monthly**, and
 - **3) Other products / PKO** — non-main, non-bottled products (e.g. Palm Kernel Oil) as named kg rows.
 
 If a PKO sale is “missing”, open the correct week and scroll to section 3 — customer names are not printed on this report.
+
+## Loose LPO stock summary
+
+- Open financial month only (through report as-at).
+- Memo routing: **From** MPOS **TO** COMMERCIAL DIRECTOR (report date).
+- Company totals (all collection points): opening stock, add reception, total stock, less issues to customers, calculated stock.
+- **THIS MONTH** = flows in the open month; **TO DATE N MONTH** = fiscal year-to-date through as-at (N = fiscal month index).
+- Physical stock, stock variance, and % variance are blank (—), same as stock reconciliation v1.
+- Public relation sales are **not** included (loose LPO issues only).
+- Print / PDF window / CSV / comments.
 
 ## Bottled Sales Report
 

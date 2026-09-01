@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { getAuthenticatedReports } from "../auth/reports.ts";
+import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type {
   MonthlyPalmOilSalesCell,
   MonthlyPalmOilSalesMonthColumn,
@@ -15,6 +16,7 @@ import {
   isMonthlyPalmOilSalesReportEmpty,
 } from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
+import "./MonthlyBottledOilReport.css";
 import "./MonthlyPalmOilSalesReport.css";
 
 function formatTons(value: number): string {
@@ -102,6 +104,18 @@ function downloadCsv(report: MonthlyPalmOilSalesReport): void {
   URL.revokeObjectURL(url);
 }
 
+function MonthColumnGroup({ periodCount }: { periodCount: number }) {
+  return (
+    <colgroup>
+      <col class="mpos-col-label" />
+      {Array.from({ length: periodCount }).flatMap((_, index) => [
+        <col key={`${index}-tons`} class="mpos-col-metric" />,
+        <col key={`${index}-value`} class="mpos-col-metric" />,
+      ])}
+    </colgroup>
+  );
+}
+
 function MonthBlock({
   columns,
   rows,
@@ -111,9 +125,12 @@ function MonthBlock({
   rows: MonthlyPalmOilSalesRow[];
   showYtd: boolean;
 }) {
+  const periodCount = columns.length + (showYtd ? 1 : 0);
+
   return (
-    <div class="mpos-section">
+    <div class={`mpos-section ${showYtd ? "mpos-section-h2" : "mpos-section-h1"}`}>
       <table class="scr-table mpos-table">
+        <MonthColumnGroup periodCount={periodCount} />
         <thead>
           <tr>
             <th class="mpos-label-col" rowSpan={2} />
@@ -206,10 +223,22 @@ function ReportDocument({ report }: { report: MonthlyPalmOilSalesReport }) {
           companyName={report.settings.companyName}
           department={report.settings.department ?? null}
           serviceName={report.settings.serviceName ?? null}
-          title={report.reportTitle}
+          title=""
         />
       }
     >
+      <section class="mbo-routing" aria-label="Routing">
+        <p class="mbo-routing-from">
+          <span class="mbo-routing-key">From:</span> MPOS
+        </p>
+        <p class="mbo-routing-to">
+          <span class="mbo-routing-key">TO:</span> COMMERCIAL DIRECTOR
+          <span class="mbo-routing-date">{formatDisplayDate(report.asAtIso)}</span>
+        </p>
+      </section>
+
+      <h1 class="mpos-title">{report.reportTitle}</h1>
+
       <MonthBlock
         columns={report.monthColumnsH1}
         rows={report.rows}
@@ -279,7 +308,7 @@ export function MonthlyPalmOilSalesScreen({
   }
 
   return (
-    <div class="scr-page mpos-page">
+    <div class="scr-page">
       <div class="scr-toolbar no-print">
         <button type="button" class="scr-btn" onClick={handlePrint}>
           Print

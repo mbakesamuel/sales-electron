@@ -1,3 +1,4 @@
+import { isLooseLpoReportProduct } from "../../shared/looseLpoProduct.js";
 import { getDatabase } from "../db/index.js";
 import {
   PALM_OIL_KG_PER_LITRE,
@@ -49,7 +50,9 @@ export interface PalmOilSaleLineRecord {
   customerTypeCode: string;
   customerTypeName: string;
   productId: number;
-  isMain: number;
+  productName: string;
+  productCode: string | null;
+  isLooseLpo: boolean;
   isBottled: number;
   qtyKg: number;
   qtyUnits: number | null;
@@ -129,8 +132,7 @@ export function loadPalmOilSaleLines(
               COALESCE(c.name, '') AS customerName,
               COALESCE(ct.code, '') AS customerTypeCode,
               COALESCE(ct.name, '') AS customerTypeName,
-              sl.productId,
-              COALESCE(pc.isMain, 0) AS isMain,
+              sl.productId, p.productName, p.productCode,
               COALESCE(pc.isBottled, 0) AS isBottled,
               sl.qtyKg, sl.qtyUnits, sl.lineNet
        FROM Sale s
@@ -144,21 +146,28 @@ export function loadPalmOilSaleLines(
          AND s.dateIssued <= ?`,
     )
     .all(yearFromIso, yearToIso)
-    .map((row) => ({
+    .map((row) => {
+      const productName = String((row as { productName: string }).productName);
+      const productCode = (row as { productCode: string | null }).productCode;
+      const isBottled = (row as { isBottled: number }).isBottled;
+      return {
       dateIssued: String((row as { dateIssued: string }).dateIssued).slice(0, 10),
       saleDisposition: (row as { saleDisposition: string | null }).saleDisposition,
       customerName: String((row as { customerName: string }).customerName ?? ""),
       customerTypeCode: String((row as { customerTypeCode: string }).customerTypeCode ?? ""),
       customerTypeName: String((row as { customerTypeName: string }).customerTypeName ?? ""),
       productId: (row as { productId: number }).productId,
-      isMain: (row as { isMain: number }).isMain,
-      isBottled: (row as { isBottled: number }).isBottled,
+      productName,
+      productCode,
+      isLooseLpo: isLooseLpoReportProduct({ productCode, productName, isBottled }),
+      isBottled,
       qtyKg: parseQty((row as { qtyKg: string }).qtyKg),
       qtyUnits: (row as { qtyUnits: string | null }).qtyUnits
         ? parseQty((row as { qtyUnits: string }).qtyUnits)
         : null,
       lineNet: parseQty((row as { lineNet: string }).lineNet),
-    }));
+    };
+    });
 }
 
 export function palmOilLineKg(line: PalmOilSaleLineRecord, products: ProductRow[]): number {

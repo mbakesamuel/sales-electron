@@ -18,16 +18,19 @@ On startup, initDatabase() opens that DB and runMigrations applies only migratio
 Practical update process today
 This project does not ship auto-update (electron-updater is not wired). Current flow:
 
-Bump "version" in package.json (e.g. 1.0.0 → 1.1.0).
-Build the installer: npm run dist:win →
-release/Sales Management Application-Setup-{version}-win-x64.exe
+Bump version and build the installer (recommended):
+  npm run release:minor
+  (or release:patch / release:major / release -- minor)
+  → bumps package.json + package-lock.json, then runs dist:win
+  → release/Sales Management Application-Setup-{version}-win-x64.exe
+Manual alternative: edit "version" in package.json, then npm run dist:win
 On the user PC:
 Prefer: quit the app, then run the new Setup (same options / overwrite).
 Or: uninstall without deleting user data (if the uninstaller asks), then install the new build.
 Launch once — migrations for anything new (e.g. `086_supervisor_overview.sql`, VCN layout) apply; sales/stock stay.
 Do not run db:reset, delete sales.db, or copy a fresh DB over production.
 
-Optional but wise before major releases: copy %APPDATA%\sales-electron\ (with the app closed, or use a proper SQLite backup) so you can roll back if a migration fails.
+Optional but wise before major releases: create an in-app backup (**General Parameters → Data backup**) or copy `%APPDATA%\sales-electron\` with the app closed so you can roll back if a migration fails.
 
 Rules so updates stay safe
 Same appId (com.sales-electron.app) and package name (sales-electron) — changing these can create a new empty userData folder and look like “lost data”.
@@ -37,6 +40,6 @@ Keep productName / installer naming stable unless you intentionally migrate path
 Later improvement (not built yet)
 For less manual work you could add electron-updater (or a shared network folder of installers) so the app downloads and installs a new NSIS build. Data would still stay in AppData the same way — auto-update only replaces the app package.
 
-There is also a draft plan for in-app backup/restore of sales.db; that would make pre-update backups easier but isn’t required for a normal code update.
+**Automatic backups:** In-app daily schedule (**General Parameters → Data backup**, while the app runs) or IT script `scripts/backup-windows.ps1` via Task Scheduler when the app is closed. See [11-data-backup-restore.md](user-guide/11-data-backup-restore.md).
 
 Bottom line: Ship a new Setup with a bumped version, install over the existing app, never touch %APPDATA%\sales-electron\. Migrations handle schema; business data stays put.
