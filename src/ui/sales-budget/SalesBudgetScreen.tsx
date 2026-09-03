@@ -750,7 +750,7 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
       {message ? <div class="sbb-alert sbb-alert-success">{message}</div> : null}
       {error ? <div class="sbb-alert sbb-alert-error">{error}</div> : null}
 
-     {/*  {fyPeriod ? (
+      {fyPeriod ? (
         <div class="sbb-toolbar">
           <div class="sbb-field">
             <label class="sbb-label" for="fySelect">
@@ -785,7 +785,7 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
             Fiscal start: <strong>{monthName(fiscalYearStartMonth)}</strong>
           </div>
         </div>
-      ) : null} */}
+      ) : null}
 
       {fy != null && budgetCategories.length === 0 ? (
         <p class="sbb-empty">

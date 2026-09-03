@@ -1,5 +1,7 @@
 import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts";
 import "../commitments/CarryForwardCommitmentsScreen.css";
+import "../reports/StockCommitmentReport.css";
+import "./TransportCostComputeScreen.css";
 interface TransportCostComputeScreenProps {
     permissions: RolePermissionsSnapshot;
     readOnly?: boolean;
