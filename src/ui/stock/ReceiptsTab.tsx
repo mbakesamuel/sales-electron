@@ -64,7 +64,8 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
     viewProductFilter = "all",
     stockIntakeOilGrouping = false,
   } = props;
-  const bottledLocked = viewProductFilter === "bulk" || viewProductFilter === "bottled";
+  const bottledLocked =
+    viewProductFilter === "bulk" || viewProductFilter === "bottled";
   const lockedBottled = viewProductFilter === "bottled";
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -213,18 +214,17 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
     );
     setLines((prev) =>
       prev.map((line) => {
-        const cleared =
-          !line.productId
-            ? line
-            : (() => {
-                const product = products.find(
-                  (p) => String(p.productId) === line.productId,
-                );
-                if (product && product.isBottled === next) {
-                  return line;
-                }
-                return { ...line, productId: "" };
-              })();
+        const cleared = !line.productId
+          ? line
+          : (() => {
+              const product = products.find(
+                (p) => String(p.productId) === line.productId,
+              );
+              if (product && product.isBottled === next) {
+                return line;
+              }
+              return { ...line, productId: "" };
+            })();
         return { ...cleared, storageLocationId: defLoc };
       }),
     );
@@ -516,8 +516,9 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
           )} */}
 
           <p class="stock-hint">
-            Use this screen to record incoming stock into
-            Collection Point (By Product and Storage Location). To Sales, Oil Mills are considered collection points.
+            Use this screen to record incoming stock into Collection Point (By
+            Product and Storage Location). To Sales, Oil Mills are considered
+            collection points.
           </p>
         </div>
         <div class="stock-header-actions">
@@ -757,6 +758,28 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
             onSubmit={(event) => void onSave(event, false)}
             class="stock-form"
           >
+            <label class="stock-form-row">
+              <span class="stock-form-label">Receipt Date</span>
+              <span class="stock-form-control-wrap">
+                <input
+                  type="date"
+                  class="stock-form-control"
+                  value={receivedAt}
+                  min={postingPeriod?.startDate}
+                  max={postingPeriod?.endDate}
+                  disabled={!postingPeriod}
+                  onInput={(event) =>
+                    setReceivedAt(
+                      clampIsoDateToRange(
+                        (event.currentTarget as HTMLInputElement).value,
+                        postingPeriod,
+                      ),
+                    )
+                  }
+                  required
+                />
+              </span>
+            </label>
             {!autoGenerateReceiptNo && !editingId ? (
               <label class="stock-form-row">
                 <span class="stock-form-label">Consignment Note #</span>
@@ -823,39 +846,6 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
               </label>
             ) : null}
 
-            <label class="stock-form-row">
-              <span class="stock-form-label">Receipt Date</span>
-              <span class="stock-form-control-wrap">
-                <input
-                  type="date"
-                  class="stock-form-control"
-                  value={receivedAt}
-                  min={postingPeriod?.startDate}
-                  max={postingPeriod?.endDate}
-                  disabled={!postingPeriod}
-                  onInput={(event) =>
-                    setReceivedAt(
-                      clampIsoDateToRange(
-                        (event.currentTarget as HTMLInputElement).value,
-                        postingPeriod,
-                      ),
-                    )
-                  }
-                  required
-                />
-                {/*  {!postingPeriod ? (
-                  <span class="stock-form-hint">
-                    Open a financial month to set the receipt date.
-                  </span>
-                ) : (
-                  <span class="stock-form-hint">
-                    Open month: {postingPeriod.monthName}{" "}
-                    {postingPeriod.financialYear}
-                  </span>
-                )} */}
-              </span>
-            </label>
-
             <label class="stock-form-row stock-form-row-checkbox">
               <span class="stock-form-label">Product type</span>
               <span class="stock-form-control-wrap">
@@ -911,7 +901,9 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
               )}
               onHand={onHand}
               salesPointId={salesPointId}
-              stockIntakeOilGrouping={stockIntakeOilGrouping && !bottledProducts}
+              stockIntakeOilGrouping={
+                stockIntakeOilGrouping && !bottledProducts
+              }
             />
 
             <div class="stock-modal-actions">

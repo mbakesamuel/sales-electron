@@ -114,6 +114,7 @@ function isBooleanColumn(name: string, type: string): boolean {
     name === "autoGenerateStockTransferNo" ||
     name === "bottleOilUseRegisteredCustomers" ||
     name === "bottleOilAllowRation" ||
+    name === "transportCostMoliweOnlyPolicy" ||
     name === "stockTransferReceiveUsesDocumentDate" ||
     name === "looseSalesAllowPublicRelation" ||
     name === "looseSalesAllowUnregisteredCustomer" ||

@@ -10,6 +10,7 @@ interface LoginScreenProps {
     user: AuthUser,
     token: string,
     permissions: RolePermissionsSnapshot,
+    sessionIdleTimeoutMinutes: number,
   ) => void;
 }
 
@@ -43,7 +44,12 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         return;
       }
 
-      onLoginSuccess(result.user, result.token, result.permissions);
+      onLoginSuccess(
+        result.user,
+        result.token,
+        result.permissions,
+        result.sessionIdleTimeoutMinutes,
+      );
     } catch (loginError) {
       setError(
         loginError instanceof Error

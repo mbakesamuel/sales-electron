@@ -34,7 +34,7 @@ Under `src/ui/reports/`:
 - Shared: `ReportHeader`, `ReportFooter`, `ReportComments*`
 - Secondary windows: [`ReportWindowApp.tsx`](../../src/ui/pages/ReportWindowApp.tsx) bootstraps printable routes from `REPORT_WINDOW_ROUTE_IDS` (including parameterized bin card via `query`). Sidebar reports use the overlay instead.
 
-CSS: `StockCommitmentReport.css` (shared report chrome), plus report-specific **thin overlays** (column widths, section spacing — e.g. `MonthlyPalmOilSalesReport.css`, `SalesBudgetCrosstab.css`, `BinCardReport.css`, `PalmOilSalesActivityReport.css`). Overlay panel width: `ReportOverlayShell.css` (`min(1200px, 100%)`).
+CSS: `StockCommitmentReport.css` (shared report chrome), plus report-specific **thin overlays** (column widths, section spacing — e.g. `MonthlyPalmOilSalesReport.css`, `SalesBudgetCrosstab.css`, `BinCardReport.css`, `PalmOilSalesActivityReport.css`). Overlay panel width: `ReportOverlayShell.css` (`min(1200px, 100%)`). **Stock report** (`.sr-stock-report`) and **Commitment report** (`.cr-commitment-report`) use named print page `scrCompactTopTight` (2mm top/bottom margins) in `StockCommitmentReport.css`.
 
 **Compact print headers** — `SalePrintView.css` and `DeliveryOrderPrintView.css` scope smaller `.report-header` typography for invoices, receipts, DO, and DO-tracking prints. VCN print (`VcnPrintView.tsx`) uses the overlay shell and dual **Original** / **Duplicate** A4 copies.
 

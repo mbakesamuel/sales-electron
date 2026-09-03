@@ -151,6 +151,12 @@ Section order: **Palm Oil** (main loose) → **Palm Kernel Oil** → **Palm Kern
 
 Non-bottled sections share Palm Oil’s four-column grid (Sales point | Storage or cracked | Qty or uncracked | Remarks). Palm Kernel uses cracked and uncracked in the storage and qty columns; PKC quantity aligns with the Palm Oil qty column. Bottled keeps its own pack matrix and is not aligned to that grid.
 
+**Print / PDF:** Uses a **compact page layout** (2mm top and bottom margins, 8mm left/right) so more rows fit on each A4 page. The report header is tightened in print mode; on-screen preview keeps normal spacing.
+
+## Commitment report (weekly)
+
+Outstanding validated DO balances by customer and collection point (**as of** report as-at). **Print / PDF** uses the same **compact page layout** as the Stock report (2mm top/bottom margins).
+
 ## Palm Oil Sales Activity (annual)
 
 - Full **calendar financial year** through report as-at.
@@ -171,6 +177,7 @@ Use **Print** on each screen. Print CSS hides toolbars (`no-print`) and applies 
 - Body class **`scr-print-mode`** during print (no per-report portrait/landscape body hacks on the newer monthly reports).
 - Document chrome: **`scr-page`** / **`scr-document`** / **`scr-table`**; total rows use **`scr-row-total`**.
 - Landscape is still used where needed (e.g. some monthly delivery layouts, **Palm Oil Sales Activity**, and the **weekly** sales-budget crosstabs).
+- **Stock report** and **Commitment report** use a named print page with **2mm top and bottom** margins (8mm left/right) plus a tighter print header so more table rows fit per page. Other reports keep the default **8mm** margin on all sides.
 
 Management report headers use the standard `ReportHeader` sizes. **Sales invoice**, **cash receipt**, **delivery order**, and **DO tracking** prints use a **compact header** (smaller company name and title) so more room remains for line items.
 

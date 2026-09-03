@@ -3,10 +3,12 @@ import type {
   CarryForwardStockBatchResult,
   CarryForwardStockFormOptions,
   CarryForwardStockOnHandRow,
+  CarryForwardStockPendingRow,
   CarryForwardStockRow,
   UpsertCarryForwardStockBatchInput,
 } from "../../shared/carryForwardStock.types.js";
 import {
+  assertRouteRead,
   assertRouteWrite,
   carryForwardRequiresValidation,
 } from "../auth/permissions/service.js";
@@ -53,6 +55,18 @@ function assertWrite(userId: string): { ok: true } | { ok: false; error: string 
   }
 
   return { ok: true };
+}
+
+function assertRead(userId: string): void {
+  const role = getDatabase()
+    .prepare(`SELECT role FROM User WHERE id = ? AND isActive = 1`)
+    .get(userId) as { role: string } | undefined;
+
+  if (!role) {
+    throw new Error("User not found.");
+  }
+
+  assertRouteRead(role.role, ROUTE_ID);
 }
 
 function getSellableQty(
@@ -237,6 +251,73 @@ export function listCarryForwardStock(): CarryForwardStockRow[] {
     lastAdjustmentNo: row.lastAdjustmentNo,
     lastOccurredAt: row.lastOccurredAt,
   }));
+}
+
+export function listCarryForwardStockPending(
+  userId: string,
+): CarryForwardStockPendingRow[] {
+  assertRead(userId);
+
+  const rows = getDatabase()
+    .prepare(
+      `SELECT a.id AS adjustmentId, a.adjustmentNo,
+              substr(a.occurredAt, 1, 10) AS occurredAt,
+              a.createdAt AS submittedAt,
+              a.salesPointId, sp.name AS salesPointName,
+              l.productId, p.productName, COALESCE(p.uom, 'Kg') AS uom,
+              l.storageLocationId,
+              COALESCE(loc.locationName, '—') AS storageLocationName,
+              l.deltaQty
+       FROM StockAdjustment a
+       INNER JOIN StockAdjustmentLine l ON l.adjustmentId = a.id
+       INNER JOIN SalesPoint sp ON sp.id = a.salesPointId
+       LEFT JOIN StorageLocation sl ON sl.id = l.storageLocationId
+       LEFT JOIN Location loc ON loc.id = sl.locationId
+       INNER JOIN Product p ON p.productId = l.productId
+       WHERE a.status = 'DRAFT'
+         AND a.sourceKind = 'CARRY_FORWARD'
+         AND a.createdByUserId = ?
+       ORDER BY a.occurredAt DESC, a.adjustmentNo DESC,
+                p.productName ASC, COALESCE(loc.locationName, '') ASC`,
+    )
+    .all(userId) as Array<{
+    adjustmentId: string;
+    adjustmentNo: string;
+    occurredAt: string;
+    submittedAt: string | null;
+    salesPointId: number;
+    salesPointName: string;
+    productId: number;
+    productName: string;
+    uom: string;
+    storageLocationId: number | null;
+    storageLocationName: string;
+    deltaQty: string;
+  }>;
+
+  return rows.map((row) => {
+    const currentQty = getSellableQty(
+      row.salesPointId,
+      row.productId,
+      row.storageLocationId,
+    );
+    const deltaQty = parseQty(row.deltaQty);
+    return {
+      adjustmentId: row.adjustmentId,
+      adjustmentNo: row.adjustmentNo,
+      occurredAt: row.occurredAt,
+      salesPointId: row.salesPointId,
+      salesPointName: row.salesPointName,
+      productId: row.productId,
+      productName: row.productName,
+      uom: row.uom,
+      storageLocationId: row.storageLocationId,
+      storageLocationName: row.storageLocationName,
+      currentQty,
+      proposedQty: currentQty + deltaQty,
+      submittedAt: row.submittedAt,
+    };
+  });
 }
 
 export function listCarryForwardStockOnHand(

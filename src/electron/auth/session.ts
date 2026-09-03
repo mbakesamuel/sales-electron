@@ -14,6 +14,7 @@ import {
   verifyPassword,
 } from "./password.js";
 import { getDatabase } from "../db/index.js";
+import { loadSessionIdleTimeoutMinutes } from "./sessionPolicy.js";
 
 export type { AuthUser };
 
@@ -34,6 +35,7 @@ interface UserRow {
 export interface AuthSession {
   user: AuthUser;
   permissions: RolePermissionsSnapshot;
+  sessionIdleTimeoutMinutes: number;
 }
 
 function mapUser(row: UserRow): AuthUser {
@@ -110,7 +112,12 @@ export function login(
      VALUES (?, ?, ?, ?)`,
   ).run(randomUUID(), user.id, tokenHash, expiresAt);
 
-  return { token, user: mapUser(user), permissions: loadRolePermissionsSnapshot(user.role) };
+  return {
+    token,
+    user: mapUser(user),
+    permissions: loadRolePermissionsSnapshot(user.role),
+    sessionIdleTimeoutMinutes: loadSessionIdleTimeoutMinutes(db),
+  };
 }
 
 export function getSession(token: string): AuthUser | null {
@@ -145,6 +152,7 @@ export function getAuthSession(token: string): AuthSession | null {
   return {
     user: mapUser(row),
     permissions: loadRolePermissionsSnapshot(row.role),
+    sessionIdleTimeoutMinutes: loadSessionIdleTimeoutMinutes(db),
   };
 }
 

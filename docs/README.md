@@ -19,6 +19,12 @@ Step-by-step workflows for day-to-day use.
 11. [Data backup and restore](user-guide/11-data-backup-restore.md)
 12. [Troubleshooting](user-guide/10-troubleshooting.md)
 
+## Training schedule (operators)
+
+Compressed three-day hands-on training plan derived from the user guide:
+
+- [3-Day user training](training/3-day-user-training.md)
+
 ## Developer guide
 
 Architecture, database, IPC, and how to extend the app.
@@ -44,7 +50,8 @@ Architecture, database, IPC, and how to extend the app.
 npm run docs:export
 ```
 
-Writes two separate guides (PDF + DOCX each) under [`export/`](export/):
+Writes three guides (PDF + DOCX each) under [`export/`](export/):
 
 - `Sales-Management-Application-User-Guide.pdf` / `.docx`
 - `Sales-Management-Application-Developer-Guide.pdf` / `.docx`
+- `Sales-Management-Application-3-Day-User-Training.pdf` / `.docx`

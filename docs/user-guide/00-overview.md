@@ -40,7 +40,7 @@ Totals use **validated** sales where charts show revenue. If no financial month 
 - **Financial year / month** — Most posting (sales, stock, DOs) requires an **open** financial year and month. Close periods when the month is complete.
 - **Validated vs pending** — Sales and delivery orders often start as pending and must be **validated** before they affect reports and balances the way management expects.
 - **Product categories** — Flags on categories (`isMain`, `isBottled`) control how products appear on reports (loose palm oil vs bottled vs other/PKO). See [Customers and products](03-customers-products.md).
-- **Delivery order (DO)** — Customer commitment that can be drawn down on sales invoices. Carry-forward commitments are stored as special validated DOs.
+- **Delivery order (DO)** — Customer commitment that can be drawn down on sales invoices. Carry-forward commitments are stored as special validated DOs. Statistics clerks see submitted CF commitment lines in **Awaiting validation** on the carry-forward commitments screen until a supervisor validates them on **Delivery orders → Validation queue**.
 
 ## Suggested reading order
 

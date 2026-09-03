@@ -97,6 +97,7 @@ contextBridge.exposeInMainWorld("api", {
   carryForward: {
     getFormOptions: () => ipcRenderer.invoke("carryForward:getFormOptions"),
     list: () => ipcRenderer.invoke("carryForward:list"),
+    listPending: (input) => ipcRenderer.invoke("carryForward:listPending", input),
     upsert: (input) => ipcRenderer.invoke("carryForward:upsert", input),
     upsertBatch: (input) => ipcRenderer.invoke("carryForward:upsertBatch", input),
     delete: (input) => ipcRenderer.invoke("carryForward:delete", input),
@@ -104,8 +105,14 @@ contextBridge.exposeInMainWorld("api", {
   carryForwardStock: {
     getFormOptions: () => ipcRenderer.invoke("carryForwardStock:getFormOptions"),
     list: () => ipcRenderer.invoke("carryForwardStock:list"),
+    listPending: (input) => ipcRenderer.invoke("carryForwardStock:listPending", input),
     listOnHand: (input) => ipcRenderer.invoke("carryForwardStock:listOnHand", input),
     upsertBatch: (input) => ipcRenderer.invoke("carryForwardStock:upsertBatch", input),
+  },
+  transportCost: {
+    getFormOptions: () => ipcRenderer.invoke("transportCost:getFormOptions"),
+    compute: (authToken, input) =>
+      ipcRenderer.invoke("transportCost:compute", authToken, input),
   },
   reports: {
     getStockCommitment: (authToken) =>
@@ -135,6 +142,8 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("reports:getLooseLpoStockSummary", authToken),
     getMonthlyPaymentDelivery: (authToken) =>
       ipcRenderer.invoke("reports:getMonthlyPaymentDelivery", authToken),
+    getTransportCost: (authToken) =>
+      ipcRenderer.invoke("reports:getTransportCost", authToken),
     getMonthlyDeliveriesByDestination: (authToken) =>
       ipcRenderer.invoke("reports:getMonthlyDeliveriesByDestination", authToken),
     getMonthlyPalmOilSales: (authToken) =>

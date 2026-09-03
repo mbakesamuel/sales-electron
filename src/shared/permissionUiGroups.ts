@@ -32,6 +32,12 @@ export const PERMISSION_UI_GROUPS: readonly PermissionUiGroup[] = [
     actionKeys: ["validate_sales", "direct_validate_sales"],
   },
   {
+    id: "transportation-cost",
+    label: "Transportation cost",
+    routeIds: ["transport-cost-compute"],
+    actionKeys: [],
+  },
+  {
     id: "customers",
     label: "Customers",
     routeIds: ["customers", "customer-types"],
@@ -40,7 +46,7 @@ export const PERMISSION_UI_GROUPS: readonly PermissionUiGroup[] = [
   {
     id: "products",
     label: "Products",
-    routeIds: ["products", "product-categories", "unit-prices"],
+    routeIds: ["products", "product-categories", "unit-prices", "transport-rates"],
     actionKeys: [],
   },
   {
@@ -134,6 +140,7 @@ export const PERMISSION_UI_GROUPS: readonly PermissionUiGroup[] = [
       "monthly-stock-reconciliation-report",
       "loose-lpo-stock-summary-report",
       "monthly-payment-delivery-report",
+      "transport-cost-report",
       "monthly-deliveries-by-destination-report",
       "monthly-palm-oil-sales-report",
       "revenue-taxes-report",

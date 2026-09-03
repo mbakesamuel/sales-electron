@@ -32,6 +32,7 @@ export function getAuthenticatedReports() {
       api.getLooseLpoStockSummary(requireAuthToken()),
     getMonthlyPaymentDelivery: () =>
       api.getMonthlyPaymentDelivery(requireAuthToken()),
+    getTransportCost: () => api.getTransportCost(requireAuthToken()),
     getMonthlyDeliveriesByDestination: () =>
       api.getMonthlyDeliveriesByDestination(requireAuthToken()),
     getMonthlyPalmOilSales: () =>

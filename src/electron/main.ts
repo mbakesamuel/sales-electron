@@ -18,6 +18,7 @@ import { registerDialogHandlers } from "./ipc/dialog.js";
 import { registerPrintHandlers } from "./ipc/print.js";
 import { registerBackupHandlers } from "./ipc/backup.js";
 import { startBackupScheduler } from "./db/backupSchedule.js";
+import { registerTransportCostHandlers } from "./ipc/transportCost.js";
 import { registerWindowsHandlers } from "./ipc/windows.js";
 import { backfillFinancialMonths } from "./financialYears/service.js";
 
@@ -126,6 +127,7 @@ app.whenReady().then(() => {
   registerPrintHandlers();
   registerBackupHandlers();
   startBackupScheduler();
+  registerTransportCostHandlers();
   registerWindowsHandlers();
   createWindow();
 

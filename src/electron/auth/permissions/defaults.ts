@@ -7,12 +7,13 @@ type RouteMatrix = Record<string, RouteAccess>;
 type ActionMatrix = Record<PermissionActionKey, boolean>;
 
 const ROUTE_GROUPS = {
-  operations: ["sales", "bottle-oil-sales", "sales-validation", "delivery-orders", "delivery-order-tracking", "delivery-order-transfer", "carry-forward-commitments", "vehicle-consignment-notes", "vehicle-consignment-validation"],
+  operations: ["sales", "bottle-oil-sales", "sales-validation", "transport-cost-compute", "delivery-orders", "delivery-order-tracking", "delivery-order-transfer", "carry-forward-commitments", "vehicle-consignment-notes", "vehicle-consignment-validation"],
   customerOps: ["customers"],
   productConfig: [
     "products",
     "product-categories",
     "unit-prices",
+    "transport-rates",
     "sales-budgets",
     "budget-phase-profiles",
     "sales-budget-monthly-crosstab",
@@ -51,6 +52,7 @@ const ROUTE_GROUPS = {
     "monthly-stock-reconciliation-report",
     "loose-lpo-stock-summary-report",
     "monthly-payment-delivery-report",
+    "transport-cost-report",
     "monthly-deliveries-by-destination-report",
     "monthly-palm-oil-sales-report",
     "revenue-taxes-report",

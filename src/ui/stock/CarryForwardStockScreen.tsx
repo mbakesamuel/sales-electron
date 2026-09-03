@@ -3,6 +3,7 @@ import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts"
 import { canWriteRouteFromSnapshot } from "../../shared/permissionUtils.ts";
 import type {
   CarryForwardStockFormOptions,
+  CarryForwardStockPendingRow,
   CarryForwardStockProductOption,
   CarryForwardStockRow,
 } from "../../shared/carryForwardStock.types.ts";
@@ -136,6 +137,9 @@ export function CarryForwardStockScreen({
     canWriteRouteFromSnapshot(permissions, "carry-forward-stock") && !readOnly;
 
   const [rows, setRows] = useState<CarryForwardStockRow[]>([]);
+  const [pendingRows, setPendingRows] = useState<CarryForwardStockPendingRow[]>(
+    [],
+  );
   const [options, setOptions] = useState<CarryForwardStockFormOptions | null>(
     null,
   );
@@ -162,14 +166,17 @@ export function CarryForwardStockScreen({
     setError(null);
     try {
       const api = getElectronApi();
-      const [list, formOptions] = await Promise.all([
+      const [list, pending, formOptions] = await Promise.all([
         api.carryForwardStock.list(),
+        api.carryForwardStock.listPending({ userId: user.id }),
         api.carryForwardStock.getFormOptions(),
       ]);
       setRows(list);
+      setPendingRows(pending);
       setOptions(formOptions);
     } catch (loadError) {
       setRows([]);
+      setPendingRows([]);
       setError(
         loadError instanceof Error
           ? loadError.message
@@ -217,6 +224,25 @@ export function CarryForwardStockScreen({
         (row.lastAdjustmentNo ?? "").toLowerCase().includes(query),
     );
   }, [rows, search]);
+
+  const filteredPending = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) {
+      return pendingRows;
+    }
+    return pendingRows.filter(
+      (row) =>
+        row.productName.toLowerCase().includes(query) ||
+        row.salesPointName.toLowerCase().includes(query) ||
+        row.storageLocationName.toLowerCase().includes(query) ||
+        row.adjustmentNo.toLowerCase().includes(query),
+    );
+  }, [pendingRows, search]);
+
+  const pendingAdjustmentCount = useMemo(
+    () => new Set(filteredPending.map((row) => row.adjustmentId)).size,
+    [filteredPending],
+  );
 
   const locationsForSalesPoint = useMemo(() => {
     if (!options || !batchSalesPointId) {
@@ -496,9 +522,71 @@ export function CarryForwardStockScreen({
         <span class="cf-count">
           {loading
             ? "Loading…"
-            : `${filtered.length} line${filtered.length === 1 ? "" : "s"}`}
+            : [
+                `${filtered.length} posted`,
+                filteredPending.length > 0
+                  ? `${filteredPending.length} pending validation`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
         </span>
       </div>
+
+      {filteredPending.length > 0 ? (
+        <section class="cf-pending-section">
+          <div class="cf-pending-header">
+            <h3>Awaiting validation</h3>
+            <p>
+              {filteredPending.length} line
+              {filteredPending.length === 1 ? "" : "s"} across{" "}
+              {pendingAdjustmentCount} adjustment
+              {pendingAdjustmentCount === 1 ? "" : "s"}
+            </p>
+          </div>
+          <div class="cf-table-wrap">
+            <table class="cf-table">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th>Collection point</th>
+                  <th>Product</th>
+                  <th>Location</th>
+                  <th class="cf-num">Current qty</th>
+                  <th class="cf-num">Proposed qty</th>
+                  <th>Adjustment</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPending.map((row) => (
+                  <tr
+                    key={`${row.adjustmentId}-${row.productId}-${row.storageLocationId ?? "null"}`}
+                  >
+                    <td>
+                      <span class="cf-pending-badge">Pending validation</span>
+                    </td>
+                    <td>{formatDate(row.occurredAt)}</td>
+                    <td>{row.salesPointName}</td>
+                    <td>
+                      {row.productName}
+                      <span class="cf-hint-inline"> ({row.uom})</span>
+                    </td>
+                    <td>{row.storageLocationName}</td>
+                    <td class="cf-num">{formatQty(row.currentQty)}</td>
+                    <td class="cf-num">{formatQty(row.proposedQty)}</td>
+                    <td>{row.adjustmentNo}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      {pendingRows.length > 0 ? (
+        <h3 class="cf-posted-title">Posted opening balances</h3>
+      ) : null}
 
       <div class="cf-table-wrap">
         <table class="cf-table">

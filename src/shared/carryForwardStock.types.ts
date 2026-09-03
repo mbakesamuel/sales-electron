@@ -13,6 +13,22 @@ export interface CarryForwardStockRow {
   lastOccurredAt: string | null;
 }
 
+export interface CarryForwardStockPendingRow {
+  adjustmentId: string;
+  adjustmentNo: string;
+  occurredAt: string;
+  salesPointId: number;
+  salesPointName: string;
+  productId: number;
+  productName: string;
+  uom: string;
+  storageLocationId: number | null;
+  storageLocationName: string;
+  currentQty: number;
+  proposedQty: number;
+  submittedAt: string | null;
+}
+
 export interface CarryForwardStockProductOption {
   productId: number;
   productName: string;

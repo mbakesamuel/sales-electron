@@ -14,6 +14,7 @@ export declare function getAuthenticatedReports(): {
     getMonthlyStockReconciliation: () => Promise<import("../../shared/reports.types.ts").MonthlyStockReconciliationReport>;
     getLooseLpoStockSummary: () => Promise<import("../../shared/reports.types.ts").LooseLpoStockSummaryReport>;
     getMonthlyPaymentDelivery: () => Promise<import("../../shared/reports.types.ts").MonthlyPaymentDeliveryReport>;
+    getTransportCost: () => Promise<import("../../shared/reports.types.ts").TransportCostReport>;
     getMonthlyDeliveriesByDestination: () => Promise<import("../../shared/reports.types.ts").MonthlyDeliveriesByDestinationReport>;
     getMonthlyPalmOilSales: () => Promise<import("../../shared/reports.types.ts").MonthlyPalmOilSalesReport>;
     getPalmOilSalesActivity: () => Promise<import("../../shared/reports.types.ts").PalmOilSalesActivityReport>;

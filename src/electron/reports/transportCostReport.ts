@@ -1,0 +1,159 @@
+import type {
+  TransportCostReport,
+  TransportCostReportRow,
+  TransportCostReportTotals,
+} from "../../shared/reports.types.js";
+import { resolveReportAsAt } from "../financialYears/service.js";
+import {
+  loadReportComments,
+  loadReportCompanySettings,
+} from "../reports/companySettings.js";
+import { nowIso } from "../reports/shared.js";
+import { loadLiftedSaleLines } from "../transport/liftedQuantities.js";
+import {
+  assertTransportCostReportPolicyConfigured,
+  filterLiftedLinesForTransportCostPolicy,
+  loadTransportCostMoliweOnlyPolicy,
+  resolveMoliweSalesPointId,
+} from "../transport/policy.js";
+import { resolveTransportRatePerKg } from "../transport/resolveTransportRate.js";
+
+const ROUTE_ID = "transport-cost-report";
+
+interface GroupKey {
+  customerId: number;
+  salesPointId: number;
+  productId: number;
+}
+
+function groupKey(line: {
+  customerId: number;
+  salesPointId: number;
+  productId: number;
+}): string {
+  return `${line.customerId}:${line.salesPointId}:${line.productId}`;
+}
+
+export function getTransportCostReport(userId?: string | null): TransportCostReport {
+  const { asAtIso, period } = resolveReportAsAt();
+  const settings = loadReportCompanySettings(userId, asAtIso);
+  const comments = loadReportComments(ROUTE_ID);
+
+  const transportCostMoliweOnlyPolicy = loadTransportCostMoliweOnlyPolicy();
+  const moliweSalesPointId = resolveMoliweSalesPointId();
+  assertTransportCostReportPolicyConfigured(
+    transportCostMoliweOnlyPolicy,
+    moliweSalesPointId,
+  );
+
+  const liftedLines = filterLiftedLinesForTransportCostPolicy(
+    loadLiftedSaleLines(period.startDate, asAtIso),
+    transportCostMoliweOnlyPolicy,
+    moliweSalesPointId,
+  );
+
+  const groups = new Map<
+    string,
+    GroupKey & {
+      customerName: string;
+      salesPointName: string;
+      productName: string;
+      qtyKg: number;
+      transportCost: number;
+      hasMissingRate: boolean;
+    }
+  >();
+
+  for (const line of liftedLines) {
+    const key = groupKey(line);
+    const existing = groups.get(key) ?? {
+      customerId: line.customerId,
+      customerName: line.customerName,
+      salesPointId: line.salesPointId,
+      salesPointName: line.salesPointName,
+      productId: line.productId,
+      productName: line.productName,
+      qtyKg: 0,
+      transportCost: 0,
+      hasMissingRate: false,
+    };
+
+    existing.qtyKg += line.qtyKg;
+    const rateResult = resolveTransportRatePerKg(
+      line.salesPointId,
+      line.productId,
+      line.dateIssued,
+    );
+    if (rateResult.ok) {
+      existing.transportCost += line.qtyKg * rateResult.ratePerKgNumeric;
+    } else {
+      existing.hasMissingRate = true;
+    }
+    groups.set(key, existing);
+  }
+
+  const dataRows: TransportCostReportRow[] = [...groups.values()]
+    .filter((group) => group.qtyKg > 0.0005)
+    .sort((left, right) => {
+      const byCustomer = left.customerName.localeCompare(right.customerName);
+      if (byCustomer !== 0) return byCustomer;
+      const byPoint = left.salesPointName.localeCompare(right.salesPointName);
+      if (byPoint !== 0) return byPoint;
+      return left.productName.localeCompare(right.productName);
+    })
+    .map((group) => ({
+      customerId: group.customerId,
+      customerName: group.customerName,
+      salesPointId: group.salesPointId,
+      salesPointName: group.salesPointName,
+      productId: group.productId,
+      productName: group.productName,
+      qtyKg: group.qtyKg,
+      transportCost: group.hasMissingRate ? null : group.transportCost,
+      rateMissing: group.hasMissingRate,
+      kind: "data" as const,
+    }));
+
+  const totals = dataRows.reduce<TransportCostReportTotals>(
+    (acc, row) => {
+      acc.qtyKg += row.qtyKg;
+      if (row.transportCost != null) {
+        acc.transportCost += row.transportCost;
+      } else {
+        acc.hasMissingRate = true;
+      }
+      return acc;
+    },
+    { qtyKg: 0, transportCost: 0, hasMissingRate: false },
+  );
+
+  const rows: TransportCostReportRow[] = [
+    ...dataRows,
+    {
+      customerId: 0,
+      customerName: "TOTAL",
+      salesPointId: 0,
+      salesPointName: "",
+      productId: 0,
+      productName: "",
+      qtyKg: totals.qtyKg,
+      transportCost: totals.hasMissingRate ? null : totals.transportCost,
+      rateMissing: totals.hasMissingRate,
+      kind: "total",
+    },
+  ];
+
+  return {
+    settings,
+    asAtIso,
+    monthStartIso: period.startDate,
+    monthEndIso: asAtIso,
+    monthName: period.monthName,
+    financialYear: period.financialYear,
+    generatedAtIso: nowIso(),
+    reportTitle: `TRANSPORTATION COST FOR ${period.monthName.toUpperCase()} ${period.financialYear}`,
+    rows,
+    totals,
+    comments,
+  };
+}

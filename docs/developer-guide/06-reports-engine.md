@@ -242,6 +242,8 @@ File: `stockCommitment.ts`
 Shared report chrome lives in **`StockCommitmentReport.css`** (`scr-page`, `scr-toolbar`, `scr-document`, `scr-table`, `scr-num`, `scr-row-total`, `scr-row-header`, `scr-bottled-block`, etc.). Newer monthly reports add a **thin overlay** CSS file (e.g. `MonthlyPalmOilSalesReport.css`, `SalesBudgetCrosstab.css`, `BinCardReport.css`) for column widths and section spacing only — not duplicate borders, gray theads, or custom print body classes.
 
 - Class **`scr-print-mode`** on `body` during print (preferred over injecting `@page` styles per screen, except landscape packs and bin-card portrait).
+- Default **`@page`** in `StockCommitmentReport.css`: A4 portrait, **8mm** margin on all sides.
+- **Stock report** (`StockReportScreen.tsx` → document class **`sr-stock-report`**) and **Commitment report** (`CommitmentReportScreen.tsx` → **`cr-commitment-report`**) assign a named page **`scrCompactTopTight`** via CSS `page:` — **2mm** top/bottom, **8mm** left/right — plus scoped print overrides on `.report-header` and the first `.scr-bottled-block`. Applies to **Print** and **Save PDF** (`scr-print-mode` + `preferCSSPageSize`). Stock summary / stock & commitment combined report is unchanged (default 8mm).
 - **`no-print`** hides toolbars and filters.
 - Printable reports open in a secondary Electron window (`REPORT_WINDOW_ROUTE_IDS`); `windows:openReport` accepts optional **`query`** for parameterized reports (bin card).
 - **`formatPhasedQtyKgDisplay`** / **`formatPhasedAmountDisplay`** (`salesBudgetPhase.ts`) — kg and revenue cells in budget phasing / crosstabs: thousand separators, 0 decimal places.

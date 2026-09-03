@@ -1,6 +1,7 @@
-import { useEffect, useState } from "preact/hooks";
+import { useCallback, useEffect, useState } from "preact/hooks";
 import { AUTH_TOKEN_KEY } from "../auth/session.ts";
 import { getElectronApi } from "../auth/client.ts";
+import { useIdleSessionTimeout } from "../auth/useIdleSessionTimeout.ts";
 import { AppLoadingShell } from "../components/AppLoadingShell.tsx";
 import { parseReportWindowHash } from "../../shared/reportWindow.ts";
 import { ReportBody } from "../reports/reportBody.tsx";
@@ -12,8 +13,36 @@ type BootstrapState =
   | { status: "ready"; reportId: string; query?: unknown }
   | { status: "error"; message: string };
 
+const IDLE_SIGN_OUT_MESSAGE =
+  "Signed out due to inactivity. Close this window and sign in again.";
+
 export function ReportWindowApp() {
   const [state, setState] = useState<BootstrapState>({ status: "waiting" });
+  const [sessionIdleTimeoutMinutes, setSessionIdleTimeoutMinutes] = useState(0);
+  const [authToken, setAuthToken] = useState<string | null>(null);
+
+  const handleIdleSignOut = useCallback(async () => {
+    const token = authToken ?? sessionStorage.getItem(AUTH_TOKEN_KEY);
+    sessionStorage.removeItem(AUTH_TOKEN_KEY);
+    setAuthToken(null);
+    setSessionIdleTimeoutMinutes(0);
+    setState({ status: "error", message: IDLE_SIGN_OUT_MESSAGE });
+
+    if (token) {
+      try {
+        await getElectronApi().auth.logout(token);
+      } catch {
+        // Session already cleared locally.
+      }
+    }
+  }, [authToken]);
+
+  useIdleSessionTimeout(
+    state.status === "ready" ? sessionIdleTimeoutMinutes : 0,
+    () => {
+      void handleIdleSignOut();
+    },
+  );
 
   useEffect(() => {
     applyUiTheme("agro");
@@ -44,18 +73,21 @@ export function ReportWindowApp() {
           return;
         }
         sessionStorage.setItem(AUTH_TOKEN_KEY, payload.authToken);
+        setAuthToken(payload.authToken);
         const session = await api.auth.getSession(payload.authToken);
         if (cancelled) {
           return;
         }
         if (!session) {
           sessionStorage.removeItem(AUTH_TOKEN_KEY);
+          setAuthToken(null);
           setState({
             status: "error",
             message: "Session expired. Close this window and sign in again.",
           });
           return;
         }
+        setSessionIdleTimeoutMinutes(session.sessionIdleTimeoutMinutes);
         setState({
           status: "ready",
           reportId: payload.reportId,

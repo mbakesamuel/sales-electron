@@ -65,6 +65,7 @@
 
 - Use the in-app **Print** control so `scr-print-mode` styles apply.
 - Toolbars are hidden via `no-print`; if content is clipped, try landscape where the screen offers it.
+- **Stock report** and **Commitment report** use tight print margins (2mm top/bottom) by design. If the logo or footer looks clipped, report it — margins are controlled in `StockCommitmentReport.css` (`@page scrCompactTopTight`). Other weekly reports still use 8mm margins.
 
 ## Lost data or need to restore a backup
 

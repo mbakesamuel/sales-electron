@@ -20,6 +20,8 @@ import { CustomerTypesScreen } from "../customers/CustomerTypesScreen.tsx";
 import { ProductsScreen } from "../products/ProductsScreen.tsx";
 import { CategoriesScreen } from "../products/CategoriesScreen.tsx";
 import { ProductUnitPricesScreen } from "../products/ProductUnitPricesScreen.tsx";
+import { TransportRatesScreen } from "../transport/TransportRatesScreen.tsx";
+import { TransportCostComputeScreen } from "../transport/TransportCostComputeScreen.tsx";
 import { LocationsScreen } from "../locations/LocationsScreen.tsx";
 import { SalesPointsScreen } from "../sales-points/SalesPointsScreen.tsx";
 import { CommercialServicesScreen } from "../commercial-services/CommercialServicesScreen.tsx";
@@ -408,6 +410,16 @@ function RouteContent({
     return <ProductUnitPricesScreen readOnly={readOnly} />;
   }
 
+  if (route.id === "transport-rates") {
+    return <TransportRatesScreen readOnly={readOnly} />;
+  }
+
+  if (route.id === "transport-cost-compute") {
+    return (
+      <TransportCostComputeScreen permissions={permissions} readOnly={readOnly} />
+    );
+  }
+
   if (route.id === "sales-points") {
     return <SalesPointsScreen readOnly={readOnly} />;
   }
@@ -720,6 +732,7 @@ export function HomeScreen({
     "monthly-stock-reconciliation-report",
     "loose-lpo-stock-summary-report",
     "monthly-payment-delivery-report",
+    "transport-cost-report",
     "monthly-deliveries-by-destination-report",
     "monthly-palm-oil-sales-report",
     "revenue-taxes-report",
@@ -738,6 +751,8 @@ export function HomeScreen({
     "products",
     "product-categories",
     "unit-prices",
+    "transport-rates",
+    "transport-cost-compute",
     "sales-points",
     "commercial-services",
     "company-settings",
@@ -769,6 +784,8 @@ export function HomeScreen({
     "products",
     "product-categories",
     "unit-prices",
+    "transport-rates",
+    "transport-cost-compute",
     "sales-points",
     "commercial-services",
     "locations",

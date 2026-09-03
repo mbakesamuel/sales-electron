@@ -19,6 +19,12 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
     sectionId: "sales",
     table: "Sale",
   },
+  {
+    id: "transport-cost-compute",
+    label: "Transportation cost",
+    sectionId: "sales",
+    table: "Sale",
+  },
   { id: "customers", label: "Customers", sectionId: "customers", table: "Customer" },
   {
     id: "customer-types",
@@ -38,6 +44,12 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
     label: "Product unit prices",
     sectionId: "products",
     table: "ProductUnitPriceSchedule",
+  },
+  {
+    id: "transport-rates",
+    label: "Transport rates",
+    sectionId: "products",
+    table: "TransportRateSchedule",
   },
   {
     id: "sales-budgets",
@@ -218,6 +230,11 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
   {
     id: "monthly-payment-delivery-report",
     label: "Monthly Payment/Delivery",
+    sectionId: "reports",
+  },
+  {
+    id: "transport-cost-report",
+    label: "Transportation cost",
     sectionId: "reports",
   },
   {

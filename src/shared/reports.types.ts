@@ -1084,3 +1084,36 @@ export interface MonthlyBottledOilReport {
   comments: string | null;
 }
 
+export interface TransportCostReportRow {
+  customerId: number;
+  customerName: string;
+  salesPointId: number;
+  salesPointName: string;
+  productId: number;
+  productName: string;
+  qtyKg: number;
+  transportCost: number | null;
+  rateMissing: boolean;
+  kind: "data" | "total";
+}
+
+export interface TransportCostReportTotals {
+  qtyKg: number;
+  transportCost: number;
+  hasMissingRate: boolean;
+}
+
+export interface TransportCostReport {
+  settings: ReportCompanySettings;
+  asAtIso: string;
+  monthStartIso: string;
+  monthEndIso: string;
+  monthName: string;
+  financialYear: number;
+  reportTitle: string;
+  generatedAtIso: string;
+  rows: TransportCostReportRow[];
+  totals: TransportCostReportTotals;
+  comments: string | null;
+}
+

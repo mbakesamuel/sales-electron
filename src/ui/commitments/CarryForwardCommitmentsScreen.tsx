@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts";
 import { canWriteRouteFromSnapshot } from "../../shared/permissionUtils.ts";
 import type {
+  CarryForwardCommitmentPendingRow,
   CarryForwardCommitmentRow,
   CarryForwardFormOptions,
 } from "../../shared/carryForward.types.ts";
@@ -23,6 +24,12 @@ interface BatchDialogState {
   focusCustomerId: number | null;
 }
 
+type BatchExistingEntry = {
+  soldQty: number;
+  outstandingQty: number;
+  deliveryOrderNo: string;
+};
+
 function formatKg(value: number): string {
   return Math.round(value).toLocaleString("en-US");
 }
@@ -36,6 +43,9 @@ export function CarryForwardCommitmentsScreen({
     canWriteRouteFromSnapshot(permissions, "carry-forward-commitments") && !readOnly;
 
   const [rows, setRows] = useState<CarryForwardCommitmentRow[]>([]);
+  const [pendingRows, setPendingRows] = useState<CarryForwardCommitmentPendingRow[]>(
+    [],
+  );
   const [options, setOptions] = useState<CarryForwardFormOptions | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,14 +67,17 @@ export function CarryForwardCommitmentsScreen({
     setError(null);
     try {
       const api = getElectronApi();
-      const [list, formOptions] = await Promise.all([
+      const [list, pending, formOptions] = await Promise.all([
         api.carryForward.list(),
+        api.carryForward.listPending({ userId: user.id }),
         api.carryForward.getFormOptions(),
       ]);
       setRows(list);
+      setPendingRows(pending);
       setOptions(formOptions);
     } catch (loadError) {
       setRows([]);
+      setPendingRows([]);
       setError(
         loadError instanceof Error
           ? loadError.message
@@ -93,20 +106,52 @@ export function CarryForwardCommitmentsScreen({
     );
   }, [rows, search]);
 
+  const filteredPending = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) {
+      return pendingRows;
+    }
+    return pendingRows.filter(
+      (row) =>
+        row.customerName.toLowerCase().includes(query) ||
+        row.salesPointName.toLowerCase().includes(query) ||
+        row.productName.toLowerCase().includes(query) ||
+        row.deliveryOrderNo.toLowerCase().includes(query),
+    );
+  }, [pendingRows, search]);
+
+  const pendingDoCount = useMemo(
+    () => new Set(filteredPending.map((row) => row.deliveryOrderId)).size,
+    [filteredPending],
+  );
+
   const existingForBatch = useMemo(() => {
     const spId = Number.parseInt(batchSalesPointId, 10);
     const pId = Number.parseInt(batchProductId, 10);
     if (!Number.isFinite(spId) || !Number.isFinite(pId)) {
-      return new Map<number, CarryForwardCommitmentRow>();
+      return new Map<number, BatchExistingEntry>();
     }
-    const map = new Map<number, CarryForwardCommitmentRow>();
+    const map = new Map<number, BatchExistingEntry>();
     for (const row of rows) {
       if (row.salesPointId === spId && row.productId === pId) {
-        map.set(row.customerId, row);
+        map.set(row.customerId, {
+          soldQty: row.soldQty,
+          outstandingQty: row.outstandingQty,
+          deliveryOrderNo: row.deliveryOrderNo,
+        });
+      }
+    }
+    for (const row of pendingRows) {
+      if (row.salesPointId === spId && row.productId === pId) {
+        map.set(row.customerId, {
+          soldQty: 0,
+          outstandingQty: row.outstandingQty,
+          deliveryOrderNo: row.deliveryOrderNo,
+        });
       }
     }
     return map;
-  }, [rows, batchSalesPointId, batchProductId]);
+  }, [rows, pendingRows, batchSalesPointId, batchProductId]);
 
   const batchCustomers = useMemo(() => {
     if (!options) {
@@ -124,6 +169,11 @@ export function CarryForwardCommitmentsScreen({
     const next: Record<string, string> = {};
     if (Number.isFinite(spId) && Number.isFinite(pId)) {
       for (const row of rows) {
+        if (row.salesPointId === spId && row.productId === pId) {
+          next[String(row.customerId)] = String(Math.round(row.outstandingQty));
+        }
+      }
+      for (const row of pendingRows) {
         if (row.salesPointId === spId && row.productId === pId) {
           next[String(row.customerId)] = String(Math.round(row.outstandingQty));
         }
@@ -323,9 +373,67 @@ export function CarryForwardCommitmentsScreen({
           }
         />
         <span class="cf-count">
-          {loading ? "Loading…" : `${filtered.length} line${filtered.length === 1 ? "" : "s"}`}
+          {loading
+            ? "Loading…"
+            : [
+                `${filtered.length} live`,
+                filteredPending.length > 0
+                  ? `${filteredPending.length} pending validation`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
         </span>
       </div>
+
+      {filteredPending.length > 0 ? (
+        <section class="cf-pending-section">
+          <div class="cf-pending-header">
+            <h3>Awaiting validation</h3>
+            <p>
+              {filteredPending.length} line
+              {filteredPending.length === 1 ? "" : "s"} across {pendingDoCount} DO
+              {pendingDoCount === 1 ? "" : "s"}
+            </p>
+          </div>
+          <div class="cf-table-wrap">
+            <table class="cf-table">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th>Customer</th>
+                  <th>Collection point</th>
+                  <th>Product</th>
+                  <th class="cf-num">Outstanding (kg)</th>
+                  <th>CF DO</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPending.map((row) => (
+                  <tr key={row.detailId}>
+                    <td>
+                      <span class="cf-pending-badge">Pending validation</span>
+                    </td>
+                    <td>{row.dateIssued}</td>
+                    <td>{row.customerName}</td>
+                    <td>{row.salesPointName}</td>
+                    <td>{row.productName}</td>
+                    <td class="cf-num">{formatKg(row.outstandingQty)}</td>
+                    <td>
+                      <code>{row.deliveryOrderNo}</code>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      {pendingRows.length > 0 ? (
+        <h3 class="cf-posted-title">Live commitments</h3>
+      ) : null}
 
       <div class="cf-table-wrap">
         <table class="cf-table">

@@ -26,11 +26,13 @@ import type {
   DailySalesReport,
   DailySalesMatrixReport,
   LooseLpoStockSummaryReport,
+  TransportCostReport,
 } from "../../shared/reports.types.js";
 import { requireAuthUser } from "../auth/requireUser.js";
 import { getMonthlyDeliveryReport } from "../reports/monthlyDeliveryReport.js";
 import { getMonthlyStockReconciliationReport } from "../reports/monthlyStockReconciliationReport.js";
 import { getLooseLpoStockSummaryReport } from "../reports/looseLpoStockSummaryReport.js";
+import { getTransportCostReport } from "../reports/transportCostReport.js";
 import { getMonthlyPaymentDeliveryReport } from "../reports/monthlyPaymentDeliveryReport.js";
 import { getMonthlyDeliveriesByDestinationReport } from "../reports/monthlyDeliveriesByDestinationReport.js";
 import { getMonthlyPalmOilSalesReport } from "../reports/monthlyPalmOilSalesReport.js";
@@ -180,6 +182,14 @@ export function registerReportsHandlers(): void {
     (_event, authToken: string): MonthlyPaymentDeliveryReport => {
       const user = requireAuthUser(authToken);
       return getMonthlyPaymentDeliveryReport(user.id);
+    },
+  );
+
+  ipcMain.handle(
+    "reports:getTransportCost",
+    (_event, authToken: string): TransportCostReport => {
+      const user = requireAuthUser(authToken);
+      return getTransportCostReport(user.id);
     },
   );
 

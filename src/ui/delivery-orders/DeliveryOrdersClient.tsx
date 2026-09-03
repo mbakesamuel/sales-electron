@@ -502,6 +502,14 @@ export function DeliveryOrdersClient({
       return;
     }
 
+    if (
+      confirmedDeliveryOrderNo !== null &&
+      confirmedDeliveryOrderNo === deliveryOrderNo.trim() &&
+      isValidBookletSerial(deliveryOrderNo)
+    ) {
+      return;
+    }
+
     const validation = validateBookletSerial(deliveryOrderNo);
     if (validation.ok === false) {
       setBanner({ type: "error", text: validation.error });
@@ -752,6 +760,7 @@ export function DeliveryOrdersClient({
                         (event.currentTarget as HTMLInputElement).value,
                       )
                     }
+                    onBlur={() => void tryLoadOrderOnEnter()}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         event.preventDefault();
@@ -802,7 +811,7 @@ export function DeliveryOrdersClient({
             </div>
             {isAwaitingOrder ? (
               <p class="sales-hint sales-invoice-serial-hint">
-                Enter DO no. and press Enter to continue.
+                Enter DO no., then press Enter or leave the field to continue.
               </p>
             ) : null}
           </div>

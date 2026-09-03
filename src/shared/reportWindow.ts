@@ -16,6 +16,7 @@ export const REPORT_WINDOW_ROUTE_IDS = new Set([
   "monthly-stock-reconciliation-report",
   "loose-lpo-stock-summary-report",
   "monthly-payment-delivery-report",
+  "transport-cost-report",
   "monthly-deliveries-by-destination-report",
   "monthly-palm-oil-sales-report",
   "revenue-taxes-report",

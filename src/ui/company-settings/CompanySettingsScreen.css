@@ -126,6 +126,177 @@
   box-shadow: 0 0 0 2px var(--accent-bg);
 }
 
+.company-settings-registry {
+  margin: 0 24px 32px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+}
+
+.company-settings-registry-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.company-settings-registry-header h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  color: var(--text-h);
+}
+
+.company-settings-registry-subtitle {
+  margin: 0;
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.company-settings-registry-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.company-settings-registry-sort {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.company-settings-registry-sort-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #64748b;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.company-settings-registry-sort-select {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 7px 10px;
+  background: var(--bg-elevated);
+  color: #172033;
+  font-size: 12px;
+  outline: none;
+}
+
+.company-settings-registry-sort-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-bg);
+}
+
+.company-settings-registry-sort-direction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 6px;
+  background: var(--bg-elevated);
+  color: #64748b;
+  cursor: pointer;
+}
+
+.company-settings-registry-sort-direction:hover {
+  background: var(--bg-soft);
+  color: #2563eb;
+}
+
+.company-settings-registry-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.company-settings-record-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #e9eef4;
+}
+
+.company-settings-record-card:last-child {
+  border-bottom: 0;
+}
+
+.company-settings-record-card:hover {
+  background: #eff6ff;
+}
+
+.company-settings-record-logo .company-settings-logo,
+.company-settings-record-logo .company-settings-logo-placeholder {
+  width: 40px;
+  height: 40px;
+}
+
+.company-settings-record-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.company-settings-record-title strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.company-settings-record-title small {
+  display: block;
+  margin-top: 3px;
+  color: #94a3b8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+}
+
+.company-settings-record-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 16px;
+  margin: 12px 0 0;
+}
+
+.company-settings-record-meta > div {
+  min-width: 0;
+}
+
+.company-settings-record-meta dt {
+  margin: 0 0 2px;
+  color: #94a3b8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.company-settings-record-meta dd {
+  margin: 0;
+  font-size: 13px;
+}
+
+.company-settings-record-actions {
+  flex: 0 0 auto;
+  padding-top: 2px;
+}
+
+.company-settings-registry-empty {
+  padding: 42px 18px;
+  margin: 0;
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  text-align: center;
+}
+
 .company-settings-table-card {
   margin: 0 24px 32px;
   overflow: hidden;
@@ -448,9 +619,12 @@
   margin: 0 24px 20px;
   padding: 16px 18px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--bg-elevated);
-  max-width: 40rem;
+}
+
+.company-settings-header + .company-settings-stock-numbering {
+  margin-top: 20px;
 }
 
 .company-settings-stock-numbering-header {
@@ -505,6 +679,23 @@
   color: #64748b;
   font-size: 13px;
   line-height: 1.45;
+}
+
+.company-settings-stock-numbering-select {
+  flex-direction: column;
+  cursor: default;
+}
+
+.company-settings-stock-numbering-select select {
+  margin-top: 10px;
+  max-width: 16rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  background: var(--bg-elevated);
+  color: var(--text-h);
 }
 
 .company-settings-theme-option {
@@ -595,6 +786,41 @@
   .company-settings-toolbar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .company-settings-registry-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .company-settings-registry-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .company-settings-registry-sort {
+    width: 100%;
+  }
+
+  .company-settings-registry-sort-label {
+    flex: 1;
+  }
+
+  .company-settings-registry-sort-select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .company-settings-record-card {
+    flex-wrap: wrap;
+  }
+
+  .company-settings-record-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .company-settings-record-actions {
+    width: 100%;
   }
 
   .company-settings-toolbar > span {

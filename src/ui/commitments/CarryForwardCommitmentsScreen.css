@@ -330,3 +330,43 @@
     grid-template-columns: 1fr;
   }
 }
+
+.cf-pending-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cf-pending-header h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.cf-pending-header p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.cf-pending-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: rgba(245, 158, 11, 0.12);
+  color: #92400e;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.cf-posted-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-h);
+}

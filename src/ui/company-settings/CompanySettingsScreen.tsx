@@ -70,6 +70,14 @@ const COLUMNS: Array<{ key: SortField; label: string }> = [
   { key: "updatedAt", label: "Updated" },
 ];
 
+const SESSION_IDLE_TIMEOUT_OPTIONS = [
+  { value: 0, label: "Off (no idle sign-out)" },
+  { value: 15, label: "15 minutes" },
+  { value: 30, label: "30 minutes" },
+  { value: 60, label: "60 minutes" },
+  { value: 120, label: "120 minutes" },
+] as const;
+
 function normalizeTheme(value: unknown): ThemePreset {
   return THEME_PRESETS.includes(value as ThemePreset)
     ? (value as ThemePreset)
@@ -138,6 +146,17 @@ export function CompanySettingsScreen({
   const [bottleOilSettingSavedHint, setBottleOilSettingSavedHint] = useState<
     string | null
   >(null);
+  const [transportCostMoliweOnlyPolicy, setTransportCostMoliweOnlyPolicy] =
+    useState(false);
+  const [transportCostSettingSaving, setTransportCostSettingSaving] =
+    useState(false);
+  const [transportCostSettingSavedHint, setTransportCostSettingSavedHint] =
+    useState<string | null>(null);
+  const [sessionIdleTimeoutMinutes, setSessionIdleTimeoutMinutes] = useState(0);
+  const [sessionSecuritySettingSaving, setSessionSecuritySettingSaving] =
+    useState(false);
+  const [sessionSecuritySettingSavedHint, setSessionSecuritySettingSavedHint] =
+    useState<string | null>(null);
   const [salesInvoiceLockUnitPrice, setSalesInvoiceLockUnitPrice] =
     useState(true);
   const [salesInvoiceSettingSaving, setSalesInvoiceSettingSaving] =
@@ -199,6 +218,8 @@ export function CompanySettingsScreen({
           setAutoGenerateStockTransferNo(true);
           setBottleOilUseRegisteredCustomers(false);
           setBottleOilAllowRation(false);
+          setTransportCostMoliweOnlyPolicy(false);
+          setSessionIdleTimeoutMinutes(0);
           setStockTransferReceiveUsesDocumentDate(false);
           setLoosePalmOilAllowInterSalesPointTransfer(false);
           setStockIntakeOilGrouping(false);
@@ -223,6 +244,12 @@ export function CompanySettingsScreen({
           Number(row.bottleOilUseRegisteredCustomers ?? 0) !== 0,
         );
         setBottleOilAllowRation(Number(row.bottleOilAllowRation ?? 0) !== 0);
+        setTransportCostMoliweOnlyPolicy(
+          Number(row.transportCostMoliweOnlyPolicy ?? 0) !== 0,
+        );
+        setSessionIdleTimeoutMinutes(
+          Number(row.sessionIdleTimeoutMinutes ?? 0),
+        );
         setStockTransferReceiveUsesDocumentDate(
           Number(row.stockTransferReceiveUsesDocumentDate ?? 0) !== 0,
         );
@@ -253,6 +280,8 @@ export function CompanySettingsScreen({
           setAutoGenerateStockTransferNo(true);
           setBottleOilUseRegisteredCustomers(false);
           setBottleOilAllowRation(false);
+          setTransportCostMoliweOnlyPolicy(false);
+          setSessionIdleTimeoutMinutes(0);
           setStockTransferReceiveUsesDocumentDate(false);
           setLoosePalmOilAllowInterSalesPointTransfer(false);
           setStockIntakeOilGrouping(false);
@@ -327,6 +356,66 @@ export function CompanySettingsScreen({
     }
   }
 
+  async function onSaveTransportCostSettings() {
+    if (!canWrite || transportCostSettingSaving) {
+      return;
+    }
+    setTransportCostSettingSaving(true);
+    setActionError(null);
+    setTransportCostSettingSavedHint(null);
+    try {
+      await getAuthenticatedDb().updateRow({
+        table: "CompanySettings",
+        primaryKey: { id: "default" },
+        values: {
+          transportCostMoliweOnlyPolicy: transportCostMoliweOnlyPolicy ? 1 : 0,
+        },
+      });
+      setTransportCostSettingSavedHint("Transportation cost options saved.");
+    } catch (saveError) {
+      setActionError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to save transportation cost options.",
+      );
+    } finally {
+      setTransportCostSettingSaving(false);
+    }
+  }
+
+  async function onSaveSessionSecuritySettings() {
+    if (!canWrite || sessionSecuritySettingSaving) {
+      return;
+    }
+
+    if (!SESSION_IDLE_TIMEOUT_OPTIONS.some((option) => option.value === sessionIdleTimeoutMinutes)) {
+      setActionError("Select a valid idle timeout preset.");
+      return;
+    }
+
+    setSessionSecuritySettingSaving(true);
+    setActionError(null);
+    setSessionSecuritySettingSavedHint(null);
+    try {
+      await getAuthenticatedDb().updateRow({
+        table: "CompanySettings",
+        primaryKey: { id: "default" },
+        values: {
+          sessionIdleTimeoutMinutes,
+        },
+      });
+      setSessionSecuritySettingSavedHint("Session security options saved.");
+    } catch (saveError) {
+      setActionError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to save session security options.",
+      );
+    } finally {
+      setSessionSecuritySettingSaving(false);
+    }
+  }
+
   async function onSaveSalesInvoiceSettings() {
     if (!canWrite || salesInvoiceSettingSaving) {
       return;
@@ -385,7 +474,7 @@ export function CompanySettingsScreen({
             userId: user.id,
             enabled: stockIntakeOilGrouping,
           });
-        if (!groupingResult.ok) {
+        if (groupingResult.ok === false) {
           setActionError(groupingResult.error);
           return;
         }
@@ -526,17 +615,6 @@ export function CompanySettingsScreen({
       });
   }, [records, query, sort]);
 
-  function toggleSort(field: SortField) {
-    setSort((current) =>
-      current.field === field
-        ? {
-            field,
-            direction: current.direction === "asc" ? "desc" : "asc",
-          }
-        : { field, direction: "asc" },
-    );
-  }
-
   function refresh() {
     setRefreshKey((current) => current + 1);
   }
@@ -636,22 +714,10 @@ export function CompanySettingsScreen({
         <div class="company-settings-heading">
           <Building2 size={19} />
           <div>
-            <h2>Company settings</h2>
+            <h2>General Application Settings</h2>
             <p>Company identity, fiscal settings, and UI theme registry</p>
           </div>
         </div>
-
-        {canWrite ? (
-          <button
-            type="button"
-            class="company-settings-primary-btn"
-            disabled={!schema || isLoading}
-            onClick={() => setModal({ type: "create" })}
-          >
-            <Plus size={14} />
-            New record
-          </button>
-        ) : null}
       </header>
 
       <section class="company-settings-stock-numbering">
@@ -787,6 +853,110 @@ export function CompanySettingsScreen({
               Public relation is always available.
             </span>
           </span>
+        </label>
+      </section>
+
+      <section class="company-settings-stock-numbering">
+        <div class="company-settings-stock-numbering-header">
+          <div>
+            <h3>Transportation cost</h3>
+            <p>
+              Options for transport cost compute and the monthly transportation
+              cost report.
+            </p>
+          </div>
+          {canWrite ? (
+            <button
+              type="button"
+              class="company-settings-primary-btn"
+              disabled={isLoading || transportCostSettingSaving}
+              onClick={() => void onSaveTransportCostSettings()}
+            >
+              {transportCostSettingSaving ? "Saving…" : "Save transportation cost options"}
+            </button>
+          ) : null}
+        </div>
+        {transportCostSettingSavedHint && !actionError ? (
+          <p class="company-settings-stock-numbering-hint">
+            {transportCostSettingSavedHint}
+          </p>
+        ) : null}
+        <label class="company-settings-stock-numbering-option">
+          <input
+            type="checkbox"
+            checked={transportCostMoliweOnlyPolicy}
+            disabled={isLoading || !canWrite || transportCostSettingSaving}
+            onChange={(event) => {
+              setTransportCostMoliweOnlyPolicy(
+                (event.currentTarget as HTMLInputElement).checked,
+              );
+              setTransportCostSettingSavedHint(null);
+            }}
+          />
+          <span>
+            <strong>Moliwe-only transport cost policy</strong>
+            <span>
+              When unchecked (default), transport cost applies to all collection
+              points using configured rates. When checked, compute and the monthly
+              report include only the Moliwe collection point.
+            </span>
+          </span>
+        </label>
+      </section>
+
+      <section class="company-settings-stock-numbering">
+        <div class="company-settings-stock-numbering-header">
+          <div>
+            <h3>Session security</h3>
+            <p>
+              Automatically sign users out after a period of inactivity. Applies
+              on next sign-in.
+            </p>
+          </div>
+          {canWrite ? (
+            <button
+              type="button"
+              class="company-settings-primary-btn"
+              disabled={isLoading || sessionSecuritySettingSaving}
+              onClick={() => void onSaveSessionSecuritySettings()}
+            >
+              {sessionSecuritySettingSaving ? "Saving…" : "Save session security options"}
+            </button>
+          ) : null}
+        </div>
+        {sessionSecuritySettingSavedHint && !actionError ? (
+          <p class="company-settings-stock-numbering-hint">
+            {sessionSecuritySettingSavedHint}
+          </p>
+        ) : null}
+        <label class="company-settings-stock-numbering-option company-settings-stock-numbering-select">
+          <span>
+            <strong>Idle sign-out timeout</strong>
+            <span>
+              When Off (default), users stay signed in until they sign out manually
+              or the session expires. When set, the app silently signs out after
+              the selected period with no keyboard or mouse activity.
+            </span>
+          </span>
+          <select
+            value={String(sessionIdleTimeoutMinutes)}
+            disabled={isLoading || !canWrite || sessionSecuritySettingSaving}
+            onChange={(event) => {
+              setSessionIdleTimeoutMinutes(
+                Number.parseInt(
+                  (event.currentTarget as HTMLSelectElement).value,
+                  10,
+                ),
+              );
+              setSessionSecuritySettingSavedHint(null);
+            }}
+          >
+            {SESSION_IDLE_TIMEOUT_OPTIONS.map((option) => (
+              <option key={option.value} value={String(option.value)}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </label>
       </section>
 
@@ -1062,141 +1232,170 @@ export function CompanySettingsScreen({
         </section>
       ) : null}
 
-      <div class="company-settings-toolbar">
-        <label class="company-settings-search">
-          <Search size={14} />
-          <input
-            type="search"
-            value={query}
-            placeholder="Search company, department, theme…"
-            onInput={(event) =>
-              setQuery((event.currentTarget as HTMLInputElement).value)
-            }
-          />
-        </label>
-        <span>
-          {filtered.length} / {records.length} records
-        </span>
-      </div>
-
       {error ? <p class="company-settings-error">{error}</p> : null}
       {actionError ? <p class="company-settings-error">{actionError}</p> : null}
 
-      <div class="company-settings-table-card">
-        <div class="company-settings-table-scroll">
-          <table class="company-settings-table">
-            <thead>
-              <tr>
-                <th class="company-settings-logo-column" />
-                {COLUMNS.map((column) => (
-                  <th key={column.key}>
-                    <button
-                      type="button"
-                      class="company-settings-sort"
-                      onClick={() => toggleSort(column.key)}
-                    >
+      <section class="company-settings-registry">
+        <div class="company-settings-registry-header">
+          <div>
+            <h3>Company registry</h3>
+            <p class="company-settings-registry-subtitle">
+              {filtered.length} / {records.length} records
+            </p>
+          </div>
+          <div class="company-settings-registry-controls">
+            <label class="company-settings-search">
+              <Search size={14} />
+              <input
+                type="search"
+                value={query}
+                placeholder="Search company, department, theme…"
+                onInput={(event) =>
+                  setQuery((event.currentTarget as HTMLInputElement).value)
+                }
+              />
+            </label>
+            <div class="company-settings-registry-sort">
+              <label class="company-settings-registry-sort-label">
+                Sort by
+                <select
+                  class="company-settings-registry-sort-select"
+                  value={sort.field}
+                  onChange={(event) => {
+                    const field = (event.currentTarget as HTMLSelectElement)
+                      .value as SortField;
+                    setSort((current) => ({
+                      field,
+                      direction:
+                        current.field === field ? current.direction : "desc",
+                    }));
+                  }}
+                >
+                  {COLUMNS.map((column) => (
+                    <option key={column.key} value={column.key}>
                       {column.label}
-                      <span>
-                        <ChevronUp
-                          size={10}
-                          class={
-                            sort.field === column.key &&
-                            sort.direction === "asc"
-                              ? "is-active"
-                              : ""
-                          }
-                        />
-                        <ChevronDown
-                          size={10}
-                          class={
-                            sort.field === column.key &&
-                            sort.direction === "desc"
-                              ? "is-active"
-                              : ""
-                          }
-                        />
-                      </span>
-                    </button>
-                  </th>
-                ))}
-                {canWrite ? <th class="company-settings-actions-title">Actions</th> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr>
-                  <td
-                    colSpan={COLUMNS.length + (canWrite ? 2 : 1)}
-                    class="company-settings-empty"
-                  >
-                    Loading company settings…
-                  </td>
-                </tr>
-              ) : filtered.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={COLUMNS.length + (canWrite ? 2 : 1)}
-                    class="company-settings-empty"
-                  >
-                    No records match your search.
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((record) => (
-                  <tr key={record.id}>
-                    <td>
-                      <LogoCell url={record.logoUrl} name={record.companyName} />
-                    </td>
-                    <td>
-                      <strong>{record.companyName}</strong>
-                      <small>{record.id}</small>
-                    </td>
-                    <td>{record.department || "—"}</td>
-                    <td class="company-settings-mono">
-                      {record.vatRate.toFixed(2)}%
-                    </td>
-                    <td>
-                      {MONTHS[record.fiscalYearStartMonth - 1] ?? "—"}
-                    </td>
-                    <td>
-                      <ThemeBadge preset={record.uiThemePreset} />
-                    </td>
-                    <td class="company-settings-date">
-                      {formatDate(record.updatedAt)}
-                    </td>
-                    {canWrite ? (
-                      <td>
-                        <div class="company-settings-actions">
-                          <button
-                            type="button"
-                            title="Edit"
-                            onClick={() => setModal({ type: "edit", record })}
-                          >
-                            <Pencil size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            title={
-                              record.id === "default"
-                                ? "The default company record cannot be deleted"
-                                : "Delete"
-                            }
-                            class="is-danger"
-                            disabled={record.id === "default"}
-                            onClick={() => setModal({ type: "delete", record })}
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    ) : null}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                class="company-settings-registry-sort-direction"
+                title={
+                  sort.direction === "asc"
+                    ? "Sort ascending"
+                    : "Sort descending"
+                }
+                onClick={() =>
+                  setSort((current) => ({
+                    ...current,
+                    direction: current.direction === "asc" ? "desc" : "asc",
+                  }))
+                }
+              >
+                {sort.direction === "asc" ? (
+                  <ChevronUp size={14} />
+                ) : (
+                  <ChevronDown size={14} />
+                )}
+              </button>
+            </div>
+            {canWrite ? (
+              <button
+                type="button"
+                class="company-settings-primary-btn"
+                disabled={!schema || isLoading}
+                onClick={() => setModal({ type: "create" })}
+              >
+                <Plus size={14} />
+                New record
+              </button>
+            ) : null}
+          </div>
         </div>
-      </div>
+
+        <div class="company-settings-registry-list">
+          {isLoading ? (
+            <p class="company-settings-registry-empty">
+              Loading company settings…
+            </p>
+          ) : filtered.length === 0 ? (
+            <p class="company-settings-registry-empty">
+              No records match your search.
+            </p>
+          ) : (
+            filtered.map((record) => (
+              <article key={record.id} class="company-settings-record-card">
+                <div class="company-settings-record-logo">
+                  <LogoCell url={record.logoUrl} name={record.companyName} />
+                </div>
+                <div class="company-settings-record-body">
+                  <div class="company-settings-record-title">
+                    <strong>{record.companyName}</strong>
+                    <small>{record.id}</small>
+                  </div>
+                  <dl class="company-settings-record-meta">
+                    <div>
+                      <dt>Department</dt>
+                      <dd>{record.department || "—"}</dd>
+                    </div>
+                    <div>
+                      <dt>VAT %</dt>
+                      <dd class="company-settings-mono">
+                        {record.vatRate.toFixed(2)}%
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>FY start</dt>
+                      <dd>
+                        {MONTHS[record.fiscalYearStartMonth - 1] ?? "—"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Theme</dt>
+                      <dd>
+                        <ThemeBadge preset={record.uiThemePreset} />
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Updated</dt>
+                      <dd class="company-settings-date">
+                        {formatDate(record.updatedAt)}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+                {canWrite ? (
+                  <div class="company-settings-record-actions">
+                    <div class="company-settings-actions">
+                      <button
+                        type="button"
+                        title="Edit"
+                        onClick={() => setModal({ type: "edit", record })}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        title={
+                          record.id === "default"
+                            ? "The default company record cannot be deleted"
+                            : "Delete"
+                        }
+                        class="is-danger"
+                        disabled={record.id === "default"}
+                        onClick={() => setModal({ type: "delete", record })}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </article>
+            ))
+          )}
+        </div>
+      </section>
 
       {modal?.type === "create" || modal?.type === "edit" ? (
         <CompanySettingsFormModal

@@ -85,7 +85,7 @@ export function RolesScreen({ permissions }: RolesScreenProps) {
         id: newId.trim() || null,
         copyFromRoleId,
       });
-      if (!result.ok) {
+      if (result.ok === false) {
         throw new Error(result.error);
       }
       setShowCreate(false);
@@ -118,7 +118,7 @@ export function RolesScreen({ permissions }: RolesScreenProps) {
         id,
         label: editingLabel,
       });
-      if (!result.ok) {
+      if (result.ok === false) {
         throw new Error(result.error);
       }
       setEditingId(null);
@@ -157,7 +157,7 @@ export function RolesScreen({ permissions }: RolesScreenProps) {
         authToken: token,
         id: role.id,
       });
-      if (!result.ok) {
+      if (result.ok === false) {
         throw new Error(result.error);
       }
       await reloadRoles();

@@ -35,6 +35,7 @@ export interface LoginResult {
     token: string;
     user: AuthUser;
     permissions: RolePermissionsSnapshot;
+    sessionIdleTimeoutMinutes: number;
     error?: never;
 }
 export interface LoginErrorResult {
@@ -116,6 +117,7 @@ export interface DatabaseApi {
 export interface AuthSessionResponse {
     user: AuthUser;
     permissions: RolePermissionsSnapshot;
+    sessionIdleTimeoutMinutes: number;
 }
 export interface AuthApi {
     login(data: LoginInput): Promise<LoginResponse>;

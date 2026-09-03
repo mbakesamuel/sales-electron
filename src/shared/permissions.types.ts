@@ -84,6 +84,7 @@ export interface SavePermissionMatrixInput {
 export interface AuthSessionResponse {
   user: import("./database.types.js").AuthUser;
   permissions: RolePermissionsSnapshot;
+  sessionIdleTimeoutMinutes: number;
 }
 
 export interface PermissionsApi {

@@ -80,6 +80,7 @@ interface LoginResult {
   token: string;
   user: AuthUser;
   permissions: RolePermissionsSnapshot;
+  sessionIdleTimeoutMinutes: number;
   error?: never;
 }
 
@@ -95,6 +96,7 @@ type LoginResponse = LoginResult | LoginErrorResult;
 interface AuthSessionResponse {
   user: AuthUser;
   permissions: RolePermissionsSnapshot;
+  sessionIdleTimeoutMinutes: number;
 }
 
 export interface SchemaSummary {
@@ -213,6 +215,7 @@ interface ReportsApi {
   getMonthlyStockReconciliation(authToken: string): Promise<MonthlyStockReconciliationReport>;
   getLooseLpoStockSummary(authToken: string): Promise<LooseLpoStockSummaryReport>;
   getMonthlyPaymentDelivery(authToken: string): Promise<MonthlyPaymentDeliveryReport>;
+  getTransportCost(authToken: string): Promise<import("../../shared/reports.types").TransportCostReport>;
   getMonthlyDeliveriesByDestination(
     authToken: string,
   ): Promise<MonthlyDeliveriesByDestinationReport>;
@@ -339,6 +342,9 @@ export interface ElectronAppApi {
   carryForward: {
     getFormOptions(): Promise<import("../../shared/carryForward.types.ts").CarryForwardFormOptions>;
     list(): Promise<import("../../shared/carryForward.types.ts").CarryForwardCommitmentRow[]>;
+    listPending(input: {
+      userId: string;
+    }): Promise<import("../../shared/carryForward.types.ts").CarryForwardCommitmentPendingRow[]>;
     upsert(
       input: import("../../shared/carryForward.types.ts").UpsertCarryForwardInput,
     ): Promise<import("../../shared/carryForward.types.ts").CarryForwardMutationResult>;
@@ -354,6 +360,9 @@ export interface ElectronAppApi {
       import("../../shared/carryForwardStock.types.ts").CarryForwardStockFormOptions
     >;
     list(): Promise<import("../../shared/carryForwardStock.types.ts").CarryForwardStockRow[]>;
+    listPending(input: {
+      userId: string;
+    }): Promise<import("../../shared/carryForwardStock.types.ts").CarryForwardStockPendingRow[]>;
     listOnHand(input: {
       salesPointId: number;
       productId: number;
@@ -361,6 +370,15 @@ export interface ElectronAppApi {
     upsertBatch(
       input: import("../../shared/carryForwardStock.types.ts").UpsertCarryForwardStockBatchInput,
     ): Promise<import("../../shared/carryForwardStock.types.ts").CarryForwardStockBatchResult>;
+  };
+  transportCost: {
+    getFormOptions(): Promise<
+      import("../../shared/transportCost.types.ts").TransportCostFormOptions
+    >;
+    compute(
+      authToken: string,
+      input: import("../../shared/transportCost.types.ts").TransportCostComputeInput,
+    ): Promise<import("../../shared/transportCost.types.ts").TransportCostComputeResult>;
   };
   stock: StockApi;
   reports: ReportsApi;

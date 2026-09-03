@@ -1,6 +1,7 @@
 import { ipcMain } from "electron";
 import type {
   CarryForwardBatchResult,
+  CarryForwardCommitmentPendingRow,
   CarryForwardCommitmentRow,
   CarryForwardDeleteResult,
   CarryForwardFormOptions,
@@ -13,6 +14,7 @@ import {
   deleteCarryForwardCommitment,
   getCarryForwardFormOptions,
   listCarryForwardCommitments,
+  listCarryForwardCommitmentsPending,
   upsertCarryForwardBatch,
   upsertCarryForwardCommitment,
 } from "../commitments/carryForward.js";
@@ -26,6 +28,12 @@ export function registerCarryForwardHandlers(): void {
   ipcMain.handle(
     "carryForward:list",
     (): CarryForwardCommitmentRow[] => listCarryForwardCommitments(),
+  );
+
+  ipcMain.handle(
+    "carryForward:listPending",
+    (_event, input: { userId: string }): CarryForwardCommitmentPendingRow[] =>
+      listCarryForwardCommitmentsPending(input.userId),
   );
 
   ipcMain.handle(

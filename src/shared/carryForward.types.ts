@@ -15,6 +15,21 @@ export interface CarryForwardCommitmentRow {
   notes: string | null;
 }
 
+export interface CarryForwardCommitmentPendingRow {
+  detailId: number;
+  deliveryOrderId: number;
+  deliveryOrderNo: string;
+  customerId: number;
+  customerName: string;
+  salesPointId: number;
+  salesPointName: string;
+  productId: number;
+  productName: string;
+  orderQty: number;
+  outstandingQty: number;
+  dateIssued: string;
+}
+
 export interface CarryForwardFormOptions {
   customers: Array<{ id: number; name: string }>;
   products: Array<{ productId: number; productName: string }>;

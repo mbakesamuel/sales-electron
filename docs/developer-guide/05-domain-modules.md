@@ -121,6 +121,8 @@ Validation queue: `listValidationQueue` / `validateMany`. Route seed for supervi
 | Service | `src/electron/commitments/carryForward.ts` |
 | IPC | `src/electron/ipc/carryForward.ts` |
 
+`list()` returns validated CF commitment lines; `listPending(userId)` returns the submitting clerk’s pending CF delivery-order lines for the **Awaiting validation** section on the commitments screen.
+
 One validated `CARRY_FORWARD` DO per customer + sales point; lines upserted per product. Uses auto CF numbering (not booklet serials). Users without `validate_stock_documents` or `validate_delivery_orders` save as **draft** stock adjustments / **pending** DOs for supervisor validation (`carryForwardRequiresValidation` in `permissions/service.ts`).
 
 ## Stock

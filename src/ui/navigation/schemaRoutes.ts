@@ -138,6 +138,12 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         table: "ProductUnitPriceSchedule",
         description: "Scheduled product unit prices.",
       },
+      {
+        id: "transport-rates",
+        label: "Transport Rates",
+        table: "TransportRateSchedule",
+        description: "Transport cost per kg by collection point and product.",
+      },
     ],
   },
   {
@@ -263,6 +269,13 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         description:
           "Prepare and validate vehicle consignment notes for validated sales.",
       },
+      {
+        id: "transport-cost-compute",
+        label: "Transportation cost",
+        table: "Sale",
+        description:
+          "Compute transportation cost for quantities lifted by a customer at a collection point in the open month.",
+      },
     ],
   },
   (() => {
@@ -382,6 +395,13 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         table: "Sale",
         description:
           "Open-month weekly bottled (Payments) vs other-product (Deliveries) sales kg and value.",
+      },
+      {
+        id: "transport-cost-report",
+        label: "Transportation cost",
+        table: "Sale",
+        description:
+          "Open-month transportation cost for all customers by collection point and product.",
       },
       {
         id: "monthly-deliveries-by-destination-report",

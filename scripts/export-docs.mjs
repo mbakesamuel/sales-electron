@@ -38,6 +38,8 @@ const DEVELOPER_CHAPTERS = [
   "09-build-and-packaging.md",
 ];
 
+const TRAINING_FILE = "3-day-user-training.md";
+
 const PRINT_CSS = `
   body {
     font-family: "Segoe UI", Calibri, Arial, sans-serif;
@@ -107,6 +109,21 @@ function concatGuide(guideDir, chapters, title) {
   }
 
   return parts.join("\n");
+}
+
+/**
+ * @param {string} guideDir
+ * @param {string} file
+ * @param {string} title
+ */
+function loadSingleChapter(guideDir, file, title) {
+  const full = path.join(guideDir, file);
+  if (!fs.existsSync(full)) {
+    throw new Error(`Missing training doc: ${full}`);
+  }
+  let body = fs.readFileSync(full, "utf8").trim();
+  body = rewriteRelativeLinks(body);
+  return `# ${title}\n\n*Sales Management Application — generated from markdown sources.*\n\n${body}\n`;
 }
 
 /**
@@ -240,6 +257,11 @@ async function main() {
     DEVELOPER_CHAPTERS,
     "Sales Management Application — Developer Guide",
   );
+  const trainingMd = loadSingleChapter(
+    path.join(docsRoot, "training"),
+    TRAINING_FILE,
+    "Sales Management Application — 3-Day User Training",
+  );
 
   // Intermediate concatenated markdown (handy for debugging; not gitignored individually)
   fs.writeFileSync(
@@ -252,6 +274,11 @@ async function main() {
     developerMd,
     "utf8",
   );
+  fs.writeFileSync(
+    path.join(exportDir, "Sales-Management-Application-3-Day-User-Training.md"),
+    trainingMd,
+    "utf8",
+  );
 
   await exportGuide({
     title: "Sales Management Application — User Guide",
@@ -262,6 +289,11 @@ async function main() {
     title: "Sales Management Application — Developer Guide",
     basename: "Sales-Management-Application-Developer-Guide",
     markdown: developerMd,
+  });
+  await exportGuide({
+    title: "Sales Management Application — 3-Day User Training",
+    basename: "Sales-Management-Application-3-Day-User-Training",
+    markdown: trainingMd,
   });
 
   console.log(`Done. Files in ${path.relative(root, exportDir)}/`);

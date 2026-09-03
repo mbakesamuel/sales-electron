@@ -1005,6 +1005,14 @@ export function SalesClient({
       return;
     }
 
+    if (
+      confirmedInvoiceNo !== null &&
+      confirmedInvoiceNo === invoiceNo.trim() &&
+      isValidBookletSerial(invoiceNo)
+    ) {
+      return;
+    }
+
     const validation = validateBookletSerial(invoiceNo);
     if (validation.ok === false) {
       setBanner({ type: "error", text: validation.error });
@@ -1459,6 +1467,7 @@ export function SalesClient({
                         (event.currentTarget as HTMLInputElement).value,
                       )
                     }
+                    onBlur={() => void tryLoadInvoiceOnEnter()}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         event.preventDefault();
@@ -1490,7 +1499,7 @@ export function SalesClient({
             </div>
             {isAwaitingInvoice ? (
               <p class="sales-hint sales-invoice-serial-hint">
-                Enter invoice no. and press Enter to continue.
+                Enter invoice no., then press Enter or leave the field to continue.
               </p>
             ) : null}
           </div>

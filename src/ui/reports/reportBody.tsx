@@ -24,6 +24,7 @@ import { SalesBudgetMonthlyCrosstabScreen } from "./SalesBudgetMonthlyCrosstabSc
 import { SalesBudgetMonthlyRevenueCrosstabScreen } from "./SalesBudgetMonthlyRevenueCrosstabScreen.tsx";
 import { SalesBudgetWeeklyCrosstabScreen } from "./SalesBudgetWeeklyCrosstabScreen.tsx";
 import { SalesBudgetWeeklyRevenueCrosstabScreen } from "./SalesBudgetWeeklyRevenueCrosstabScreen.tsx";
+import { TransportCostReportScreen } from "./TransportCostReportScreen.tsx";
 import { PalmOilSalesActivityScreen } from "./PalmOilSalesActivityScreen.tsx";
 import { BinCardReportScreen } from "../stock/BinCardReportScreen.tsx";
 import "./ReportLightSurface.css";
@@ -64,6 +65,8 @@ export function ReportBody({
       return <LooseLpoStockSummaryScreen windowMode={windowMode} />;
     case "monthly-payment-delivery-report":
       return <MonthlyPaymentDeliveryScreen windowMode={windowMode} />;
+    case "transport-cost-report":
+      return <TransportCostReportScreen windowMode={windowMode} />;
     case "monthly-deliveries-by-destination-report":
       return <MonthlyDeliveriesByDestinationScreen windowMode={windowMode} />;
     case "monthly-palm-oil-sales-report":

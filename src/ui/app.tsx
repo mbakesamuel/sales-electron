@@ -1,10 +1,11 @@
-import { useEffect, useState } from "preact/hooks";
+import { useCallback, useEffect, useState } from "preact/hooks";
 import type { RolePermissionsSnapshot } from "../shared/permissions.types.ts";
 import {
   AUTH_TOKEN_KEY,
   type AuthUser,
 } from "./auth/session.ts";
 import { getElectronApi } from "./auth/client.ts";
+import { useIdleSessionTimeout } from "./auth/useIdleSessionTimeout.ts";
 import { AppErrorBoundary } from "./components/AppErrorBoundary.tsx";
 import { AppLoadingShell } from "./components/AppLoadingShell.tsx";
 import { ChangePasswordScreen } from "./pages/ChangePasswordScreen.tsx";
@@ -28,9 +29,34 @@ function MainApp() {
   const [permissions, setPermissions] = useState<RolePermissionsSnapshot | null>(
     null,
   );
+  const [sessionIdleTimeoutMinutes, setSessionIdleTimeoutMinutes] = useState(0);
   // Only show a restore shell when a token already exists at first paint.
   const [isRestoringSession, setIsRestoringSession] = useState(
     () => Boolean(readStoredToken()),
+  );
+
+  const handleLogout = useCallback(async () => {
+    const token = readStoredToken();
+    sessionStorage.removeItem(AUTH_TOKEN_KEY);
+    setIsRestoringSession(false);
+    setUser(null);
+    setPermissions(null);
+    setSessionIdleTimeoutMinutes(0);
+
+    if (token) {
+      try {
+        await getElectronApi().auth.logout(token);
+      } catch {
+        // Session already cleared locally.
+      }
+    }
+  }, []);
+
+  useIdleSessionTimeout(
+    user ? sessionIdleTimeoutMinutes : 0,
+    () => {
+      void handleLogout();
+    },
   );
 
   useEffect(() => {
@@ -56,6 +82,7 @@ function MainApp() {
         if (session) {
           setUser(session.user);
           setPermissions(session.permissions);
+          setSessionIdleTimeoutMinutes(session.sessionIdleTimeoutMinutes);
         } else {
           sessionStorage.removeItem(AUTH_TOKEN_KEY);
         }
@@ -85,12 +112,14 @@ function MainApp() {
     nextUser: AuthUser,
     token: string,
     nextPermissions: RolePermissionsSnapshot,
+    idleTimeoutMinutes: number,
   ) {
     sessionStorage.setItem(AUTH_TOKEN_KEY, token);
     // Never re-enter the restore shell after a successful interactive login.
     setIsRestoringSession(false);
     setUser(nextUser);
     setPermissions(nextPermissions);
+    setSessionIdleTimeoutMinutes(idleTimeoutMinutes);
     void loadAndApplyCompanyTheme().catch(() => {
       applyUiTheme("agro");
     });
@@ -102,22 +131,6 @@ function MainApp() {
   ) {
     setUser(nextUser);
     setPermissions(nextPermissions);
-  }
-
-  async function handleLogout() {
-    const token = readStoredToken();
-    sessionStorage.removeItem(AUTH_TOKEN_KEY);
-    setIsRestoringSession(false);
-    setUser(null);
-    setPermissions(null);
-
-    if (token) {
-      try {
-        await getElectronApi().auth.logout(token);
-      } catch {
-        // Session already cleared locally.
-      }
-    }
   }
 
   // Restore shell only before we know whether a stored token is valid.

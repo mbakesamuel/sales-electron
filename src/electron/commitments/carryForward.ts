@@ -1,5 +1,6 @@
 import type {
   CarryForwardBatchResult,
+  CarryForwardCommitmentPendingRow,
   CarryForwardCommitmentRow,
   CarryForwardDeleteResult,
   CarryForwardFormOptions,
@@ -8,7 +9,11 @@ import type {
   UpsertCarryForwardBatchInput,
   UpsertCarryForwardInput,
 } from "../../shared/carryForward.types.js";
-import { assertRouteWrite, carryForwardRequiresValidation } from "../auth/permissions/service.js";
+import {
+  assertRouteRead,
+  assertRouteWrite,
+  carryForwardRequiresValidation,
+} from "../auth/permissions/service.js";
 import { getDatabase } from "../db/index.js";
 import { getOpenPostingPeriod } from "../financialYears/service.js";
 import { resolveUnitPriceExTax } from "../pricing/resolveUnitPrice.js";
@@ -70,6 +75,18 @@ function assertWrite(userId: string): { ok: true } | { ok: false; error: string 
   }
 
   return { ok: true };
+}
+
+function assertRead(userId: string): void {
+  const role = getDatabase()
+    .prepare(`SELECT role FROM User WHERE id = ? AND isActive = 1`)
+    .get(userId) as { role: string } | undefined;
+
+  if (!role) {
+    throw new Error("User not found.");
+  }
+
+  assertRouteRead(role.role, ROUTE_ID);
 }
 
 export function getCarryForwardFormOptions(): CarryForwardFormOptions {
@@ -142,6 +159,63 @@ export function listCarryForwardCommitments(): CarryForwardCommitmentRow[] {
       outstandingQty,
       dateIssued: String(row.dateIssued).slice(0, 10),
       notes: row.notes,
+    };
+  });
+}
+
+export function listCarryForwardCommitmentsPending(
+  userId: string,
+): CarryForwardCommitmentPendingRow[] {
+  assertRead(userId);
+
+  const rows = getDatabase()
+    .prepare(
+      `SELECT dd.id AS detailId, d.id AS deliveryOrderId, d.deliveryOrderNo,
+              d.customerId, c.name AS customerName,
+              d.salesPointId, sp.name AS salesPointName,
+              dd.productId, p.productName, dd.orderQty,
+              d.dateIssued
+       FROM DeliveryOrder d
+       INNER JOIN DeliveryOrderDetails dd ON dd.deliveryOrderId = d.id
+       INNER JOIN Customer c ON c.id = d.customerId
+       INNER JOIN SalesPoint sp ON sp.id = d.salesPointId
+       INNER JOIN Product p ON p.productId = dd.productId
+       WHERE d.sourceKind = 'CARRY_FORWARD'
+         AND d.status = 'PENDING'
+         AND d.createdByUserId = ?
+       ORDER BY d.dateIssued DESC, d.deliveryOrderNo DESC,
+                c.name ASC, p.productName ASC`,
+    )
+    .all(userId) as Array<{
+    detailId: number;
+    deliveryOrderId: number;
+    deliveryOrderNo: string;
+    customerId: number;
+    customerName: string;
+    salesPointId: number;
+    salesPointName: string;
+    productId: number;
+    productName: string;
+    orderQty: number;
+    dateIssued: string;
+  }>;
+
+  return rows.map((row) => {
+    const soldQty = getSoldQtyForDoProduct(row.deliveryOrderNo, row.productId);
+    const outstandingQty = Math.max(row.orderQty - soldQty, 0);
+    return {
+      detailId: row.detailId,
+      deliveryOrderId: row.deliveryOrderId,
+      deliveryOrderNo: row.deliveryOrderNo,
+      customerId: row.customerId,
+      customerName: row.customerName,
+      salesPointId: row.salesPointId,
+      salesPointName: row.salesPointName,
+      productId: row.productId,
+      productName: row.productName,
+      orderQty: row.orderQty,
+      outstandingQty,
+      dateIssued: String(row.dateIssued).slice(0, 10),
     };
   });
 }
