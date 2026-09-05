@@ -20,6 +20,18 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
     table: "Sale",
   },
   {
+    id: "document-booklets",
+    label: "Document booklets",
+    sectionId: "sales",
+    table: "DocumentBooklet",
+  },
+  {
+    id: "booklet-validation",
+    label: "Booklet validation",
+    sectionId: "sales",
+    table: "DocumentBooklet",
+  },
+  {
     id: "transport-cost-compute",
     label: "Transportation cost",
     sectionId: "sales",

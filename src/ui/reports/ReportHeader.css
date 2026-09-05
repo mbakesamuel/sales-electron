@@ -1,11 +1,11 @@
 .report-header {
   position: relative;
   box-sizing: border-box;
-  margin-bottom: 18px;
+  margin-bottom: 8px;
   /* Room above company name so the logo can align without clipping. */
   padding-top: calc((var(--report-header-logo-height) - 24px * 1.3) / 2);
   padding-bottom: 14px;
-  border-bottom: 2px solid #111827;
+ /*  border-bottom: 2px solid #111827; */
   font-family: "Arial Narrow", Arial, sans-serif;
   font-size: 12px;
   --report-header-logo-width: 94px;
@@ -95,7 +95,7 @@
 
 .report-header-commercial-service {
   margin-top: 2px;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   font-family: "Arial Narrow", Arial, sans-serif;
   font-size: 14px;
   color: #4b5563;
@@ -124,7 +124,7 @@
   body.scr-print-mode .report-header,
   body.do-print-mode .report-header {
     border: none !important;
-    border-bottom: 2px solid #000 !important;
+    /* border-bottom: 2px solid #000 !important; */
     border-radius: 0 !important;
   }
 

@@ -7,6 +7,7 @@ import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import { isCommitmentReportEmpty, HIDE_ZERO_ROWS_HINT } from "./reportEmpty.ts";
+import { printWeeklyPortraitDocument } from "./printWeeklyPortraitDocument.ts";
 import "./StockCommitmentReport.css";
 
 
@@ -25,15 +26,7 @@ function formatQty(value: number | null | undefined): string {
 }
 
 function handlePrint(): void {
-  document.body.classList.add("scr-print-mode");
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode");
-    },
-    { once: true },
-  );
-  window.print();
+  printWeeklyPortraitDocument();
 }
 
 function buildCsv(report: CommitmentReport): string {
@@ -84,13 +77,6 @@ function CommitmentSection({ section }: { section: CommitmentReportSection }) {
               {section.sectionLetter}. {section.title}
             </th>
           </tr>
-          <tr>
-            <th>CUSTOMER</th>
-            {section.salesPointNames.map((name) => (
-              <th key={name}>{name}</th>
-            ))}
-            <th>TOTAL</th>
-          </tr>
         </thead>
         <tbody>
           {section.rows.map((row, index) => (
@@ -118,7 +104,7 @@ export function CommitmentReportDocument({ report }: { report: CommitmentReport 
 
   return (
     <ReportDocumentShell
-      className="scr-document sr-stock-compact cr-commitment-report wpp-pack-page"
+      className="scr-document sr-stock-compact cr-commitment-report wpp-pack-page weekly-report-tight"
       isEmpty={empty}
       emptyMessage="No commitment quantities to display."
       emptyHint={HIDE_ZERO_ROWS_HINT}
@@ -134,6 +120,19 @@ export function CommitmentReportDocument({ report }: { report: CommitmentReport 
         />
       }
     >
+      {report.salesPointNames.length > 0 ? (
+        <table class="scr-table scr-category-matrix">
+          <thead>
+            <tr>
+              <th>CUSTOMER</th>
+              {report.salesPointNames.map((name) => (
+                <th key={name}>{name}</th>
+              ))}
+              <th>TOTAL</th>
+            </tr>
+          </thead>
+        </table>
+      ) : null}
       {report.sections.map((section) => (
         <CommitmentSection key={section.sectionLetter} section={section} />
       ))}

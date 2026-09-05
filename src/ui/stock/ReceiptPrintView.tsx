@@ -5,6 +5,10 @@ import type { ReceiptPrintPayload } from "../../shared/stock.types.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { ReportFooter } from "../reports/ReportFooter.tsx";
 import { ReportHeader } from "../reports/ReportHeader.tsx";
+import {
+  DocumentStatusStamp,
+  draftStampLabel,
+} from "../print/DocumentStatusStamp.tsx";
 import { STOCK_DOC_STATUS_LABELS } from "./stockDisplay.ts";
 import { formatDate, trimQty } from "./stockUtils.ts";
 import "../delivery-orders/DeliveryOrderPrintView.css";
@@ -130,6 +134,7 @@ export function ReceiptPrintView({
         </div>
 
         <article class="do-print-document sr-print-document">
+          <DocumentStatusStamp label={draftStampLabel(receipt.status)} />
           <ReportHeader
             companyName={payload.companyName}
             department={payload.department}

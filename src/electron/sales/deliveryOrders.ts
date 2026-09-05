@@ -1,6 +1,8 @@
 import type {
   AvailableDeliveryOrderRow,
+  DeliveryOrderLookupPayment,
   DeliveryOrderLookupResult,
+  PaymentMethodKind,
 } from "../../shared/sales.types.js";
 import { getDatabase } from "../db/index.js";
 import { parseAmount, trimQty } from "./money.js";
@@ -30,6 +32,39 @@ function getSoldQtyForDoProduct(
     .get(deliveryOrderNo, productId) as { soldQty: number };
 
   return row.soldQty;
+}
+
+function loadDeliveryOrderPayments(
+  deliveryOrderId: number,
+): DeliveryOrderLookupPayment[] {
+  const rows = getDatabase()
+    .prepare(
+      `SELECT p.paymentMethodId, pm.kind, p.chequeNo, p.bank,
+              p.traiteNo, p.traiteIssuedOn, p.traiteMaturityOn
+       FROM DeliveryOrderPaymentDetails p
+       INNER JOIN PaymentMethodDefinition pm ON pm.id = p.paymentMethodId
+       WHERE p.deliveryOrderId = ?
+       ORDER BY p.id ASC`,
+    )
+    .all(deliveryOrderId) as Array<{
+    paymentMethodId: string;
+    kind: string;
+    chequeNo: string | null;
+    bank: string | null;
+    traiteNo: string | null;
+    traiteIssuedOn: string | null;
+    traiteMaturityOn: string | null;
+  }>;
+
+  return rows.map((row) => ({
+    paymentMethodId: row.paymentMethodId,
+    kind: row.kind as PaymentMethodKind,
+    chequeNo: row.chequeNo,
+    bank: row.bank,
+    traiteNo: row.traiteNo,
+    traiteIssuedOn: row.traiteIssuedOn,
+    traiteMaturityOn: row.traiteMaturityOn,
+  }));
 }
 
 export function listAvailableDeliveryOrders(
@@ -111,7 +146,8 @@ export function lookupDeliveryOrder(
 
   const order = getDatabase()
     .prepare(
-      `SELECT d.id, d.deliveryOrderNo, d.dateIssued, d.customerId, c.name AS customerName
+      `SELECT d.id, d.deliveryOrderNo, d.dateIssued, d.customerId, c.name AS customerName,
+              COALESCE(d.sourceKind, 'NORMAL') AS sourceKind
        FROM DeliveryOrder d
        INNER JOIN Customer c ON c.id = d.customerId
        WHERE d.deliveryOrderNo = ? AND d.salesPointId = ? AND d.status = 'VALIDATED'`,
@@ -123,6 +159,7 @@ export function lookupDeliveryOrder(
         dateIssued: string;
         customerId: number;
         customerName: string;
+        sourceKind: string;
       }
     | undefined;
 
@@ -171,6 +208,8 @@ export function lookupDeliveryOrder(
     customerName: order.customerName,
     customerMatches: order.customerId === parseCustomerId(selectedCustomerId),
     balanceKg: trimQty(totalBalance),
+    isCarryForward: order.sourceKind === "CARRY_FORWARD",
     perProduct,
+    payments: loadDeliveryOrderPayments(order.id),
   };
 }

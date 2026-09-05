@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowLeftRight,
+  BookOpen,
   Boxes,
   Building2,
   CalendarDays,
@@ -79,6 +80,8 @@ export const ROUTE_ICONS: Record<string, LucideIcon> = {
   "receive-transfers": PackagePlus,
   "stock-validation": FileCheck2,
   "sales-validation": FileCheck2,
+  "document-booklets": BookOpen,
+  "booklet-validation": FileCheck2,
   "stock-balance": Boxes,
   "carry-forward-stock": PackagePlus,
   "stock-bin-card": FileSpreadsheet,

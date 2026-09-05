@@ -12,6 +12,7 @@ import { ChangePasswordScreen } from "./pages/ChangePasswordScreen.tsx";
 import { HomeScreen } from "./pages/HomeScreen.tsx";
 import { LoginScreen } from "./pages/LoginScreen.tsx";
 import { ReportWindowApp } from "./pages/ReportWindowApp.tsx";
+import { WelcomeScreen } from "./pages/WelcomeScreen.tsx";
 import { parseReportWindowHash } from "../shared/reportWindow.ts";
 import { applyUiTheme, loadAndApplyCompanyTheme } from "./theme/applyUiTheme.ts";
 import "./app.css";
@@ -30,6 +31,7 @@ function MainApp() {
     null,
   );
   const [sessionIdleTimeoutMinutes, setSessionIdleTimeoutMinutes] = useState(0);
+  const [entryScreen, setEntryScreen] = useState<"welcome" | "login">("welcome");
   // Only show a restore shell when a token already exists at first paint.
   const [isRestoringSession, setIsRestoringSession] = useState(
     () => Boolean(readStoredToken()),
@@ -42,6 +44,7 @@ function MainApp() {
     setUser(null);
     setPermissions(null);
     setSessionIdleTimeoutMinutes(0);
+    setEntryScreen("login");
 
     if (token) {
       try {
@@ -140,6 +143,9 @@ function MainApp() {
   }
 
   if (!user || !permissions) {
+    if (entryScreen === "welcome") {
+      return <WelcomeScreen onContinue={() => setEntryScreen("login")} />;
+    }
     return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
   }
 

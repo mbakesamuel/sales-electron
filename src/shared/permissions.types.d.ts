@@ -1,5 +1,5 @@
 import type { RouteAccess } from "./roles.ts";
-export declare const PERMISSION_ACTIONS: readonly ["validate_sales", "direct_validate_sales", "validate_delivery_orders", "cancel_validated_delivery_order", "transfer_delivery_order_balance", "validate_vehicle_consignment_notes", "manage_permissions", "draft_stock_receipts", "post_stock_receipts", "draft_stock_transfers", "post_stock_transfers", "receive_stock_transfers", "draft_stock_adjustments", "post_stock_adjustments", "direct_post_stock_receipts", "direct_post_stock_transfers", "validate_stock_documents"];
+export declare const PERMISSION_ACTIONS: readonly ["validate_sales", "direct_validate_sales", "validate_delivery_orders", "cancel_validated_delivery_order", "transfer_delivery_order_balance", "validate_vehicle_consignment_notes", "manage_permissions", "draft_stock_receipts", "post_stock_receipts", "draft_stock_transfers", "post_stock_transfers", "receive_stock_transfers", "draft_stock_adjustments", "post_stock_adjustments", "direct_post_stock_receipts", "direct_post_stock_transfers", "validate_stock_documents", "validate_document_booklets"];
 export type PermissionActionKey = (typeof PERMISSION_ACTIONS)[number];
 export interface RolePermissionsSnapshot {
     routes: Record<string, RouteAccess>;

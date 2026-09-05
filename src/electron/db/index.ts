@@ -774,6 +774,7 @@ function applyManageableRolesMigration(database: Database.Database): void {
     ["MANAGER", "Manager", 20],
     ["SENIOR_SALES_SUPERVISOR", "Senior sales supervisor", 30],
     ["STATISTICS_CLERK", "Statistics clerk", 40],
+    ["STATISTICS_SUPERVISOR", "Statistics supervisor", 45],
     ["STORE_KEEPER", "Store Keeper", 50],
   ];
   for (const [id, label, sortOrder] of systemRoles) {
@@ -1307,6 +1308,29 @@ function runMigrations(database: Database.Database): void {
     .filter((file) => file.endsWith(".sql"))
     .sort();
 
+  try {
+    if (tableExists(database, "Role")) {
+      const orphanRoles = database
+        .prepare(
+          `SELECT DISTINCT role FROM RoleRoutePermission WHERE role NOT IN (SELECT id FROM Role)
+           UNION
+           SELECT DISTINCT role FROM RoleActionPermission WHERE role NOT IN (SELECT id FROM Role)`,
+        )
+        .all() as Array<{ role: string }>;
+      for (const r of orphanRoles) {
+        if (r.role) {
+          database
+            .prepare(
+              `INSERT OR IGNORE INTO Role (id, label, isSystem, sortOrder) VALUES (?, ?, 0, 999)`,
+            )
+            .run(r.role, r.role.replace(/_/g, " "));
+        }
+      }
+    }
+  } catch {
+    // Role or permission tables might not exist yet
+  }
+
   for (const fileName of migrationFiles) {
     if (applied.has(fileName)) {
       continue;
@@ -1597,6 +1621,21 @@ function runMigrations(database: Database.Database): void {
     }
 
     if (fileName === "098_stock_intake_oil_grouping.sql") {
+      const sql = readFileSync(path.join(getMigrationsDir(), fileName), "utf8");
+      try {
+        database.exec(sql);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!msg.includes("duplicate column name")) {
+          throw err;
+        }
+      }
+      applyStockIntakeProductBackfill(database);
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (fileName === "099_palm_kernel_intake_group.sql") {
       const sql = readFileSync(path.join(getMigrationsDir(), fileName), "utf8");
       database.exec(sql);
       applyStockIntakeProductBackfill(database);

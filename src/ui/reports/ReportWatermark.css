@@ -2,7 +2,7 @@
   position: relative;
 }
 
-.scr-document > :not(.report-watermark):not(.report-attribution-footer) {
+.scr-document > :not(.report-watermark):not(.report-attribution-footer):not(.doc-status-stamp) {
   position: relative;
   z-index: 1;
 }

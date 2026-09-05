@@ -148,6 +148,15 @@ export function productHasStockIntakeColumns(db: Database.Database): boolean {
   return columns.some((column) => column.name === "stockIntakeGroup");
 }
 
+function productAllowsPalmKernelIntakeGroup(db: Database.Database): boolean {
+  const row = db
+    .prepare(
+      `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'Product'`,
+    )
+    .get() as { sql: string } | undefined;
+  return row?.sql?.includes("PALM_KERNEL") ?? false;
+}
+
 /** Idempotent backfill of intake pool products and member mappings. */
 export function applyStockIntakeProductBackfill(db: Database.Database): void {
   if (!productHasStockIntakeColumns(db)) {
@@ -162,13 +171,15 @@ export function applyStockIntakeProductBackfill(db: Database.Database): void {
     findMemberIds(db, SLUDGE_MEMBER_PRODUCT_NAMES),
   );
 
-  ensurePoolProduct(
-    db,
-    PALM_KERNEL_POOL_PRODUCT_NAME,
-    "PK",
-    "PALM_KERNEL",
-    findMemberIds(db, PALM_KERNEL_MEMBER_PRODUCT_NAMES),
-  );
+  if (productAllowsPalmKernelIntakeGroup(db)) {
+    ensurePoolProduct(
+      db,
+      PALM_KERNEL_POOL_PRODUCT_NAME,
+      "PK",
+      "PALM_KERNEL",
+      findMemberIds(db, PALM_KERNEL_MEMBER_PRODUCT_NAMES),
+    );
+  }
 
   const loosePalmOilId = findProductByName(db, LOOSE_PALM_OIL_PRODUCT_NAME);
   if (loosePalmOilId != null) {

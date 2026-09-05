@@ -25,6 +25,7 @@ import {
   type StorageLocationRow,
 } from "./shared.js";
 import { getDatabase } from "../db/index.js";
+import { isLooseLpoProduct } from "../../shared/looseLpoProduct.js";
 import { loadStockBalancesAsOf } from "../stock/asOfBalance.js";
 import { compareStorageLocationsForReport } from "./storageLocationReportOrder.js";
 
@@ -223,34 +224,36 @@ function remarksAtLocation(
       row.storageLocationId === storageLocationId &&
       row.qty > 0,
   );
-  if (atLocation.length === 0) {
-    return null;
-  }
+
+  const remarkLines = atLocation.filter((row) => {
+    const product = products.find((p) => p.productId === row.productId);
+    if (!product) {
+      return false;
+    }
+    return !isLooseLpoProduct({
+      productCode: product.productCode,
+      productName: product.productName,
+      isBottled: product.isBottled,
+    });
+  });
 
   const names = [
     ...new Set(
-      atLocation
+      remarkLines
         .map((row) => products.find((p) => p.productId === row.productId)?.productName)
         .filter((name): name is string => Boolean(name)),
     ),
   ].map((name) => name.toUpperCase());
 
-  // Invoice / display sellability: stock condition AND active location.
-  const hasSellable =
-    locationIsSellable &&
-    atLocation.some((row) => row.condition === "SELLABLE");
   const hasUnsellable =
-    !locationIsSellable ||
-    atLocation.some((row) => row.condition !== "SELLABLE");
-  const conditionParts: string[] = [];
-  if (hasSellable) {
-    conditionParts.push("SELLABLE");
-  }
-  if (hasUnsellable) {
-    conditionParts.push("UNSELLABLE");
+    atLocation.length > 0 &&
+    (!locationIsSellable || atLocation.some((row) => row.condition !== "SELLABLE"));
+
+  if (names.length === 0 && !hasUnsellable) {
+    return null;
   }
 
-  const parts = [...names, ...conditionParts];
+  const parts = hasUnsellable ? [...names, "UNSELLABLE"] : [...names];
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 

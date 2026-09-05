@@ -45,9 +45,9 @@ export function ReportHeader({
 }: ReportHeaderProps) {
   return (
     <header class="report-header">
-      {/*   <div class="report-header-logo-wrap">
+        <div class="report-header-logo-wrap">
         <ReportLogo companyName={companyName} />
-      </div> */}
+      </div>
       {meta ? <div class="report-header-meta">{meta}</div> : null}
 
       <div class="report-header-company">

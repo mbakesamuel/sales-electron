@@ -35,6 +35,7 @@ const ACTION_LABELS: Record<PermissionActionKey, string> = {
   direct_post_stock_receipts: "Post stock receipts directly (skip draft review)",
   direct_post_stock_transfers: "Post stock transfers directly (skip draft review)",
   validate_stock_documents: "Validate pending stock documents (receipts, transfers, adjustments)",
+  validate_document_booklets: "Validate document booklet issuances",
 };
 
 function emptyActionAccess(): Record<PermissionActionKey, boolean> {

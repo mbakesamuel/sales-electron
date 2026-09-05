@@ -18,6 +18,7 @@ export const PERMISSION_ACTIONS = [
   "direct_post_stock_receipts",
   "direct_post_stock_transfers",
   "validate_stock_documents",
+  "validate_document_booklets",
 ] as const;
 
 export type PermissionActionKey = (typeof PERMISSION_ACTIONS)[number];

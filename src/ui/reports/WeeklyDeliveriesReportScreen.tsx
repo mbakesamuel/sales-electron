@@ -15,6 +15,7 @@ import {
   HIDE_ZERO_ROWS_HINT,
   isWeeklyDeliveriesReportEmpty,
 } from "./reportEmpty.ts";
+import { printWeeklyPortraitDocument } from "./printWeeklyPortraitDocument.ts";
 import "./StockCommitmentReport.css";
 import "./SalesBudgetCrosstab.css";
 
@@ -31,15 +32,7 @@ function formatQty(value: number | null | undefined): string {
 }
 
 function handlePrint(): void {
-  document.body.classList.add("scr-print-mode");
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode");
-    },
-    { once: true },
-  );
-  window.print();
+  printWeeklyPortraitDocument();
 }
 
 function buildCsv(report: WeeklyDeliveriesReport): string {
@@ -216,7 +209,7 @@ export function WeeklyDeliveriesReportDocument({
 
   return (
     <ReportDocumentShell
-      className="scr-document wpp-pack-page wd-weekly-deliveries"
+      className="scr-document wpp-pack-page wd-weekly-deliveries weekly-report-tight"
       isEmpty={empty}
       emptyMessage="No deliveries recorded for this week."
       emptyHint={HIDE_ZERO_ROWS_HINT}

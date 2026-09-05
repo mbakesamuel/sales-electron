@@ -13,6 +13,10 @@ import { ReportFooter } from "../reports/ReportFooter.tsx";
 import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
 import { ReportWindowSaveButton } from "../reports/ReportWindowSaveButton.tsx";
 import { printPortraitDocument } from "../reports/printPortraitDocument.ts";
+import {
+  DocumentStatusStamp,
+  draftStampLabel,
+} from "../print/DocumentStatusStamp.tsx";
 import type { DeliveryOrderPrintPayload } from "./types.ts";
 import "../reports/StockCommitmentReport.css";
 import "./DeliveryOrderPrintView.css";
@@ -137,6 +141,7 @@ export function DeliveryOrderPrintView({
         </div>
 
         <article class="scr-document do-print-document">
+          <DocumentStatusStamp label={draftStampLabel(order.status)} />
           <ReportHeader
             companyName={payload.companyName}
             department={payload.department}

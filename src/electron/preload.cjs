@@ -299,4 +299,20 @@ contextBridge.exposeInMainWorld("api", {
       };
     },
   },
+  booklets: {
+    listBooklets: (authToken, filters) =>
+      ipcRenderer.invoke("booklets:listBooklets", authToken, filters),
+    createBooklet: (authToken, input) =>
+      ipcRenderer.invoke("booklets:createBooklet", authToken, input),
+    validateBooklet: (authToken, bookletId) =>
+      ipcRenderer.invoke("booklets:validateBooklet", authToken, bookletId),
+    rejectBooklet: (authToken, bookletId, reason) =>
+      ipcRenderer.invoke("booklets:rejectBooklet", authToken, bookletId, reason),
+    validateManyBooklets: (authToken, bookletIds) =>
+      ipcRenderer.invoke("booklets:validateManyBooklets", authToken, bookletIds),
+    cancelBooklet: (authToken, bookletId, reason) =>
+      ipcRenderer.invoke("booklets:cancelBooklet", authToken, bookletId, reason),
+    validateSerial: (input) =>
+      ipcRenderer.invoke("booklets:validateSerial", input),
+  },
 });

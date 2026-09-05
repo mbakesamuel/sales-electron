@@ -1,0 +1,106 @@
+/*
+ * Background image hook:
+ * Drop a photo at src/assets/welcome-bg.jpg (or similar), then either:
+ *   1. Set --welcome-bg-image on .welcome-screen, e.g.
+ *      --welcome-bg-image: url("../../assets/welcome-bg.jpg");
+ *   2. Or import the image in WelcomeScreen.tsx and pass it via inline style.
+ * Until then, the agro gradient placeholder is used.
+ */
+
+.welcome-screen {
+  --welcome-bg-image: url("../../assets/bg-img.jpg");;
+
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: 32px 20px;
+  background-color: #1a3d2e;
+  background-image:
+    var(--welcome-bg-image),
+    linear-gradient(
+      160deg,
+      #1a3d2e 0%,
+      #2d5a3d 40%,
+      #4a7c59 70%,
+      #6b9b6e 100%
+    );
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
+.welcome-screen-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.35) 0%,
+    rgba(0, 0, 0, 0.5) 100%
+  );
+  pointer-events: none;
+}
+
+.welcome-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 32rem;
+  text-align: center;
+}
+
+.welcome-logo {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  margin-bottom: 8px;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.35));
+}
+
+.welcome-title {
+  margin: 0;
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+}
+
+.welcome-subtitle {
+  margin: 0 0 16px;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.88);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
+}
+
+.welcome-button {
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 12px 28px;
+  min-width: 10rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent, #5a8f3c);
+  color: var(--accent-fg, #fff);
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  transition: opacity 0.2s, transform 0.15s;
+}
+
+.welcome-button:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.welcome-button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}

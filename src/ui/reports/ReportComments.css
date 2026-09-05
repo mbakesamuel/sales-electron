@@ -1,12 +1,12 @@
 .scr-comments {
   margin-top: 20px;
-  margin-bottom: 32px;
+  margin-bottom: 8px;
   break-inside: avoid;
   page-break-inside: avoid;
 }
 
 .sr-stock-compact .scr-comments {
-  margin-bottom: 36px;
+  margin-bottom: 8px;
 }
 
 .sr-stock-compact .scr-comments + .report-footer {

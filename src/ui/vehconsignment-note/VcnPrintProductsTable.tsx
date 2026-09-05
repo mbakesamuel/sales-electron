@@ -1,5 +1,4 @@
 import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
-import type { SaleDisposition } from "../../shared/sales.types.ts";
 import type { ConsignmentPrintPayload } from "../../shared/vehicleConsignmentNotes.types.ts";
 import "./VcnPrintProductsTable.css";
 
@@ -27,6 +26,7 @@ function sumQuantities(lines: ConsignmentPrintPayload["sale"]["saleLines"]): num
   }, 0);
 }
 
+/*
 function dispositionSubtitle(disposition: SaleDisposition | null): string | null {
   if (disposition === "RATION") {
     return "Ration";
@@ -36,6 +36,7 @@ function dispositionSubtitle(disposition: SaleDisposition | null): string | null
   }
   return null;
 }
+*/
 
 interface VcnPrintProductsTableProps {
   payload: ConsignmentPrintPayload;

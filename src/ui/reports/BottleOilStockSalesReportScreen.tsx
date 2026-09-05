@@ -15,6 +15,7 @@ import {
   HIDE_ZERO_ROWS_HINT,
   isBottleOilStockSalesReportEmpty,
 } from "./reportEmpty.ts";
+import { printWeeklyPortraitDocument } from "./printWeeklyPortraitDocument.ts";
 import "./StockCommitmentReport.css";
 
 
@@ -49,15 +50,7 @@ function formatFcfa(value: number): string {
 }
 
 function handlePrint(): void {
-  document.body.classList.add("scr-print-mode");
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode");
-    },
-    { once: true },
-  );
-  window.print();
+  printWeeklyPortraitDocument();
 }
 
 function buildCsv(report: BottleOilStockSalesReport): string {
@@ -302,7 +295,7 @@ export function BottleOilStockSalesReportDocument({
 
   return (
     <ReportDocumentShell
-      className="scr-document wpp-pack-page"
+      className="scr-document wpp-pack-page weekly-report-tight"
       isEmpty={empty}
       emptyMessage="No bottle-oil stock or sales to display."
       emptyHint={HIDE_ZERO_ROWS_HINT}

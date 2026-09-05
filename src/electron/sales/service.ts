@@ -18,6 +18,12 @@ import {
   SALES_ROUTE_ID,
 } from "../../shared/salesModule.js";
 import { validateBookletSerial } from "../../shared/bookletSerial.js";
+import { validateSerialForSalesPoint } from "../booklets/service.js";
+import {
+  loadAutoGenerateSalesInvoiceNo,
+  loadEnforceSalesInvoiceBookletValidation,
+} from "../companySettings/salesDoDocumentNumbers.js";
+import { allocateInvoiceNo, newPaymentId, newSaleId, newSaleLineId } from "./invoice.js";
 import {
   isDispositionPaymentMethodId,
   paymentMethodIdForDisposition,
@@ -47,7 +53,6 @@ import {
 } from "../stock/productStorage.js";
 import { isInsufficientStockError } from "../stock/errors.js";
 import { parseQty } from "../stock/decimal.js";
-import { newPaymentId, newSaleId, newSaleLineId } from "./invoice.js";
 import { formatTaxRateSnapshot, formatXaf, parseAmount, roundMoney, trimQty } from "./money.js";
 import { assertDateInOpenMonth, resolveListDateRange } from "../financialYears/service.js";
 
@@ -595,6 +600,9 @@ export function getSalesFormOptions(userId: string): SalesFormOptions {
     looseSalesAllowUnregisteredCustomer: loadLooseSalesAllowUnregisteredCustomer(db),
     loosePalmOilRequireSalesTank: loadLoosePalmOilRequireSalesTank(db),
     salesInvoiceLockUnitPrice: loadSalesInvoiceLockUnitPrice(db),
+    autoGenerateSalesInvoiceNo: loadAutoGenerateSalesInvoiceNo(),
+    enforceSalesInvoiceBookletValidation:
+      loadEnforceSalesInvoiceBookletValidation(),
     rationPaymentMethodId: SYS_PM_RATION,
     publicRelationPaymentMethodId: SYS_PM_PUBLIC_RELATION,
   };
@@ -1315,18 +1323,47 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
     return { ok: false, error: dispositionPaymentError };
   }
 
-  const serialResult = validateBookletSerial(input.invoiceNo);
-  if (!serialResult.ok) {
-    return { ok: false, error: serialResult.error };
-  }
+  let invoiceNo: string;
+  if (loadAutoGenerateSalesInvoiceNo()) {
+    invoiceNo = allocateInvoiceNo(db);
+    const duplicateInvoice = db
+      .prepare(`SELECT 1 AS found FROM Sale WHERE invoiceNo = ?`)
+      .get(invoiceNo) as { found: number } | undefined;
+    if (duplicateInvoice) {
+      return { ok: false, error: "Could not allocate a unique invoice number." };
+    }
+  } else {
+    const serialResult = validateBookletSerial(input.invoiceNo);
+    if (!serialResult.ok) {
+      return { ok: false, error: serialResult.error };
+    }
 
-  const invoiceNo = serialResult.serial;
-  const duplicateInvoice = db
-    .prepare(`SELECT 1 AS found FROM Sale WHERE invoiceNo = ?`)
-    .get(invoiceNo) as { found: number } | undefined;
+    invoiceNo = serialResult.serial;
 
-  if (duplicateInvoice) {
-    return { ok: false, error: "This serial number is already used." };
+    if (loadEnforceSalesInvoiceBookletValidation()) {
+      if (input.salesPointId == null) {
+        return {
+          ok: false,
+          error: "A collection point must be selected to validate booklet serial.",
+        };
+      }
+      const bookletCheck = validateSerialForSalesPoint({
+        documentKind: "SALES_INVOICE",
+        serial: invoiceNo,
+        salesPointId: input.salesPointId,
+      });
+      if (!bookletCheck.ok) {
+        return { ok: false, error: bookletCheck.error };
+      }
+    }
+
+    const duplicateInvoice = db
+      .prepare(`SELECT 1 AS found FROM Sale WHERE invoiceNo = ?`)
+      .get(invoiceNo) as { found: number } | undefined;
+
+    if (duplicateInvoice) {
+      return { ok: false, error: "This serial number is already used." };
+    }
   }
 
   const saleId = newSaleId();

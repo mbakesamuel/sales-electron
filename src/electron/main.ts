@@ -20,6 +20,7 @@ import { registerBackupHandlers } from "./ipc/backup.js";
 import { startBackupScheduler } from "./db/backupSchedule.js";
 import { registerTransportCostHandlers } from "./ipc/transportCost.js";
 import { registerWindowsHandlers } from "./ipc/windows.js";
+import { registerBookletsHandlers } from "./ipc/booklets.js";
 import { backfillFinancialMonths } from "./financialYears/service.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -129,6 +130,7 @@ app.whenReady().then(() => {
   startBackupScheduler();
   registerTransportCostHandlers();
   registerWindowsHandlers();
+  registerBookletsHandlers();
   createWindow();
 
   app.on("activate", () => {

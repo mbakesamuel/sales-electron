@@ -613,7 +613,9 @@ function BottleOilStockTable({
   return (
     <section class="dash-section dash-section-stock">
       <h3 class="dash-section-title">Bottled stock on hand</h3>
-      <p class="dash-section-meta">Live balances for bottled products</p>
+      <p class="dash-section-meta">
+        As at {formatDisplayDate(summary.asAtIso)}
+      </p>
       {summary.stockOnHand.length === 0 ? (
         <p class="dash-status">No bottled stock on hand.</p>
       ) : (

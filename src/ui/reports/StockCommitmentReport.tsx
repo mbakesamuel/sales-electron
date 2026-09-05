@@ -14,6 +14,7 @@ import {
   HIDE_ZERO_ROWS_HINT,
   isStockCommitmentReportEmpty,
 } from "./reportEmpty.ts";
+import { printWeeklyPortraitDocument } from "./printWeeklyPortraitDocument.ts";
 import "./StockCommitmentReport.css";
 
 
@@ -128,15 +129,7 @@ function downloadCsv(report: StockCommitmentReport): void {
 }
 
 function handlePrint(): void {
-  document.body.classList.add("scr-print-mode");
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode");
-    },
-    { once: true },
-  );
-  window.print();
+  printWeeklyPortraitDocument();
 }
 
 function BottledSection({ section }: { section: StockCommitmentBottledSection }) {
@@ -222,7 +215,7 @@ export function StockCommitmentReportDocument({
 
   return (
     <ReportDocumentShell
-      className="scr-document sr-stock-compact wpp-pack-page"
+      className="scr-document sr-stock-compact sr-stock-report wpp-pack-page weekly-report-tight"
       isEmpty={empty}
       emptyMessage="No stock or commitment quantities to display."
       emptyHint={HIDE_ZERO_ROWS_HINT}

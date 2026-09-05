@@ -9,6 +9,10 @@ import { ReportFooter } from "../reports/ReportFooter.tsx";
 import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
 import { ReportWindowSaveButton } from "../reports/ReportWindowSaveButton.tsx";
 import { printPortraitDocument } from "../reports/printPortraitDocument.ts";
+import {
+  DocumentStatusStamp,
+  draftStampLabel,
+} from "../print/DocumentStatusStamp.tsx";
 import { buildCashReceiptSettlementPhrase, formatAmountInFrancsWords } from "./cashReceiptText.ts";
 import type { SalePrintPayload } from "./types.ts";
 import "../reports/StockCommitmentReport.css";
@@ -35,22 +39,26 @@ function DocumentPrintShell({
   title,
   pdfFileName,
   onClose,
+  onPrint,
+  pageClassName,
   children,
 }: {
   title: string;
   pdfFileName: string;
   onClose: () => void;
+  onPrint?: () => void;
+  pageClassName?: string;
   children: ComponentChildren;
 }) {
   return (
     <ReportOverlayShell title={title} onClose={onClose}>
-      <div class="scr-page">
+      <div class={pageClassName ? `scr-page ${pageClassName}` : "scr-page"}>
         <div class="scr-toolbar no-print">
           <div class="scr-toolbar-actions">
             <button
               type="button"
               class="scr-btn"
-              onClick={() => printPortraitDocument()}
+              onClick={() => (onPrint ? onPrint() : printPortraitDocument())}
             >
               Print
             </button>
@@ -60,6 +68,125 @@ function DocumentPrintShell({
         {children}
       </div>
     </ReportOverlayShell>
+  );
+}
+
+const CASH_RECEIPT_COPY_LABELS = ["Original", "Duplicate"] as const;
+
+function handleCashReceiptPrint(): void {
+  const style = document.createElement("style");
+  style.id = "sale-cash-print-page-style";
+  style.textContent = `@media print { @page { size: A4 portrait; margin: 8mm 8px; } }`;
+  document.head.appendChild(style);
+
+  document.body.classList.add("sale-cash-print-mode");
+  window.addEventListener(
+    "afterprint",
+    () => {
+      document.body.classList.remove("sale-cash-print-mode");
+      style.remove();
+    },
+    { once: true },
+  );
+  window.print();
+}
+
+function CashReceiptDocument({ payload }: { payload: SalePrintPayload }) {
+  const { sale } = payload;
+  const settlement = buildCashReceiptSettlementPhrase(sale.lines);
+  const amountLabel = `${formatMoney(sale.grossAmount)} XAF`;
+
+  return (
+    <article class="scr-document sale-print-document sale-print-cash-receipt">
+      <ReportHeader
+        companyName={payload.companyName}
+        department="Bota Limbe, South West Region"
+        serviceName={payload.serviceName}
+        title={`Cash Receipt No ${sale.invoiceNo}`}
+      />
+
+      <section class="sale-print-receipt-meta">
+        <p>
+          <span class="sale-print-label">Date:</span>{" "}
+          {formatDisplayDate(sale.dateIssuedIso)}
+        </p>
+      </section>
+
+      <section class="sale-print-receipt-amount-row">
+        <span class="sale-print-label">Amount:</span>
+        <div class="sale-print-receipt-amount-box">{amountLabel}</div>
+      </section>
+
+      <section class="sale-print-receipt-prose">
+        <p>
+          Received from <strong>{sale.customerName}</strong>
+          <br />
+          The sum of{" "}
+          <strong class="sale-print-receipt-amount">
+            {formatAmountInFrancsWords(sale.grossAmount)}
+          </strong>
+          <br />
+          in settlement of <strong>{settlement}</strong>.
+          <br />
+          For and on behalf of <strong>{payload.companyName}</strong>.
+        </p>
+      </section>
+
+      <section class="sale-print-receipt-receiver">
+        <div class="sale-print-receipt-receiver-fields">
+          <div class="sale-print-receipt-receiver-row">
+            <span class="sale-print-receipt-receiver-label">
+              Signature of Receiver:
+            </span>
+            <span class="sale-print-receipt-receiver-line" />
+          </div>
+          <div class="sale-print-receipt-receiver-row">
+            <span class="sale-print-receipt-receiver-label">Full Name:</span>
+            <span class="sale-print-receipt-receiver-line" />
+          </div>
+          <div class="sale-print-receipt-receiver-row">
+            <span class="sale-print-receipt-receiver-label">Designation:</span>
+            <span class="sale-print-receipt-receiver-line" />
+          </div>
+          <div class="sale-print-receipt-receiver-row">
+            <span class="sale-print-receipt-receiver-label">Unit:</span>
+            <span class="sale-print-receipt-receiver-line" />
+          </div>
+        </div>
+      </section>
+
+      <section class="sale-print-footer">
+        <div class="sale-print-qr">
+          <QrCode
+            value={buildSaleInvoiceQrText(sale, payload.companyName)}
+            size={56}
+            alt="Cash receipt verification QR code"
+          />
+        </div>
+      </section>
+    </article>
+  );
+}
+
+function CashReceiptDualSheet({ payload }: { payload: SalePrintPayload }) {
+  const statusStamp = draftStampLabel(payload.sale.status);
+
+  return (
+    <div class="sale-cash-print-sheet">
+      {CASH_RECEIPT_COPY_LABELS.map((label) => (
+        <section
+          class="sale-cash-print-copy"
+          key={label}
+          aria-label={`${label} copy`}
+        >
+          <div class="sale-cash-print-stamp">{label}</div>
+          <DocumentStatusStamp label={statusStamp} />
+          <div class="sale-cash-print-copy-body">
+            <CashReceiptDocument payload={payload} />
+          </div>
+        </section>
+      ))}
+    </div>
   );
 }
 
@@ -118,8 +245,6 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
   const isBottleMode = sale.saleProductMode === "BOTTLE";
 
   if (isBottleMode) {
-    const settlement = buildCashReceiptSettlementPhrase(sale.lines);
-    const amountLabel = `${formatMoney(sale.grossAmount)} XAF`;
     const shellTitle = `Cash Receipt ${sale.invoiceNo}`;
     const pdfFileName = `cash-receipt-${sale.invoiceNo}.pdf`;
 
@@ -128,77 +253,10 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
         title={shellTitle}
         pdfFileName={pdfFileName}
         onClose={onClose}
+        onPrint={handleCashReceiptPrint}
+        pageClassName="sale-cash-print-page"
       >
-        <article class="scr-document sale-print-document sale-print-cash-receipt">
-          <ReportHeader
-            companyName={payload.companyName}
-            department="Bota Limbe, South West Region"
-            serviceName={payload.serviceName}
-            title={`Cash Receipt No ${sale.invoiceNo}`}
-          />
-
-          <section class="sale-print-receipt-meta">
-            <p>
-              <span class="sale-print-label">Date:</span>{" "}
-              {formatDisplayDate(sale.dateIssuedIso)}
-            </p>
-          </section>
-
-          <section class="sale-print-receipt-amount-row">
-            <span class="sale-print-label">Amount:</span>
-            <div class="sale-print-receipt-amount-box">{amountLabel}</div>
-          </section>
-
-          <section class="sale-print-receipt-prose">
-            <p>
-              Received from <strong>{sale.customerName}</strong>
-              <br />
-              The sum of{" "}
-              <strong class="sale-print-receipt-amount">
-                {formatAmountInFrancsWords(sale.grossAmount)}
-              </strong>
-              <br />
-              in settlement of <strong>{settlement}</strong>.
-              <br />
-              For and on behalf of <strong>{payload.companyName}</strong>.
-            </p>
-          </section>
-
-          <section class="sale-print-receipt-receiver">
-            <div class="sale-print-receipt-receiver-fields">
-              <div class="sale-print-receipt-receiver-row">
-                <span class="sale-print-receipt-receiver-label">
-                  Signature of Receiver:
-                </span>
-                <span class="sale-print-receipt-receiver-line" />
-              </div>
-              <div class="sale-print-receipt-receiver-row">
-                <span class="sale-print-receipt-receiver-label">Full Name:</span>
-                <span class="sale-print-receipt-receiver-line" />
-              </div>
-              <div class="sale-print-receipt-receiver-row">
-                <span class="sale-print-receipt-receiver-label">
-                  Designation:
-                </span>
-                <span class="sale-print-receipt-receiver-line" />
-              </div>
-              <div class="sale-print-receipt-receiver-row">
-                <span class="sale-print-receipt-receiver-label">Unit:</span>
-                <span class="sale-print-receipt-receiver-line" />
-              </div>
-            </div>
-          </section>
-
-          <section class="sale-print-footer">
-            <div class="sale-print-qr">
-              <QrCode
-                value={buildSaleInvoiceQrText(sale, payload.companyName)}
-                size={96}
-                alt="Cash receipt verification QR code"
-              />
-            </div>
-          </section>
-        </article>
+        <CashReceiptDualSheet payload={payload} />
       </DocumentPrintShell>
     );
   }
@@ -228,6 +286,7 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
       onClose={onClose}
     >
       <article class="scr-document sale-print-document">
+        <DocumentStatusStamp label={draftStampLabel(sale.status)} />
         <ReportHeader
           companyName={payload.companyName}
           department={payload.department}

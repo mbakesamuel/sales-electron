@@ -15,6 +15,7 @@ import {
   HIDE_ZERO_ROWS_HINT,
   isBottledWeeklyIssuesReportEmpty,
 } from "./reportEmpty.ts";
+import { printWeeklyPortraitDocument } from "./printWeeklyPortraitDocument.ts";
 import "./StockCommitmentReport.css";
 import "./BottledWeeklyIssuesReport.css";
 import "./SalesBudgetCrosstab.css";
@@ -61,15 +62,7 @@ function formatAvgPrice(value: number | null): string {
 }
 
 function handlePrint(): void {
-  document.body.classList.add("scr-print-mode");
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode");
-    },
-    { once: true },
-  );
-  window.print();
+  printWeeklyPortraitDocument();
 }
 
 function mtdDisplay(row: BottledWeeklyMethodMetricRow): string {
@@ -185,7 +178,7 @@ export function BottledWeeklyIssuesReportDocument({
 
   return (
     <ReportDocumentShell
-      className="scr-document bwi-document wpp-pack-page"
+      className="scr-document bwi-document wpp-pack-page weekly-report-tight"
       isEmpty={empty}
       emptyMessage="No bottled weekly issues for this period."
       emptyHint={HIDE_ZERO_ROWS_HINT}

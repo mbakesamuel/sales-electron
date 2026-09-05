@@ -36,6 +36,8 @@ import { FinancialYearsScreen } from "../financial-years/FinancialYearsScreen.ts
 import { FinancialMonthsScreen } from "../financial-years/FinancialMonthsScreen.tsx";
 import { SalesScreen } from "../sales/SalesScreen.tsx";
 import { SalesValidationScreen } from "../sales/SalesValidationScreen.tsx";
+import { DocumentBookletsScreen } from "../booklets/DocumentBookletsScreen.tsx";
+import { BookletValidationScreen } from "../booklets/BookletValidationScreen.tsx";
 import { DeliveryOrdersScreen } from "../delivery-orders/DeliveryOrdersScreen.tsx";
 import { DeliveryOrderTrackingScreen } from "../delivery-orders/DeliveryOrderTrackingScreen.tsx";
 import { DeliveryOrderTransferScreen } from "../delivery-orders/DeliveryOrderTransferScreen.tsx";
@@ -229,6 +231,37 @@ function RouteContent({
       );
     }
     return <SalesValidationScreen user={user} />;
+  }
+
+  if (route.id === "document-booklets") {
+    return (
+      <DocumentBookletsScreen
+        user={user}
+        canWrite={!readOnly}
+        canValidate={
+          canPerformActionFromSnapshot(
+            permissions,
+            "validate_document_booklets",
+          ) && !readOnly
+        }
+      />
+    );
+  }
+
+  if (route.id === "booklet-validation") {
+    if (
+      !canPerformActionFromSnapshot(
+        permissions,
+        "validate_document_booklets",
+      )
+    ) {
+      return (
+        <p class="home-access-denied">
+          You do not have permission to validate document booklets.
+        </p>
+      );
+    }
+    return <BookletValidationScreen user={user} />;
   }
 
   if (route.id === "delivery-orders") {
@@ -718,6 +751,8 @@ export function HomeScreen({
     "stock-validation",
     "receive-transfers",
     "sales-validation",
+    "document-booklets",
+    "booklet-validation",
     "vehicle-consignment-validation",
     "stock-commitment-report",
     "stock-report",
@@ -796,6 +831,8 @@ export function HomeScreen({
     "financial-year-periods",
     "financial-months",
     "users",
+    "document-booklets",
+    "booklet-validation",
   ]);
 
   const usesFillLayout =

@@ -1,0 +1,114 @@
+/* Ensure print roots can host the absolute stamp overlay. */
+.scr-document.sale-print-document,
+.scr-document.do-print-document,
+.do-print-document.sr-print-document,
+.do-print-document.st-print-document,
+.sale-cash-print-copy,
+.vcn-print-copy {
+  position: relative;
+}
+
+/*
+ * Overlay the document (not document flow).
+ * !important beats ReportWatermark.css forcing siblings to position:relative.
+ * Height capped so long invoices keep the stamp on the first page band.
+ */
+.scr-document > .doc-status-stamp,
+.do-print-document > .doc-status-stamp,
+.sale-cash-print-copy > .doc-status-stamp,
+.vcn-print-copy > .doc-status-stamp,
+.doc-status-stamp {
+  position: absolute !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: auto;
+  height: min(100%, 240mm);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.doc-status-stamp-label {
+  box-sizing: border-box;
+  padding: 10px 28px;
+  border: 3px solid rgba(185, 28, 28, 0.55);
+  border-radius: 4px;
+  color: rgba(185, 28, 28, 0.42);
+  font-family: "Arial Narrow", Arial, sans-serif;
+  font-size: clamp(36px, 7.5vw, 64px);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  user-select: none;
+  transform: rotate(-28deg);
+}
+
+/* Keep Original/Duplicate badges above the status stamp. */
+.sale-cash-print-stamp,
+.vcn-print-stamp {
+  z-index: 5;
+}
+
+@media print {
+  .doc-status-stamp {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .doc-status-stamp-label {
+    color: rgba(185, 28, 28, 0.4) !important;
+    border-color: rgba(185, 28, 28, 0.5) !important;
+  }
+
+  /* Sales invoice / DO: center on the printed page, restore stamp color. */
+  body.scr-print-mode .scr-document > .doc-status-stamp {
+    position: fixed !important;
+    inset: 0 !important;
+    height: auto !important;
+    z-index: 4 !important;
+    visibility: visible !important;
+  }
+
+  body.scr-print-mode .scr-document .doc-status-stamp-label {
+    color: rgba(185, 28, 28, 0.4) !important;
+    border-color: rgba(185, 28, 28, 0.5) !important;
+  }
+
+  /* Dual-copy sheets: center within each half. */
+  body.sale-cash-print-mode .sale-cash-print-copy .doc-status-stamp,
+  body.vcn-print-mode .vcn-print-copy .doc-status-stamp {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 100% !important;
+    visibility: visible !important;
+  }
+
+  body.sale-cash-print-mode .doc-status-stamp-label,
+  body.vcn-print-mode .doc-status-stamp-label {
+    color: rgba(185, 28, 28, 0.4) !important;
+    border-color: rgba(185, 28, 28, 0.5) !important;
+    font-size: clamp(26px, 5.5vw, 44px);
+  }
+
+  body.sr-print-mode .sr-print-document .doc-status-stamp,
+  body.st-print-mode .st-print-document .doc-status-stamp {
+    position: fixed !important;
+    inset: 0 !important;
+    height: auto !important;
+    visibility: visible !important;
+  }
+
+  body.sr-print-mode .doc-status-stamp-label,
+  body.st-print-mode .doc-status-stamp-label {
+    color: rgba(185, 28, 28, 0.4) !important;
+    border-color: rgba(185, 28, 28, 0.5) !important;
+  }
+}

@@ -6,6 +6,10 @@ import {
 import type { ConsignmentPrintPayload } from "../../shared/vehicleConsignmentNotes.types.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
+import {
+  DocumentStatusStamp,
+  draftStampLabel,
+} from "../print/DocumentStatusStamp.tsx";
 import { VcnPrintBordereau } from "./VcnPrintBordereau.tsx";
 import { VcnPrintProductsTable } from "./VcnPrintProductsTable.tsx";
 import "../reports/StockCommitmentReport.css";
@@ -39,6 +43,7 @@ function VcnPrintDualSheet({
 }) {
   const Document =
     layout === "bordereau" ? VcnPrintBordereau : VcnPrintProductsTable;
+  const statusStamp = draftStampLabel(payload.note.status);
 
   return (
     <div class="vcn-print-sheet">
@@ -49,6 +54,7 @@ function VcnPrintDualSheet({
           aria-label={`${label} copy`}
         >
           <div class="vcn-print-stamp">{label}</div>
+          <DocumentStatusStamp label={statusStamp} />
           <div class="vcn-print-copy-body">
             <Document payload={payload} />
           </div>

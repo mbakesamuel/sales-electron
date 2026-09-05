@@ -52,6 +52,32 @@
   text-transform: uppercase;
 }
 
+/* Weekly sidebar reports: tighter rows and document top/bottom spacing */
+.scr-document.weekly-report-tight {
+  padding-top: 18px;
+  padding-bottom: 26px;
+}
+
+.weekly-report-tight .scr-table th,
+.weekly-report-tight .scr-table td {
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+
+.weekly-report-tight.sr-stock-compact .scr-table th,
+.weekly-report-tight.sr-stock-compact .scr-table td {
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+
+/* Tighter gap under report header for weekly stock / stock summary */
+.sr-stock-report .report-header,
+.weekly-report-tight .report-header,
+.cr-commitment-report .report-header {
+  margin-bottom: 4px;
+  padding-bottom: 6px;
+}
+
 .report-header-meta .scr-meta-line,
 .report-header-meta .scr-as-at,
 .report-header-meta .scr-generated {
@@ -133,7 +159,6 @@
 
 .scr-bottled-block {
   margin-top: 18px;
-  border-top: 3px solid #111827;
   padding-top: 12px;
 }
 
@@ -281,6 +306,9 @@
 .sr-stock-report .sr-bottled-product-head {
   font-size: 14px;
   line-height: 1.15;
+  padding: 1px 3px !important;
+  vertical-align: middle;
+  max-width: none;
 }
 
 /* Compact document layout for page-fit (tables/footer); header uses ReportHeader.css. */
@@ -295,6 +323,18 @@
 
 .sr-stock-compact .report-footer-space {
   height: 36px;
+}
+
+.sr-stock-report.sr-stock-compact .report-footer,
+.weekly-report-tight.sr-stock-compact .report-footer {
+  margin-top: 4px;
+  padding-top: 4px;
+}
+
+.sr-stock-report.sr-stock-compact .scr-comments,
+.weekly-report-tight.sr-stock-compact .scr-comments {
+  margin-top: 10px;
+  margin-bottom: 4px;
 }
 
 /* Bottle oil report: units, kgs, and sales tables share the same column widths. */
@@ -363,18 +403,40 @@
     page: scrCompactTopTight;
   }
 
+  body.scr-print-mode .weekly-report-tight .report-header,
   body.scr-print-mode .sr-stock-report .report-header,
   body.scr-print-mode .cr-commitment-report .report-header {
-    padding-top: 4px;
-    padding-bottom: 8px;
-    margin-bottom: 10px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    margin-bottom: 4px;
     min-height: auto;
   }
 
+  body.scr-print-mode .weekly-report-tight .scr-bottled-block:first-of-type,
   body.scr-print-mode .sr-stock-report .scr-bottled-block:first-of-type,
   body.scr-print-mode .cr-commitment-report .scr-bottled-block:first-of-type {
-    margin-top: 4px;
+    margin-top: 2px;
     padding-top: 0;
+  }
+
+  body.scr-print-mode .sr-stock-compact .scr-comments,
+  body.scr-print-mode .sr-stock-report .scr-comments,
+  body.scr-print-mode .weekly-report-tight .scr-comments {
+    margin-top: 6px;
+    margin-bottom: 2px;
+  }
+
+  body.scr-print-mode .sr-stock-compact .report-footer,
+  body.scr-print-mode .sr-stock-report .report-footer,
+  body.scr-print-mode .weekly-report-tight .report-footer {
+    margin-top: 2px;
+    padding-top: 2px;
+  }
+
+  body.scr-print-mode .sr-stock-compact .report-footer-space,
+  body.scr-print-mode .sr-stock-report .report-footer-space,
+  body.scr-print-mode .weekly-report-tight .report-footer-space {
+    height: 24px;
   }
 
   body.scr-print-mode {
@@ -517,6 +579,19 @@
   body.scr-print-mode .sr-stock-compact .scr-table td {
     padding: 2px 2px !important;
     height: 14px;
+  }
+
+  body.scr-print-mode .weekly-report-tight .scr-table th,
+  body.scr-print-mode .weekly-report-tight .scr-table td {
+    padding-top: 3px !important;
+    padding-bottom: 3px !important;
+  }
+
+  body.scr-print-mode .weekly-report-tight.sr-stock-compact .scr-table th,
+  body.scr-print-mode .weekly-report-tight.sr-stock-compact .scr-table td {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    height: 12px;
   }
 
   body.scr-print-mode .report-header-meta .scr-generated,

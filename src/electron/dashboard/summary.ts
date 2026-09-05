@@ -8,6 +8,7 @@ import { isStoreKeeperRole, isSupervisorOverviewRole } from "../../shared/roles.
 import { getDatabase } from "../db/index.js";
 import { getOpenPostingPeriod } from "../financialYears/service.js";
 import { parseAmount } from "../sales/money.js";
+import { loadStockBalancesAsOf } from "../stock/asOfBalance.js";
 import { listStockValidationQueue } from "../stock/validationQueue.js";
 
 const MONTH_LABELS = [
@@ -26,6 +27,7 @@ const MONTH_LABELS = [
 ] as const;
 
 const BOTTLE_MODE_SQL = `COALESCE(s.saleProductMode, 'LOOSE') = 'BOTTLE'`;
+const QTY_EPS = 0.0001;
 
 function pad2(value: number): string {
   return String(value).padStart(2, "0");
@@ -516,56 +518,97 @@ function loadBottleInvoiceCounts(
   };
 }
 
-function loadBottledStockOnHand(): {
+function loadBottledStockOnHand(asAtIso: string): {
   rows: BottleOilDashboardSummary["stockOnHand"];
   sellableUnitsTotal: number;
 } {
-  const rows = getDatabase()
+  const db = getDatabase();
+  const asOfRows = loadStockBalancesAsOf(db, asAtIso).filter(
+    (row) => row.qty > QTY_EPS,
+  );
+
+  if (asOfRows.length === 0) {
+    return { rows: [], sellableUnitsTotal: 0 };
+  }
+
+  const bottledProducts = db
     .prepare(
-      `SELECT p.productName,
-              CAST(sb.qty AS REAL) AS qty,
-              COALESCE(NULLIF(TRIM(p.uom), ''), 'Unit') AS uom,
-              sp.name AS salesPointName,
-              COALESCE(l.locationName, '—') AS storageLocationName,
-              sb.condition
-       FROM StockBalance sb
-       JOIN SalesPoint sp ON sp.id = sb.salesPointId
-       LEFT JOIN StorageLocation sl ON sl.id = sb.storageLocationId
-       LEFT JOIN Location l ON l.id = sl.locationId
-       JOIN Product p ON p.productId = sb.productId
+      `SELECT p.productId,
+              p.productName,
+              COALESCE(NULLIF(TRIM(p.uom), ''), 'Unit') AS uom
+       FROM Product p
        LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
-       WHERE COALESCE(pc.isBottled, 0) = 1
-         AND CAST(sb.qty AS REAL) > 0.0001
-       ORDER BY
-         CASE WHEN sb.condition = 'SELLABLE' THEN 0 ELSE 1 END,
-         CAST(sb.qty AS REAL) DESC,
-         p.productName ASC
-       LIMIT 40`,
+       WHERE COALESCE(pc.isBottled, 0) = 1`,
     )
-    .all() as Array<{
-    productName: string;
-    qty: number;
-    uom: string;
-    salesPointName: string;
-    storageLocationName: string;
-    condition: string;
-  }>;
+    .all() as Array<{ productId: number; productName: string; uom: string }>;
 
-  const mapped = rows.map((row) => ({
-    productName: String(row.productName),
-    qty: Number.isFinite(row.qty) ? row.qty : parseAmount(String(row.qty)),
-    uom: String(row.uom || "Unit"),
-    salesPointName: String(row.salesPointName),
-    storageLocationName: String(row.storageLocationName),
-    condition:
-      row.condition === "UNSELLABLE"
-        ? ("UNSELLABLE" as const)
-        : ("SELLABLE" as const),
-  }));
+  const bottledById = new Map(
+    bottledProducts.map((product) => [product.productId, product]),
+  );
 
-  const sellableUnitsTotal = mapped
+  const bottledBalances = asOfRows.filter((row) =>
+    bottledById.has(row.productId),
+  );
+
+  const sellableUnitsTotal = bottledBalances
     .filter((row) => row.condition === "SELLABLE")
     .reduce((sum, row) => sum + row.qty, 0);
+
+  if (bottledBalances.length === 0) {
+    return { rows: [], sellableUnitsTotal: 0 };
+  }
+
+  const salesPoints = new Map(
+    (
+      db.prepare(`SELECT id, name FROM SalesPoint`).all() as Array<{
+        id: number;
+        name: string;
+      }>
+    ).map((row) => [row.id, row.name]),
+  );
+
+  const locations = new Map(
+    (
+      db
+        .prepare(
+          `SELECT sl.id, COALESCE(l.locationName, '—') AS name
+           FROM StorageLocation sl
+           LEFT JOIN Location l ON l.id = sl.locationId`,
+        )
+        .all() as Array<{ id: number; name: string }>
+    ).map((row) => [row.id, row.name]),
+  );
+
+  const mapped = bottledBalances
+    .map((row) => {
+      const product = bottledById.get(row.productId)!;
+      return {
+        productName: String(product.productName),
+        qty: row.qty,
+        uom: String(product.uom || "Unit"),
+        salesPointName: salesPoints.get(row.salesPointId) ?? "—",
+        storageLocationName:
+          row.storageLocationId == null
+            ? "—"
+            : (locations.get(row.storageLocationId) ?? "—"),
+        condition:
+          row.condition === "UNSELLABLE"
+            ? ("UNSELLABLE" as const)
+            : ("SELLABLE" as const),
+      };
+    })
+    .sort((a, b) => {
+      const conditionRank =
+        (a.condition === "SELLABLE" ? 0 : 1) - (b.condition === "SELLABLE" ? 0 : 1);
+      if (conditionRank !== 0) {
+        return conditionRank;
+      }
+      if (b.qty !== a.qty) {
+        return b.qty - a.qty;
+      }
+      return a.productName.localeCompare(b.productName);
+    })
+    .slice(0, 40);
 
   return { rows: mapped, sellableUnitsTotal };
 }
@@ -617,9 +660,10 @@ function getCommercialDashboardSummary(): CommercialDashboardSummary {
 }
 
 function getBottleOilDashboardSummary(userId: string): BottleOilDashboardSummary {
-  const asAtIso = localTodayIso();
+  const todayIso = localTodayIso();
   const period = getOpenPostingPeriod();
-  const stock = loadBottledStockOnHand();
+  const asAtIso = period ? minIso(period.endDate, todayIso) : todayIso;
+  const stock = loadBottledStockOnHand(asAtIso);
   const pendingReceives = countPendingReceives(userId);
 
   if (!period) {
@@ -632,7 +676,7 @@ function getBottleOilDashboardSummary(userId: string): BottleOilDashboardSummary
     };
   }
 
-  const monthEnd = minIso(period.endDate, asAtIso);
+  const monthEnd = asAtIso;
   const yearStart = `${period.financialYear}-01-01`;
   const yearEnd = minIso(`${period.financialYear}-12-31`, asAtIso);
   const lastMonth =

@@ -183,6 +183,37 @@ function emptyPaymentExtras(): Pick<
   };
 }
 
+const DO_AUTO_FILL_PAYMENT_KINDS = new Set([
+  "CHEQUE",
+  "TRAITE",
+  "BANK_TRANSFER",
+]);
+
+function paymentDraftsFromDeliveryOrder(
+  result: DeliveryOrderLookupResult,
+): PaymentDraft[] | null {
+  if (result.isCarryForward) {
+    return null;
+  }
+
+  const eligible = result.payments.filter((payment) =>
+    DO_AUTO_FILL_PAYMENT_KINDS.has(payment.kind),
+  );
+  if (eligible.length === 0) {
+    return null;
+  }
+
+  return eligible.map((payment) => ({
+    paymentMethodId: payment.paymentMethodId,
+    amount: "0",
+    chequeNo: payment.chequeNo ?? "",
+    bank: payment.bank ?? "",
+    traiteNo: payment.traiteNo ?? "",
+    traiteIssuedOn: payment.traiteIssuedOn ?? "",
+    traiteMaturityOn: payment.traiteMaturityOn ?? "",
+  }));
+}
+
 function statusClass(status: LoadedSaleView["status"]): string {
   if (status === "VALIDATED") {
     return "sales-status sales-status-validated";
@@ -356,6 +387,10 @@ export function SalesClient({
   );
   const [doLinePrefill, setDoLinePrefill] = useState<DoLinePrefill | null>(null);
   const [doPickerOpen, setDoPickerOpen] = useState(false);
+  const [bookletStatus, setBookletStatus] = useState<{
+    ok: boolean;
+    message: string;
+  } | null>(null);
   const [lineModal, setLineModal] = useState<{
     mode: "add" | "edit";
     index: number | null;
@@ -363,8 +398,10 @@ export function SalesClient({
   } | null>(null);
 
   const isReadOnly = saleId != null;
+  const autoGenerateInvoiceNo = options?.autoGenerateSalesInvoiceNo === true;
   const invoiceReady =
     saleId != null ||
+    autoGenerateInvoiceNo ||
     (confirmedInvoiceNo !== null &&
       confirmedInvoiceNo === invoiceNo.trim() &&
       isValidBookletSerial(invoiceNo));
@@ -680,6 +717,62 @@ export function SalesClient({
       setDoLinePrefill(null);
     }
   }, [saleDisposition, options, isFormEditable]);
+
+  useEffect(() => {
+    if (
+      autoGenerateInvoiceNo ||
+      saleId ||
+      !confirmedInvoiceNo ||
+      !salesPointId ||
+      !options?.enforceSalesInvoiceBookletValidation
+    ) {
+      setBookletStatus(null);
+      return;
+    }
+
+    const spId = Number.parseInt(salesPointId, 10);
+    if (!Number.isFinite(spId)) {
+      setBookletStatus(null);
+      return;
+    }
+
+    let cancelled = false;
+    getElectronApi()
+      .booklets.validateSerial({
+        documentKind: "SALES_INVOICE",
+        serial: confirmedInvoiceNo,
+        salesPointId: spId,
+      })
+      .then((res) => {
+        if (!cancelled) {
+          if (res.ok) {
+            setBookletStatus({
+              ok: true,
+              message: res.bookletCode
+                ? `Active booklet: ${res.bookletCode}`
+                : "Active booklet verified",
+            });
+          } else {
+            setBookletStatus({ ok: false, message: res.error });
+          }
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setBookletStatus(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    autoGenerateInvoiceNo,
+    saleId,
+    confirmedInvoiceNo,
+    salesPointId,
+    options?.enforceSalesInvoiceBookletValidation,
+  ]);
 
   useEffect(() => {
     if (!options || !isFormEditable || isBottleVariant) {
@@ -1005,6 +1098,14 @@ export function SalesClient({
       return;
     }
 
+    if (autoGenerateInvoiceNo) {
+      if (confirmedInvoiceNo !== null && confirmedInvoiceNo === invoiceNo.trim()) {
+        return;
+      }
+      await loadSale(undefined, { notFoundMode: "silent" });
+      return;
+    }
+
     if (
       confirmedInvoiceNo !== null &&
       confirmedInvoiceNo === invoiceNo.trim() &&
@@ -1049,6 +1150,11 @@ export function SalesClient({
       });
     } else {
       setDoLinePrefill(null);
+    }
+
+    const paymentDrafts = paymentDraftsFromDeliveryOrder(result);
+    if (paymentDrafts) {
+      setPayments(paymentDrafts);
     }
 
     setBanner({
@@ -1179,6 +1285,27 @@ export function SalesClient({
       return;
     }
 
+    if (
+      !autoGenerateInvoiceNo &&
+      options.enforceSalesInvoiceBookletValidation &&
+      !saleId
+    ) {
+      const spId = Number.parseInt(salesPointId, 10);
+      if (!Number.isFinite(spId)) {
+        setBanner({ type: "error", text: "Select a collection point." });
+        return;
+      }
+      const bookletCheck = await getElectronApi().booklets.validateSerial({
+        documentKind: "SALES_INVOICE",
+        serial: invoiceNo.trim(),
+        salesPointId: spId,
+      });
+      if (!bookletCheck.ok) {
+        setBanner({ type: "error", text: bookletCheck.error });
+        return;
+      }
+    }
+
     setBusy(validateImmediately ? "validate" : "save");
     setBanner(null);
 
@@ -1191,7 +1318,7 @@ export function SalesClient({
 
       const result = await getElectronApi().sales.createSale({
         userId: user.id,
-        invoiceNo,
+        ...(autoGenerateInvoiceNo ? {} : { invoiceNo }),
         validateImmediately: validateImmediately || undefined,
         customerId: useRegisteredCustomer
           ? Number.parseInt(customerId, 10)
@@ -1369,7 +1496,7 @@ export function SalesClient({
     isFormEditable &&
     busy === null &&
     hasCustomer &&
-    isValidBookletSerial(invoiceNo) &&
+    (autoGenerateInvoiceNo || isValidBookletSerial(invoiceNo)) &&
     (!vehicleRequired || vehicleNumber.trim()) &&
     totals.paid === totals.gross &&
     !paymentsMissingMethod(payments);
@@ -1454,13 +1581,16 @@ export function SalesClient({
                 <div class="sales-invoice-no">{invoiceNo}</div>
               ) : (
                 <label class="sales-field sales-invoice-no-field">
-                 {/*  <span>Booklet serial no.</span> */}
                   <input
                     type="text"
-                    inputMode="numeric"
-                    pattern="\\d*"
+                    inputMode={autoGenerateInvoiceNo ? "text" : "numeric"}
+                    pattern={autoGenerateInvoiceNo ? undefined : "\\d*"}
                     value={invoiceNo}
-                    placeholder="Invoice No."
+                    placeholder={
+                      autoGenerateInvoiceNo
+                        ? "Invoice No. (or leave blank)"
+                        : "Invoice No."
+                    }
                     disabled={busy !== null}
                     onInput={(event) =>
                       setInvoiceNo(
@@ -1500,6 +1630,12 @@ export function SalesClient({
             {isAwaitingInvoice ? (
               <p class="sales-hint sales-invoice-serial-hint">
                 Enter invoice no., then press Enter or leave the field to continue.
+              </p>
+            ) : null}
+            {!saleId && autoGenerateInvoiceNo ? (
+              <p class="sales-hint sales-invoice-serial-hint">
+                Leave blank to auto-assign on save, or enter an existing invoice
+                number and press Enter to open it.
               </p>
             ) : null}
           </div>
@@ -1598,6 +1734,19 @@ export function SalesClient({
                   </option>
                 ))}
               </select>
+              {bookletStatus ? (
+                <small
+                  style={{
+                    display: "block",
+                    marginTop: "4px",
+                    fontWeight: 600,
+                    color: bookletStatus.ok ? "#15803d" : "#b91c1c",
+                  }}
+                >
+                  {bookletStatus.ok ? "✓ " : "⚠ "}
+                  {bookletStatus.message}
+                </small>
+              ) : null}
             </label>
 
             <label class="sales-field">

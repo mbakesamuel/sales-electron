@@ -7,7 +7,20 @@ type RouteMatrix = Record<string, RouteAccess>;
 type ActionMatrix = Record<PermissionActionKey, boolean>;
 
 const ROUTE_GROUPS = {
-  operations: ["sales", "bottle-oil-sales", "sales-validation", "transport-cost-compute", "delivery-orders", "delivery-order-tracking", "delivery-order-transfer", "carry-forward-commitments", "vehicle-consignment-notes", "vehicle-consignment-validation"],
+  operations: [
+    "sales",
+    "bottle-oil-sales",
+    "sales-validation",
+    "document-booklets",
+    "booklet-validation",
+    "transport-cost-compute",
+    "delivery-orders",
+    "delivery-order-tracking",
+    "delivery-order-transfer",
+    "carry-forward-commitments",
+    "vehicle-consignment-notes",
+    "vehicle-consignment-validation",
+  ],
   customerOps: ["customers"],
   productConfig: [
     "products",
@@ -186,6 +199,7 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
     cancel_validated_delivery_order: false,
     transfer_delivery_order_balance: true,
     validate_vehicle_consignment_notes: true,
+    validate_document_booklets: true,
     manage_permissions: false,
     ...stockDocumentActions,
   };
@@ -216,6 +230,7 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
     cancel_validated_delivery_order: false,
     transfer_delivery_order_balance: false,
     validate_vehicle_consignment_notes: false,
+    validate_document_booklets: false,
     manage_permissions: false,
     ...stockDocumentNone,
   };

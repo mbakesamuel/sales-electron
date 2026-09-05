@@ -75,6 +75,10 @@ export interface SalesFormOptions {
     loosePalmOilRequireSalesTank: boolean;
     /** Company setting: invoice line unit price is schedule-only (read-only) when true. */
     salesInvoiceLockUnitPrice: boolean;
+    /** Company setting: system assigns INV-year-###### on create when true. */
+    autoGenerateSalesInvoiceNo: boolean;
+    /** Company setting: manual booklet serial must belong to an active booklet issued to the collection point. */
+    enforceSalesInvoiceBookletValidation: boolean;
     /** System payment method id for Ration (deferred) disposition. */
     rationPaymentMethodId: string;
     /** System payment method id for Public relation (complimentary) disposition. */
@@ -99,7 +103,7 @@ export interface SalePaymentInput {
 }
 export interface CreateSaleInput {
     userId: string;
-    invoiceNo: string;
+    invoiceNo?: string;
     customerId?: number | null;
     customerNameOverride?: string;
     salesPointId?: number | null;
@@ -238,6 +242,15 @@ export interface DeliveryOrderProductRow {
     balanceQty: string;
     unitPrice: string;
 }
+export interface DeliveryOrderLookupPayment {
+    paymentMethodId: string;
+    kind: PaymentMethodKind;
+    chequeNo: string | null;
+    bank: string | null;
+    traiteNo: string | null;
+    traiteIssuedOn: string | null;
+    traiteMaturityOn: string | null;
+}
 export interface DeliveryOrderLookupResult {
     deliveryOrderNo: string;
     dateIssued: string;
@@ -245,7 +258,9 @@ export interface DeliveryOrderLookupResult {
     customerName: string;
     customerMatches: boolean;
     balanceKg: string;
+    isCarryForward: boolean;
     perProduct: DeliveryOrderProductRow[];
+    payments: DeliveryOrderLookupPayment[];
 }
 export interface SalePrintLine {
     lineNo: number;

@@ -257,6 +257,20 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         description: "Review and validate pending sales invoices.",
       },
       {
+        id: "document-booklets",
+        label: "Document booklets",
+        table: "DocumentBooklet",
+        description:
+          "Register and manage sales invoice and delivery order booklets issued to collection points.",
+      },
+      {
+        id: "booklet-validation",
+        label: "Booklet validation",
+        table: "DocumentBooklet",
+        description:
+          "Review and validate pending document booklet issuances.",
+      },
+      {
         id: "vehicle-consignment-validation",
         label: "Consignment validation",
         table: "VehicleConsignmentNote",

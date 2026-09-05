@@ -50,6 +50,16 @@ import type {
   PermissionsApi,
   RolePermissionsSnapshot,
 } from "../../shared/permissions.types.ts";
+import type {
+  CreateDocumentBookletInput,
+  DocumentBookletFilters,
+  DocumentBookletRow,
+  RejectDocumentBookletResult,
+  ValidateDocumentBookletResult,
+  ValidateManyBookletsResult,
+  ValidateSerialForSalesPointInput,
+  ValidateSerialForSalesPointResult,
+} from "../../shared/documentBooklets.types.ts";
 
 interface LoginInput {
   username: string;
@@ -439,6 +449,39 @@ export interface ElectronAppApi {
       }) => void,
     ): () => void;
   };
+  booklets: DocumentBookletsApi;
+}
+
+export interface DocumentBookletsApi {
+  listBooklets(
+    authToken: string,
+    filters?: DocumentBookletFilters,
+  ): Promise<DocumentBookletRow[]>;
+  createBooklet(
+    authToken: string,
+    input: CreateDocumentBookletInput,
+  ): Promise<{ ok: true; booklet: DocumentBookletRow } | { ok: false; error: string }>;
+  validateBooklet(
+    authToken: string,
+    bookletId: string,
+  ): Promise<ValidateDocumentBookletResult>;
+  rejectBooklet(
+    authToken: string,
+    bookletId: string,
+    reason?: string,
+  ): Promise<RejectDocumentBookletResult>;
+  validateManyBooklets(
+    authToken: string,
+    bookletIds: string[],
+  ): Promise<ValidateManyBookletsResult>;
+  cancelBooklet(
+    authToken: string,
+    bookletId: string,
+    reason?: string,
+  ): Promise<{ ok: true } | { ok: false; error: string }>;
+  validateSerial(
+    input: ValidateSerialForSalesPointInput,
+  ): Promise<ValidateSerialForSalesPointResult>;
 }
 
 declare global {

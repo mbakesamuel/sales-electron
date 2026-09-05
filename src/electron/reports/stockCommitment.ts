@@ -5,13 +5,15 @@ import type {
   StockCommitmentReportRow,
   StockCommitmentReportSection,
 } from "../../shared/reports.types.js";
-import { isSludgeMemberReportProduct } from "../../shared/looseLpoProduct.js";
-import { PALM_SLUDGE_OIL_REPORT_BUCKET_NAME } from "../../shared/stockIntakeGroups.js";
+import { isSludgeMemberReportProduct, isSludgePoolReportProduct } from "../../shared/looseLpoProduct.js";
+import {
+  LOOSE_PALM_OIL_PRODUCT_NAME,
+  PALM_SLUDGE_OIL_REPORT_BUCKET_NAME,
+} from "../../shared/stockIntakeGroups.js";
 import type Database from "better-sqlite3";
 import { getDatabase } from "../db/index.js";
 import { resolveReportAsAt } from "../financialYears/service.js";
 import { loadStockBalancesAsOf } from "../stock/asOfBalance.js";
-import { loadStockIntakeOilGrouping } from "../stock/productStorage.js";
 import { getSludgeOilPoolProductId } from "../stock/stockIntakeMigration.js";
 import { loadCommitmentMetricsAsOf } from "./commitmentAsOf.js";
 import { loadReportCompanySettings, loadReportDisplaySettings, loadReportComments } from "./companySettings.js";
@@ -161,6 +163,14 @@ function isSludgeMemberProduct(product: ProductRow): boolean {
   });
 }
 
+function isSludgePoolProduct(product: ProductRow): boolean {
+  return isSludgePoolReportProduct({
+    productCode: product.productCode,
+    productName: product.productName,
+    isBottled: 0,
+  });
+}
+
 function resolveSludgeMemberProductIds(products: ProductRow[]): number[] {
   return products.filter(isSludgeMemberProduct).map((product) => product.productId);
 }
@@ -170,11 +180,9 @@ function resolveSludgeStockProductIds(
   db: Database.Database,
 ): number[] {
   const ids = new Set(memberProductIds);
-  if (loadStockIntakeOilGrouping(db)) {
-    const poolId = getSludgeOilPoolProductId(db);
-    if (poolId != null) {
-      ids.add(poolId);
-    }
+  const poolId = getSludgeOilPoolProductId(db);
+  if (poolId != null) {
+    ids.add(poolId);
   }
   return [...ids];
 }
@@ -322,10 +330,27 @@ function buildBucketedProductSection(
   };
 }
 
+function sectionSortRank(title: string): number {
+  const normalized = title.trim().toUpperCase();
+  if (normalized === LOOSE_PALM_OIL_PRODUCT_NAME.toUpperCase()) {
+    return 0;
+  }
+  if (normalized === PALM_SLUDGE_OIL_REPORT_BUCKET_NAME.toUpperCase()) {
+    return 1;
+  }
+  return 2;
+}
+
 function assignSectionNumbers(
   sections: StockCommitmentReportSection[],
 ): StockCommitmentReportSection[] {
-  const sorted = [...sections].sort((left, right) => left.title.localeCompare(right.title));
+  const sorted = [...sections].sort((left, right) => {
+    const rankDiff = sectionSortRank(left.title) - sectionSortRank(right.title);
+    if (rankDiff !== 0) {
+      return rankDiff;
+    }
+    return left.title.localeCompare(right.title);
+  });
   return sorted.map((section, index) => {
     const sectionNo = index + 1;
     return {
@@ -443,7 +468,7 @@ export function getStockCommitmentReport(
       .sort((left, right) => left.productName.localeCompare(right.productName));
 
     for (const product of categoryProducts) {
-      if (isSludgeMemberProduct(product)) {
+      if (isSludgeMemberProduct(product) || isSludgePoolProduct(product)) {
         continue;
       }
       const section = buildProductSection(
@@ -462,13 +487,17 @@ export function getStockCommitmentReport(
   }
 
   const sludgeMemberProductIds = resolveSludgeMemberProductIds(products);
-  if (sludgeMemberProductIds.length > 0) {
-    const sludgeStockProductIds = resolveSludgeStockProductIds(sludgeMemberProductIds, db);
+  const sludgePoolProductId = getSludgeOilPoolProductId(db);
+  if (sludgeMemberProductIds.length > 0 || sludgePoolProductId != null) {
+    const sludgeProductIds = resolveSludgeStockProductIds(
+      sludgeMemberProductIds,
+      db,
+    );
     const sludgeSection = buildBucketedProductSection(
       0,
       PALM_SLUDGE_OIL_REPORT_BUCKET_NAME,
-      sludgeStockProductIds,
-      sludgeMemberProductIds,
+      sludgeProductIds,
+      sludgeProductIds,
       salesPoints,
       stockMetrics,
       commitmentMetrics,

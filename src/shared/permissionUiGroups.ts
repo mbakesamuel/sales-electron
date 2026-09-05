@@ -32,6 +32,12 @@ export const PERMISSION_UI_GROUPS: readonly PermissionUiGroup[] = [
     actionKeys: ["validate_sales", "direct_validate_sales"],
   },
   {
+    id: "document-booklets",
+    label: "Document booklets",
+    routeIds: ["document-booklets", "booklet-validation"],
+    actionKeys: ["validate_document_booklets"],
+  },
+  {
     id: "transportation-cost",
     label: "Transportation cost",
     routeIds: ["transport-cost-compute"],

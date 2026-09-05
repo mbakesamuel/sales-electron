@@ -7,7 +7,7 @@ import type {
 } from "../../shared/transportCost.types.ts";
 import { getAuthToken } from "../auth/db.ts";
 import { getElectronApi } from "../auth/client.ts";
-import "../commitments/CarryForwardCommitmentsScreen.css";
+import "../customers/CustomersScreen.css";
 import "../reports/StockCommitmentReport.css";
 import { printPortraitDocument } from "../reports/printPortraitDocument.ts";
 import "./TransportCostComputeScreen.css";
@@ -24,6 +24,80 @@ function formatKg(value: number): string {
 function formatMoney(value: number | null): string {
   if (value == null) return "—";
   return Math.round(value).toLocaleString("en-US");
+}
+
+function IconTruck() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="1" y="3" width="15" height="13" />
+      <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+      <circle cx="5.5" cy="18.5" r="2.5" />
+      <circle cx="18.5" cy="18.5" r="2.5" />
+    </svg>
+  );
+}
+
+function IconPrinter() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M6 9V2h12v7" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <path d="M6 14h12v8H6z" />
+    </svg>
+  );
+}
+
+function IconCalculator() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="4" y="2" width="16" height="20" rx="2" />
+      <line x1="8" y1="6" x2="16" y2="6" />
+      <line x1="16" y1="14" x2="16" y2="18" />
+      <path d="M16 10h.01M12 10h.01M8 10h.01M12 14h.01M8 14h.01M12 18h.01M8 18h.01" />
+    </svg>
+  );
+}
+
+function IconPackage() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="16.5" y1="9.4" x2="7.5" y2="4.21" />
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+      <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+      <line x1="12" y1="22.08" x2="12" y2="12" />
+    </svg>
+  );
+}
+
+function IconCoins() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="8" cy="8" r="6" />
+      <path d="M18.09 10.37A6 6 0 1 1 10.34 18" />
+      <path d="M7 6h1v4" />
+      <path d="m16.71 13.88.7.71-2.82 2.82" />
+    </svg>
+  );
+}
+
+function IconFileText() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+    </svg>
+  );
+}
+
+function IconCheck() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  );
 }
 
 export function TransportCostComputeScreen({
@@ -118,16 +192,16 @@ export function TransportCostComputeScreen({
   }
 
   if (loading) {
-    return <p class="cf-status">Loading…</p>;
+    return <p class="customers-status">Loading…</p>;
   }
 
   if (error) {
-    return <p class="cf-status cf-status-error">{error}</p>;
+    return <p class="customers-status customers-status-error">{error}</p>;
   }
 
   if (!options?.openPeriod) {
     return (
-      <p class="cf-status cf-status-error">
+      <p class="customers-status customers-status-error">
         Open a financial month before computing transportation cost.
       </p>
     );
@@ -136,190 +210,346 @@ export function TransportCostComputeScreen({
   const period = options.openPeriod;
 
   return (
-    <div class="cf-page">
-      <div class="cf-header tcc-no-print">
-        <div>
-          <h2 class="cf-title">Transportation cost</h2>
-          <p class="cf-subtitle">
-            Open month: {period.monthName} {period.financialYear} ({period.startDate} to{" "}
-            {result?.asAtIso ?? period.endDate})
-          </p>
-        </div>
-      </div>
+    <>
+      <div class="customers-screen tcc-screen">
+        <header class="customers-screen-header">
+          <div class="customers-screen-brand">
+            <div class="customers-screen-brand-icon">
+              <IconTruck />
+            </div>
+            <div>
+              <h2 class="customers-screen-brand-title">Transportation Cost</h2>
+              <p class="customers-screen-brand-subtitle">
+                Open month: {period.monthName} {period.financialYear} ({period.startDate} to{" "}
+                {result?.asAtIso ?? period.endDate})
+              </p>
+            </div>
+          </div>
 
-      <section class="tcc-filters-section tcc-no-print" aria-label="Transport cost filters">
-        <div class="cf-filters">
-          <label class="cf-field">
-            <span>Customer</span>
-            <select
-              value={customerId}
-              onInput={(event) =>
-                setCustomerId((event.currentTarget as HTMLSelectElement).value)
-              }
-            >
-              <option value="">Select customer…</option>
-              {options.customers.map((customer) => (
-                <option key={customer.id} value={String(customer.id)}>
-                  {customer.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label class="cf-field">
-            <span>Collection point</span>
-            <select
-              value={salesPointId}
-              onInput={(event) =>
-                setSalesPointId((event.currentTarget as HTMLSelectElement).value)
-              }
-            >
-              <option value="">Select collection point…</option>
-              {options.salesPoints.map((point) => (
-                <option key={point.id} value={String(point.id)}>
-                  {point.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label class="cf-field">
-            <span>Product</span>
-            <select
-              value={productId}
-              onInput={(event) =>
-                setProductId((event.currentTarget as HTMLSelectElement).value)
-              }
-            >
-              <option value="">Select product…</option>
-              {options.products.map((product) => (
-                <option key={product.productId} value={String(product.productId)}>
-                  {product.productName}
-                  {product.productCode ? ` (${product.productCode})` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <button
-            type="button"
-            class="cf-btn cf-btn-primary"
-            disabled={
-              !canCompute ||
-              computing ||
-              options.salesPoints.length === 0
-            }
-            onClick={() => void handleCompute()}
-          >
-            {computing ? "Computing…" : "Compute"}
-          </button>
-        </div>
-      </section>
-
-      {options.policyNotice ? (
-        <p
-          class={`cf-banner tcc-no-print ${
-            options.policyNotice.includes("no active collection point")
-              ? "cf-banner-error"
-              : "tcc-policy-notice"
-          }`}
-        >
-          {options.policyNotice}
-        </p>
-      ) : null}
-
-      {actionError ? <p class="cf-banner cf-banner-error tcc-no-print">{actionError}</p> : null}
-
-      {result?.warnings.length ? (
-        <div class="cf-banner cf-banner-warning tcc-no-print">
-          {result.warnings.map((warning) => (
-            <p key={warning}>{warning}</p>
-          ))}
-        </div>
-      ) : null}
-
-      {result ? (
-        <section class="tcc-results-section" aria-label="Transport cost results">
-          <div class="tcc-results-inner">
-            <article class="scr-document tcc-print-document">
-              <header class="tcc-print-header">
-                <h2 class="tcc-print-title">Transportation cost</h2>
-                <p class="tcc-print-subtitle">
-                  {result.customerName} · {result.salesPointName} · {result.productName}
-                </p>
-                <p class="tcc-print-subtitle">
-                  Open month: {period.monthName} {period.financialYear} ({period.startDate}{" "}
-                  to {result.asAtIso})
-                </p>
-              </header>
-
-              <div class="tcc-print-summary">
-                <p>
-                  Total lifted: <strong>{formatKg(result.totalQtyKg)} kg</strong>
-                </p>
-                <p>
-                  Total transport cost: <strong>{formatMoney(result.totalCost)} XAF</strong>
-                </p>
-              </div>
-
-              {result.warnings.length ? (
-                <div class="tcc-print-warnings">
-                  {result.warnings.map((warning) => (
-                    <p key={warning}>{warning}</p>
-                  ))}
-                </div>
-              ) : null}
-
-              {result.lines.length === 0 ? (
-                <p class="cf-empty">
-                  No validated lifts found for this selection in the open month.
-                </p>
-              ) : (
-                <div class="cf-table-wrap tcc-print-table-wrap">
-                  <table class="cf-table">
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Invoice</th>
-                        <th>DO No</th>
-                        <th class="cf-num">Qty (kg)</th>
-                        <th class="cf-num">Rate/kg</th>
-                        <th class="cf-num">Cost</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {result.lines.map((line, index) => (
-                        <tr key={`${line.dateIssued}-${line.invoiceNo ?? index}`}>
-                          <td>{line.dateIssued}</td>
-                          <td>{line.invoiceNo ?? "—"}</td>
-                          <td>{line.deliveryOrderNo ?? "—"}</td>
-                          <td class="cf-num">{formatKg(line.qtyKg)}</td>
-                          <td class="cf-num">
-                            {line.rateMissing ? "—" : formatMoney(line.ratePerKg)}
-                          </td>
-                          <td class="cf-num">
-                            {line.rateMissing ? "—" : formatMoney(line.lineCost)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </article>
-
-            <div class="tcc-results-actions no-print">
+          <div class="customers-screen-header-actions">
+            {result ? (
               <button
                 type="button"
-                class="scr-btn tcc-print-btn"
+                class="customers-btn customers-btn-secondary"
                 onClick={() => printPortraitDocument()}
               >
-                Print
+                <IconPrinter /> Print
+              </button>
+            ) : null}
+          </div>
+        </header>
+
+        {options.policyNotice ? (
+          <p
+            class={`customers-banner ${
+              options.policyNotice.includes("no active collection point")
+                ? "customers-banner-error"
+                : "tcc-policy-notice"
+            }`}
+          >
+            {options.policyNotice}
+          </p>
+        ) : null}
+
+        {actionError ? (
+          <p class="customers-banner customers-banner-error">{actionError}</p>
+        ) : null}
+
+        {result?.warnings.length ? (
+          <div class="customers-banner customers-banner-warning">
+            {result.warnings.map((warning) => (
+              <p key={warning} style="margin: 2px 0;">{warning}</p>
+            ))}
+          </div>
+        ) : null}
+
+        <div class="customers-card tcc-parameter-card">
+          <div class="customers-card-toolbar">
+            <div class="customers-card-toolbar-row">
+              <div>
+                <h3 class="customers-card-title">Compute Parameters</h3>
+                <p class="customers-card-subtitle">
+                  Select customer, collection point, and product to calculate transportation allowance
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="tcc-filters-grid">
+            <label class="tcc-field">
+              <span class="tcc-field-label">Customer *</span>
+              <select
+                class="tcc-select"
+                value={customerId}
+                onInput={(event) =>
+                  setCustomerId((event.currentTarget as HTMLSelectElement).value)
+                }
+              >
+                <option value="">Select customer…</option>
+                {options.customers.map((customer) => (
+                  <option key={customer.id} value={String(customer.id)}>
+                    {customer.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label class="tcc-field">
+              <span class="tcc-field-label">Collection Point *</span>
+              <select
+                class="tcc-select"
+                value={salesPointId}
+                onInput={(event) =>
+                  setSalesPointId((event.currentTarget as HTMLSelectElement).value)
+                }
+              >
+                <option value="">Select collection point…</option>
+                {options.salesPoints.map((point) => (
+                  <option key={point.id} value={String(point.id)}>
+                    {point.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label class="tcc-field">
+              <span class="tcc-field-label">Product *</span>
+              <select
+                class="tcc-select"
+                value={productId}
+                onInput={(event) =>
+                  setProductId((event.currentTarget as HTMLSelectElement).value)
+                }
+              >
+                <option value="">Select product…</option>
+                {options.products.map((product) => (
+                  <option key={product.productId} value={String(product.productId)}>
+                    {product.productName}
+                    {product.productCode ? ` (${product.productCode})` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div class="tcc-action-wrap">
+              <button
+                type="button"
+                class="customers-btn customers-btn-primary tcc-compute-btn"
+                disabled={
+                  !canCompute ||
+                  computing ||
+                  options.salesPoints.length === 0
+                }
+                onClick={() => void handleCompute()}
+              >
+                <IconCalculator />
+                {computing ? "Computing…" : "Compute Cost"}
               </button>
             </div>
           </div>
-        </section>
+        </div>
+
+        {result ? (
+          <>
+            <div class="customers-stats">
+              <div class="customers-stat-card">
+                <div class="customers-stat-icon customers-stat-icon-blue">
+                  <IconPackage />
+                </div>
+                <div>
+                  <p class="customers-stat-value">{formatKg(result.totalQtyKg)} kg</p>
+                  <p class="customers-stat-label">Total Lifted Volume</p>
+                </div>
+              </div>
+
+              <div class="customers-stat-card">
+                <div class="customers-stat-icon customers-stat-icon-emerald">
+                  <IconCoins />
+                </div>
+                <div>
+                  <p class="customers-stat-value">{formatMoney(result.totalCost)} XAF</p>
+                  <p class="customers-stat-label">Total Transport Cost</p>
+                </div>
+              </div>
+
+              <div class="customers-stat-card">
+                <div class="customers-stat-icon customers-stat-icon-violet">
+                  <IconFileText />
+                </div>
+                <div>
+                  <p class="customers-stat-value">{result.lines.length}</p>
+                  <p class="customers-stat-label">Validated Lift Invoices</p>
+                </div>
+              </div>
+
+              <div class="customers-stat-card">
+                <div class="customers-stat-icon customers-stat-icon-amber">
+                  <IconCheck />
+                </div>
+                <div>
+                  <p class="customers-stat-value">
+                    {result.warnings.length === 0 ? "Complete" : "Missing Rates"}
+                  </p>
+                  <p class="customers-stat-label">Rate Schedule</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="customers-card tcc-results-card">
+              <div class="customers-card-toolbar">
+                <div class="customers-card-toolbar-row">
+                  <div>
+                    <h3 class="customers-card-title">
+                      {result.customerName} · {result.salesPointName} · {result.productName}
+                    </h3>
+                    <p class="customers-card-subtitle">
+                      {result.lines.length} lift transaction{result.lines.length === 1 ? "" : "s"} found
+                    </p>
+                  </div>
+                  <div class="customers-card-controls">
+                    <button
+                      type="button"
+                      class="customers-btn customers-btn-secondary"
+                      onClick={() => printPortraitDocument()}
+                    >
+                      <IconPrinter /> Print Report
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="customers-table-scroll">
+                <table class="customers-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Invoice No</th>
+                      <th>DO No</th>
+                      <th class="tcc-num">Qty (kg)</th>
+                      <th class="tcc-num">Rate / kg (XAF)</th>
+                      <th class="tcc-num">Cost (XAF)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.lines.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} class="customers-table-empty">
+                          No validated lifts found for this selection in the open month.
+                        </td>
+                      </tr>
+                    ) : (
+                      result.lines.map((line, index) => (
+                        <tr key={`${line.dateIssued}-${line.invoiceNo ?? index}`}>
+                          <td>{line.dateIssued}</td>
+                          <td>
+                            {line.invoiceNo ? (
+                              <span class="customers-mono-chip">{line.invoiceNo}</span>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td>
+                            {line.deliveryOrderNo ? (
+                              <span class="customers-mono-chip">{line.deliveryOrderNo}</span>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td class="tcc-num">
+                            <strong>{formatKg(line.qtyKg)}</strong>
+                          </td>
+                          <td class="tcc-num">
+                            {line.rateMissing ? "—" : formatMoney(line.ratePerKg)}
+                          </td>
+                          <td class="tcc-num">
+                            {line.rateMissing ? (
+                              <span class="customers-badge customers-badge-amber">
+                                Missing Rate
+                              </span>
+                            ) : (
+                              <strong>{formatMoney(line.lineCost)}</strong>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        ) : null}
+      </div>
+
+      {/* Dedicated clean print layout when printing (activated by body.scr-print-mode) */}
+      {result ? (
+        <article class="scr-document tcc-print-document">
+          <header class="tcc-print-header">
+            <h2 class="tcc-print-title">Transportation cost</h2>
+            <p class="tcc-print-subtitle">
+              {result.customerName} · {result.salesPointName} · {result.productName}
+            </p>
+            <p class="tcc-print-subtitle">
+              Open month: {period.monthName} {period.financialYear} ({period.startDate}{" "}
+              to {result.asAtIso})
+            </p>
+          </header>
+
+          <div class="tcc-print-summary">
+            <p>
+              Total lifted: <strong>{formatKg(result.totalQtyKg)} kg</strong>
+            </p>
+            <p>
+              Total transport cost: <strong>{formatMoney(result.totalCost)} XAF</strong>
+            </p>
+          </div>
+
+          {result.warnings.length ? (
+            <div class="tcc-print-warnings">
+              {result.warnings.map((warning) => (
+                <p key={warning}>{warning}</p>
+              ))}
+            </div>
+          ) : null}
+
+          {result.lines.length === 0 ? (
+            <p class="cf-empty">
+              No validated lifts found for this selection in the open month.
+            </p>
+          ) : (
+            <div class="cf-table-wrap tcc-print-table-wrap">
+              <table class="cf-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Invoice</th>
+                    <th>DO No</th>
+                    <th class="cf-num">Qty (kg)</th>
+                    <th class="cf-num">Rate/kg</th>
+                    <th class="cf-num">Cost</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.lines.map((line, index) => (
+                    <tr key={`${line.dateIssued}-${line.invoiceNo ?? index}`}>
+                      <td>{line.dateIssued}</td>
+                      <td>{line.invoiceNo ?? "—"}</td>
+                      <td>{line.deliveryOrderNo ?? "—"}</td>
+                      <td class="cf-num">{formatKg(line.qtyKg)}</td>
+                      <td class="cf-num">
+                        {line.rateMissing ? "—" : formatMoney(line.ratePerKg)}
+                      </td>
+                      <td class="cf-num">
+                        {line.rateMissing ? "—" : formatMoney(line.lineCost)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </article>
       ) : null}
-    </div>
+    </>
   );
 }

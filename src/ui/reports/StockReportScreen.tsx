@@ -15,6 +15,7 @@ import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
 import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import { HIDE_ZERO_ROWS_HINT, isStockReportEmpty } from "./reportEmpty.ts";
+import { printWeeklyPortraitDocument } from "./printWeeklyPortraitDocument.ts";
 import "./StockCommitmentReport.css";
 
 
@@ -48,15 +49,7 @@ function locationRowClassName(row: StockReportLocationRow): string {
 }
 
 function handlePrint(): void {
-  document.body.classList.add("scr-print-mode");
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode");
-    },
-    { once: true },
-  );
-  window.print();
+  printWeeklyPortraitDocument();
 }
 
 function LocationDetailColGroup() {
@@ -247,12 +240,6 @@ function SalesPointQtySection({
               {section.title}
             </th>
           </tr>
-          <tr>
-            <th />
-            <th />
-            <th>{section.quantityLabel}</th>
-            <th />
-          </tr>
         </thead>
         <tbody>
           {section.rows.map((row) => (
@@ -379,7 +366,7 @@ export function StockReportDocument({ report }: { report: StockReport }) {
 
   return (
     <ReportDocumentShell
-      className="scr-document sr-stock-compact sr-stock-report wpp-pack-page"
+      className="scr-document sr-stock-compact sr-stock-report wpp-pack-page weekly-report-tight"
       isEmpty={empty}
       emptyMessage={`No stock quantities to display as at ${formatDisplayDate(report.asAtIso)}.`}
       emptyHint={HIDE_ZERO_ROWS_HINT}
