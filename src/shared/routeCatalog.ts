@@ -363,6 +363,11 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
     sectionId: "organization",
   },
   {
+    id: "sync-settings",
+    label: "Data sync",
+    sectionId: "organization",
+  },
+  {
     id: "tax-rate-schedules",
     label: "Tax rates",
     sectionId: "organization",

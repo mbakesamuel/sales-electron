@@ -1071,6 +1071,10 @@ function salesPointHasAttachedToMill(database: Database.Database): boolean {
   return getTableColumns(database, "SalesPoint").has("attachedToMill");
 }
 
+function saleHasCancellationColumns(database: Database.Database): boolean {
+  return getTableColumns(database, "Sale").has("cancelledAt");
+}
+
 function storageLocationHasIsSellable(database: Database.Database): boolean {
   return getTableColumns(database, "StorageLocation").has("isSellable");
 }
@@ -1639,6 +1643,11 @@ function runMigrations(database: Database.Database): void {
       const sql = readFileSync(path.join(getMigrationsDir(), fileName), "utf8");
       database.exec(sql);
       applyStockIntakeProductBackfill(database);
+      database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
+      continue;
+    }
+
+    if (fileName === "119_sale_cancellation.sql" && saleHasCancellationColumns(database)) {
       database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(fileName);
       continue;
     }

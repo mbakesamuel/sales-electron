@@ -33,6 +33,7 @@ import {
 } from "../companySettings/salesDoDocumentNumbers.js";
 import { assertDateInOpenMonth, resolveListDateRange } from "../financialYears/service.js";
 import { allocateDeliveryOrderNo } from "./doNo.js";
+import { enqueueOutboxItem, serializeDeliveryOrderForSync } from "../sync/syncOutbox.js";
 
 function nowIso(): string {
   return new Date().toISOString().slice(0, 19).replace("T", " ");
@@ -837,6 +838,12 @@ export function saveDeliveryOrder(input: SaveDeliveryOrderInput): SaveDeliveryOr
 
     const orderId = Number(result.lastInsertRowid);
     insertLinesAndPayments(db, orderId, preparedLines, input.payments, dateIssued);
+
+    const payload = serializeDeliveryOrderForSync(db, orderId);
+    if (payload) {
+      enqueueOutboxItem(db, "DeliveryOrder", String(orderId), "UPSERT", payload);
+    }
+
     return orderId;
   });
 
@@ -953,7 +960,11 @@ export function deleteDeliveryOrder(
     return { ok: false, error: "Validated delivery orders cannot be deleted." };
   }
 
-  db.prepare(`DELETE FROM DeliveryOrder WHERE id = ?`).run(orderId);
+  const deleteTx = db.transaction(() => {
+    db.prepare(`DELETE FROM DeliveryOrder WHERE id = ?`).run(orderId);
+    enqueueOutboxItem(db, "DeliveryOrder", String(orderId), "DELETE", { id: orderId });
+  });
+  deleteTx();
   return { ok: true };
 }
 
@@ -982,11 +993,19 @@ export function validateDeliveryOrder(
     return { ok: true };
   }
 
-  db.prepare(
-    `UPDATE DeliveryOrder
-     SET status = 'VALIDATED', validatedAt = ?, validatedByUserId = ?
-     WHERE id = ?`,
-  ).run(nowIso(), userId, orderId);
+  const valTx = db.transaction(() => {
+    db.prepare(
+      `UPDATE DeliveryOrder
+       SET status = 'VALIDATED', validatedAt = ?, validatedByUserId = ?
+       WHERE id = ?`,
+    ).run(nowIso(), userId, orderId);
+
+    const payload = serializeDeliveryOrderForSync(db, orderId);
+    if (payload) {
+      enqueueOutboxItem(db, "DeliveryOrder", String(orderId), "UPDATE", payload);
+    }
+  });
+  valTx();
 
   return { ok: true };
 }
@@ -1022,11 +1041,19 @@ export function cancelValidatedDeliveryOrder(
     return { ok: false, error: "Only validated delivery orders can be cancelled." };
   }
 
-  db.prepare(
-    `UPDATE DeliveryOrder
-     SET status = 'REJECTED', cancelledAt = ?, cancelledByUserId = ?, cancelReason = ?
-     WHERE id = ?`,
-  ).run(nowIso(), userId, trimmedReason, orderId);
+  const cancelTx = db.transaction(() => {
+    db.prepare(
+      `UPDATE DeliveryOrder
+       SET status = 'REJECTED', cancelledAt = ?, cancelledByUserId = ?, cancelReason = ?
+       WHERE id = ?`,
+    ).run(nowIso(), userId, trimmedReason, orderId);
+
+    const payload = serializeDeliveryOrderForSync(db, orderId);
+    if (payload) {
+      enqueueOutboxItem(db, "DeliveryOrder", String(orderId), "UPDATE", payload);
+    }
+  });
+  cancelTx();
 
   return { ok: true };
 }

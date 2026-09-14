@@ -22,6 +22,8 @@ const USER_CHAPTERS = [
   "07-sales-budgets.md",
   "08-reports.md",
   "09-users-permissions.md",
+  "11-data-backup-restore.md",
+  "12-data-sync.md",
   "10-troubleshooting.md",
 ];
 

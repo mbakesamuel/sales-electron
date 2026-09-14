@@ -3,6 +3,8 @@ import type { RouteAccess } from "./roles.ts";
 export const PERMISSION_ACTIONS = [
   "validate_sales",
   "direct_validate_sales",
+  "cancel_validated_sales",
+  "delete_validated_sales",
   "validate_delivery_orders",
   "cancel_validated_delivery_order",
   "transfer_delivery_order_balance",

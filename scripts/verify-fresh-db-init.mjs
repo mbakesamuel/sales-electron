@@ -29,18 +29,36 @@ app
       .get();
     const fk = db.prepare("PRAGMA foreign_key_check").all();
 
+    const syncOutboxExists = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='SyncOutbox'")
+      .get();
+    const syncStateExists = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='SyncState'")
+      .get();
+    const saleCols = db.prepare("PRAGMA table_info(Sale)").all();
+    const hasCancelledAt = saleCols.some((col) => col.name === "cancelledAt");
+    const cancelPerm = db
+      .prepare(
+        "SELECT role, allowed FROM RoleActionPermission WHERE actionKey = 'cancel_validated_sales'",
+      )
+      .all();
+
     console.log("Fresh DB init OK");
     console.log(`  userData: ${tempRoot}`);
     console.log(`  migrations: ${migrationCount}`);
     console.log(`  roles: ${roleCount}`);
     console.log(`  admin: ${admin ? `${admin.id} (${admin.role})` : "missing"}`);
     console.log(`  JNR_SALES_SUP: ${jnr ? "present" : "missing"}`);
+    console.log(`  SyncOutbox: ${syncOutboxExists ? "present" : "missing"}`);
+    console.log(`  SyncState: ${syncStateExists ? "present" : "missing"}`);
+    console.log(`  Sale.cancelledAt: ${hasCancelledAt ? "present" : "missing"}`);
+    console.log(`  cancel_validated_sales permissions: ${JSON.stringify(cancelPerm)}`);
     console.log(
       `  foreign_key_check: ${fk.length === 0 ? "clean" : JSON.stringify(fk)}`,
     );
 
     closeDatabase();
-    const ok = Boolean(admin && jnr && fk.length === 0);
+    const ok = Boolean(admin && jnr && fk.length === 0 && syncOutboxExists && syncStateExists);
     app.exit(ok ? 0 : 1);
   })
   .catch((error) => {

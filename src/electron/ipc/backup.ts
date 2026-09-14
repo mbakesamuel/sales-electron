@@ -60,7 +60,7 @@ export function registerBackupHandlers(): void {
       }
 
       try {
-        const result = createBackup(filePath);
+        const result = await createBackup(filePath);
         return { ok: true, filePath: result.filePath, sizeBytes: result.sizeBytes };
       } catch (error) {
         return {
@@ -179,11 +179,11 @@ export function registerBackupHandlers(): void {
 
   ipcMain.handle(
     "backup:runScheduledNow",
-    (_event, authToken: string): BackupRunScheduledResult => {
+    async (_event, authToken: string): Promise<BackupRunScheduledResult> => {
       const user = requireAuthUser(authToken);
       assertRouteWrite(user.role, ROUTE_ID);
       try {
-        const result = runScheduledBackup();
+        const result = await runScheduledBackup();
         return {
           ok: true,
           filePath: result.filePath,

@@ -19,6 +19,7 @@ import {
 } from "./tableMeta.js";
 import { assertProductOmitsStorageLocationChangeAllowed } from "../stock/productStorage.js";
 import { assertProductCanBeDeleted } from "../products/productDeleteGuard.js";
+import { enqueueOutboxItem } from "../sync/syncOutbox.js";
 
 type DbOperation = "insert" | "update" | "delete";
 
@@ -377,6 +378,10 @@ export function insertRow(input: TableInsertInput): Record<string, unknown> {
 
     maybeSyncCompanyVatFromTaxSchedule(table);
 
+    if (table === "Customer" && row && row.id != null) {
+      enqueueOutboxItem(getDatabase(), "Customer", String(row.id), "INSERT", row);
+    }
+
     return row;
   } catch (error) {
     throw wrapDatabaseError(error);
@@ -424,6 +429,10 @@ export function updateRow(input: TableUpdateInput): Record<string, unknown> {
 
     maybeSyncCompanyVatFromTaxSchedule(table);
 
+    if (table === "Customer" && row && row.id != null) {
+      enqueueOutboxItem(getDatabase(), "Customer", String(row.id), "UPDATE", row);
+    }
+
     return row;
   } catch (error) {
     throw wrapDatabaseError(error);
@@ -454,6 +463,13 @@ export function deleteRow(input: TableDeleteInput): void {
 
     if (result.changes === 0) {
       throw new Error("Row was not found");
+    }
+
+    if (table === "Customer") {
+      const customerId = String(primaryKey.id ?? "");
+      if (customerId) {
+        enqueueOutboxItem(getDatabase(), "Customer", customerId, "DELETE", { id: customerId });
+      }
     }
 
     maybeSyncCompanyVatFromTaxSchedule(table);

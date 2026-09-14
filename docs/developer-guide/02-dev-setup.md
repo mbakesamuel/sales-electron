@@ -46,6 +46,27 @@ On Windows this is typically under `%APPDATA%\sales-electron\sales.db` for the `
 | `npm run verify:tax-schema` | Tax schema check |
 | `npm run verify:intra-transfer` | Intra-transfer stock verify |
 | `npm run recalc:sales-tax-exempt` | Recalculate sales for tax-exempt customer types |
+| `npm run server:dev` | Start Hono sync API server in dev mode (`server/`) |
+| `npm run server:migrate` | Run PostgreSQL schema migration (`sales_central`) |
+| `npm run server:reset` | Cleanly truncate all PostgreSQL tables |
+| `npm run sync:backfill` | Backfill all local SQLite data into PostgreSQL |
+
+## Running the Central Sync Server (Optional in Dev)
+
+To develop with live sync to PostgreSQL:
+
+```bash
+# 1. Install server dependencies
+npm --prefix server install
+
+# 2. Run migrations
+npm run server:migrate
+
+# 3. Start Hono server (port 3001)
+npm run server:dev
+```
+
+See [PostgreSQL Sync Setup](../POSTGRES_SYNC_SETUP.md) for full details.
 
 ## Typecheck
 

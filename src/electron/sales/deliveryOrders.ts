@@ -27,7 +27,7 @@ function getSoldQtyForDoProduct(
       `SELECT COALESCE(SUM(CAST(sl.qtyKg AS REAL)), 0) AS soldQty
        FROM Sale s
        INNER JOIN SaleLine sl ON sl.saleId = s.id
-       WHERE s.deliveryOrderNo = ? AND sl.productId = ?`,
+       WHERE s.deliveryOrderNo = ? AND sl.productId = ? AND s.status IN ('PENDING', 'VALIDATED')`,
     )
     .get(deliveryOrderNo, productId) as { soldQty: number };
 

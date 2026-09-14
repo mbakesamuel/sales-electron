@@ -78,6 +78,16 @@
   padding-bottom: 6px;
 }
 
+.cr-commitment-report .scr-category-matrix {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.cr-commitment-report .scr-category-matrix th:first-child,
+.cr-commitment-report .scr-category-matrix td:first-child {
+  width: 32%;
+}
+
 .report-header-meta .scr-meta-line,
 .report-header-meta .scr-as-at,
 .report-header-meta .scr-generated {

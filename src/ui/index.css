@@ -183,6 +183,9 @@ html[data-theme="dark"] .login-button:hover:not(:disabled) {
 }
 
 html[data-theme="dark"] button[class*="btn-secondary"],
+html[data-theme="dark"] button[class*="secondary-btn"],
+html[data-theme="dark"] .company-settings-secondary-btn,
+html[data-theme="dark"] .sync-secondary-btn,
 html[data-theme="dark"] .scr-btn-secondary,
 html[data-theme="dark"] .sales-btn-secondary,
 html[data-theme="dark"] .stock-btn-secondary,
@@ -191,6 +194,14 @@ html[data-theme="dark"] .form-dialog-btn-secondary {
   background: var(--bg-elevated) !important;
   color: var(--text-h) !important;
   border-color: var(--border-strong) !important;
+}
+
+html[data-theme="dark"] button[class*="btn-secondary"]:hover:not(:disabled),
+html[data-theme="dark"] button[class*="secondary-btn"]:hover:not(:disabled),
+html[data-theme="dark"] .company-settings-secondary-btn:hover:not(:disabled),
+html[data-theme="dark"] .sync-secondary-btn:hover:not(:disabled) {
+  background: var(--bg-soft) !important;
+  color: #ffffff !important;
 }
 
 html[data-theme="dark"] .sales-link-btn,

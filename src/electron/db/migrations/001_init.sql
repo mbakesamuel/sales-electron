@@ -352,7 +352,10 @@ CREATE TABLE IF NOT EXISTS Sale (
   issuerAddressSnapshot TEXT,
   commercialServiceNameSnapshot TEXT,
   saleProductMode TEXT CHECK (saleProductMode IS NULL OR saleProductMode IN ('LOOSE','BOTTLE')),
-  saleDisposition TEXT DEFAULT 'NORMAL' CHECK (saleDisposition IS NULL OR saleDisposition IN ('NORMAL','RATION','PUBLIC_RELATION'))
+  saleDisposition TEXT DEFAULT 'NORMAL' CHECK (saleDisposition IS NULL OR saleDisposition IN ('NORMAL','RATION','PUBLIC_RELATION')),
+  cancelledAt TEXT,
+  cancelledByUserId TEXT REFERENCES User(id),
+  cancelReason TEXT
 );
 CREATE INDEX IF NOT EXISTS Sale_soldAt_idx ON Sale (soldAt);
 CREATE INDEX IF NOT EXISTS Sale_customer_soldAt_idx ON Sale (customerId, soldAt);
@@ -360,6 +363,7 @@ CREATE INDEX IF NOT EXISTS Sale_createdBy_soldAt_idx ON Sale (createdByUserId, s
 CREATE INDEX IF NOT EXISTS Sale_taxRegime_soldAt_idx ON Sale (taxRegimeId, soldAt);
 CREATE INDEX IF NOT EXISTS Sale_fy_posting_idx ON Sale (financialYear, postingCalendarYear, financialMonth);
 CREATE INDEX IF NOT EXISTS Sale_status_soldAt_idx ON Sale (status, soldAt);
+CREATE INDEX IF NOT EXISTS Sale_status_cancelled_idx ON Sale (status, cancelledAt);
 CREATE INDEX IF NOT EXISTS Sale_deliveryOrderNo_idx ON Sale (deliveryOrderNo);
 CREATE INDEX IF NOT EXISTS Sale_commercialService_idx ON Sale (commercialServiceId);
 
@@ -704,5 +708,36 @@ CREATE INDEX IF NOT EXISTS StockMovement_location_product_idx ON StockMovement (
 CREATE INDEX IF NOT EXISTS StockMovement_source_idx ON StockMovement (sourceKind, sourceId);
 CREATE INDEX IF NOT EXISTS StockMovement_occurred_idx ON StockMovement (occurredAt);
 CREATE INDEX IF NOT EXISTS StockMovement_user_date_idx ON StockMovement (userId, occurredAt);
+
+-- ---------------------------------------------------------------------------
+-- Offline Synchronization
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS SyncOutbox (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  entityType TEXT NOT NULL,
+  entityId TEXT NOT NULL,
+  action TEXT NOT NULL CHECK (action IN ('INSERT', 'UPDATE', 'DELETE', 'UPSERT')),
+  payloadJson TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'IN_FLIGHT', 'FAILED', 'SYNCED')),
+  retryCount INTEGER NOT NULL DEFAULT 0,
+  lastError TEXT,
+  createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+  syncedAt TEXT
+);
+CREATE INDEX IF NOT EXISTS SyncOutbox_status_idx ON SyncOutbox (status, id);
+CREATE INDEX IF NOT EXISTS SyncOutbox_entity_idx ON SyncOutbox (entityType, entityId);
+
+CREATE TABLE IF NOT EXISTS SyncState (
+  id TEXT PRIMARY KEY NOT NULL DEFAULT 'default',
+  syncServerUrl TEXT NOT NULL DEFAULT 'http://localhost:3001',
+  apiToken TEXT,
+  salesPointId INTEGER REFERENCES SalesPoint(id),
+  deviceId TEXT NOT NULL DEFAULT 'terminal-01',
+  lastPulledAt TEXT,
+  lastPushedAt TEXT,
+  autoSyncEnabled INTEGER NOT NULL DEFAULT 1 CHECK (autoSyncEnabled IN (0, 1)),
+  updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+);
 
 PRAGMA foreign_keys = ON;

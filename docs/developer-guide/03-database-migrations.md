@@ -59,6 +59,11 @@ Recent notable migrations:
 | `107_sales_budget_revenue_crosstab_permissions.sql` | Sales budget revenue crosstab routes |
 | `108_data_backup_permissions.sql` | Data backup route (ADMIN write) |
 | `109_loose_lpo_stock_summary_permissions.sql` | Loose LPO stock summary report route |
+| `116_document_booklets.sql` | `DocumentBooklet` registry and permissions |
+| `117_booklet_issuance_validation.sql` | Booklet issuance & validation workflow |
+| `118_sync_outbox_and_state.sql` | `SyncOutbox` and `SyncState` tables for offline-first PostgreSQL synchronization |
+| `119_sale_cancellation.sql` | `Sale` cancellation columns (`cancelledAt`, `cancelledByUserId`, `cancelReason`) and `cancel_validated_sales` / `delete_validated_sales` permissions |
+| `120_backdate_sale_reversal_occurred_at.sql` | Align existing `SALE_REVERSAL` dates with original `SALE` movements for period stock reports |
 
 When adding a migration:
 
@@ -80,6 +85,8 @@ When adding a migration:
 | Sales | `Sale`, `SaleLine`, `SaleAppliedTax`, `Payment` (sale payments; cheque/traite/bank fields on `Payment`) |
 | Consignment | `VehicleConsignmentNote` (+ detail columns from `085`) |
 | Stock | `StockBalance`, `StockMovement`, receipts/transfers/adjustments (+ lines, `sourceKind` on adjustments) |
+| Booklets | `DocumentBooklet` |
+| Synchronization | `SyncOutbox` (pending transactions), `SyncState` (server config & sync timestamps) |
 
 Do not dump full SQL into docs — read migrations for authoritative DDL.
 

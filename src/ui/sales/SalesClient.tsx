@@ -342,6 +342,14 @@ export function SalesClient({
     permissions,
     "validate_sales",
   );
+  const canCancelValidated = canPerformActionFromSnapshot(
+    permissions,
+    "cancel_validated_sales",
+  );
+  const canDeleteValidated = canPerformActionFromSnapshot(
+    permissions,
+    "delete_validated_sales",
+  );
   const [options, setOptions] = useState<SalesFormOptions | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [banner, setBanner] = useState<{
@@ -359,6 +367,14 @@ export function SalesClient({
     null,
   );
   const [validatedByName, setValidatedByName] = useState("");
+  const [cancelledByName, setCancelledByName] = useState("");
+  const [cancelledAtIso, setCancelledAtIso] = useState("");
+  const [cancelReason, setCancelReason] = useState("");
+
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [cancelReasonInput, setCancelReasonInput] = useState("");
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
   const [printOpen, setPrintOpen] = useState(false);
 
   const [customerId, setCustomerId] = useState("");
@@ -896,6 +912,12 @@ export function SalesClient({
     setConfirmedInvoiceNo(null);
     setSaleStatus(null);
     setValidatedByName("");
+    setCancelledByName("");
+    setCancelledAtIso("");
+    setCancelReason("");
+    setCancelModalOpen(false);
+    setCancelReasonInput("");
+    setCancelError(null);
     setPrintOpen(false);
     setUseRegisteredCustomer(defaultUseRegisteredCustomer(options, isBottleVariant));
     setCustomerId("");
@@ -987,6 +1009,9 @@ export function SalesClient({
     setConfirmedInvoiceNo(sale.invoiceNo);
     setSaleStatus(sale.status);
     setValidatedByName(sale.validatedByName ?? "");
+    setCancelledByName(sale.cancelledByName ?? "");
+    setCancelledAtIso(sale.cancelledAtIso ?? "");
+    setCancelReason(sale.cancelReason ?? "");
     const registered = sale.customerId != null;
     setUseRegisteredCustomer(registered);
     setCustomerId(registered ? String(sale.customerId) : "");
@@ -1415,14 +1440,64 @@ export function SalesClient({
     }
   }
 
+  async function handleCancelSale() {
+    const trimmed = cancelReasonInput.trim();
+    if (!trimmed) {
+      setCancelError("Please provide a reason for cancelling this invoice.");
+      return;
+    }
+    if (!saleId) {
+      return;
+    }
+
+    setBusy("cancel");
+    setCancelError(null);
+    try {
+      const res = await getElectronApi().sales.cancelValidatedSale({
+        saleId,
+        userId: user.id,
+        reason: trimmed,
+      });
+
+      if (!res.ok) {
+        setCancelError(res.error ?? "Failed to cancel invoice.");
+        setBusy(null);
+        return;
+      }
+
+      setSaleStatus("REJECTED");
+      setCancelledByName(user.name);
+      setCancelledAtIso(new Date().toISOString());
+      setCancelReason(trimmed);
+      setCancelModalOpen(false);
+      setCancelReasonInput("");
+      setBanner({
+        type: "ok",
+        text: `Invoice ${invoiceNo} has been cancelled successfully. Stock movements reversed.`,
+      });
+    } catch (err) {
+      setCancelError(
+        err instanceof Error ? err.message : "Failed to cancel invoice.",
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function deleteLoadedSale() {
     if (!saleId) {
       return;
     }
 
-    const confirmed = window.confirm(
-      `Delete invoice ${invoiceNo || saleId}? This cannot be undone.`,
-    );
+    const isVal = saleStatus === "VALIDATED";
+    const isRej = saleStatus === "REJECTED";
+    const confirmMessage = isVal
+      ? `PERMANENTLY delete validated invoice ${invoiceNo || saleId}? This will reverse deducted stock and remove the invoice completely from the system. This cannot be undone.`
+      : isRej
+        ? `PERMANENTLY delete cancelled invoice ${invoiceNo || saleId}? This cannot be undone.`
+        : `Delete invoice ${invoiceNo || saleId}? This cannot be undone.`;
+
+    const confirmed = window.confirm(confirmMessage);
     if (!confirmed) {
       return;
     }
@@ -1555,6 +1630,24 @@ export function SalesClient({
         </div>
       ) : null}
 
+      {saleStatus === "REJECTED" ? (
+        <div class="sales-banner sales-banner-error" style={{ marginBottom: "16px" }}>
+          <div style={{ fontWeight: 600, fontSize: "14px" }}>
+            Invoice Cancelled / Voided
+            {cancelledAtIso ? ` on ${cancelledAtIso.slice(0, 10)}` : ""}
+            {cancelledByName ? ` by ${cancelledByName}` : ""}
+          </div>
+          {cancelReason ? (
+            <div style={{ marginTop: "4px" }}>
+              <strong>Reason:</strong> {cancelReason}
+            </div>
+          ) : null}
+          <div style={{ marginTop: "4px", fontSize: "12px", opacity: 0.9 }}>
+            Stock movements have been reversed and Delivery Order allocations released. This invoice is excluded from financial and tax reports.
+          </div>
+        </div>
+      ) : null}
+
       <section class="sales-panel">
         <div class="sales-invoice-header">
           <div>
@@ -1567,6 +1660,7 @@ export function SalesClient({
                 "—"
               )}
               {validatedByName ? ` · validated by ${validatedByName}` : ""}
+              {cancelledByName ? ` · cancelled by ${cancelledByName}` : ""}
               {isBottleVariant || saleProductMode === "BOTTLE"
                 ? " · Bottle mode"
                 : ""}
@@ -2431,14 +2525,36 @@ export function SalesClient({
           </button>
         ) : null}
 
-        {saleId && saleStatus === "PENDING" ? (
+        {saleId && saleStatus === "VALIDATED" && canCancelValidated ? (
+          <button
+            type="button"
+            class="sales-btn-danger"
+            disabled={busy !== null}
+            onClick={() => {
+              setCancelReasonInput("");
+              setCancelError(null);
+              setCancelModalOpen(true);
+            }}
+          >
+            Cancel invoice
+          </button>
+        ) : null}
+
+        {saleId &&
+        (saleStatus === "PENDING" ||
+          (canDeleteValidated &&
+            (saleStatus === "VALIDATED" || saleStatus === "REJECTED"))) ? (
           <button
             type="button"
             class="sales-btn-danger"
             disabled={busy !== null}
             onClick={() => void deleteLoadedSale()}
           >
-            {busy === "delete" ? "Deleting…" : "Delete invoice"}
+            {busy === "delete"
+              ? "Deleting…"
+              : saleStatus === "PENDING"
+                ? "Delete invoice"
+                : "Permanently delete"}
           </button>
         ) : null}
       </div>
@@ -2469,6 +2585,120 @@ export function SalesClient({
           onClose={() => setLineModal(null)}
           onSave={saveLineModal}
         />
+      ) : null}
+
+      {cancelModalOpen && saleId ? (
+        <div
+          class="sales-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Cancel invoice"
+        >
+          <button
+            type="button"
+            class="sales-modal-backdrop"
+            aria-label="Close"
+            onClick={() => {
+              if (busy !== "cancel") setCancelModalOpen(false);
+            }}
+          />
+          <div class="sales-modal-panel">
+            <div class="sales-modal-header">
+              <div class="sales-modal-title">
+                Cancel invoice {invoiceNo || saleId}
+              </div>
+              <button
+                type="button"
+                class="sales-modal-close"
+                onClick={() => {
+                  if (busy !== "cancel") setCancelModalOpen(false);
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <div class="sales-modal-body">
+              <p class="sales-muted">
+                Are you sure you want to cancel this validated invoice?
+              </p>
+              <ul
+                style={{
+                  margin: "8px 0",
+                  paddingLeft: "20px",
+                  fontSize: "13px",
+                  color: "var(--text-muted)",
+                }}
+              >
+                <li>
+                  The invoice status will be changed to <strong>REJECTED</strong>.
+                </li>
+                <li>
+                  Deducted stock will be restored to inventory via a sale reversal.
+                </li>
+                <li>
+                  Committed quantities on any linked Delivery Order will be
+                  released.
+                </li>
+                <li>
+                  The invoice will be excluded from all sales, tax, and revenue
+                  reports.
+                </li>
+              </ul>
+              {cancelError ? (
+                <div
+                  class="sales-banner sales-banner-error"
+                  style={{ marginBottom: "12px" }}
+                >
+                  {cancelError}
+                </div>
+              ) : null}
+              <label
+                class="sales-field"
+                style={{ marginTop: "12px", display: "block" }}
+              >
+                <span class="sales-label">
+                  Reason for cancellation{" "}
+                  <span style={{ color: "var(--danger, #dc2626)" }}>*</span>
+                </span>
+                <textarea
+                  class="sales-input"
+                  style={{
+                    width: "100%",
+                    minHeight: "80px",
+                    resize: "vertical",
+                    marginTop: "4px",
+                  }}
+                  placeholder="e.g. Customer cancelled order / Incorrect pricing entered / Duplicate invoice"
+                  value={cancelReasonInput}
+                  onInput={(e) =>
+                    setCancelReasonInput(
+                      (e.target as HTMLTextAreaElement).value,
+                    )
+                  }
+                  disabled={busy === "cancel"}
+                />
+              </label>
+              <div class="sales-modal-actions">
+                <button
+                  type="button"
+                  class="sales-btn-secondary"
+                  onClick={() => setCancelModalOpen(false)}
+                  disabled={busy === "cancel"}
+                >
+                  Keep invoice
+                </button>
+                <button
+                  type="button"
+                  class="sales-btn-danger"
+                  onClick={() => void handleCancelSale()}
+                  disabled={busy === "cancel" || !cancelReasonInput.trim()}
+                >
+                  {busy === "cancel" ? "Cancelling…" : "Confirm cancellation"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );

@@ -39,6 +39,8 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("sales:loadSaleByInvoiceNo", invoiceNo),
     createSale: (input) => ipcRenderer.invoke("sales:createSale", input),
     validateSale: (payload) => ipcRenderer.invoke("sales:validateSale", payload),
+    cancelValidatedSale: (payload) =>
+      ipcRenderer.invoke("sales:cancelValidatedSale", payload),
     deleteSale: (payload) => ipcRenderer.invoke("sales:deleteSale", payload),
     listAvailableDeliveryOrders: (payload) =>
       ipcRenderer.invoke("sales:listAvailableDeliveryOrders", payload),
@@ -314,5 +316,27 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("booklets:cancelBooklet", authToken, bookletId, reason),
     validateSerial: (input) =>
       ipcRenderer.invoke("booklets:validateSerial", input),
+  },
+  sync: {
+    getStatus: () => ipcRenderer.invoke("sync:getStatus"),
+    triggerNow: (authToken) => ipcRenderer.invoke("sync:triggerNow", authToken),
+    backfillAllData: (authToken) =>
+      ipcRenderer.invoke("sync:backfillAllData", authToken),
+    getConfig: (authToken) => ipcRenderer.invoke("sync:getConfig", authToken),
+    saveConfig: (authToken, config) =>
+      ipcRenderer.invoke("sync:saveConfig", authToken, config),
+    getPendingList: (authToken, limit) =>
+      ipcRenderer.invoke("sync:getPendingList", authToken, limit),
+    testConnection: (authToken, serverUrl) =>
+      ipcRenderer.invoke("sync:testConnection", authToken, serverUrl),
+    onStatusChanged: (callback) => {
+      const listener = (_event, status) => {
+        callback(status);
+      };
+      ipcRenderer.on("sync:statusChanged", listener);
+      return () => {
+        ipcRenderer.removeListener("sync:statusChanged", listener);
+      };
+    },
   },
 });

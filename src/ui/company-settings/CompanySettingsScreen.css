@@ -42,7 +42,7 @@
 .company-settings-secondary-btn {
   appearance: none;
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--bg-elevated);
   color: var(--text-h);
   border-radius: 8px;
   padding: 8px 12px;
@@ -50,6 +50,12 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.company-settings-secondary-btn:hover:not(:disabled) {
+  background: var(--bg-soft);
+  border-color: var(--border-strong);
 }
 
 .company-settings-secondary-btn:disabled {

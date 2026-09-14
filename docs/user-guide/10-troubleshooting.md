@@ -74,6 +74,19 @@
 - Manual restore: close the app, replace `sales.db` in the user data folder, remove `-wal`/`-shm`, relaunch.
 - Report CSV/PDF exports are **not** full backups.
 
+## Data sync shows Offline or Error
+
+- **Sync badge shows "Offline"**:
+  - The central Hono server is unreachable. Verify the server is running on port 3001 (`npm run server:dev` or Docker container `sales-sync-api`).
+  - Check the **Hono Central API URL** under **General Parameters → Data sync** (e.g. `http://localhost:3001` or your server IP).
+  - Click **Test server** to check network response.
+- **Sync badge shows "Sync error"**:
+  - Click the badge to read the error message.
+  - If error is "Unauthorized: Invalid device token", verify that the **Device API Token** matches `API_SECRET_KEY` in `server/.env`.
+- **Pending transactions not decreasing**:
+  - Verify that the central server has an active PostgreSQL connection. Visit `http://localhost:3001/api/health` — it should return `"database": "connected"`.
+- See [Data synchronization](12-data-sync.md) and technical instructions in [POSTGRES_SYNC_SETUP.md](../../docs/POSTGRES_SYNC_SETUP.md).
+
 ## App shows a blank screen or never reaches login
 
 - Run the desktop app via **`npm run dev`** (or the installed **Sales Management Application** shortcut) — do **not** open `http://localhost:5173` in a browser tab. The UI requires the Electron preload API (`window.api`).

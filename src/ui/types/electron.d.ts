@@ -60,6 +60,7 @@ import type {
   ValidateSerialForSalesPointInput,
   ValidateSerialForSalesPointResult,
 } from "../../shared/documentBooklets.types.ts";
+import type { SyncApi } from "../../shared/sync.types.ts";
 
 interface LoginInput {
   username: string;
@@ -450,6 +451,7 @@ export interface ElectronAppApi {
     ): () => void;
   };
   booklets: DocumentBookletsApi;
+  sync: SyncApi;
 }
 
 export interface DocumentBookletsApi {

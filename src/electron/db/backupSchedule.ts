@@ -241,7 +241,9 @@ function shouldRunScheduledBackup(schedule: StoredSchedule, now = new Date()): b
   return now.getTime() >= runAt.getTime();
 }
 
-export function runScheduledBackup(now = new Date()): { filePath: string; sizeBytes: number } {
+export async function runScheduledBackup(
+  now = new Date(),
+): Promise<{ filePath: string; sizeBytes: number }> {
   const stored = readStoredSchedule();
   if (!stored.destinationDir) {
     throw new Error("Automatic backup destination folder is not set.");
@@ -251,7 +253,7 @@ export function runScheduledBackup(now = new Date()): { filePath: string; sizeBy
   const destPath = path.join(stored.destinationDir, defaultAutoBackupFileName(now));
 
   try {
-    const result = createBackup(destPath);
+    const result = await createBackup(destPath);
     pruneAutoBackups(stored.destinationDir, stored.retentionCount);
     stored.lastAutoBackupAt = new Date().toISOString();
     stored.lastAutoBackupPath = result.filePath;
@@ -272,11 +274,9 @@ export function runScheduledBackupIfDue(): void {
   if (!shouldRunScheduledBackup(stored)) {
     return;
   }
-  try {
-    runScheduledBackup();
-  } catch (error) {
+  void runScheduledBackup().catch((error) => {
     console.error("Scheduled backup failed:", error);
-  }
+  });
 }
 
 export function startBackupScheduler(): void {

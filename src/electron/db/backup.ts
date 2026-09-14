@@ -91,7 +91,9 @@ export function getBackupInfo(): BackupInfo {
   };
 }
 
-export function createBackup(destPath: string): { filePath: string; sizeBytes: number } {
+export async function createBackup(
+  destPath: string,
+): Promise<{ filePath: string; sizeBytes: number }> {
   const normalized = path.resolve(destPath);
   if (!normalized.toLowerCase().endsWith(".db")) {
     throw new Error("Backup file must use a .db extension.");
@@ -102,7 +104,8 @@ export function createBackup(destPath: string): { filePath: string; sizeBytes: n
     fs.unlinkSync(tempPath);
   }
 
-  getDatabase().backup(tempPath);
+  // better-sqlite3 backup() is asynchronous — wait until the .tmp file exists.
+  await getDatabase().backup(tempPath);
 
   validateBackupFile(tempPath);
 

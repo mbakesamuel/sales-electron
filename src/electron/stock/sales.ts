@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import type { StockCondition } from "../../shared/stock.types.js";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.js";
 import { getSellableBalanceAsOf } from "./asOfBalance.js";
 import { formatQty, parseQty } from "./decimal.js";
@@ -315,6 +316,71 @@ export function deductStockForValidatedSale(
       sourceId: saleId,
       condition: "SELLABLE",
       notes: `Sale ${sale.invoiceNo}`,
+    });
+  }
+}
+
+export function reverseStockForValidatedSale(
+  db: Database.Database,
+  saleId: string,
+  userId: string,
+  occurredAt: string,
+  notes?: string | null,
+): void {
+  const sale = db
+    .prepare(
+      `SELECT salesPointId, invoiceNo FROM Sale WHERE id = ?`,
+    )
+    .get(saleId) as
+    | { salesPointId: number | null; invoiceNo: string }
+    | undefined;
+
+  // Check if already reversed
+  const alreadyReversed = db
+    .prepare(
+      `SELECT COUNT(*) AS count
+       FROM StockMovement
+       WHERE sourceKind = 'SALE' AND sourceId = ? AND kind = 'SALE_REVERSAL'`,
+    )
+    .get(saleId) as { count: number };
+
+  if (alreadyReversed.count > 0) {
+    return;
+  }
+
+  // Find all SALE movements for this sale
+  const saleMovements = db
+    .prepare(
+      `SELECT salesPointId, productId, storageLocationId, condition, qty, notes, occurredAt
+       FROM StockMovement
+       WHERE sourceKind = 'SALE' AND sourceId = ? AND kind = 'SALE'
+       ORDER BY createdAt ASC`,
+    )
+    .all(saleId) as Array<{
+      salesPointId: number;
+      productId: number;
+      storageLocationId: number | null;
+      condition: StockCondition;
+      qty: string;
+      notes: string | null;
+      occurredAt: string;
+    }>;
+
+  for (const mov of saleMovements) {
+    // Date the reversal on the original sale movement date so period stock
+    // reports (as-of open month) net the void in the same posting period.
+    applyMovement(db, {
+      salesPointId: mov.salesPointId,
+      productId: mov.productId,
+      storageLocationId: mov.storageLocationId,
+      condition: mov.condition,
+      qty: mov.qty,
+      kind: "SALE_REVERSAL",
+      occurredAt: mov.occurredAt || occurredAt,
+      userId,
+      sourceKind: "SALE",
+      sourceId: saleId,
+      notes: notes ?? `Cancellation of sale ${sale?.invoiceNo ?? saleId}`,
     });
   }
 }

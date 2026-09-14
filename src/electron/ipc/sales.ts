@@ -24,6 +24,7 @@ import {
 } from "../sales/deliveryOrders.js";
 import { loadSalePrintById } from "../sales/print.js";
 import {
+  cancelValidatedSale,
   createSale,
   deleteSale,
   getSalesFormOptions,
@@ -122,6 +123,20 @@ export function registerSalesHandlers(): void {
       }
 
       return validateSale(payload.saleId, payload.userId);
+    },
+  );
+
+  ipcMain.handle(
+    "sales:cancelValidatedSale",
+    (
+      _event,
+      payload: { saleId: string; userId: string; reason: string },
+    ): SaleMutationResult => {
+      if (!payload?.saleId || !payload?.userId || !payload?.reason) {
+        return { ok: false, error: "Invalid request." };
+      }
+
+      return cancelValidatedSale(payload.saleId, payload.userId, payload.reason);
     },
   );
 

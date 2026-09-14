@@ -7,6 +7,7 @@ import {
   validateBookletSerial,
 } from "../../shared/bookletSerial.js";
 import { canPerformAction } from "../auth/permissions/service.js";
+import { enqueueOutboxItem } from "../sync/syncOutbox.js";
 import type {
   CreateDocumentBookletInput,
   DocumentBookletFilters,
@@ -274,6 +275,11 @@ export function createDocumentBooklet(
     now,
   );
 
+  const createdRow = db.prepare(`SELECT * FROM DocumentBooklet WHERE id = ?`).get(id) as Record<string, unknown> | undefined;
+  if (createdRow) {
+    enqueueOutboxItem(db, "DocumentBooklet", id, "INSERT", createdRow);
+  }
+
   return {
     ok: true,
     booklet: {
@@ -392,6 +398,12 @@ export function validateDocumentBooklet(
   if (!loaded) {
     return { ok: false, error: "Failed to reload validated booklet." };
   }
+
+  const updatedRow = db.prepare(`SELECT * FROM DocumentBooklet WHERE id = ?`).get(bookletId) as Record<string, unknown> | undefined;
+  if (updatedRow) {
+    enqueueOutboxItem(db, "DocumentBooklet", bookletId, "UPDATE", updatedRow);
+  }
+
   return { ok: true, booklet: loaded };
 }
 
@@ -440,6 +452,11 @@ export function rejectDocumentBooklet(
          updatedAt = ?
      WHERE id = ?`,
   ).run(updatedNotes, now, bookletId);
+
+  const rejectedRow = db.prepare(`SELECT * FROM DocumentBooklet WHERE id = ?`).get(bookletId) as Record<string, unknown> | undefined;
+  if (rejectedRow) {
+    enqueueOutboxItem(db, "DocumentBooklet", bookletId, "UPDATE", rejectedRow);
+  }
 
   return { ok: true };
 }
@@ -511,6 +528,11 @@ export function cancelDocumentBooklet(
          updatedAt = ?
      WHERE id = ?`,
   ).run(updatedNotes, now, bookletId);
+
+  const cancelledRow = db.prepare(`SELECT * FROM DocumentBooklet WHERE id = ?`).get(bookletId) as Record<string, unknown> | undefined;
+  if (cancelledRow) {
+    enqueueOutboxItem(db, "DocumentBooklet", bookletId, "UPDATE", cancelledRow);
+  }
 
   return { ok: true };
 }

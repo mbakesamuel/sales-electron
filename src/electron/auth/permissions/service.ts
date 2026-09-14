@@ -20,6 +20,8 @@ const ACTION_LABELS: Record<PermissionActionKey, string> = {
   validate_sales: "Validate sales invoices",
   direct_validate_sales:
     "Validate sales invoices directly (skip pending review)",
+  cancel_validated_sales: "Cancel validated sales invoices",
+  delete_validated_sales: "Permanently delete validated sales invoices",
   validate_delivery_orders: "Validate delivery orders",
   cancel_validated_delivery_order: "Cancel validated delivery orders",
   transfer_delivery_order_balance: "Transfer delivery order balance",

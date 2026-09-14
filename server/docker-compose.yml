@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sales-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: sales_central
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./schema/postgres_schema.sql:/docker-entrypoint-initdb.d/01_init.sql
+
+  sync-api:
+    build: .
+    container_name: sales-sync-api
+    restart: always
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgres://postgres:postgrespassword@postgres:5432/sales_central
+      API_SECRET_KEY: sales-super-secret-key-2026
+      CORS_ORIGIN: "*"
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres
+
+volumes:
+  pgdata:

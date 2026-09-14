@@ -17,7 +17,8 @@ Step-by-step workflows for day-to-day use.
 9. [Reports](user-guide/08-reports.md)
 10. [Users and permissions](user-guide/09-users-permissions.md)
 11. [Data backup and restore](user-guide/11-data-backup-restore.md)
-12. [Troubleshooting](user-guide/10-troubleshooting.md)
+12. [Data synchronization](user-guide/12-data-sync.md)
+13. [Troubleshooting](user-guide/10-troubleshooting.md)
 
 ## Training schedule (operators)
 
@@ -39,6 +40,12 @@ Architecture, database, IPC, and how to extend the app.
 8. [IPC and preload](developer-guide/07-ipc-and-preload.md)
 9. [UI structure](developer-guide/08-ui-structure.md)
 10. [Build and packaging](developer-guide/09-build-and-packaging.md)
+
+## Central synchronization server
+
+Technical reference for the offline-first Hono.js API and PostgreSQL synchronization backend:
+
+- [Central PostgreSQL Synchronization with Hono.js](POSTGRES_SYNC_SETUP.md)
 
 ## Related
 

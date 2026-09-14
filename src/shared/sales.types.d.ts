@@ -179,6 +179,9 @@ export interface LoadedSaleView {
     status: SaleStatus;
     validatedAtIso: string | null;
     validatedByName: string | null;
+    cancelledAtIso?: string | null;
+    cancelledByName?: string | null;
+    cancelReason?: string | null;
     vehicleNumber: string;
     dateIssuedIso: string;
     deliveryOrderNo: string | null;
@@ -356,6 +359,11 @@ export interface SalesApi {
     validateSale(payload: {
         saleId: string;
         userId: string;
+    }): Promise<SaleMutationResult>;
+    cancelValidatedSale(payload: {
+        saleId: string;
+        userId: string;
+        reason: string;
     }): Promise<SaleMutationResult>;
     deleteSale(saleId: string): Promise<SaleMutationResult>;
     listAvailableDeliveryOrders(payload: {

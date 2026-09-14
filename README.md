@@ -34,6 +34,7 @@ npm run dist:win       # Windows NSIS installer (x64)
 |----------|------------|
 | Operators | [User guide](docs/user-guide/00-overview.md) |
 | Developers | [Developer guide](docs/developer-guide/00-overview.md) |
+| Central Sync Server | [PostgreSQL & Hono sync setup](docs/POSTGRES_SYNC_SETUP.md) |
 | Index | [docs/README.md](docs/README.md) |
 
 Generate PDF and Word bundles (one document per guide) into `docs/export/`:
@@ -41,6 +42,26 @@ Generate PDF and Word bundles (one document per guide) into `docs/export/`:
 ```bash
 npm run docs:export
 ```
+
+## Central Synchronization Server (Hono + PostgreSQL)
+
+The application includes an offline-first synchronization engine that pushes local transactions and pulls master data from a central PostgreSQL database via a lightweight Hono.js server (`server/`).
+
+```bash
+# Start backend server in development
+npm run server:dev
+
+# Run PostgreSQL database migrations
+npm run server:migrate
+
+# Reset PostgreSQL tables (clean test data)
+npm run server:reset
+
+# Backfill and upload all local SQLite records to PostgreSQL
+npm run sync:backfill
+```
+
+See [docs/POSTGRES_SYNC_SETUP.md](docs/POSTGRES_SYNC_SETUP.md) for complete server setup instructions.
 
 ## Scripts (summary)
 
@@ -52,6 +73,10 @@ npm run docs:export
 | `npm run dist:win` | Package Windows installer |
 | `npm run db:seed` | Seed demo data (Electron) |
 | `npm run db:verify` | Schema verification |
+| `npm run server:dev` | Start Hono sync API server |
+| `npm run server:migrate` | Run PostgreSQL schema migrations |
+| `npm run server:reset` | Truncate PostgreSQL tables cleanly |
+| `npm run sync:backfill` | Backfill all local SQLite data to PostgreSQL |
 | `npm run docs:export` | Export user + developer guides to PDF and Word |
 
 See the [developer guide](docs/developer-guide/02-dev-setup.md) for details.

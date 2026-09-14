@@ -55,6 +55,12 @@ import {
   reverseMovementsBySource,
 } from "./post.js";
 import {
+  enqueueOutboxItem,
+  serializeStockReceiptForSync,
+  serializeStockTransferForSync,
+  serializeStockAdjustmentForSync,
+} from "../sync/syncOutbox.js";
+import {
   assertMovementLocationRules,
   assertProductsAllowStorageLocation,
   assertInterTransferProductsAllowed,
@@ -2064,6 +2070,11 @@ export function saveReceipt(input: SaveReceiptInput): StockMutationResult {
         finalizeReceiptPost(db, input.userId, id, uiProductFilter);
       }
 
+      const payload = serializeStockReceiptForSync(db, id);
+      if (payload) {
+        enqueueOutboxItem(db, "StockReceipt", id, "UPSERT", payload);
+      }
+
       return { id, receiptNo };
     });
 
@@ -2101,6 +2112,11 @@ export function postReceipt(
 
     const tx = db.transaction(() => {
       finalizeReceiptPost(db, userId, receiptId, productFilter);
+
+      const payload = serializeStockReceiptForSync(db, receiptId);
+      if (payload) {
+        enqueueOutboxItem(db, "StockReceipt", receiptId, "UPDATE", payload);
+      }
     });
 
     tx();
@@ -2352,6 +2368,11 @@ export function saveTransfer(input: SaveTransferInput): StockMutationResult {
         }
       }
 
+      const payload = serializeStockTransferForSync(db, id);
+      if (payload) {
+        enqueueOutboxItem(db, "StockTransfer", id, "UPSERT", payload);
+      }
+
       return { id, transferNo };
     });
 
@@ -2390,6 +2411,11 @@ export function postInternalTransfer(
 
     const tx = db.transaction(() => {
       finalizeInternalTransferPost(db, userId, transferId, productFilter);
+
+      const payload = serializeStockTransferForSync(db, transferId);
+      if (payload) {
+        enqueueOutboxItem(db, "StockTransfer", transferId, "UPDATE", payload);
+      }
     });
 
     tx();
@@ -2422,6 +2448,11 @@ export function dispatchTransfer(
 
     const tx = db.transaction(() => {
       finalizeTransferDispatch(db, userId, transferId, productFilter);
+
+      const payload = serializeStockTransferForSync(db, transferId);
+      if (payload) {
+        enqueueOutboxItem(db, "StockTransfer", transferId, "UPDATE", payload);
+      }
     });
 
     tx();
@@ -2532,6 +2563,11 @@ export function receiveTransfer(input: ReceiveTransferInput): StockGenericResult
         receiveDate,
         input.transferId,
       );
+
+      const payload = serializeStockTransferForSync(db, input.transferId);
+      if (payload) {
+        enqueueOutboxItem(db, "StockTransfer", input.transferId, "UPDATE", payload);
+      }
     });
 
     tx();
@@ -2646,6 +2682,12 @@ export function saveAdjustment(input: SaveAdjustmentInput): StockMutationResult 
         const updated = db
           .prepare(`SELECT id, adjustmentNo FROM StockAdjustment WHERE id = ?`)
           .get(input.id) as { id: string; adjustmentNo: string };
+
+        const payload = serializeStockAdjustmentForSync(db, input.id);
+        if (payload) {
+          enqueueOutboxItem(db, "StockAdjustment", input.id, "UPSERT", payload);
+        }
+
         return updated;
       }
 
@@ -2672,6 +2714,11 @@ export function saveAdjustment(input: SaveAdjustmentInput): StockMutationResult 
           line.fromCondition ?? null,
           line.toCondition ?? null,
         );
+      }
+
+      const payload = serializeStockAdjustmentForSync(db, id);
+      if (payload) {
+        enqueueOutboxItem(db, "StockAdjustment", id, "UPSERT", payload);
       }
 
       return { id, adjustmentNo };
@@ -2783,6 +2830,11 @@ export function postAdjustment(
          SET status = 'POSTED', postedByUserId = ?, postedAt = datetime('now'), updatedAt = datetime('now')
          WHERE id = ?`,
       ).run(userId, adjustmentId);
+
+      const payload = serializeStockAdjustmentForSync(db, adjustmentId);
+      if (payload) {
+        enqueueOutboxItem(db, "StockAdjustment", adjustmentId, "UPDATE", payload);
+      }
     });
 
     tx();
@@ -2857,6 +2909,7 @@ function cancelStockDocument(
         if (existing.status === "DRAFT") {
           assertAction(actor.role, draftAction);
           db.prepare(`DELETE FROM StockReceipt WHERE id = ?`).run(documentId);
+          enqueueOutboxItem(db, "StockReceipt", documentId, "DELETE", { id: documentId });
           return;
         }
         if (existing.status === "CANCELLED") {
@@ -2873,6 +2926,10 @@ function cancelStockDocument(
         db.prepare(`UPDATE StockReceipt SET status = 'CANCELLED', updatedAt = datetime('now') WHERE id = ?`).run(
           documentId,
         );
+        const payload = serializeStockReceiptForSync(db, documentId);
+        if (payload) {
+          enqueueOutboxItem(db, "StockReceipt", documentId, "UPDATE", payload);
+        }
         return;
       }
 
@@ -2897,6 +2954,7 @@ function cancelStockDocument(
         if (existing.status === "DRAFT") {
           assertAction(actor.role, draftAction);
           db.prepare(`DELETE FROM StockTransfer WHERE id = ?`).run(documentId);
+          enqueueOutboxItem(db, "StockTransfer", documentId, "DELETE", { id: documentId });
           return;
         }
         if (existing.status === "CANCELLED") {
@@ -2913,6 +2971,10 @@ function cancelStockDocument(
         db.prepare(`UPDATE StockTransfer SET status = 'CANCELLED', updatedAt = datetime('now') WHERE id = ?`).run(
           documentId,
         );
+        const payload = serializeStockTransferForSync(db, documentId);
+        if (payload) {
+          enqueueOutboxItem(db, "StockTransfer", documentId, "UPDATE", payload);
+        }
         return;
       }
 
@@ -2937,6 +2999,7 @@ function cancelStockDocument(
       if (existing.status === "DRAFT") {
         assertAction(actor.role, draftAction);
         db.prepare(`DELETE FROM StockAdjustment WHERE id = ?`).run(documentId);
+        enqueueOutboxItem(db, "StockAdjustment", documentId, "DELETE", { id: documentId });
         return;
       }
       if (existing.status === "CANCELLED") {
@@ -2953,6 +3016,10 @@ function cancelStockDocument(
       db.prepare(`UPDATE StockAdjustment SET status = 'CANCELLED', updatedAt = datetime('now') WHERE id = ?`).run(
         documentId,
       );
+      const payload = serializeStockAdjustmentForSync(db, documentId);
+      if (payload) {
+        enqueueOutboxItem(db, "StockAdjustment", documentId, "UPDATE", payload);
+      }
     });
 
     tx();

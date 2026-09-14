@@ -29,7 +29,12 @@ export const PERMISSION_UI_GROUPS: readonly PermissionUiGroup[] = [
     id: "sales-validation",
     label: "Sales validation",
     routeIds: ["sales-validation"],
-    actionKeys: ["validate_sales", "direct_validate_sales"],
+    actionKeys: [
+      "validate_sales",
+      "direct_validate_sales",
+      "cancel_validated_sales",
+      "delete_validated_sales",
+    ],
   },
   {
     id: "document-booklets",
@@ -168,6 +173,7 @@ export const PERMISSION_UI_GROUPS: readonly PermissionUiGroup[] = [
       "company-settings",
       "report-settings",
       "data-backup",
+      "sync-settings",
       "financial-year-periods",
       "financial-months",
       "commercial-services",

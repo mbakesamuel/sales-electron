@@ -52,22 +52,8 @@ function qtyForSalesPoint(
   );
 }
 
-function buildRowLabel(
-  customerName: string,
-  productName: string,
-  aggregateByCustomerOnly: boolean,
-): string {
-  const customer = customerName.trim().toUpperCase();
-  if (aggregateByCustomerOnly) {
-    return customer;
-  }
-
-  const product = productName.trim().toUpperCase();
-  if (customer.includes(product) || product.includes(customer)) {
-    return `${customer} [${product}]`;
-  }
-
-  return `${customer} [${product}]`;
+function buildRowLabel(customerName: string): string {
+  return customerName.trim().toUpperCase();
 }
 
 function buildSection(
@@ -84,38 +70,20 @@ function buildSection(
   }
 
   const categoryCommitments = commitments.filter((row) => row.productCatId === category.productCatId);
-  const aggregateByCustomer = category.isMain === 1;
   const salesPointNames = salesPoints.map((salesPoint) => salesPoint.name.toUpperCase());
 
-  const rowKeys = new Map<string, { customerName: string; productName: string }>();
-
-  if (aggregateByCustomer) {
-    for (const commitment of categoryCommitments) {
-      const key = String(commitment.customerId);
-      if (!rowKeys.has(key)) {
-        rowKeys.set(key, {
-          customerName: commitment.customerName,
-          productName: commitment.productName,
-        });
-      }
-    }
-  } else {
-    for (const commitment of categoryCommitments) {
-      const key = `${commitment.customerId}:${commitment.productId}`;
-      if (!rowKeys.has(key)) {
-        rowKeys.set(key, {
-          customerName: commitment.customerName,
-          productName: commitment.productName,
-        });
-      }
+  // One row per customer within the category (main and other products alike).
+  const rowKeys = new Map<string, { customerName: string }>();
+  for (const commitment of categoryCommitments) {
+    const key = String(commitment.customerId);
+    if (!rowKeys.has(key)) {
+      rowKeys.set(key, { customerName: commitment.customerName });
     }
   }
 
   const dataRows: CommitmentReportRow[] = [...rowKeys.entries()]
     .map(([key, meta]) => {
-      const predicate = aggregateByCustomer
-        ? (row: OutstandingCommitment) => String(row.customerId) === key
-        : (row: OutstandingCommitment) => `${row.customerId}:${row.productId}` === key;
+      const predicate = (row: OutstandingCommitment) => String(row.customerId) === key;
 
       const quantities = salesPoints.map((salesPoint) =>
         qtyForSalesPoint(categoryCommitments, salesPoint.id, predicate),
@@ -123,7 +91,7 @@ function buildSection(
       const rowTotal = sum(quantities);
 
       return {
-        label: buildRowLabel(meta.customerName, meta.productName, aggregateByCustomer),
+        label: buildRowLabel(meta.customerName),
         quantities,
         rowTotal,
         kind: "data" as const,

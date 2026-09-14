@@ -43,8 +43,9 @@ import {
   resolveUnitPriceExTax,
 } from "../pricing/resolveUnitPrice.js";
 import { loadTaxRatesAsOf } from "../tax/resolveRates.js";
+import { enqueueOutboxItem, serializeSaleForSync } from "../sync/syncOutbox.js";
 import { getSellableBalanceAsOf } from "../stock/asOfBalance.js";
-import { assertSaleLinesStockAsOf, deductStockForValidatedSale, productOmitsStorageLocationById, resolveSaleLineStorageLocation } from "../stock/sales.js";
+import { assertSaleLinesStockAsOf, deductStockForValidatedSale, reverseStockForValidatedSale, productOmitsStorageLocationById, resolveSaleLineStorageLocation } from "../stock/sales.js";
 import {
   loadLoosePalmOilRequireSalesTank,
   productIsLoosePalmOilById,
@@ -806,11 +807,13 @@ export function loadSaleByInvoiceNo(invoiceNo: string): LoadedSaleView | null {
   const sale = db
     .prepare(
       `SELECT s.*, sp.name AS salesPointName,
-              cu.name AS createdByName, vu.name AS validatedByName
+              cu.name AS createdByName, vu.name AS validatedByName,
+              canu.name AS cancelledByName
        FROM Sale s
        LEFT JOIN SalesPoint sp ON sp.id = s.salesPointId
        INNER JOIN User cu ON cu.id = s.createdByUserId
        LEFT JOIN User vu ON vu.id = s.validatedByUserId
+       LEFT JOIN User canu ON canu.id = s.cancelledByUserId
        WHERE s.invoiceNo = ?`,
     )
     .get(trimmed) as Record<string, unknown> | undefined;
@@ -854,6 +857,9 @@ export function loadSaleByInvoiceNo(invoiceNo: string): LoadedSaleView | null {
     status: sale.status as LoadedSaleView["status"],
     validatedAtIso: sale.validatedAt ? String(sale.validatedAt) : null,
     validatedByName: sale.validatedByName ? String(sale.validatedByName) : null,
+    cancelledAtIso: sale.cancelledAt ? String(sale.cancelledAt) : null,
+    cancelledByName: sale.cancelledByName ? String(sale.cancelledByName) : null,
+    cancelReason: sale.cancelReason ? String(sale.cancelReason) : null,
     vehicleNumber: String(sale.vehicleNumber),
     dateIssuedIso: String(sale.dateIssued ?? sale.soldAt),
     deliveryOrderNo: sale.deliveryOrderNo ? String(sale.deliveryOrderNo) : null,
@@ -1554,6 +1560,11 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
         isBottleMode,
       });
     }
+
+    const payload = serializeSaleForSync(db, saleId);
+    if (payload) {
+      enqueueOutboxItem(db, "Sale", saleId, "UPSERT", payload);
+    }
   });
 
   try {
@@ -1677,6 +1688,11 @@ export function validateSale(saleId: string, userId: string): SaleMutationResult
         dateIssued,
         isBottleMode,
       });
+
+      const payload = serializeSaleForSync(db, saleId);
+      if (payload) {
+        enqueueOutboxItem(db, "Sale", saleId, "UPDATE", payload);
+      }
     });
 
     tx();
@@ -1693,18 +1709,115 @@ export function validateSale(saleId: string, userId: string): SaleMutationResult
   }
 }
 
-export function deleteSale(saleId: string, userId: string): SaleMutationResult {
+export function cancelValidatedSale(
+  saleId: string,
+  userId: string,
+  reason: string,
+): SaleMutationResult {
+  const trimmedReason = reason.trim();
+  if (!trimmedReason) {
+    return { ok: false, error: "Cancellation reason is required." };
+  }
+
   const db = getDatabase();
-  const role = db
+  const user = db
     .prepare(`SELECT role FROM User WHERE id = ?`)
     .get(userId) as { role: string } | undefined;
 
-  if (!role) {
+  if (!user || !canPerformAction(user.role, "cancel_validated_sales")) {
+    return {
+      ok: false,
+      error: "You do not have permission to cancel validated sales invoices.",
+    };
+  }
+
+  const existing = db
+    .prepare(
+      `SELECT id, status, salesPointId, saleProductMode, invoiceNo FROM Sale WHERE id = ?`,
+    )
+    .get(saleId) as
+    | {
+        id: string;
+        status: string;
+        salesPointId: number | null;
+        saleProductMode: string | null;
+        invoiceNo: string;
+      }
+    | undefined;
+
+  if (!existing) {
+    return { ok: false, error: "Sale not found." };
+  }
+
+  if (existing.status !== "VALIDATED") {
+    return {
+      ok: false,
+      error: "Only validated sales invoices can be cancelled.",
+    };
+  }
+
+  try {
+    assertSaleRouteWrite(user.role, existing.saleProductMode);
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Permission denied.",
+    };
+  }
+
+  const cancelledAt = nowIso();
+  const cancelTx = db.transaction(() => {
+    // 1. Reverse stock movements
+    reverseStockForValidatedSale(
+      db,
+      saleId,
+      userId,
+      cancelledAt,
+      `Cancellation of invoice ${existing.invoiceNo}: ${trimmedReason}`,
+    );
+
+    // 2. Mark Sale as REJECTED
+    db.prepare(
+      `UPDATE Sale
+       SET status = 'REJECTED',
+           cancelledAt = ?,
+           cancelledByUserId = ?,
+           cancelReason = ?,
+           updatedAt = ?
+       WHERE id = ?`,
+    ).run(cancelledAt, userId, trimmedReason, cancelledAt, saleId);
+
+    // 3. Reject any associated VehicleConsignmentNote
+    db.prepare(
+      `UPDATE VehicleConsignmentNote
+       SET status = 'REJECTED',
+           updatedAt = ?
+       WHERE saleId = ?`,
+    ).run(cancelledAt, saleId);
+
+    // 4. Enqueue outbox update for PostgreSQL sync
+    const payload = serializeSaleForSync(db, saleId);
+    if (payload) {
+      enqueueOutboxItem(db, "Sale", saleId, "UPDATE", payload);
+    }
+  });
+
+  cancelTx();
+  return { ok: true };
+}
+
+export function deleteSale(saleId: string, userId: string): SaleMutationResult {
+  const db = getDatabase();
+  const user = db
+    .prepare(`SELECT role FROM User WHERE id = ?`)
+    .get(userId) as { role: string } | undefined;
+
+  if (!user) {
     return { ok: false, error: "User not found." };
   }
 
   try {
-    assertRouteWrite(role.role, "sales");
+    assertRouteWrite(user.role, "sales");
   } catch (error) {
     return {
       ok: false,
@@ -1714,10 +1827,16 @@ export function deleteSale(saleId: string, userId: string): SaleMutationResult {
 
   const existing = db
     .prepare(
-      `SELECT id, status, saleProductMode FROM Sale WHERE id = ?`,
+      `SELECT id, status, salesPointId, saleProductMode, invoiceNo FROM Sale WHERE id = ?`,
     )
     .get(saleId) as
-    | { id: string; status: string; saleProductMode: string | null }
+    | {
+        id: string;
+        status: string;
+        salesPointId: number | null;
+        saleProductMode: string | null;
+        invoiceNo: string;
+      }
     | undefined;
 
   if (!existing) {
@@ -1725,7 +1844,7 @@ export function deleteSale(saleId: string, userId: string): SaleMutationResult {
   }
 
   try {
-    assertSaleRouteWrite(role.role, existing.saleProductMode);
+    assertSaleRouteWrite(user.role, existing.saleProductMode);
   } catch (error) {
     return {
       ok: false,
@@ -1733,10 +1852,35 @@ export function deleteSale(saleId: string, userId: string): SaleMutationResult {
     };
   }
 
-  if (existing.status === "VALIDATED") {
-    return { ok: false, error: "Validated invoices cannot be deleted." };
+  if (existing.status === "VALIDATED" || existing.status === "REJECTED") {
+    if (!canPerformAction(user.role, "delete_validated_sales")) {
+      return {
+        ok: false,
+        error: "Only administrators can delete validated or cancelled sales invoices.",
+      };
+    }
   }
 
-  db.prepare(`DELETE FROM Sale WHERE id = ?`).run(saleId);
+  const deleteTx = db.transaction(() => {
+    // If it was validated (and not already reversed via REJECTED), reverse stock movements first
+    if (existing.status === "VALIDATED") {
+      reverseStockForValidatedSale(
+        db,
+        saleId,
+        userId,
+        nowIso(),
+        `Permanent deletion of invoice ${existing.invoiceNo}`,
+      );
+    }
+
+    db.prepare(`DELETE FROM VehicleConsignmentNote WHERE saleId = ?`).run(saleId);
+    db.prepare(`DELETE FROM SaleLine WHERE saleId = ?`).run(saleId);
+    db.prepare(`DELETE FROM SaleAppliedTax WHERE saleId = ?`).run(saleId);
+    db.prepare(`DELETE FROM Payment WHERE saleId = ?`).run(saleId);
+    db.prepare(`DELETE FROM Sale WHERE id = ?`).run(saleId);
+    enqueueOutboxItem(db, "Sale", saleId, "DELETE", { id: saleId });
+  });
+
+  deleteTx();
   return { ok: true };
 }

@@ -195,6 +195,8 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
   const validator: ActionMatrix = {
     validate_sales: true,
     direct_validate_sales: false,
+    cancel_validated_sales: false,
+    delete_validated_sales: false,
     validate_delivery_orders: true,
     cancel_validated_delivery_order: false,
     transfer_delivery_order_balance: true,
@@ -206,6 +208,7 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
 
   const manager: ActionMatrix = {
     ...validator,
+    cancel_validated_sales: true,
     cancel_validated_delivery_order: true,
     direct_post_stock_receipts: true,
     direct_post_stock_transfers: true,
@@ -213,6 +216,7 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
 
   const admin: ActionMatrix = {
     ...manager,
+    delete_validated_sales: true,
     manage_permissions: true,
     receive_stock_transfers: true,
   };
@@ -226,6 +230,8 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
   const none: ActionMatrix = {
     validate_sales: false,
     direct_validate_sales: false,
+    cancel_validated_sales: false,
+    delete_validated_sales: false,
     validate_delivery_orders: false,
     cancel_validated_delivery_order: false,
     transfer_delivery_order_balance: false,
@@ -264,6 +270,7 @@ export function getDefaultRouteMatrix(): Record<string, RouteMatrix> {
     matrix[role]["role-permissions"] =
       role === "ADMIN" ? "write" : "none";
     matrix[role]["data-backup"] = role === "ADMIN" ? "write" : "none";
+    matrix[role]["sync-settings"] = role === "ADMIN" ? "write" : (role === "MANAGER" ? "read" : "none");
   }
   return matrix;
 }

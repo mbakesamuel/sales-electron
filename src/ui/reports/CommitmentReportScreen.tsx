@@ -67,40 +67,41 @@ function downloadCsv(report: CommitmentReport): void {
   URL.revokeObjectURL(url);
 }
 
-function CommitmentSection({ section }: { section: CommitmentReportSection }) {
+function CommitmentSectionRows({
+  section,
+  columnCount,
+}: {
+  section: CommitmentReportSection;
+  columnCount: number;
+}) {
   return (
-    <div class="scr-bottled-block">
-      <table class="scr-table scr-category-matrix">
-        <thead>
-          <tr>
-            <th colSpan={section.salesPointNames.length + 2} class="scr-section-title">
-              {section.sectionLetter}. {section.title}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {section.rows.map((row, index) => (
-            <tr
-              key={`${section.sectionLetter}-${index}`}
-              class={row.kind === "total" ? "scr-row scr-row-total" : "scr-row"}
-            >
-              <td>{row.label}</td>
-              {row.quantities.map((qty, qtyIndex) => (
-                <td key={`${index}-${qtyIndex}`} class="scr-num">
-                  {formatQty(qty)}
-                </td>
-              ))}
-              <td class="scr-num">{formatQty(row.rowTotal)}</td>
-            </tr>
+    <>
+      <tr>
+        <th colSpan={columnCount} class="scr-section-title">
+          {section.sectionLetter}. {section.title}
+        </th>
+      </tr>
+      {section.rows.map((row, index) => (
+        <tr
+          key={`${section.sectionLetter}-${index}`}
+          class={row.kind === "total" ? "scr-row scr-row-total" : "scr-row"}
+        >
+          <td>{row.label}</td>
+          {row.quantities.map((qty, qtyIndex) => (
+            <td key={`${index}-${qtyIndex}`} class="scr-num">
+              {formatQty(qty)}
+            </td>
           ))}
-        </tbody>
-      </table>
-    </div>
+          <td class="scr-num">{formatQty(row.rowTotal)}</td>
+        </tr>
+      ))}
+    </>
   );
 }
 
 export function CommitmentReportDocument({ report }: { report: CommitmentReport }) {
   const empty = isCommitmentReportEmpty(report);
+  const columnCount = report.salesPointNames.length + 2;
 
   return (
     <ReportDocumentShell
@@ -121,29 +122,25 @@ export function CommitmentReportDocument({ report }: { report: CommitmentReport 
       }
     >
       {report.salesPointNames.length > 0 ? (
-        <table class="scr-table scr-category-matrix">
-          <thead>
-            <tr>
-              <th>CUSTOMER</th>
-              {report.salesPointNames.map((name) => (
-                <th key={name}>{name}</th>
-              ))}
-              <th>TOTAL</th>
-            </tr>
-          </thead>
-        </table>
-      ) : null}
-      {report.sections.map((section) => (
-        <CommitmentSection key={section.sectionLetter} section={section} />
-      ))}
-      {report.salesPointNames.length > 0 ? (
         <div class="scr-bottled-block">
           <table class="scr-table scr-category-matrix">
             <thead>
-              <tr />
-              <tr />
+              <tr>
+                <th>CUSTOMER</th>
+                {report.salesPointNames.map((name) => (
+                  <th key={name}>{name}</th>
+                ))}
+                <th>TOTAL</th>
+              </tr>
             </thead>
             <tbody>
+              {report.sections.map((section) => (
+                <CommitmentSectionRows
+                  key={section.sectionLetter}
+                  section={section}
+                  columnCount={columnCount}
+                />
+              ))}
               <tr class="scr-row scr-row-total">
                 <td>GRAND TOTAL</td>
                 {report.columnTotals.map((qty, index) => (
