@@ -25,10 +25,12 @@
 - Carry-forward / receipts only count from their **posting date**. CF posted in July does not appear when January is open.
 - Inventory **On hand** always shows current live balance; that is expected.
 - **Section order** on the Stock report is Palm Oil → PKO → Palm Kernel → PKC → Bottled (last). Non-bottled qty columns align to Palm Oil’s grid; bottled uses its own pack matrix.
+- After cancelling a validated sale, stock should return in the **sale’s open month**. Reversals are dated on the original sale date (not the cancel day), so they appear when that month is still open.
 
 ## Commitment report shows unexpected outstanding
 
-- Outstanding is **as of report as-at**: DOs and draw-down sales with `dateIssued` on or before that date.
+- Outstanding is **as of report as-at**: DOs and draw-down sales with `dateIssued` on or before that date. **Rejected / cancelled** sales do not count as lifted.
+- One **customer name** per row (no `[PRODUCT]` suffix). Collection-point columns share one table with the header so quantities align.
 - CF commitments only appear from their DO **`dateIssued`**. Pick DO always shows live remaining (not frozen by month).
 - Later edits to CF line `orderQty` are not historical — reports use the current ordered qty minus sales through as-at.
 
@@ -54,7 +56,7 @@
 ## Permission denied / menu item missing
 
 - Your role’s **route access** may be `none` or `read`.
-- Validation buttons need **action** permissions, not only route write access. Ask an admin to adjust **Role permissions**.
+- Validation and cancel buttons need **action** permissions **and** (for cancel/delete) route **write** on Sales / Bottle Oil Sales. Read-only sales plus `cancel_validated_sales` still shows “You do not have permission to modify this module.” Ask an admin to adjust **Role permissions**.
 - **Consignment validation** needs route `vehicle-consignment-validation` plus action `validate_vehicle_consignment_notes`. After migration `086`, restart the app once so the route is seeded.
 
 ## Overview looks wrong for my role
@@ -72,6 +74,7 @@
 - **ADMIN** — use **General Parameters → Data backup** to create or restore a full `.db` backup, or configure **automatic daily backup** (while the app is running). See [Data backup and restore](11-data-backup-restore.md).
 - **IT / overnight** — `scripts/backup-windows.ps1` + Windows Task Scheduler when the app is closed (same guide).
 - Manual restore: close the app, replace `sales.db` in the user data folder, remove `-wal`/`-shm`, relaunch.
+- If **Scheduled backup failed: Backup file not found**, ensure you are on a build that **awaits** SQLite’s async `.backup()` before validating the file (manual **Create backup** and **Run automatic backup now** exercise the same path).
 - Report CSV/PDF exports are **not** full backups.
 
 ## Data sync shows Offline or Error
@@ -80,12 +83,14 @@
   - The central Hono server is unreachable. Verify the server is running on port 3001 (`npm run server:dev` or Docker container `sales-sync-api`).
   - Check the **Hono Central API URL** under **General Parameters → Data sync** (e.g. `http://localhost:3001` or your server IP).
   - Click **Test server** to check network response.
-- **Sync badge shows "Sync error"**:
+- **Sync badge shows "Sync error"** (including a stuck **“1 error”** / failed count):
   - Click the badge to read the error message.
   - If error is "Unauthorized: Invalid device token", verify that the **Device API Token** matches `API_SECRET_KEY` in `server/.env`.
+  - **Failed outbox items are retried on Sync Now** (and on the automatic sync cycle). Fix the underlying cause, then click **Sync Now** — do not expect FAILED rows to clear without a successful push.
+  - Cancelled sales need Postgres columns `cancelledAt` / `cancelledByUserId` / `cancelReason` on `sales` (server migrate after app migration `119`). A missing-column error leaves the item FAILED until the server schema is updated.
 - **Pending transactions not decreasing**:
   - Verify that the central server has an active PostgreSQL connection. Visit `http://localhost:3001/api/health` — it should return `"database": "connected"`.
-- See [Data synchronization](12-data-sync.md) and technical instructions in [POSTGRES_SYNC_SETUP.md](../../docs/POSTGRES_SYNC_SETUP.md).
+- See [Data synchronization](12-data-sync.md) and technical instructions in [POSTGRES_SYNC_SETUP.md](../POSTGRES_SYNC_SETUP.md).
 
 ## App shows a blank screen or never reaches login
 

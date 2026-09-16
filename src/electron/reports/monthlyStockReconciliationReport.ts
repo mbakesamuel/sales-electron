@@ -17,7 +17,7 @@ import {
   loadLpoSaleLines,
   subtractVectors,
   sumCarryForwardLpoInRange,
-  sumSellableLpoBySalesPoint,
+  sumLpoBySalesPoint,
   type LpoReceiptLineRecord,
   type LpoSaleLineRecord,
 } from "./looseLpoReconciliationMetrics.js";
@@ -353,7 +353,7 @@ export function getMonthlyStockReconciliationReport(
   const saleLines = loadLpoSaleLines(monthStartIso, asAtIso);
   const receiptLines = loadLpoReceiptLines(monthStartIso, asAtIso);
 
-  const priorOpeningValues = sumSellableLpoBySalesPoint(
+  const priorOpeningValues = sumLpoBySalesPoint(
     salesPoints,
     products,
     openingAsOfIso,

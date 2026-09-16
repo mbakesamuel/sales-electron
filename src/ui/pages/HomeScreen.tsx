@@ -993,7 +993,10 @@ export function HomeScreen({
                 activeRouteId === "receive-transfers" ||
                 activeRouteId === "sales-validation" ||
                 activeRouteId === "vehicle-consignment-validation" ||
-                activeRouteId === "bottle-oil-sales"
+                activeRouteId === "sales" ||
+                activeRouteId === "bottle-oil-sales" ||
+                activeRouteId === "delivery-orders" ||
+                activeRouteId === "carry-forward-stock"
               ? " home-main--stock"
               : usesFillLayout
                 ? " home-main--fill"

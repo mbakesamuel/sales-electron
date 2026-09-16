@@ -92,11 +92,14 @@ Delivery order fields show for **loose**, **normal** disposition, with a **regis
 
 The invoice stores the delivery order number so later sales against the same DO reduce remaining balance (used by Pick DO and commitment reports).
 
-## Validate and delete
+## Validate, cancel, and delete
 
 - **Validate** — Requires the `validate_sales` action permission. Re-checks stock **as of the invoice date** (see above), then deducts live inventory. Validated sales appear on delivery/stock-style reports that filter on validated status.
 - **Direct validate (create + validate in one step)** — Users with the `direct_validate_sales` action (default: **ADMIN** and **MANAGER**) see **Validate invoice** and **Save as pending** when creating a new invoice. **Validate invoice** creates the sale and validates it in one step (stock is deducted immediately). **Save as pending** keeps the two-step workflow. Supervisors with `validate_sales` but not `direct_validate_sales` still validate pending invoices opened from the list or after a clerk saves.
-- **Delete** — Available according to status and permissions; prefer correcting before validation when possible.
+- **Cancel validated invoice** — Users with `cancel_validated_sales` (default: **ADMIN** and **MANAGER**) **and** route **write** on Sales or Bottle Oil Sales see **Cancel invoice** on a **validated** invoice. Enter a non-empty reason. The invoice status becomes **REJECTED**, stock is restored via `SALE_REVERSAL` movements dated on the original sale date (so open-month stock reports net correctly), linked delivery-order commitments are released (rejected sales no longer count as lifted), and any linked vehicle consignment note is rejected. A red banner shows who cancelled, when, and why. Cancellation also syncs to the central database when sync is configured.
+- **Delete** — **Pending** invoices can be deleted by users with write access on the sales screen. **Validated** or **cancelled** invoices can be permanently deleted only with `delete_validated_sales` (default: **ADMIN**). Deleting a still-validated invoice reverses stock first; deleting an already cancelled invoice does not reverse again.
+
+Cancelled (REJECTED) invoices stay in the booklet serial sequence (no number gap) and are excluded from revenue / validated-sales reports.
 
 ## Invoice list
 

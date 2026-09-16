@@ -13,6 +13,24 @@ interface DeliveryOrdersListProps {
   onOpenScreen?: () => void;
 }
 
+const PAGE_SIZE = 15;
+
+function IconChevronLeft() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="m15 18-6-6 6-6" />
+    </svg>
+  );
+}
+
+function IconChevronRight() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  );
+}
+
 export function DeliveryOrdersList({ onOpenOrder, onOpenScreen }: DeliveryOrdersListProps) {
   const [filters, setFilters] = useState<DeliveryOrdersListFilters>({
     q: "",
@@ -24,6 +42,7 @@ export function DeliveryOrdersList({ onOpenOrder, onOpenScreen }: DeliveryOrders
   const [result, setResult] = useState<DeliveryOrdersListResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,6 +64,10 @@ export function DeliveryOrdersList({ onOpenOrder, onOpenScreen }: DeliveryOrders
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters]);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +102,23 @@ export function DeliveryOrdersList({ onOpenOrder, onOpenScreen }: DeliveryOrders
       cancelled = true;
     };
   }, [filters]);
+
+  const rows = result?.rows ?? [];
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageRows = rows.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+  const pageStart =
+    rows.length === 0 ? 0 : Math.min((currentPage - 1) * PAGE_SIZE + 1, rows.length);
+  const pageEnd = Math.min(currentPage * PAGE_SIZE, rows.length);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   function applyFilters(event: Event) {
     event.preventDefault();
@@ -156,43 +196,42 @@ export function DeliveryOrdersList({ onOpenOrder, onOpenScreen }: DeliveryOrders
         <button type="submit" class="sales-btn-primary">
           Apply
         </button>
-
-       {/*  {result ? (
-          <span class="sales-muted sales-filter-label">{result.periodLabel}</span>
-        ) : null} */}
       </form>
 
       {error ? <p class="sales-error">{error}</p> : null}
 
       <div class="sales-panel sales-table-wrap">
-        {isLoading ? (
-          <p class="sales-muted">Loading…</p>
-        ) : (
-          <table class="sales-table">
-            <thead>
+        <table class="sales-table sales-list-table">
+          <thead>
+            <tr>
+              <th>DO no.</th>
+              <th>Date</th>
+              <th>Collection point</th>
+              <th>Customer</th>
+              <th>Product</th>
+              <th>Status</th>
+              <th class="sales-num">Qty</th>
+              <th class="sales-num">Total</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
               <tr>
-                <th>DO no.</th>
-                <th>Date</th>
-                <th>Collection point</th>
-                <th>Customer</th>
-                <th>Product</th>
-                <th>Status</th>
-                <th class="sales-num">Qty</th>
-                <th class="sales-num">Total</th>
-                <th />
+                <td colSpan={9} class="sales-empty-cell">
+                  Loading delivery orders…
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {result && result.rows.length === 0 ? (
-                <tr>
-                  <td colSpan={9} class="sales-empty">
-                    No delivery orders match these filters.
-                  </td>
-                </tr>
-              ) : null}
-              {result?.rows.map((row) => (
+            ) : rows.length === 0 ? (
+              <tr>
+                <td colSpan={9} class="sales-empty-cell">
+                  No delivery orders match these filters.
+                </td>
+              </tr>
+            ) : (
+              pageRows.map((row) => (
                 <tr key={row.id}>
-                  <td>{row.deliveryOrderNo}</td>
+                  <td class="sales-strong">{row.deliveryOrderNo}</td>
                   <td>{formatDisplayDate(row.dateIssuedIso)}</td>
                   <td>{row.salesPointName}</td>
                   <td>{row.customerName}</td>
@@ -204,33 +243,69 @@ export function DeliveryOrdersList({ onOpenOrder, onOpenScreen }: DeliveryOrders
                   </td>
                   <td class="sales-num">{row.totalQtyLabel}</td>
                   <td class="sales-num">{row.totalAmountXaf}</td>
-                  <td class="sales-row-actions">
+                  <td class="sales-actions-cell">
                     <button
                       type="button"
-                      class="sales-btn-secondary sales-btn-small"
+                      class="sales-link-btn"
                       onClick={() => onOpenOrder(row.deliveryOrderNo)}
                     >
                       Open
                     </button>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-            {result && result.rows.length > 0 ? (
-              <tfoot>
-                <tr>
-                  <td colSpan={6}>
-                    Totals ({result.periodLabel}) · {result.totals.count} DOs
-                  </td>
-                  <td class="sales-num">{result.totals.totalQtyLabel}</td>
-                  <td class="sales-num">{result.totals.totalAmountXaf}</td>
-                  <td />
-                </tr>
-              </tfoot>
-            ) : null}
-          </table>
-        )}
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
+
+      {result && !isLoading ? (
+        <div class="sales-list-footer">
+          <div class="sales-list-footer-totals">
+            {rows.length > 0 ? (
+              <>
+                <span>
+                  Totals ({result.periodLabel}) · {result.totals.count} DOs
+                </span>
+                <span class="sales-num">{result.totals.totalQtyLabel}</span>
+                <span class="sales-num">{result.totals.totalAmountXaf}</span>
+              </>
+            ) : (
+              <span class="sales-muted">No delivery orders in this filter.</span>
+            )}
+          </div>
+          <div class="sales-list-pagination">
+            <span>
+              Showing {pageStart}–{pageEnd} of {rows.length}
+            </span>
+            <div class="sales-list-pagination-pages">
+              <button
+                type="button"
+                class="sales-list-pagination-btn"
+                disabled={currentPage <= 1}
+                aria-label="Previous page"
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+              >
+                <IconChevronLeft />
+              </button>
+              <span>
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                type="button"
+                class="sales-list-pagination-btn"
+                disabled={currentPage >= totalPages}
+                aria-label="Next page"
+                onClick={() =>
+                  setPage((current) => Math.min(totalPages, current + 1))
+                }
+              >
+                <IconChevronRight />
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

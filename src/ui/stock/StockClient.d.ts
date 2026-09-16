@@ -3,6 +3,7 @@ import { type StockModuleVariant, type StockProductFilter } from "../../shared/s
 import type { AuthUser } from "../auth/session.ts";
 import type { StockBootstrap } from "../../shared/stock.types.ts";
 import "./StockScreen.css";
+import "../customers/CustomersScreen.css";
 interface StockClientProps {
     bootstrap: StockBootstrap;
     user: AuthUser;

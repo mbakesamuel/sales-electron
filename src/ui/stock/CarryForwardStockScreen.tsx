@@ -44,6 +44,24 @@ function formatQty(value: number): string {
   return Math.round(value).toLocaleString("en-US");
 }
 
+const PAGE_SIZE = 15;
+
+function IconChevronLeft() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="m15 18-6-6 6-6" />
+    </svg>
+  );
+}
+
+function IconChevronRight() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  );
+}
+
 function newLineKey(): string {
   return `line-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
@@ -160,6 +178,7 @@ export function CarryForwardStockScreen({
   const [postingPeriod, setPostingPeriod] = useState<OpenPostingPeriod | null>(
     null,
   );
+  const [page, setPage] = useState(1);
 
   async function reload() {
     setLoading(true);
@@ -224,6 +243,28 @@ export function CarryForwardStockScreen({
         (row.lastAdjustmentNo ?? "").toLowerCase().includes(query),
     );
   }, [rows, search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageRows = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+  const pageStart =
+    filtered.length === 0
+      ? 0
+      : Math.min((currentPage - 1) * PAGE_SIZE + 1, filtered.length);
+  const pageEnd = Math.min(currentPage * PAGE_SIZE, filtered.length);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   const filteredPending = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -588,64 +629,109 @@ export function CarryForwardStockScreen({
         <h3 class="cf-posted-title">Posted opening balances</h3>
       ) : null}
 
-      <div class="cf-table-wrap">
-        <table class="cf-table">
-          <thead>
-            <tr>
-              {/*  <th>Last CF adj.</th> */}
-              <th>Date</th>
-              <th>Collection point</th>
-              <th>Product</th>
-              <th>Location</th>
-              <th class="cf-num">Bal. Qty.</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 && !loading ? (
+      <div class="cf-posted-panel">
+        <div class="cf-table-wrap">
+          <table class="cf-table">
+            <thead>
               <tr>
-                <td colSpan={7} class="cf-empty">
-                  No carry-forward stock yet. Use New Entry to set opening
-                  on-hand.
-                </td>
+                <th>Date</th>
+                <th>Collection point</th>
+                <th>Product</th>
+                <th>Location</th>
+                <th class="cf-num">Bal. Qty.</th>
+                <th />
               </tr>
-            ) : (
-              filtered.map((row) => (
-                <tr
-                  key={`${row.salesPointId}-${row.productId}-${row.storageLocationId ?? "null"}`}
-                >
-                  {/*  <td>{row.lastAdjustmentNo ?? "—"}</td> */}
-                  <td>{formatDate(row.lastOccurredAt)}</td>
-                  <td>{row.salesPointName}</td>
-                  <td>
-                    {row.productName}
-                    <span class="cf-hint-inline"> ({row.uom})</span>
-                  </td>
-                  <td>{row.storageLocationName}</td>
-                  <td class="cf-num">{formatQty(row.currentQty)}</td>
-                  <td class="cf-actions">
-                    {canWrite ? (
-                      <button
-                        type="button"
-                        class="cf-link"
-                        onClick={() =>
-                          openBatchEntry({
-                            salesPointId: row.salesPointId,
-                            productId: row.productId,
-                            storageLocationId: row.storageLocationId,
-                            currentQty: row.currentQty,
-                          })
-                        }
-                      >
-                        Edit
-                      </button>
-                    ) : null}
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={6} class="cf-empty">
+                    Loading opening balances…
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={6} class="cf-empty">
+                    No carry-forward stock yet. Use New Entry to set opening
+                    on-hand.
+                  </td>
+                </tr>
+              ) : (
+                pageRows.map((row) => (
+                  <tr
+                    key={`${row.salesPointId}-${row.productId}-${row.storageLocationId ?? "null"}`}
+                  >
+                    <td>{formatDate(row.lastOccurredAt)}</td>
+                    <td>{row.salesPointName}</td>
+                    <td>
+                      {row.productName}
+                      <span class="cf-hint-inline"> ({row.uom})</span>
+                    </td>
+                    <td>{row.storageLocationName}</td>
+                    <td class="cf-num">{formatQty(row.currentQty)}</td>
+                    <td class="cf-actions">
+                      {canWrite ? (
+                        <button
+                          type="button"
+                          class="cf-link"
+                          onClick={() =>
+                            openBatchEntry({
+                              salesPointId: row.salesPointId,
+                              productId: row.productId,
+                              storageLocationId: row.storageLocationId,
+                              currentQty: row.currentQty,
+                            })
+                          }
+                        >
+                          Edit
+                        </button>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {!loading ? (
+          <div class="cf-list-footer">
+            <span class="cf-count">
+              {filtered.length} posted balance
+              {filtered.length === 1 ? "" : "s"}
+            </span>
+            <div class="cf-list-pagination">
+              <span>
+                Showing {pageStart}–{pageEnd} of {filtered.length}
+              </span>
+              <div class="cf-list-pagination-pages">
+                <button
+                  type="button"
+                  class="cf-list-pagination-btn"
+                  disabled={currentPage <= 1}
+                  aria-label="Previous page"
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                >
+                  <IconChevronLeft />
+                </button>
+                <span>
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  class="cf-list-pagination-btn"
+                  disabled={currentPage >= totalPages}
+                  aria-label="Next page"
+                  onClick={() =>
+                    setPage((current) => Math.min(totalPages, current + 1))
+                  }
+                >
+                  <IconChevronRight />
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {batchOpen ? (

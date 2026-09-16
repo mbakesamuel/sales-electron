@@ -15,7 +15,7 @@ A status badge is located in the top navigation bar of every screen:
 | **Online** (green) | The application is connected to the central sync server. Background sync is running. | None. Work proceeds normally. |
 | **Offline** (grey) | The sync server is unreachable or the PC has no internet. | None. You can continue creating sales, delivery orders, and stock movements. All data will upload automatically when the network recovers. |
 | **Syncing…** (amber, spinning) | Data is actively uploading or downloading. | Wait a few moments for the cycle to complete. |
-| **Sync error** (red) | The last sync attempt failed (e.g. invalid server URL or authentication token). | Click the badge or open **Data sync** to view the error message. |
+| **Sync error** (red) | The last sync attempt failed, or one or more outbox items remain in **FAILED** status. | Click the badge or open **Data sync** to view the error. Fix the cause (server, token, or schema), then click **Sync Now** — failed items are retried automatically. |
 
 ### Quick-status popover
 
@@ -52,7 +52,7 @@ Tests network connectivity to the central server without uploading transactions.
 
 ### Sync Now
 Immediately triggers a complete synchronization cycle:
-1. Uploads all pending transactions in the local outbox to PostgreSQL.
+1. Uploads all **pending and previously failed** transactions in the local outbox to PostgreSQL (failed items are retried).
 2. Downloads any updated catalog products, unit prices, tax schedules, user accounts, and company settings from PostgreSQL into SQLite.
 
 ### Upload all records (Initial sync & Backfill)
@@ -85,6 +85,9 @@ At the bottom of the **Data sync** screen is the **Offline transaction outbox** 
 ---
 
 ## Common questions
+
+### What does a red Sync error / “1 error” mean?
+The last sync failed, or one or more outbox rows are still **FAILED**. Open **Data sync**, fix the cause (URL, token, or server schema), then click **Sync Now** — failed items are retried until they succeed or fail again.
 
 ### What happens if the internet goes down while creating an invoice?
 The invoice is saved instantly to your local database. A pending upload task is placed in the outbox. As soon as connectivity is restored, the application uploads the invoice in the background.

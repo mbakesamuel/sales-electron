@@ -33,6 +33,8 @@ Defaults: [`src/electron/auth/permissions/defaults.ts`](../../src/electron/auth/
 |-----|-----|
 | `validate_sales` | Validate invoices |
 | `direct_validate_sales` | Create + validate sale in one step |
+| `cancel_validated_sales` | Cancel validated invoice (reason required); also needs route **write** on `sales` / `bottle-oil-sales` |
+| `delete_validated_sales` | Permanently delete validated or cancelled invoice (ADMIN default) |
 | `validate_delivery_orders` | Validate DOs (including Validation queue bulk validate) |
 | `cancel_validated_delivery_order` | Cancel validated DO |
 | `transfer_delivery_order_balance` | Transfer remaining DO balance to another sales point |

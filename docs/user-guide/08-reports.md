@@ -19,7 +19,7 @@ Sidebar section: **Reports**, grouped as **Daily**, **Weekly**, **Monthly**, and
 |--------|---------|
 | **Stock summary report** | Combined stock and commitment view for management. |
 | **Stock report** | Stock by sales point / storage layout. Non-bottled sections (Palm Oil, PKO, Palm Kernel, PKC) share a common quantity-column grid; **Bottled Palm Oil** appears last with its own pack matrix. |
-| **Commitment report** | Outstanding validated DO balances by customer / sales point (**as of** report as-at). |
+| **Commitment report** | Outstanding validated DO balances by customer / sales point (**as of** report as-at). One row per customer per product category (customer name only). |
 | **Bottle oil stock & sales** | Bottled stock matrix and sales by pack. |
 | **Bottled Sales Report** | Bottled issues for a chosen week in the open month (Mon–Fri detail; estimate basis options). |
 | **Sales/delivery report** | Weekly loose + bottled + other/PKO deliveries (week picker). |
@@ -151,11 +151,18 @@ Section order: **Palm Oil** (main loose) → **Palm Kernel Oil** → **Palm Kern
 
 Non-bottled sections share Palm Oil’s four-column grid (Sales point | Storage or cracked | Qty or uncracked | Remarks). Palm Kernel uses cracked and uncracked in the storage and qty columns; PKC quantity aligns with the Palm Oil qty column. Bottled keeps its own pack matrix and is not aligned to that grid.
 
+Quantities come from stock movements through report as-at. Cancelling a validated sale posts a `SALE_REVERSAL` dated on the **original sale date**, so stock returns in that open month’s report (not only after the cancel day).
+
 **Print / PDF:** Uses a **compact page layout** (2mm top and bottom margins, 8mm left/right) so more rows fit on each A4 page. The report header is tightened in print mode; on-screen preview keeps normal spacing.
 
 ## Commitment report (weekly)
 
-Outstanding validated DO balances by customer and collection point (**as of** report as-at). **Print / PDF** uses the same **compact page layout** as the Stock report (2mm top/bottom margins).
+Outstanding validated DO balances by customer and collection point (**as of** report as-at).
+
+- **One row per customer** within each product-category section (main palm oil and other products alike). Row labels show the **customer name only** (no product name in brackets). Quantities at each collection point are that customer’s outstanding kg summed for products in that category.
+- The header row (`CUSTOMER` | collection points | `TOTAL`), category sections, and grand total share **one table** so quantity columns line up under the headers.
+- Rejected / cancelled sales do not reduce DO remaining balance (they are excluded from lifted qty).
+- **Print / PDF** uses the same **compact page layout** as the Stock report (2mm top/bottom margins).
 
 ## Palm Oil Sales Activity (annual)
 

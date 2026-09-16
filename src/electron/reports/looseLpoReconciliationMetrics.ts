@@ -141,7 +141,8 @@ export function loadLpoReceiptLines(fromIso: string, toIso: string): LpoReceiptL
     }));
 }
 
-export function sumSellableLpoBySalesPoint(
+/** As-of LPO qty by collection point (sellable + unsellable). */
+export function sumLpoBySalesPoint(
   salesPoints: SalesPointRow[],
   products: ProductRow[],
   asOfIso: string,
@@ -149,7 +150,7 @@ export function sumSellableLpoBySalesPoint(
   const lpoProductIds = buildLpoReportProductIds(products);
   const values = zeroValues(salesPoints);
   for (const row of loadStockBalancesAsOf(getDatabase(), asOfIso)) {
-    if (row.condition !== "SELLABLE" || !lpoProductIds.has(row.productId)) {
+    if (!lpoProductIds.has(row.productId)) {
       continue;
     }
     const key = spKey(row.salesPointId);
@@ -229,7 +230,7 @@ export function computeCompanyLpoOpening(
   carryForwardToIso: string,
 ): number {
   const openingAsOfIso = dayBeforeIso(periodStartIso);
-  const priorOpening = sumSellableLpoBySalesPoint(salesPoints, products, openingAsOfIso);
+  const priorOpening = sumLpoBySalesPoint(salesPoints, products, openingAsOfIso);
   const carryForward = sumCarryForwardLpoInRange(
     salesPoints,
     products,

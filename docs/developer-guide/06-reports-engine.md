@@ -17,7 +17,7 @@ Each report:
 | Products, packs, qty | `shared.ts` | `loadProducts`, `detectBottledPack`, `PALM_OIL_KG_PER_LITRE` |
 | As-at date | `financialYears/service.ts` → `resolveReportAsAt` | `min(today, open month endDate)` — reopening a past month prints as at that month’s end |
 | Stock qty on stock reports | `stock/asOfBalance.ts` → `loadStockBalancesAsOf` | Reconstruct from `StockMovement` through as-at (not live `StockBalance`) |
-| Commitment outstanding | `commitmentAsOf.ts` → `loadOutstandingCommitmentsAsOf` | Validated DOs with `dateIssued ≤ as-at`, minus sales on those DOs with `dateIssued ≤ as-at` |
+| Commitment outstanding | `commitmentAsOf.ts` → `loadOutstandingCommitmentsAsOf` | Validated DOs with `dateIssued ≤ as-at`, minus **non-rejected** sales on those DOs with `dateIssued ≤ as-at` |
 | Open-month week choices | `weekChoices.ts` | Shared by Sales/delivery and Bottled Sales Report |
 
 ### Report comments
@@ -216,8 +216,8 @@ File: `stockCommitment.ts`
 | `dailySalesReport.ts` | Daily sales report |
 | `dailySalesMatrixReport.ts` | Daily sales summary (matrix) |
 | `stockCommitment.ts` | Stock summary / stock & commitment (sludge members → PALM SLUDGE OIL section) |
-| `stockReport.ts` | Stock report (bottled last; aligned non-bottled grid in UI) |
-| `commitmentReport.ts` | Commitment report |
+| `stockReport.ts` | Stock report (bottled last; aligned non-bottled grid in UI; as-of movements include sale-dated `SALE_REVERSAL`) |
+| `commitmentReport.ts` | Commitment report (one row per customer per category; UI single matrix table) |
 | `bottleOilStockSalesReport.ts` | Bottle oil stock & sales |
 | `bottledWeeklyIssuesReport.ts` | Bottled Sales Report (sidebar label; route still `bottled-weekly-issues-report`) |
 | `monthlyDeliveryReport.ts` | Monthly H1/H2 |
@@ -244,6 +244,7 @@ Shared report chrome lives in **`StockCommitmentReport.css`** (`scr-page`, `scr-
 - Class **`scr-print-mode`** on `body` during print (preferred over injecting `@page` styles per screen, except landscape packs and bin-card portrait).
 - Default **`@page`** in `StockCommitmentReport.css`: A4 portrait, **8mm** margin on all sides.
 - **Stock report** (`StockReportScreen.tsx` → document class **`sr-stock-report`**) and **Commitment report** (`CommitmentReportScreen.tsx` → **`cr-commitment-report`**) assign a named page **`scrCompactTopTight`** via CSS `page:` — **2mm** top/bottom, **8mm** left/right — plus scoped print overrides on `.report-header` and the first `.scr-bottled-block`. Applies to **Print** and **Save PDF** (`scr-print-mode` + `preferCSSPageSize`). Stock summary / stock & commitment combined report is unchanged (default 8mm).
+- **Commitment report UI:** header, category sections, and grand total render as **one** `.scr-category-matrix` table (`table-layout: fixed` under `.cr-commitment-report`) so collection-point columns stay aligned.
 - **`no-print`** hides toolbars and filters.
 - Printable reports open in a secondary Electron window (`REPORT_WINDOW_ROUTE_IDS`); `windows:openReport` accepts optional **`query`** for parameterized reports (bin card).
 - **`formatPhasedQtyKgDisplay`** / **`formatPhasedAmountDisplay`** (`salesBudgetPhase.ts`) — kg and revenue cells in budget phasing / crosstabs: thousand separators, 0 decimal places.

@@ -37,7 +37,7 @@ The screen shows the **last backup** created from this app (path, date, size).
 3. Set **Time of day** and how many automatic files to **keep** (older `sales-auto-backup-*.db` files are deleted).
 4. Enable **automatic daily backup** and click **Save automatic backup settings**.
 
-Automatic backups run **once per day** at the chosen time **only while the application is open**. They use the same safe online backup as **Create backup**. Use **Run automatic backup now** to test without waiting.
+Automatic backups run **once per day** at the chosen time **only while the application is open**. They use the same safe online backup as **Create backup** (SQLite’s asynchronous backup API). Use **Run automatic backup now** to test without waiting.
 
 Settings are stored in `{userData}/backup-schedule.json` (outside the database).
 

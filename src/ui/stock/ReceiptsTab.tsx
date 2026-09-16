@@ -30,6 +30,12 @@ import {
   trimQty,
   utcIsoDateToday,
 } from "./stockUtils.ts";
+import {
+  IconEye,
+  IconPencil,
+  IconTrash,
+  StockRowActionButton,
+} from "./StockRowActions.tsx";
 
 interface ReceiptsTabProps {
   rows: ReceiptListRow[];
@@ -597,37 +603,33 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
                     <StatusBadge status={r.status} />
                   </td>
                   <td class="stock-actions-col">
-                    <div class="stock-actions-cell">
-                      <button
-                        type="button"
+                    <div class="customers-row-actions">
+                      <StockRowActionButton
                         disabled={reviewBusy}
-                        onClick={() => void openReviewById(r.id)}
-                        class="stock-btn-secondary stock-btn-small"
                         title="View lines"
+                        onClick={() => void openReviewById(r.id)}
                       >
-                        Review
-                      </button>
+                        <IconEye /> View
+                      </StockRowActionButton>
                       {r.status === "DRAFT" && props.canDraft ? (
-                        <button
-                          type="button"
+                        <StockRowActionButton
                           disabled={busy || reviewBusy}
-                          onClick={() => void openEditById(r.id)}
-                          class="stock-btn-secondary stock-btn-small"
                           title="Correct draft"
+                          onClick={() => void openEditById(r.id)}
                         >
-                          Edit
-                        </button>
+                          <IconPencil /> Edit
+                        </StockRowActionButton>
                       ) : null}
                       {(r.status === "DRAFT" && props.canDraft) ||
                       (r.status === "POSTED" && props.canCancel) ? (
-                        <button
-                          type="button"
+                        <StockRowActionButton
+                          danger
                           disabled={busy}
                           onClick={() => setPendingCancel(r)}
-                          class="stock-btn-danger stock-btn-small"
                         >
+                          <IconTrash />{" "}
                           {r.status === "DRAFT" ? "Delete" : "Cancel"}
-                        </button>
+                        </StockRowActionButton>
                       ) : null}
                     </div>
                   </td>

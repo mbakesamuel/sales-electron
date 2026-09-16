@@ -1,3 +1,4 @@
+import "../components/FormDialog.css";
 import "../customers/CustomersScreen.css";
 interface TransportRatesScreenProps {
     readOnly?: boolean;

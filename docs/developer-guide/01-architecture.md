@@ -57,7 +57,7 @@ flowchart TB
 3. `initDatabase()` — open `userData/sales.db`, run migrations, seed default permissions
 4. `backfillFinancialMonths()` — ensure month rows exist for open financial years
 5. Register IPC modules (auth, db, sales, deliveryOrders, stock, reports, financial years, dashboard, carry-forward, print, booklets, sync, …)
-6. `getSyncService().init()` — start background network monitor and auto-sync scheduler
+6. `getSyncService().init()` — start background network monitor and auto-sync scheduler (`syncNow` / backfill continue while outbox has PENDING **or** FAILED items)
 7. Create `BrowserWindow` with title **Sales Management Application**; load Vite dev URL or production `dist-react` index
 
 Window chrome title is set on `BrowserWindow` and in `index.html`. Packaged `productName` and Start Menu / desktop shortcuts use **Sales Management Application** (see [Build and packaging](09-build-and-packaging.md)). The npm package / userData folder remains `sales-electron`.

@@ -13,7 +13,7 @@ Default route access is defined per role (admins can change the matrix):
 | Role | Typical access |
 |------|----------------|
 | **ADMIN** | All routes write; manage permissions. Commercial Overview. |
-| **MANAGER** | Most routes write (not user admin); validate sales/DOs/consignments; can cancel validated DOs. Commercial Overview. |
+| **MANAGER** | Most routes write (not user admin); validate sales/DOs/consignments; can cancel validated DOs and validated sales invoices. Commercial Overview. |
 | **SENIOR_SALES_SUPERVISOR** | Operations, customers, inventory read/write; validate sales/DOs/consignments. **Supervisor Overview** (queues + stock). |
 | **JNR_SALES_SUP** (junior sales supervisor) | Custom/manageable role (may already exist in production DBs). Shares **Supervisor Overview** with senior supervisors when granted matching routes; consignment validation route seeded in migration `086`. |
 | **STATISTICS_CLERK** | Broad **read** on operations, budgets, reports, and financial/tax screens; **write** on **Stock**, **Bottled Stock**, **Opening Stock balances**, and **Opening commitment balances** for company-wide transfers (bulk + bottled) and carry-forward entry. Primary transfer operator — draft, dispatch, and location moves across all collection points. Carry-forward saves stay pending until a supervisor validates them. No validate actions by default. Commercial Overview. |
@@ -28,6 +28,8 @@ Default route access is defined per role (admins can change the matrix):
 |--------|---------|
 | `validate_sales` | Validate sales invoices (pending invoices saved by clerks or yourself). |
 | `direct_validate_sales` | Create and validate a sales invoice in one step from the POS screen (skip pending). |
+| `cancel_validated_sales` | Cancel (void) an already validated sales invoice with a reason; restores stock and DO balance. Requires route **write** on Sales / Bottle Oil Sales as well. |
+| `delete_validated_sales` | Permanently delete a validated or cancelled sales invoice (ADMIN by default). |
 | `validate_delivery_orders` | Validate delivery orders (including the **Validation queue** tab under Delivery Order). |
 | `cancel_validated_delivery_order` | Cancel an already validated DO. |
 | `transfer_delivery_order_balance` | Move remaining DO kg to another sales point (**Transfer DO balance** screen). |

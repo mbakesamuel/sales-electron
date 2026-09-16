@@ -200,15 +200,17 @@ This loads your live SQLite database at `%APPDATA%\sales-electron\sales.db`, boo
 ## 7. Sync Protocol Details
 
 ### Upward Push (`POST /api/sync/push`)
+- Client loops while local outbox has **PENDING or FAILED** items (failed rows are retried after the cause is fixed).
 - Pushes up to 100 items per batch from `SyncOutbox` where `status IN ('PENDING', 'FAILED')`.
 - Payload structures include child line items and payments:
-  - **Sale**: Header, `lines`, `taxes`, and `payments`.
+  - **Sale**: Header (including `cancelledAt` / `cancelledByUserId` / `cancelReason` when voided), `lines`, `taxes`, and `payments`.
   - **DeliveryOrder**: Header, `details`, and `paymentDetails`.
   - **StockReceipt / StockTransfer / StockAdjustment**: Header, `lines`, and `movements`.
   - **Customer**: Profile, taxpayer identification, tax regime, and customer type.
   - **DocumentBooklet**: Booklet code, serial number ranges, and validation status.
 - Executed inside a PostgreSQL database transaction with `ON CONFLICT (id) DO UPDATE`.
 - On success, local SQLite rows update to `status = 'SYNCED'`. Synced items older than 7 days are pruned automatically.
+- **Schema:** After deploying sale cancellation (SQLite migration `119`), run `npm run server:migrate` so Postgres `sales` has `cancelled_at` / `cancelled_by_user_id` / `cancel_reason` (`ALTER TABLE … IF NOT EXISTS` in `server/src/db/migrate.ts`). Missing columns leave sale pushes in **FAILED**.
 
 ### Downward Pull (`GET /api/sync/pull?since=ISO_TIMESTAMP`)
 - Queries PostgreSQL for all master data modified since `since`.

@@ -20,6 +20,7 @@ import { ReceiptsTab } from "./ReceiptsTab.tsx";
 import { TransfersTab } from "./TransfersTab.tsx";
 import { AdjustmentsTab } from "./AdjustmentsTab.tsx";
 import "./StockScreen.css";
+import "../customers/CustomersScreen.css";
 
 type TabId =
   | "bin-card"

@@ -43,6 +43,13 @@ Form options expose both flags; `createSale` enforces them. The Sales UI never s
 
 Operator description: [Sales invoices](../user-guide/04-sales-invoices.md).
 
+### Cancel / delete validated sales
+
+- `cancelValidatedSale` / `deleteSale` in `service.ts`; stock via `reverseStockForValidatedSale` in `src/electron/stock/sales.ts` (`SALE_REVERSAL` movements use the original `SALE.occurredAt`, not cancel time — migration `120` backdates older rows).
+- Sets `Sale.status` to `REJECTED`, fills `cancelledAt` / `cancelledByUserId` / `cancelReason` (migration `119`). Rejected sales are excluded from revenue and from DO lifted qty.
+- IPC: `sales:cancelValidatedSale`; UI modal + rejected banner in `SalesClient.tsx`.
+- Permissions: actions `cancel_validated_sales` / `delete_validated_sales` plus route write on the sales screen.
+
 ### Payment UI rules (POS)
 
 Enforced in `SalesClient.tsx` (not separate IPC):
@@ -172,9 +179,9 @@ Customer types may set `exemptFromSalesTax` (migration `036`). Sales for those t
 
 | Piece | Path |
 |-------|------|
-| Service | `src/electron/db/backup.ts` — `getBackupInfo`, `createBackup` (SQLite `.backup()`), `restoreBackup` |
-| Schedule | `src/electron/db/backupSchedule.ts` — daily auto-backup while app runs; config `{userData}/backup-schedule.json` |
-| IPC | `src/electron/ipc/backup.ts` |
+| Service | `src/electron/db/backup.ts` — `getBackupInfo`, async `createBackup` (await SQLite `.backup()`), `restoreBackup` |
+| Schedule | `src/electron/db/backupSchedule.ts` — daily auto-backup while app runs (`runScheduledBackup` awaits `createBackup`); config `{userData}/backup-schedule.json` |
+| IPC | `src/electron/ipc/backup.ts` (handlers await create / scheduled run) |
 | UI | `src/ui/organization/DataBackupScreen.tsx` |
 | Route | `data-backup` (ADMIN write by default; migration `108`) |
 | IT script | `scripts/backup-windows.ps1` — Task Scheduler copy when app is closed |

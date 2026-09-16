@@ -5,6 +5,122 @@
   min-height: 0;
 }
 
+.home-main--stock .cf-screen,
+.home-main--fill .cf-screen {
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+}
+
+.home-main--stock .cf-header,
+.home-main--stock .cf-error,
+.home-main--stock .cf-success,
+.home-main--stock .cf-toolbar,
+.home-main--stock .cf-posted-title,
+.home-main--fill .cf-header,
+.home-main--fill .cf-error,
+.home-main--fill .cf-success,
+.home-main--fill .cf-toolbar,
+.home-main--fill .cf-posted-title {
+  flex-shrink: 0;
+}
+
+.home-main--stock .cf-pending-section,
+.home-main--fill .cf-pending-section {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: min(28vh, 240px);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.home-main--stock .cf-pending-section .cf-table-wrap,
+.home-main--fill .cf-pending-section .cf-table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.home-main--stock .cf-posted-panel,
+.home-main--fill .cf-posted-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.home-main--stock .cf-posted-panel .cf-table-wrap,
+.home-main--fill .cf-posted-panel .cf-table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.cf-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.cf-list-footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  font-size: 13px;
+}
+
+.cf-list-pagination {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cf-list-pagination-pages {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cf-list-pagination-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.cf-list-pagination-btn:hover:not(:disabled) {
+  background: var(--bg-soft);
+  border-color: var(--border-strong);
+}
+
+.cf-list-pagination-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cf-list-pagination-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
 .cf-header {
   display: flex;
   align-items: flex-start;

@@ -14,6 +14,24 @@ interface SalesListProps {
   onOpenPos?: () => void;
 }
 
+const PAGE_SIZE = 15;
+
+function IconChevronLeft() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="m15 18-6-6 6-6" />
+    </svg>
+  );
+}
+
+function IconChevronRight() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  );
+}
+
 export function SalesList({
   variant = "loose",
   listTitle,
@@ -35,10 +53,12 @@ export function SalesList({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [printSaleId, setPrintSaleId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
   const isBottled = variant === "bottled";
   const title =
     listTitle ?? (isBottled ? "Bottle Oil invoices" : "Sales invoices");
   const qtyHeader = isBottled ? "Qty (units)" : "Qty (kg)";
+  const colCount = isBottled ? 9 : 10;
 
   useEffect(() => {
     setAppliedFilters((current) => ({
@@ -46,6 +66,10 @@ export function SalesList({
       productMode,
     }));
   }, [productMode]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [appliedFilters]);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,6 +104,23 @@ export function SalesList({
       cancelled = true;
     };
   }, [appliedFilters]);
+
+  const rows = result?.rows ?? [];
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageRows = rows.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+  const pageStart =
+    rows.length === 0 ? 0 : Math.min((currentPage - 1) * PAGE_SIZE + 1, rows.length);
+  const pageEnd = Math.min(currentPage * PAGE_SIZE, rows.length);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   function applyFilters(event: Event) {
     event.preventDefault();
@@ -163,18 +204,18 @@ export function SalesList({
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={isBottled ? 9 : 10} class="sales-empty-cell">
+                <td colSpan={colCount} class="sales-empty-cell">
                   Loading invoices…
                 </td>
               </tr>
-            ) : result && result.rows.length === 0 ? (
+            ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={isBottled ? 9 : 10} class="sales-empty-cell">
+                <td colSpan={colCount} class="sales-empty-cell">
                   No sales invoices match these filters.
                 </td>
               </tr>
             ) : (
-              result?.rows.map((row) => (
+              pageRows.map((row) => (
                 <tr key={row.id}>
                   <td class="sales-strong">{row.invoiceNo}</td>
                   <td>{formatDisplayDate(row.soldAtIso)}</td>
@@ -209,20 +250,56 @@ export function SalesList({
               ))
             )}
           </tbody>
-          {result && result.rows.length > 0 ? (
-            <tfoot>
-              <tr>
-                <td colSpan={isBottled ? 6 : 7}>
-                  Totals ({result.periodLabel}) · {result.totals.count} invoices
-                </td>
-                <td class="sales-num">{result.totals.totalQtyLabel}</td>
-                <td class="sales-num">{result.totals.totalAmountXaf}</td>
-                <td />
-              </tr>
-            </tfoot>
-          ) : null}
         </table>
       </div>
+
+      {result && !isLoading ? (
+        <div class="sales-list-footer">
+          <div class="sales-list-footer-totals">
+            {rows.length > 0 ? (
+              <>
+                <span>
+                  Totals ({result.periodLabel}) · {result.totals.count} invoices
+                </span>
+                <span class="sales-num">{result.totals.totalQtyLabel}</span>
+                <span class="sales-num">{result.totals.totalAmountXaf}</span>
+              </>
+            ) : (
+              <span class="sales-muted">No invoices in this filter.</span>
+            )}
+          </div>
+          <div class="sales-list-pagination">
+            <span>
+              Showing {pageStart}–{pageEnd} of {rows.length}
+            </span>
+            <div class="sales-list-pagination-pages">
+              <button
+                type="button"
+                class="sales-list-pagination-btn"
+                disabled={currentPage <= 1}
+                aria-label="Previous page"
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+              >
+                <IconChevronLeft />
+              </button>
+              <span>
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                type="button"
+                class="sales-list-pagination-btn"
+                disabled={currentPage >= totalPages}
+                aria-label="Next page"
+                onClick={() =>
+                  setPage((current) => Math.min(totalPages, current + 1))
+                }
+              >
+                <IconChevronRight />
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
