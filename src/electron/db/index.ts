@@ -1,9 +1,10 @@
 import Database from "better-sqlite3";
 import { app } from "electron";
-import { readdirSync, readFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { seedDefaultPermissions } from "../auth/permissions/service.js";
+import { loadAppSettings } from "../config/appSettings.js";
 import { applyStockIntakeProductBackfill } from "../stock/stockIntakeMigration.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1658,12 +1659,22 @@ function runMigrations(database: Database.Database): void {
   }
 }
 
+export function resolveDatabaseFilePath(): string {
+  const settings = loadAppSettings();
+  const configured = settings.databaseDir?.trim() ?? "";
+  if (configured && path.isAbsolute(configured)) {
+    mkdirSync(configured, { recursive: true });
+    return path.join(configured, "sales.db");
+  }
+  return path.join(app.getPath("userData"), "sales.db");
+}
+
 export function initDatabase(): Database.Database {
   if (db) {
     return db;
   }
 
-  const dbPath = path.join(app.getPath("userData"), "sales.db");
+  const dbPath = resolveDatabaseFilePath();
   db = new Database(dbPath);
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
@@ -1684,7 +1695,7 @@ export function getDatabase(): Database.Database {
 }
 
 export function getDatabaseFilePath(): string {
-  return path.join(app.getPath("userData"), "sales.db");
+  return resolveDatabaseFilePath();
 }
 
 export function closeDatabase(): void {

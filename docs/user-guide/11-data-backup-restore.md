@@ -8,12 +8,29 @@ Report CSV/PDF exports are **not** full backups — use the in-app **Create back
 
 | Item | Location |
 |------|----------|
-| Database file | `{userData}/sales.db` |
-| WAL files (while app runs) | `sales.db-wal`, `sales.db-shm` |
+| Database file (default) | `{userData}/sales.db` |
+| Database file (custom) | `{databaseDir}/sales.db` when set in `app.settings.config` |
+| WAL files (while app runs) | `sales.db-wal`, `sales.db-shm` (same folder as the database) |
 | Dev installs (Windows) | `%APPDATA%\sales-electron\` |
 | Installed app (Windows) | Usually `%APPDATA%\Sales Management Application\` or similar (Electron user data folder) |
+| Backup schedule / last-backup meta | Always under `{userData}` (not moved with `databaseDir`) |
 
-The installer does **not** delete this folder when you upgrade the application.
+The installer does **not** delete the userData folder when you upgrade the application.
+
+### Optional: custom database directory
+
+Packaged builds ship `app.settings.config` **next to the application `.exe`** (e.g. in `win-unpacked` or the install folder). Edit that file to place `sales.db` outside AppData:
+
+```json
+{
+  "databaseDir": "D:\\SalesData"
+}
+```
+
+- Use an **absolute** folder path. The app creates the folder if needed and opens `{databaseDir}\sales.db`.
+- Leave `"databaseDir": ""` (or omit the key) to keep the default AppData database.
+- Save the file and **restart** the application. Existing AppData data is **not** copied automatically into the new folder.
+- Automatic backup schedule settings remain in AppData even when the database directory is customized.
 
 ## Create a backup (in-app)
 

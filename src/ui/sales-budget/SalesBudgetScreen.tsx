@@ -62,13 +62,13 @@ type PhaseProfileRow = {
 
 type FiscalMonthLabel = { financialMonth: number; label: string };
 
-function formatPeriodLabel(p: FinancialYearPeriodRow): string {
+/* function formatPeriodLabel(p: FinancialYearPeriodRow): string {
   const sy = p.startDate?.slice(0, 10) ?? "";
   const ey = p.endDate?.slice(0, 10) ?? "";
   const sY = sy ? sy.slice(0, 4) : String(p.financialYear);
   const eY = ey ? ey.slice(0, 4) : String(p.financialYear);
   return `FY ${p.financialYear} (${sY}–${eY}) · ${p.status}`;
-}
+} */
 
 function pad12(values: string[]): string[] {
   return Array.from({ length: 12 }, (_, i) => values[i] ?? "0");

@@ -1,7 +1,7 @@
 {
   "name": "sales-electron",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.0",
   "description": "Sales and inventory desktop app",
   "author": "Sales Electron",
   "type": "module",
@@ -60,6 +60,12 @@
     "asar": true,
     "asarUnpack": [
       "**/node_modules/better-sqlite3/**/*"
+    ],
+    "extraFiles": [
+      {
+        "from": "packaging/app.settings.config",
+        "to": "app.settings.config"
+      }
     ],
     "npmRebuild": true,
     "win": {

@@ -4,16 +4,16 @@ overview: Ship an application configuration settings file next to the Windows ex
 todos:
   - id: load-app-settings
     content: Add loadAppSettings() reading app.settings.config next to exe
-    status: in_progress
+    status: completed
   - id: resolve-db-path
     content: Resolve sales.db from settings.databaseDir; wire init + getDatabaseFilePath
-    status: pending
+    status: completed
   - id: ship-config-build
     content: Ship packaging/app.settings.config via electron-builder extraFiles into win-unpacked
-    status: pending
+    status: completed
   - id: docs-example
     content: Document the configuration settings file and databaseDir key
-    status: pending
+    status: completed
 isProject: false
 ---
 

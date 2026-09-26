@@ -158,7 +158,7 @@ export function FinancialMonthsScreen({
     }
   }
 
-  const openMonth = rows.find((row) => row.status === "OPEN");
+  /* const openMonth = rows.find((row) => row.status === "OPEN"); */
 
   return (
     <div class="customers-screen financial-months-screen">
