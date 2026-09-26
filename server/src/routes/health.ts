@@ -1,15 +1,18 @@
 import { Hono } from "hono";
-import { checkDbConnection } from "../db/index.js";
+import { checkDbConnection, getDbConfig } from "../db/index.js";
 
 export const healthRoute = new Hono();
 
 healthRoute.get("/", async (c) => {
   const dbConnected = await checkDbConnection();
+  const { target, databaseName } = getDbConfig();
   return c.json({
     ok: dbConnected,
     version: "1.0.0",
     service: "sales-sync-server",
     serverTime: new Date().toISOString(),
     database: dbConnected ? "connected" : "disconnected",
+    dbTarget: target,
+    databaseName,
   });
 });

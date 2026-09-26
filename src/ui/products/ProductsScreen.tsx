@@ -416,12 +416,6 @@ export function ProductsScreen({ readOnly = false }: ProductsScreenProps = {}) {
         className: "customers-stat-icon-violet",
       },
       {
-        label: "No location",
-        value: rows.filter((row) => row.omitsStorageLocation).length,
-        icon: IconLayers,
-        className: "customers-stat-icon-slate",
-      },
-      {
         label: "Main Products",
         value: rows.filter((row) => row.categoryIsMain).length,
         icon: IconDroplet,

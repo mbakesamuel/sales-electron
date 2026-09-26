@@ -1,11 +1,16 @@
 import postgres from "postgres";
-import dotenv from "dotenv";
+import { formatDbTargetLog, loadDbConfig } from "./config.js";
 
-dotenv.config();
+const { target, databaseUrl, databaseName } = loadDbConfig();
 
-const databaseUrl =
-  process.env.DATABASE_URL ||
-  "postgres://postgres:postgres@localhost:5432/sales_central";
+if (target === "prod" && process.env.CONFIRM_PROD_RESET !== "1") {
+  console.error(
+    "Refusing to reset production database. Set DB_TARGET=dev, or set CONFIRM_PROD_RESET=1 to proceed.",
+  );
+  process.exit(1);
+}
+
+console.log(formatDbTargetLog({ target, databaseUrl, databaseName }));
 
 const sql = postgres(databaseUrl, { max: 1 });
 
@@ -52,11 +57,15 @@ async function resetDatabase() {
       try {
         await sql.unsafe(`TRUNCATE TABLE "${table}" RESTART IDENTITY CASCADE`);
       } catch (tableErr: unknown) {
-        // In case a table does not exist yet
-        console.warn(`Could not truncate "${table}":`, tableErr instanceof Error ? tableErr.message : String(tableErr));
+        console.warn(
+          `Could not truncate "${table}":`,
+          tableErr instanceof Error ? tableErr.message : String(tableErr),
+        );
       }
     }
-    console.log("All application tables in PostgreSQL have been cleanly truncated!");
+    console.log(
+      "All application tables in PostgreSQL have been cleanly truncated!",
+    );
   } catch (err) {
     console.error("Reset failed:", err);
     process.exit(1);

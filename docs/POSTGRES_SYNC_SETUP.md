@@ -91,10 +91,15 @@ The sync API backend is located in the `server/` directory and is built using **
    ```env
    PORT=3001
    HOST=0.0.0.0
-   DATABASE_URL=postgres://postgres:your_password@localhost:5432/sales_central
+   DB_TARGET=dev
+   DATABASE_URL_DEV=postgres://postgres:your_password@localhost:5432/sales_central
+   DATABASE_URL_PROD=postgresql://user:password@your-prod-host/neondb?sslmode=require
    API_SECRET_KEY=your-generated-secret-key-here
    CORS_ORIGIN=*
    ```
+   - `DB_TARGET=dev` uses `DATABASE_URL_DEV` (local Postgres).
+   - `DB_TARGET=prod` uses `DATABASE_URL_PROD` (e.g. Neon). Restart the server after changing.
+   - PM2 (`npm run server:start`) sets `DB_TARGET=prod` via `ecosystem.config.cjs`.
 3. From the project root directory, install and run migrations:
    ```bash
    # Install server dependencies (only needed once)
@@ -117,9 +122,25 @@ The sync API backend is located in the `server/` directory and is built using **
      "version": "1.0.0",
      "service": "sales-sync-server",
      "serverTime": "2026-09-07T08:56:33.015Z",
-     "database": "connected"
+     "database": "connected",
+     "dbTarget": "dev",
+     "databaseName": "sales_central"
    }
    ```
+
+### Switching between development and production databases
+
+Both connection strings live in `server/.env`. Selection is **startup-time only** (restart required):
+
+| Setting | Effect |
+| :--- | :--- |
+| `DB_TARGET=dev` (default) | Connects with `DATABASE_URL_DEV` |
+| `DB_TARGET=prod` | Connects with `DATABASE_URL_PROD` |
+| PowerShell override | `$env:DB_TARGET="prod"; npm run server:dev` |
+
+- `npm run server:migrate` / `db:reset` inherit `DB_TARGET` from `.env`.
+- Migrate skips `CREATE DATABASE` when `DB_TARGET=prod` (managed hosts already have a DB).
+- Reset refuses `DB_TARGET=prod` unless `CONFIRM_PROD_RESET=1` is set.
 
 ---
 
@@ -250,7 +271,7 @@ By default, any client with the `API_SECRET_KEY` is authorized as `master-admin`
 
 ### "PostgresError: password authentication failed for user 'postgres'"
 - **Cause**: The database password in `server/.env` does not match your PostgreSQL installation.
-- **Fix**: Update `DATABASE_URL` in `server/.env` with your actual password. Special characters (like `@`) must be URL-encoded (`%40`).
+- **Fix**: Update `DATABASE_URL_DEV` (or `DATABASE_URL_PROD` for Neon) in `server/.env` with your actual password. Special characters (like `@`) must be URL-encoded (`%40`).
 
 ### "Server rejected push batch" or "Unauthorized: Invalid device token"
 - **Cause**: The **Device API Token** entered on the Data sync screen does not match `API_SECRET_KEY` in `server/.env` or any active key in the `devices` table.

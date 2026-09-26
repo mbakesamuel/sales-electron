@@ -15,6 +15,9 @@ release*
 *.local
 *.db
 
+# Server secrets (use server/.env.example as a template)
+server/.env
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

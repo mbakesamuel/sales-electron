@@ -2,16 +2,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
-import dotenv from "dotenv";
-
-dotenv.config();
+import { formatDbTargetLog, loadDbConfig } from "./config.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function runMigration() {
-  const databaseUrl =
-    process.env.DATABASE_URL ||
-    "postgres://postgres:postgres@localhost:5432/sales_central";
+  const { target, databaseUrl, databaseName } = loadDbConfig();
+  console.log(formatDbTargetLog({ target, databaseUrl, databaseName }));
 
   const schemaPath = path.join(__dirname, "../../schema/postgres_schema.sql");
   console.log(`Running migration from: ${schemaPath}`);
@@ -22,48 +19,51 @@ async function runMigration() {
 
   const sqlContent = fs.readFileSync(schemaPath, "utf8");
 
-  // Parse connection URL to check / create the target database if it does not exist
-  let targetDbName = "sales_central";
-  let adminUrl = databaseUrl;
+  // Create the database only for local/dev (managed prod hosts like Neon already have a DB)
+  if (target === "dev") {
+    let targetDbName = databaseName;
+    let adminUrl = databaseUrl;
 
-  try {
-    const parsed = new URL(databaseUrl);
-    targetDbName = parsed.pathname.replace(/^\//, "") || "sales_central";
-    parsed.pathname = "/postgres";
-    adminUrl = parsed.toString();
-  } catch {
-    // If not a parseable URL, proceed directly
-  }
-
-  console.log(`Checking if database "${targetDbName}" exists...`);
-  const adminSql = postgres(adminUrl, { max: 1, connect_timeout: 10 });
-
-  try {
-    const exists = await adminSql`
-      SELECT 1 FROM pg_database WHERE datname = ${targetDbName}
-    `;
-
-    if (exists.length === 0) {
-      console.log(`Database "${targetDbName}" does not exist. Creating...`);
-      // Database names cannot be parameterized in CREATE DATABASE
-      const safeDbName = targetDbName.replace(/"/g, '""');
-      await adminSql.unsafe(`CREATE DATABASE "${safeDbName}"`);
-      console.log(`Database "${targetDbName}" created successfully!`);
-    } else {
-      console.log(`Database "${targetDbName}" already exists.`);
+    try {
+      const parsed = new URL(databaseUrl);
+      targetDbName = parsed.pathname.replace(/^\//, "") || databaseName;
+      parsed.pathname = "/postgres";
+      adminUrl = parsed.toString();
+    } catch {
+      // If not a parseable URL, proceed directly to schema apply
     }
-  } finally {
-    await adminSql.end();
+
+    console.log(`Checking if database "${targetDbName}" exists...`);
+    const adminSql = postgres(adminUrl, { max: 1, connect_timeout: 10 });
+
+    try {
+      const exists = await adminSql`
+        SELECT 1 FROM pg_database WHERE datname = ${targetDbName}
+      `;
+
+      if (exists.length === 0) {
+        console.log(`Database "${targetDbName}" does not exist. Creating...`);
+        const safeDbName = targetDbName.replace(/"/g, '""');
+        await adminSql.unsafe(`CREATE DATABASE "${safeDbName}"`);
+        console.log(`Database "${targetDbName}" created successfully!`);
+      } else {
+        console.log(`Database "${targetDbName}" already exists.`);
+      }
+    } finally {
+      await adminSql.end();
+    }
+  } else {
+    console.log(
+      `Skipping CREATE DATABASE for DB_TARGET=prod (applying schema to "${databaseName}").`,
+    );
   }
 
-  // Connect to target database and apply schema
-  console.log(`Applying schema to "${targetDbName}"...`);
+  console.log(`Applying schema to "${databaseName}"...`);
   const targetSql = postgres(databaseUrl, { max: 1, connect_timeout: 10 });
 
   try {
     await targetSql.unsafe(sqlContent);
 
-    // Apply incremental schema updates if tables already existed
     await targetSql.unsafe(`
       ALTER TABLE sales ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
       ALTER TABLE sales ADD COLUMN IF NOT EXISTS cancelled_by_user_id TEXT;

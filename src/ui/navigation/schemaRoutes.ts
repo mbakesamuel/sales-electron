@@ -102,6 +102,12 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         table: "TaxRateSchedule",
         description: "Date-effective VAT and sales-tax rates.",
       },
+      {
+        id: "transport-rates",
+        label: "Transport Rates",
+        table: "TransportRateSchedule",
+        description: "Transport cost per kg by collection point and product.",
+      },
     ],
   },
   {
@@ -143,12 +149,6 @@ export const SCHEMA_ROUTE_SECTIONS: SchemaRouteSection[] = [
         label: "Product Unit Prices",
         table: "ProductUnitPriceSchedule",
         description: "Scheduled product unit prices.",
-      },
-      {
-        id: "transport-rates",
-        label: "Transport Rates",
-        table: "TransportRateSchedule",
-        description: "Transport cost per kg by collection point and product.",
       },
     ],
   },

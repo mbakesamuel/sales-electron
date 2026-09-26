@@ -1,13 +1,9 @@
 import postgres from "postgres";
-import dotenv from "dotenv";
+import { loadDbConfig, type DbConfig, type DbTarget } from "./config.js";
 
-dotenv.config();
+const dbConfig = loadDbConfig();
 
-const databaseUrl =
-  process.env.DATABASE_URL ||
-  "postgres://postgres:postgres@localhost:5432/sales_central";
-
-export const sql = postgres(databaseUrl, {
+export const sql = postgres(dbConfig.databaseUrl, {
   max: 20,
   idle_timeout: 30,
   connect_timeout: 10,
@@ -15,6 +11,14 @@ export const sql = postgres(databaseUrl, {
     undefined: null,
   },
 });
+
+export function getDbConfig(): DbConfig {
+  return dbConfig;
+}
+
+export function getDbTarget(): DbTarget {
+  return dbConfig.target;
+}
 
 export async function checkDbConnection(): Promise<boolean> {
   try {

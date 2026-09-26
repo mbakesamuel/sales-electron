@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { formatDisplayDate as formatDate } from "../../shared/formatDisplayDate.ts";
 import type { RoleDefinition } from "../../shared/permissions.types.ts";
 import { getElectronApi } from "../auth/client.ts";
@@ -6,6 +6,7 @@ import { getAuthenticatedDb, getAuthToken } from "../auth/db.ts";
 import { formatRoleLabel } from "../../shared/roles.ts";
 import { FormDialog } from "../components/FormDialog.tsx";
 import "../components/FormDialog.css";
+import { RowActions } from "../components/RowActions.tsx";
 import { UserFormModal } from "./UserFormModal.tsx";
 import type { TableSchema } from "../types/electron.d.ts";
 import "../customers/CustomersScreen.css";
@@ -15,7 +16,8 @@ type SortKey =
   | "username"
   | "roleLabel"
   | "salesPointLabel"
-  | "createdAt";
+  | "createdAt"
+  | "isActive";
 type SortDir = "asc" | "desc";
 type ActiveTab = "all" | "active" | "inactive" | string;
 
@@ -38,15 +40,6 @@ interface UserRow {
 type FormState = { mode: "create" } | { mode: "edit"; row: Record<string, unknown> };
 
 const PAGE_SIZE = 6;
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
 
 function normalizeRole(value: unknown): string {
   const role = String(value ?? "").trim();
@@ -159,12 +152,18 @@ function IconDownload() {
   );
 }
 
-function IconMore() {
+function IconSliders() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="5" cy="12" r="1.5" />
-      <circle cx="12" cy="12" r="1.5" />
-      <circle cx="19" cy="12" r="1.5" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="4" x2="4" y1="21" y2="14" />
+      <line x1="4" x2="4" y1="10" y2="3" />
+      <line x1="12" x2="12" y1="21" y2="12" />
+      <line x1="12" x2="12" y1="8" y2="3" />
+      <line x1="20" x2="20" y1="21" y2="16" />
+      <line x1="20" x2="20" y1="12" y2="3" />
+      <line x1="2" x2="6" y1="14" y2="14" />
+      <line x1="10" x2="14" y1="8" y2="8" />
+      <line x1="18" x2="22" y1="16" y2="16" />
     </svg>
   );
 }
@@ -210,111 +209,6 @@ function IconChevronRight() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="m9 18 6-6-6-6" />
     </svg>
-  );
-}
-
-function IconEye() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function IconPencil() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-    </svg>
-  );
-}
-
-function IconTrash() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    </svg>
-  );
-}
-
-function ActionMenu({
-  onView,
-  onEdit,
-  onDelete,
-  canWrite = true,
-}: {
-  onView: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-  canWrite?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    function onPointerDown(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-    window.addEventListener("mousedown", onPointerDown);
-    return () => window.removeEventListener("mousedown", onPointerDown);
-  }, [open]);
-
-  return (
-    <div class="customers-actions" ref={rootRef}>
-      <button
-        type="button"
-        class="customers-actions-trigger"
-        aria-label="Actions"
-        onClick={() => setOpen((current) => !current)}
-      >
-        <IconMore />
-      </button>
-      {open ? (
-        <div class="customers-actions-menu">
-          <button
-            type="button"
-            class="customers-actions-item"
-            onClick={() => {
-              setOpen(false);
-              onView();
-            }}
-          >
-            <IconEye /> View
-          </button>
-          {canWrite ? (
-            <>
-              <button
-                type="button"
-                class="customers-actions-item"
-                onClick={() => {
-                  setOpen(false);
-                  onEdit();
-                }}
-              >
-                <IconPencil /> Edit
-              </button>
-              <div class="customers-actions-divider" />
-              <button
-                type="button"
-                class="customers-actions-item customers-actions-item-danger"
-                onClick={() => {
-                  setOpen(false);
-                  onDelete();
-                }}
-              >
-                <IconTrash /> Delete
-              </button>
-            </>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
   );
 }
 
@@ -474,10 +368,15 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
   const sorted = useMemo(() => {
     const next = [...filtered];
     next.sort((left, right) => {
-      const result = String(left[sortKey]).localeCompare(String(right[sortKey]), undefined, {
-        numeric: true,
-        sensitivity: "base",
-      });
+      let result = 0;
+      if (sortKey === "isActive") {
+        result = Number(left.isActive) - Number(right.isActive);
+      } else {
+        result = String(left[sortKey]).localeCompare(String(right[sortKey]), undefined, {
+          numeric: true,
+          sensitivity: "base",
+        });
+      }
       return sortDir === "asc" ? result : -result;
     });
     return next;
@@ -586,6 +485,34 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
     }
   }
 
+  async function deleteSelected() {
+    if (!schema || selectedIds.size === 0) {
+      return;
+    }
+    const confirmed = window.confirm(
+      `Delete ${selectedIds.size} selected user(s)? This cannot be undone.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+    setActionError(null);
+    try {
+      for (const row of rows.filter((item) => selectedIds.has(item.id))) {
+        await getAuthenticatedDb().deleteRow({
+          table: "User",
+          primaryKey: { id: row.id },
+        });
+      }
+      refreshRows();
+    } catch (deleteError) {
+      setActionError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Failed to delete selected users.",
+      );
+    }
+  }
+
   function SortIcon({ col }: { col: SortKey }) {
     if (sortKey !== col) {
       return <IconChevronUp />;
@@ -617,9 +544,9 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
   const pageEnd = Math.min(currentPage * PAGE_SIZE, sorted.length);
 
   const tabs: Array<{ id: ActiveTab; label: string }> = [
-    { id: "all", label: "All" },
-    { id: "active", label: "Active" },
-    { id: "inactive", label: "Inactive" },
+    { id: "all", label: "all" },
+    { id: "active", label: "active" },
+    { id: "inactive", label: "inactive" },
     ...roleCatalog.map((role) => ({
       id: role.id,
       label: roleLabels[role.id] ?? formatRoleLabel(role.id),
@@ -657,7 +584,7 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
                 setFormState({ mode: "create" });
               }}
             >
-              <IconPlus /> Add user
+              <IconPlus /> Add User
             </button>
           ) : null}
         </div>
@@ -684,12 +611,27 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
         <div class="customers-card-toolbar">
           <div class="customers-card-toolbar-row">
             <div>
-              <h3 class="customers-card-title">All users</h3>
+              <h3 class="customers-card-title">All Users</h3>
               <p class="customers-card-subtitle">
                 {isLoading ? "Loading…" : `${filtered.length} records`}
               </p>
             </div>
             <div class="customers-card-controls">
+              <div class="customers-tabs">
+                {tabs.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    class={`customers-tab${tab === item.id ? " is-active" : ""}`}
+                    onClick={() => {
+                      setTab(item.id);
+                      setPage(1);
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
               <div class="customers-search-wrap">
                 <IconSearch />
                 <input
@@ -703,23 +645,42 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
                   }}
                 />
               </div>
+              <button type="button" class="customers-btn customers-btn-secondary">
+                <IconSliders /> Filters
+              </button>
             </div>
           </div>
-          <div class="customers-tabs">
-            {tabs.map((item) => (
+
+          {selectedIds.size > 0 ? (
+            <div class="customers-selection-bar">
+              <strong>{selectedIds.size} selected</strong>
+              {canWrite ? (
+                <button
+                  type="button"
+                  class="customers-link-btn customers-link-btn-danger"
+                  onClick={() => void deleteSelected()}
+                >
+                  Delete selected
+                </button>
+              ) : null}
               <button
-                key={item.id}
                 type="button"
-                class={`customers-tab${tab === item.id ? " is-active" : ""}`}
-                onClick={() => {
-                  setTab(item.id);
-                  setPage(1);
-                }}
+                class="customers-link-btn customers-link-btn-primary"
+                onClick={() =>
+                  exportCsv(rows.filter((row) => selectedIds.has(row.id)))
+                }
               >
-                {item.label}
+                Export selected
               </button>
-            ))}
-          </div>
+              <button
+                type="button"
+                class="customers-link-btn customers-link-btn-muted"
+                onClick={() => setSelectedIds(new Set())}
+              >
+                Clear
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <div class="customers-table-scroll">
@@ -735,7 +696,7 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
                   />
                 </th>
                 <SortableTh label="User" col="name" />
-                <SortableTh label="Username" col="username" />
+                <SortableTh label="Status" col="isActive" />
                 <SortableTh label="Role" col="roleLabel" />
                 <SortableTh
                   label="Collection point"
@@ -743,7 +704,7 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
                   className="customers-col-hide-lg"
                 />
                 <SortableTh label="Created" col="createdAt" className="customers-col-hide-lg" />
-                <th style="width: 40px;" />
+                <th style="width: 1%;">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -756,7 +717,7 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
               ) : paginated.length === 0 ? (
                 <tr>
                   <td colSpan={7} class="customers-table-empty">
-                    No users match your filters.
+                    No users match your search.
                   </td>
                 </tr>
               ) : (
@@ -772,23 +733,22 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
                     </td>
                     <td>
                       <div class="customers-name-cell">
-                        <div class="customers-avatar">{initials(row.name || row.username)}</div>
                         <div>
                           <p class="customers-name-primary">{row.name || "—"}</p>
-                          <span
-                            class={
-                              row.isActive
-                                ? "customers-badge customers-badge-emerald"
-                                : "customers-badge customers-badge-amber"
-                            }
-                          >
-                            {row.isActive ? "Active" : "Inactive"}
-                          </span>
+                          <p class="customers-name-secondary">{row.username}</p>
                         </div>
                       </div>
                     </td>
                     <td>
-                      <span class="customers-contact-mono">{row.username}</span>
+                      <span
+                        class={
+                          row.isActive
+                            ? "customers-badge customers-badge-emerald"
+                            : "customers-badge customers-badge-amber"
+                        }
+                      >
+                        {row.isActive ? "Active" : "Inactive"}
+                      </span>
                     </td>
                     <td>
                       <span class={roleBadgeClass(row.role)}>{row.roleLabel}</span>
@@ -797,11 +757,10 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
                     <td class="customers-col-hide-lg">
                       <div class="customers-dates">
                         <div>{row.createdAt}</div>
-                        <div class="customers-dates-updated">↑ {row.updatedAt}</div>
                       </div>
                     </td>
                     <td>
-                      <ActionMenu
+                      <RowActions
                         canWrite={canWrite}
                         onView={() => setViewRow(row)}
                         onEdit={() => {
@@ -873,13 +832,13 @@ export function UsersScreen({ readOnly = false }: UsersScreenProps = {}) {
               ["Created", viewRow.createdAt],
               ["Updated", viewRow.updatedAt],
             ].map(([label, value]) => (
-              <div key={label} class="customers-view-field">
+              <div key={label} class="customers-view-row">
                 <span class="customers-view-label">{label}</span>
                 <span class="customers-view-value">{value}</span>
               </div>
             ))}
           </div>
-          <div class="form-dialog-actions">
+          <div class="form-dialog-actions" style="padding-left: 0; margin-top: 12px;">
             {canWrite ? (
               <button
                 type="button"

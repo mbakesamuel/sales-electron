@@ -3,6 +3,8 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import dotenv from "dotenv";
+import { formatDbTargetLog } from "./db/config.js";
+import { getDbConfig } from "./db/index.js";
 import { healthRoute } from "./routes/health.js";
 import { syncRoute } from "./routes/sync.js";
 
@@ -37,6 +39,7 @@ const port = Number(process.env.PORT) || 3001;
 const host = process.env.HOST || "0.0.0.0";
 
 console.log(`Starting Hono sync server on http://${host}:${port}...`);
+console.log(formatDbTargetLog(getDbConfig()));
 
 serve(
   {

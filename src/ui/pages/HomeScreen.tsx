@@ -807,6 +807,7 @@ export function HomeScreen({
     "payment-methods",
     "financial-year-periods",
     "financial-months",
+    "users",
     "roles",
     "role-permissions",
     "carry-forward-commitments",
