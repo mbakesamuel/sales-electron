@@ -98,6 +98,29 @@ export function cleanupOldSyncedItems(
   ).run(daysOld);
 }
 
+/** Entity types cleared by operational wipe — remove so they are not re-pushed. */
+const OPERATIONAL_OUTBOX_ENTITY_TYPES = [
+  "Sale",
+  "DeliveryOrder",
+  "StockReceipt",
+  "StockTransfer",
+  "StockAdjustment",
+  "Payment",
+] as const;
+
+export function pruneOperationalOutboxItems(db: Database.Database): number {
+  const placeholders = OPERATIONAL_OUTBOX_ENTITY_TYPES.map(() => "?").join(
+    ",",
+  );
+  const result = db
+    .prepare(
+      `DELETE FROM SyncOutbox
+       WHERE entityType IN (${placeholders})`,
+    )
+    .run(...OPERATIONAL_OUTBOX_ENTITY_TYPES);
+  return result.changes;
+}
+
 export function getSyncState(db: Database.Database): SyncStateConfig {
   const row = db
     .prepare(

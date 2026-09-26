@@ -20,6 +20,10 @@ import {
   updateRow,
 } from "../db/tableMutations.js";
 import { queryTable } from "../db/tableQuery.js";
+import {
+  getSyncState,
+  pruneOperationalOutboxItems,
+} from "../sync/syncOutbox.js";
 
 export function registerDatabaseHandlers(): void {
   ipcMain.handle("db:getSchemaSummary", (): { tableCount: number; tables: string[] } => {
@@ -101,10 +105,10 @@ export function registerDatabaseHandlers(): void {
 
   ipcMain.handle(
     "db:clearOperationalData",
-    (
+    async (
       _event,
       input: ClearOperationalDataInput,
-    ): ClearOperationalDataResponse => {
+    ): Promise<ClearOperationalDataResponse> => {
       try {
         const user = requireAuthUser(input?.authToken);
         if (user.role !== "ADMIN") {
@@ -123,7 +127,76 @@ export function registerDatabaseHandlers(): void {
         const db = getDatabase();
         db.pragma("foreign_keys = ON");
         const result = clearOperationalData(db);
-        return { ok: true, ...result };
+
+        if (!input.alsoClearSyncDb) {
+          return { ok: true, ...result };
+        }
+
+        const state = getSyncState(db);
+        const serverUrl = state.syncServerUrl?.trim().replace(/\/+$/, "");
+        if (!serverUrl) {
+          return {
+            ok: true,
+            ...result,
+            syncCleared: false,
+            syncError: "Sync server URL is not configured.",
+          };
+        }
+
+        try {
+          const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+          };
+          if (state.apiToken) {
+            headers.Authorization = `Bearer ${state.apiToken}`;
+          }
+
+          const response = await fetch(
+            `${serverUrl}/api/sync/clear-operational`,
+            {
+              method: "POST",
+              headers,
+              body: JSON.stringify({ confirm: "CLEAR" }),
+              signal: AbortSignal.timeout(60_000),
+            },
+          );
+
+          const body = (await response.json().catch(() => ({}))) as {
+            ok?: boolean;
+            tables?: string[];
+            error?: string;
+          };
+
+          if (!response.ok || !body.ok) {
+            const errText =
+              body.error ||
+              `Sync clear failed (HTTP ${response.status})`;
+            return {
+              ok: true,
+              ...result,
+              syncCleared: false,
+              syncError: errText,
+            };
+          }
+
+          pruneOperationalOutboxItems(db);
+
+          return {
+            ok: true,
+            ...result,
+            syncCleared: true,
+            syncTables: body.tables,
+          };
+        } catch (syncErr: unknown) {
+          const msg =
+            syncErr instanceof Error ? syncErr.message : String(syncErr);
+          return {
+            ok: true,
+            ...result,
+            syncCleared: false,
+            syncError: msg,
+          };
+        }
       } catch (error) {
         const message =
           error instanceof Error ? error.message : String(error);

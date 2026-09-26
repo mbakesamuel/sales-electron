@@ -158,6 +158,18 @@
   color: var(--text-h);
 }
 
+.sbb-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+}
+
+.sbb-section-header .sbb-section-hint {
+  margin-top: 4px;
+}
+
 .sbb-section-hint {
   margin: -4px 0 0;
   font-size: 12px;
@@ -436,6 +448,25 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.form-dialog-panel.sbb-preview-dialog {
+  max-width: min(72rem, 50vw);
+}
+
+.sbb-preview-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 20px;
+  margin-top: 12px;
+  max-height: min(60vh, 32rem);
+  overflow: auto;
+}
+
+@media (max-width: 640px) {
+  .sbb-preview-columns {
+    grid-template-columns: 1fr;
+  }
 }
 
 .sbb-preview-month > summary {

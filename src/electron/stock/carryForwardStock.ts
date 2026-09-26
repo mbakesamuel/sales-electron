@@ -13,6 +13,7 @@ import {
   carryForwardRequiresValidation,
 } from "../auth/permissions/service.js";
 import { getDatabase } from "../db/index.js";
+import { listActiveSalesPoints, requireActiveSalesPoint } from "../salesPoints/active.js";
 import { getOpenPostingPeriod, assertDateInOpenMonth } from "../financialYears/service.js";
 import { formatQty, parseQty } from "./decimal.js";
 import { applyMovement } from "./post.js";
@@ -153,15 +154,17 @@ export function getCarryForwardStockFormOptions(): CarryForwardStockFormOptions 
           }),
         };
       }),
-    salesPoints: db
-      .prepare(`SELECT id, name FROM SalesPoint ORDER BY name ASC`)
-      .all() as Array<{ id: number; name: string }>,
+    salesPoints: listActiveSalesPoints(db),
     storageLocations: db
       .prepare(
         `SELECT sl.id, sl.salesPointId, l.locationName AS name,
                 COALESCE(sl.isDefault, 0) AS isDefault
          FROM StorageLocation sl
          JOIN Location l ON l.id = sl.locationId
+         WHERE EXISTS (
+           SELECT 1 FROM SalesPoint sp
+           WHERE sp.id = sl.salesPointId AND COALESCE(sp.isActive, 1) = 1
+         )
          ORDER BY sl.salesPointId ASC, COALESCE(sl.isDefault, 0) DESC, l.locationName ASC`,
       )
       .all()
@@ -371,6 +374,11 @@ export function upsertCarryForwardStockBatch(
   }
 
   const db = getDatabase();
+  const spCheck = requireActiveSalesPoint(db, salesPointId);
+  if (!spCheck.ok) {
+    return { ok: false, error: spCheck.error };
+  }
+
   const locationCheck = db.prepare(
     `SELECT id FROM StorageLocation WHERE id = ? AND salesPointId = ?`,
   );

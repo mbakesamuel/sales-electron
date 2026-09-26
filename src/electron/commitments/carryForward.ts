@@ -15,6 +15,7 @@ import {
   carryForwardRequiresValidation,
 } from "../auth/permissions/service.js";
 import { getDatabase } from "../db/index.js";
+import { listActiveSalesPoints, requireActiveSalesPoint } from "../salesPoints/active.js";
 import { getOpenPostingPeriod } from "../financialYears/service.js";
 import { resolveUnitPriceExTax } from "../pricing/resolveUnitPrice.js";
 import { allocateCarryForwardDeliveryOrderNo } from "../deliveryOrders/doNo.js";
@@ -104,9 +105,7 @@ export function getCarryForwardFormOptions(): CarryForwardFormOptions {
         `SELECT productId, productName FROM Product ORDER BY productName ASC`,
       )
       .all() as Array<{ productId: number; productName: string }>,
-    salesPoints: db
-      .prepare(`SELECT id, name FROM SalesPoint ORDER BY name ASC`)
-      .all() as Array<{ id: number; name: string }>,
+    salesPoints: listActiveSalesPoints(db),
   };
 }
 
@@ -348,11 +347,9 @@ export function upsertCarryForwardCommitment(
     return { ok: false, error: "Customer not found." };
   }
 
-  const salesPoint = db
-    .prepare(`SELECT id FROM SalesPoint WHERE id = ?`)
-    .get(input.salesPointId) as { id: number } | undefined;
-  if (!salesPoint) {
-    return { ok: false, error: "Collection point not found." };
+  const salesPointCheck = requireActiveSalesPoint(db, input.salesPointId);
+  if (!salesPointCheck.ok) {
+    return { ok: false, error: salesPointCheck.error };
   }
 
   const product = db

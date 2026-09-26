@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
-import type { SalesBudgetPhaseResult } from "../../shared/salesBudgetPhase.ts";
+import type { SalesBudgetPhaseMonth, SalesBudgetPhaseResult } from "../../shared/salesBudgetPhase.ts";
 import {
   balancePercentStringsTo100,
   buildSalesBudgetPhase,
@@ -423,6 +423,7 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
   const [previewPricePerKg, setPreviewPricePerKg] = useState<string>("");
   const [previewBusy, setPreviewBusy] = useState(false);
   const [preview, setPreview] = useState<SalesBudgetPhaseResult | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [signatoryName, setSignatoryName] = useState<string | null>(null);
   const [signatoryTitle, setSignatoryTitle] = useState("Manager, Palm Oil Sales");
   const [phaseModalCatId, setPhaseModalCatId] = useState<number | null>(null);
@@ -735,6 +736,33 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
   const fy = selectedFinancialYear;
   const fyPeriod = fy == null ? null : periods.find((p) => p.financialYear === fy) ?? null;
 
+  function renderPreviewMonth(m: SalesBudgetPhaseMonth) {
+    const monthTotalKg = m.weeks.reduce((acc, w) => acc + w.qtyKg, 0);
+    const monthTotalFcfa = m.weeks.reduce((acc, w) => acc + w.amountFcfa, 0);
+    return (
+      <details
+        key={`${m.calendarYear}-${m.calendarMonth}`}
+        class="sbb-details sbb-preview-month"
+      >
+        <summary>
+          {m.calendarYear}-{String(m.calendarMonth).padStart(2, "0")} ·{" "}
+          {formatPhasedQtyKgDisplay(monthTotalKg)} kg ·{" "}
+          {formatPhasedAmountDisplay(monthTotalFcfa)} XAF
+        </summary>
+        <div class="sbb-details-body">
+          <ul class="sbb-week-list">
+            {m.weeks.map((w) => (
+              <li key={w.label}>
+                {w.label}: {formatPhasedQtyKgDisplay(w.qtyKg)} kg ·{" "}
+                {formatPhasedAmountDisplay(w.amountFcfa)} XAF
+              </li>
+            ))}
+          </ul>
+        </div>
+      </details>
+    );
+  }
+
   return (
     <div class="sbb-page">
       <header class="sbb-header">
@@ -750,43 +778,6 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
       {message ? <div class="sbb-alert sbb-alert-success">{message}</div> : null}
       {error ? <div class="sbb-alert sbb-alert-error">{error}</div> : null}
 
-      {fyPeriod ? (
-        <div class="sbb-toolbar">
-          <div class="sbb-field">
-            <label class="sbb-label" for="fySelect">
-              Financial year
-            </label>
-            <select
-              id="fySelect"
-              class="sbb-select"
-              value={fy ?? undefined}
-              onChange={async (e) => {
-                const v = Number.parseInt(e.currentTarget.value, 10);
-                if (!Number.isFinite(v)) return;
-                setMessage(null);
-                setError(null);
-                setPreview(null);
-                setSelectedFinancialYear(v);
-                await refreshForFinancialYear(v);
-                setPreviewCatId((cur) =>
-                  cur !== "" ? cur : (budgetCategories[0]?.productCatId ?? ""),
-                );
-              }}
-              disabled={readOnly}
-            >
-              {periods.map((p) => (
-                <option key={p.financialYear} value={p.financialYear}>
-                  {formatPeriodLabel(p)}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div class="sbb-toolbar-meta">
-            Fiscal start: <strong>{monthName(fiscalYearStartMonth)}</strong>
-          </div>
-        </div>
-      ) : null}
-
       {fy != null && budgetCategories.length === 0 ? (
         <p class="sbb-empty">
           No product categories with products. Add products before entering budgets.
@@ -795,13 +786,26 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
 
       {fy != null && budgetCategories.length > 0 ? (
         <section class="sbb-card">
-          <h2 class="sbb-section-title">Annual budgets by product category</h2>
-          <p class="sbb-section-hint">
-            Enter annual quantity and unit price for FY {fy}. One budget row per category;
-            actuals in reports sum all products in that category. Use{" "}
-            <strong>Edit phasing</strong> to set fiscal-month percentages in a dialog (must
-            total 100%).
-          </p>
+          <div class="sbb-section-header">
+            <div>
+              <h2 class="sbb-section-title">Annual budgets by product category</h2>
+              <p class="sbb-section-hint">
+                Enter annual quantity and unit price for FY {fy}. One budget row per category;
+                actuals in reports sum all products in that category. Use{" "}
+                <strong>Edit phasing</strong> to set fiscal-month percentages in a dialog (must
+                total 100%).
+              </p>
+            </div>
+            {fyPeriod ? (
+              <button
+                type="button"
+                class="sbb-btn sbb-btn-primary"
+                onClick={() => setPreviewOpen(true)}
+              >
+                Phasing preview
+              </button>
+            ) : null}
+          </div>
           <div class="sbb-table-wrap">
             <table class="sbb-table">
               <thead>
@@ -946,13 +950,18 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
         </FormDialog>
       ) : null}
 
-      {fyPeriod && budgetCategories.length > 0 ? (
-        <section class="sbb-card">
-          <h2 class="sbb-section-title">Phasing preview</h2>
-          <p class="sbb-section-hint">
-            Uses the saved monthly profile for the selected category. Preview does not save
-            budget rows.
-          </p>
+      {previewOpen && fyPeriod && budgetCategories.length > 0 ? (
+        <FormDialog
+          wide
+          panelClassName="sbb-preview-dialog"
+          ariaLabel="Phasing preview"
+          title="Phasing preview"
+          subtitle="Uses the saved monthly profile for the selected category. Preview does not save budget rows."
+          onClose={() => {
+            setPreviewOpen(false);
+            setPreview(null);
+          }}
+        >
           <div class="sbb-preview-form">
             <div class="sbb-field">
               <label class="sbb-label" for="previewCat">
@@ -1045,42 +1054,18 @@ export function SalesBudgetScreen({ readOnly = false }: SalesBudgetScreenProps) 
           </div>
 
           {preview ? (
-            <div class="sbb-preview-list">
-              {preview.months.map((m) => {
-                const monthTotalKg = m.weeks.reduce((acc, w) => acc + w.qtyKg, 0);
-                const monthTotalFcfa = m.weeks.reduce(
-                  (acc, w) => acc + w.amountFcfa,
-                  0,
-                );
-                return (
-                  <details
-                    key={`${m.calendarYear}-${m.calendarMonth}`}
-                    class="sbb-details sbb-preview-month"
-                  >
-                    <summary>
-                      {m.calendarYear}-{String(m.calendarMonth).padStart(2, "0")} ·{" "}
-                      {formatPhasedQtyKgDisplay(monthTotalKg)} kg ·{" "}
-                      {formatPhasedAmountDisplay(monthTotalFcfa)} XAF
-                    </summary>
-                    <div class="sbb-details-body">
-                      <ul class="sbb-week-list">
-                        {m.weeks.map((w) => (
-                          <li key={w.label}>
-                            {w.label}: {formatPhasedQtyKgDisplay(w.qtyKg)} kg ·{" "}
-                            {formatPhasedAmountDisplay(w.amountFcfa)} XAF
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </details>
-                );
-              })}
+            <div class="sbb-preview-columns">
+              <div class="sbb-preview-list">
+                {preview.months.slice(0, 6).map((m) => renderPreviewMonth(m))}
+              </div>
+              <div class="sbb-preview-list">
+                {preview.months.slice(6, 12).map((m) => renderPreviewMonth(m))}
+              </div>
             </div>
           ) : null}
-        </section>
+        </FormDialog>
       ) : null}
 
-      <ReportFooter name={signatoryName} label={signatoryTitle} />
-    </div>
+   </div>
   );
 }

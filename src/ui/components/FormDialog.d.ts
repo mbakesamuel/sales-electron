@@ -6,8 +6,10 @@ interface FormDialogProps {
     subtitle?: string;
     wide?: boolean;
     elevated?: boolean;
+    /** Extra class(es) on the dialog panel (e.g. screen-specific wider layouts). */
+    panelClassName?: string;
     onClose: () => void;
     children: ComponentChildren;
 }
-export declare function FormDialog({ ariaLabel, title, subtitle, wide, elevated, onClose, children, }: FormDialogProps): import("preact").VNode<any>;
+export declare function FormDialog({ ariaLabel, title, subtitle, wide, elevated, panelClassName, onClose, children, }: FormDialogProps): import("preact").VNode<any>;
 export {};

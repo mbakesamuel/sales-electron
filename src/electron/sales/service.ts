@@ -38,6 +38,10 @@ import { isLooseLpoProduct } from "../../shared/looseLpoProduct.js";
 import { assertRouteWrite, assertAction, canPerformAction, canWriteRoute } from "../auth/permissions/service.js";
 import { getDatabase } from "../db/index.js";
 import {
+  listActiveSalesPoints,
+  requireActiveSalesPoint,
+} from "../salesPoints/active.js";
+import {
   getCustomerTypeIdForCustomer,
   getStaffWorkerCustomerTypeId,
   resolveUnitPriceExTax,
@@ -511,9 +515,7 @@ export function getSalesFormOptions(userId: string): SalesFormOptions {
     )
     .all() as SalesFormOptions["paymentMethods"];
 
-  const salesPoints = db
-    .prepare(`SELECT id, name FROM SalesPoint ORDER BY name ASC LIMIT 200`)
-    .all() as SalesFormOptions["salesPoints"];
+  const salesPoints = listActiveSalesPoints(db, 200);
 
   const storageLocations = db
     .prepare(
@@ -522,6 +524,10 @@ export function getSalesFormOptions(userId: string): SalesFormOptions {
        FROM StorageLocation sl
        INNER JOIN Location l ON l.id = sl.locationId
        WHERE sl.salesPointId IS NOT NULL AND COALESCE(sl.isActive, 1) = 1
+         AND EXISTS (
+           SELECT 1 FROM SalesPoint sp
+           WHERE sp.id = sl.salesPointId AND COALESCE(sp.isActive, 1) = 1
+         )
        ORDER BY sl.salesPointId ASC, l.locationName ASC
        LIMIT 1000`,
     )
@@ -1028,6 +1034,13 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
       ok: false,
       error: error instanceof Error ? error.message : "Permission denied.",
     };
+  }
+
+  if (input.salesPointId != null && Number.isFinite(input.salesPointId)) {
+    const spCheck = requireActiveSalesPoint(db, input.salesPointId);
+    if (!spCheck.ok) {
+      return { ok: false, error: spCheck.error };
+    }
   }
 
   const validateImmediately = Boolean(input.validateImmediately);

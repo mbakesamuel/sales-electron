@@ -41,6 +41,9 @@ import {
   getRouteAccess,
 } from "../auth/permissions/service.js";
 import { getDatabase } from "../db/index.js";
+import {
+  requireActiveSalesPoint,
+} from "../salesPoints/active.js";
 import { absQty, formatQty, isNonZeroQty, isPositiveQty, parseQty, sumQty } from "./decimal.js";
 import { isInsufficientStockError } from "./errors.js";
 import {
@@ -518,6 +521,7 @@ export function getStockBootstrap(
     .prepare(
       `SELECT id, name, COALESCE(attachedToMill, 0) AS attachedToMill
        FROM SalesPoint
+       WHERE COALESCE(isActive, 1) = 1
        ORDER BY name ASC`,
     )
     .all()
@@ -535,6 +539,10 @@ export function getStockBootstrap(
        FROM StorageLocation sl
        JOIN Location l ON l.id = sl.locationId
        WHERE sl.salesPointId IS NOT NULL
+         AND EXISTS (
+           SELECT 1 FROM SalesPoint sp
+           WHERE sp.id = sl.salesPointId AND COALESCE(sp.isActive, 1) = 1
+         )
        ORDER BY sl.salesPointId ASC, l.locationName ASC`,
     )
     .all()
@@ -1935,6 +1943,11 @@ export function saveReceipt(input: SaveReceiptInput): StockMutationResult {
     }
     assertSalesPointScope(actor, input.salesPointId);
 
+    const spCheck = requireActiveSalesPoint(getDatabase(), input.salesPointId);
+    if (!spCheck.ok) {
+      return { ok: false, error: spCheck.error };
+    }
+
     if (!input.supplierLabel.trim()) {
       return { ok: false, error: "Supplier label is required." };
     }
@@ -2153,6 +2166,18 @@ export function saveTransfer(input: SaveTransferInput): StockMutationResult {
       assertAction(actor.role, "draft_stock_transfers");
     }
     assertTransferInitiateSalesPointScope(actor, input.fromSalesPointId);
+
+    const fromCheck = requireActiveSalesPoint(
+      getDatabase(),
+      input.fromSalesPointId,
+    );
+    if (!fromCheck.ok) {
+      return { ok: false, error: fromCheck.error };
+    }
+    const toCheck = requireActiveSalesPoint(getDatabase(), input.toSalesPointId);
+    if (!toCheck.ok) {
+      return { ok: false, error: toCheck.error };
+    }
 
     const isIntra = isIntraSalesPointTransfer(
       input.fromSalesPointId,
@@ -2592,6 +2617,14 @@ export function saveAdjustment(input: SaveAdjustmentInput): StockMutationResult 
     assertStockModuleWrite(actor.role, uiProductFilter, "stock-adjustments");
     assertAction(actor.role, "draft_stock_adjustments");
     assertSalesPointScope(actor, input.salesPointId);
+
+    const adjSpCheck = requireActiveSalesPoint(
+      getDatabase(),
+      input.salesPointId,
+    );
+    if (!adjSpCheck.ok) {
+      return { ok: false, error: adjSpCheck.error };
+    }
 
     if (!input.reason.trim()) {
       return { ok: false, error: "Reason is required." };

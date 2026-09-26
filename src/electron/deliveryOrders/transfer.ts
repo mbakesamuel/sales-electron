@@ -13,6 +13,7 @@ import {
   canPerformAction,
 } from "../auth/permissions/service.js";
 import { getDatabase } from "../db/index.js";
+import { requireActiveSalesPoint } from "../salesPoints/active.js";
 import { getOpenPostingPeriod } from "../financialYears/service.js";
 import { parseAmount } from "../sales/money.js";
 import { loadTaxRatesAsOf } from "../tax/resolveRates.js";
@@ -123,12 +124,17 @@ export function transferDeliveryOrderBalance(
     return { ok: false, error: "Destination collection point is required." };
   }
 
-  const destination = db
-    .prepare(`SELECT id, name FROM SalesPoint WHERE id = ?`)
-    .get(toSalesPointId) as { id: number; name: string } | undefined;
-  if (!destination) {
-    return { ok: false, error: "Destination collection point not found." };
+  const destinationCheck = requireActiveSalesPoint(db, toSalesPointId, {
+    inactiveError:
+      "Cannot transfer to an inactive collection point.",
+  });
+  if (!destinationCheck.ok) {
+    return { ok: false, error: destinationCheck.error };
   }
+  const destination = {
+    id: destinationCheck.id,
+    name: destinationCheck.name,
+  };
 
   const sourceKey =
     typeof input.fromDeliveryOrderId === "number" &&

@@ -187,22 +187,6 @@ export function FinancialMonthsScreen({
         </p>
       ) : null}
 
-      {year && openMonth ? (
-        <div class="customers-stats">
-          <div class="customers-stat-card">
-            <div class="customers-stat-icon customers-stat-icon-emerald">
-              <IconCalendar />
-            </div>
-            <div>
-              <p class="customers-stat-value">
-                {openMonth.name} {year.financialYear}
-              </p>
-              <p class="customers-stat-label">Current open posting month</p>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
       <div class="customers-card">
         <div class="customers-card-toolbar">
           <div class="customers-card-toolbar-row">

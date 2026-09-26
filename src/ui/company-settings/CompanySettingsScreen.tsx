@@ -208,6 +208,7 @@ export function CompanySettingsScreen({
   >(null);
   const [clearOpsOpen, setClearOpsOpen] = useState(false);
   const [clearOpsConfirmText, setClearOpsConfirmText] = useState("");
+  const [clearOpsAlsoSync, setClearOpsAlsoSync] = useState(false);
   const [clearOpsBusy, setClearOpsBusy] = useState(false);
   const [clearOpsError, setClearOpsError] = useState<string | null>(null);
   const [clearOpsSuccessHint, setClearOpsSuccessHint] = useState<string | null>(
@@ -707,6 +708,7 @@ export function CompanySettingsScreen({
 
   function openClearOpsModal() {
     setClearOpsConfirmText("");
+    setClearOpsAlsoSync(false);
     setClearOpsError(null);
     setClearOpsOpen(true);
   }
@@ -717,12 +719,15 @@ export function CompanySettingsScreen({
     }
     setClearOpsOpen(false);
     setClearOpsConfirmText("");
+    setClearOpsAlsoSync(false);
     setClearOpsError(null);
   }
 
   function formatClearOpsSummary(
     deleted: Record<string, number>,
     sequences: Record<string, number>,
+    syncCleared?: boolean,
+    syncError?: string,
   ): string {
     const deletedParts = Object.entries(deleted)
       .filter(([, count]) => count > 0)
@@ -736,7 +741,13 @@ export function CompanySettingsScreen({
       sequenceParts.length > 0
         ? ` Sequences reset: ${sequenceParts.join(", ")}.`
         : "";
-    return `Cleared operational data: ${deletedLabel}.${sequencesLabel} Refresh open stock, sales, and delivery order screens.`;
+    let syncLabel = "";
+    if (syncCleared === true) {
+      syncLabel = " Central sync database operational data also cleared.";
+    } else if (syncError) {
+      syncLabel = ` Local clear succeeded; sync clear failed: ${syncError}`;
+    }
+    return `Cleared operational data: ${deletedLabel}.${sequencesLabel}${syncLabel} Refresh open stock, sales, and delivery order screens.`;
   }
 
   async function onConfirmClearOps() {
@@ -752,6 +763,7 @@ export function CompanySettingsScreen({
     try {
       const result = await getAuthenticatedDb().clearOperationalData({
         confirm: "CLEAR",
+        alsoClearSyncDb: clearOpsAlsoSync,
       });
       if (result.ok === false) {
         setClearOpsError(result.error);
@@ -760,8 +772,14 @@ export function CompanySettingsScreen({
 
       setClearOpsOpen(false);
       setClearOpsConfirmText("");
+      setClearOpsAlsoSync(false);
       setClearOpsSuccessHint(
-        formatClearOpsSummary(result.deleted, result.sequences),
+        formatClearOpsSummary(
+          result.deleted,
+          result.sequences,
+          result.syncCleared,
+          result.syncError,
+        ),
       );
     } catch (clearError) {
       setClearOpsError(
@@ -1635,6 +1653,23 @@ export function CompanySettingsScreen({
               <li>DeliveryOrderTransfer, DeliveryOrder (+ details)</li>
               <li>Document sequences reset to 1</li>
             </ul>
+            <label class="company-settings-clear-ops-confirm company-settings-clear-ops-sync">
+              <input
+                type="checkbox"
+                checked={clearOpsAlsoSync}
+                disabled={clearOpsBusy}
+                onChange={(event) =>
+                  setClearOpsAlsoSync(
+                    (event.currentTarget as HTMLInputElement).checked,
+                  )
+                }
+              />
+              <span>
+                Also clear central sync database (requires sync server online and
+                Device API token). Affects the database the sync server is
+                connected to.
+              </span>
+            </label>
             <label class="company-settings-clear-ops-confirm">
               <span>Type CLEAR to confirm</span>
               <input

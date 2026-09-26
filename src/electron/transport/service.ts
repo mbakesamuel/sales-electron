@@ -6,6 +6,7 @@ import type {
 } from "../../shared/transportCost.types.js";
 import { assertRouteRead } from "../auth/permissions/service.js";
 import { getDatabase } from "../db/index.js";
+import { listActiveSalesPoints } from "../salesPoints/active.js";
 import {
   getOpenPostingPeriod,
   resolveReportAsAt,
@@ -85,18 +86,7 @@ export function getTransportCostFormOptions(): TransportCostFormOptions {
       name: String((row as { name: string }).name),
     }));
 
-  const salesPoints = db
-    .prepare(
-      `SELECT id, name FROM SalesPoint
-       WHERE isActive = 1
-       ORDER BY name COLLATE NOCASE ASC`,
-    )
-    .all()
-    .map((row) => ({
-      id: (row as { id: number }).id,
-      name: String((row as { name: string }).name),
-    }))
-    .filter((point) => {
+  const salesPoints = listActiveSalesPoints(db).filter((point) => {
       if (!transportCostMoliweOnlyPolicy) {
         return true;
       }

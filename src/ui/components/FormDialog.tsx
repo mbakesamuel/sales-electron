@@ -9,6 +9,8 @@ interface FormDialogProps {
   subtitle?: string;
   wide?: boolean;
   elevated?: boolean;
+  /** Extra class(es) on the dialog panel (e.g. screen-specific wider layouts). */
+  panelClassName?: string;
   onClose: () => void;
   children: ComponentChildren;
 }
@@ -19,6 +21,7 @@ export function FormDialog({
   subtitle,
   wide = false,
   elevated = false,
+  panelClassName,
   onClose,
   children,
 }: FormDialogProps) {
@@ -41,6 +44,14 @@ export function FormDialog({
     };
   }, []);
 
+  const panelClass = [
+    "form-dialog-panel",
+    wide ? "form-dialog-panel-wide" : "",
+    panelClassName ?? "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return createPortal(
     <div
       class={`form-dialog-overlay${elevated ? " form-dialog-overlay--elevated" : ""}`}
@@ -57,7 +68,7 @@ export function FormDialog({
       />
 
       <div
-        class={`form-dialog-panel${wide ? " form-dialog-panel-wide" : ""}`}
+        class={panelClass}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div class="form-dialog-header">

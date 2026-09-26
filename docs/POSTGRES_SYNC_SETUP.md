@@ -157,7 +157,8 @@ All server operations can be executed from the project root using npm scripts:
 | `npm run server:status` | Shows status, CPU, and memory consumption in PM2. |
 | `npm run server:dev` | Starts the Hono development server in foreground with auto-reload (`tsx watch src/index.ts`). |
 | `npm run server:migrate` | Connects to PostgreSQL, creates `sales_central` if missing, and executes `postgres_schema.sql`. |
-| `npm run server:reset` | Cascading truncation of all operational and reference tables in PostgreSQL (cleans test data). |
+| `npm run server:reset` | Cascading truncation of **all** application tables in PostgreSQL (masters included). |
+| `npm run server:clear-ops` | Truncates **operational** tables only (sales, DOs, stock) — keeps products, customers, users, settings. Requires `confirm` (and `CONFIRM_PROD_CLEAR_OPS=1` when `DB_TARGET=prod`). |
 | `npm run sync:backfill` | CLI backfill script that uploads all local SQLite records from `AppData/Roaming/sales-electron/sales.db` into PostgreSQL. |
 
 ---
@@ -173,6 +174,25 @@ All server operations can be executed from the project root using npm scripts:
    - **Enable automatic background sync**: Check to enable continuous sync every 2 minutes.
 4. Click **Test server** to check connectivity, network latency, and server version.
 5. Click **Save Settings**.
+
+### Clearing operational data (local + sync)
+
+Administrators can wipe stock / sales / delivery-order data while keeping master data:
+
+1. **Company settings** → **Clear operational data…**
+2. Optionally check **Also clear central sync database** (uses the configured sync URL + Device API token; hits whatever Postgres the running sync server is connected to via `DB_TARGET`).
+3. Type `CLEAR` and confirm.
+
+API used by the UI: `POST /api/sync/clear-operational` with body `{ "confirm": "CLEAR" }` and Bearer auth.
+
+CLI equivalent (no UI):
+
+```powershell
+npm run db:clear-stock -- confirm
+npm run server:clear-ops -- confirm
+# Neon / prod target:
+$env:DB_TARGET="prod"; $env:CONFIRM_PROD_CLEAR_OPS="1"; npm run server:clear-ops -- confirm
+```
 
 ---
 

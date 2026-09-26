@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { sql } from "../db/index.js";
+import { clearOperationalTables } from "../db/clearOperationalData.js";
 import { deviceAuthMiddleware } from "../middleware/auth.js";
 
 export const syncRoute = new Hono();
@@ -743,6 +744,37 @@ syncRoute.post("/bootstrap-master", async (c) => {
       ok: true,
       message: "Master reference data bootstrapped successfully.",
       summary,
+      serverTime: new Date().toISOString(),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json({ ok: false, error: msg }, 500);
+  }
+});
+
+syncRoute.post("/clear-operational", async (c) => {
+  let body: { confirm?: string } = {};
+  try {
+    body = (await c.req.json()) as { confirm?: string };
+  } catch {
+    // empty body
+  }
+
+  if (body.confirm !== "CLEAR") {
+    return c.json(
+      {
+        ok: false,
+        error: 'Confirmation required: confirm must be "CLEAR".',
+      },
+      400,
+    );
+  }
+
+  try {
+    const { tables } = await clearOperationalTables(sql);
+    return c.json({
+      ok: true,
+      tables,
       serverTime: new Date().toISOString(),
     });
   } catch (err: unknown) {

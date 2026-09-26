@@ -234,10 +234,6 @@
   border-bottom: 0;
 }
 
-.company-settings-record-card:hover {
-  background: #eff6ff;
-}
-
 .company-settings-record-logo .company-settings-logo,
 .company-settings-record-logo .company-settings-logo-placeholder {
   width: 40px;
@@ -781,6 +777,20 @@
   margin-bottom: 16px;
   font-size: 13px;
   font-weight: 600;
+}
+
+.company-settings-clear-ops-sync {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.company-settings-clear-ops-sync input[type="checkbox"] {
+  margin-top: 0.2rem;
+  flex-shrink: 0;
 }
 
 .company-settings-clear-ops .company-settings-error {

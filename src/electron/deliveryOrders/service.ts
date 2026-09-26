@@ -22,6 +22,10 @@ import {
 } from "../../shared/taxRules.js";
 import { assertRouteWrite, canPerformAction } from "../auth/permissions/service.js";
 import { getDatabase } from "../db/index.js";
+import {
+  listActiveSalesPoints,
+  requireActiveSalesPoint,
+} from "../salesPoints/active.js";
 import { resolveUnitPriceExTax } from "../pricing/resolveUnitPrice.js";
 import { parseAmount } from "../sales/money.js";
 import { loadTaxRatesAsOf } from "../tax/resolveRates.js";
@@ -181,9 +185,7 @@ export function getDeliveryOrdersFormOptions(): DeliveryOrdersFormOptions {
     )
     .all() as DeliveryOrdersFormOptions["products"];
 
-  const salesPoints = db
-    .prepare(`SELECT id, name FROM SalesPoint ORDER BY name ASC LIMIT 200`)
-    .all() as DeliveryOrdersFormOptions["salesPoints"];
+  const salesPoints = listActiveSalesPoints(db, 200);
 
   const paymentMethods = db
     .prepare(
@@ -600,6 +602,11 @@ export function saveDeliveryOrder(input: SaveDeliveryOrderInput): SaveDeliveryOr
 
   if (!Number.isFinite(input.salesPointId)) {
     return { ok: false, error: "Collection point is required." };
+  }
+
+  const spCheck = requireActiveSalesPoint(db, input.salesPointId);
+  if (!spCheck.ok) {
+    return { ok: false, error: spCheck.error };
   }
 
   const dateIssued = input.dateIssued.trim();

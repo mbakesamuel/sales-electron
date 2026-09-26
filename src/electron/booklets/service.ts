@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { getDatabase } from "../db/index.js";
+import { requireActiveSalesPoint } from "../salesPoints/active.js";
 import {
   doRangesOverlap,
   isSerialInRange,
@@ -180,14 +181,12 @@ export function createDocumentBooklet(
 
   const db = getDatabase();
 
-  const sp = db
-    .prepare(`SELECT id, name, isActive FROM SalesPoint WHERE id = ?`)
-    .get(input.salesPointId) as
-    | { id: number; name: string; isActive: number }
-    | undefined;
-
-  if (!sp) {
-    return { ok: false, error: "Collection point does not exist." };
+  const spCheck = requireActiveSalesPoint(db, input.salesPointId, {
+    inactiveError:
+      "Cannot issue a booklet to an inactive collection point.",
+  });
+  if (!spCheck.ok) {
+    return { ok: false, error: spCheck.error };
   }
 
   // Check overlap against all ACTIVE booklets of the same documentKind
@@ -289,7 +288,7 @@ export function createDocumentBooklet(
       startSerial: rangeRes.startSerial,
       endSerial: rangeRes.endSerial,
       salesPointId: input.salesPointId,
-      salesPointName: sp.name,
+      salesPointName: spCheck.name,
       status,
       issuedAt: now,
       issuedByUserId: sessionUser.id,

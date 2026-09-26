@@ -174,6 +174,8 @@ export interface ClearOperationalDataInput {
   authToken?: string;
   /** Must be exactly `"CLEAR"`. */
   confirm: string;
+  /** When true, also clear ops tables on the central sync Postgres via API. */
+  alsoClearSyncDb?: boolean;
 }
 
 export type ClearOperationalDataResponse =
@@ -181,6 +183,9 @@ export type ClearOperationalDataResponse =
       ok: true;
       deleted: Record<string, number>;
       sequences: Record<string, number>;
+      syncCleared?: boolean;
+      syncTables?: string[];
+      syncError?: string;
     }
   | { ok: false; error: string };
 
