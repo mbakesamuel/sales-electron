@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
+import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
 import {
   formatDisplayDate as formatDate,
   formatDisplayDateTime,
@@ -220,6 +222,7 @@ interface SalesPointsScreenProps {
 }
 
 export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps = {}) {
+  const [printOpen, setPrintOpen] = useState(false);
   const canWrite = !readOnly;
   const [rows, setRows] = useState<SalesPointRow[]>([]);
   const [schema, setSchema] = useState<TableSchema | null>(null);
@@ -532,25 +535,7 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
       return;
     }
 
-    const style = document.createElement("style");
-    style.id = "sales-points-print-page-style";
-    style.textContent =
-      "@media print { @page { size: A4 portrait; margin: 10mm; } }";
-    document.head.appendChild(style);
-
-    document.body.classList.add("customers-print-mode", "sales-points-print-mode");
-    window.addEventListener(
-      "afterprint",
-      () => {
-        document.body.classList.remove(
-          "customers-print-mode",
-          "sales-points-print-mode",
-        );
-        style.remove();
-      },
-      { once: true },
-    );
-    window.print();
+    setPrintOpen(true);
   }
 
   return (
@@ -887,7 +872,16 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
         </FormDialog>
       ) : null}
 
-      <div class="customers-print-document" aria-hidden="true">
+      {printOpen ? (
+        <ReportOverlayShell title="Collection points" onClose={() => setPrintOpen(false)}>
+          <DocumentPreview
+            title="Collection points"
+            fileName="sales-points.pdf"
+            page="list"
+            bodyClass="customers-print-mode sales-points-print-mode"
+            sourceKey={printRows}
+          >
+            <div class="customers-print-document" aria-hidden="true">
         <header class="customers-print-header">
           <h1>Collection Point List</h1>
           <p>
@@ -925,6 +919,9 @@ export function SalesPointsScreen({ readOnly = false }: SalesPointsScreenProps =
           </tbody>
         </table>
       </div>
+          </DocumentPreview>
+        </ReportOverlayShell>
+      ) : null}
     </div>
   );
 }

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
+import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
 import {
   formatDisplayDate as formatDate,
   formatDisplayDateTime,
@@ -274,6 +276,7 @@ interface StorageLocationsScreenProps {
 export function StorageLocationsScreen({
   readOnly = false,
 }: StorageLocationsScreenProps = {}) {
+  const [printOpen, setPrintOpen] = useState(false);
   const canWrite = !readOnly;
   const [rows, setRows] = useState<StorageLocationRow[]>([]);
   const [schema, setSchema] = useState<TableSchema | null>(null);
@@ -600,28 +603,7 @@ export function StorageLocationsScreen({
       return;
     }
 
-    const style = document.createElement("style");
-    style.id = "storage-locations-print-page-style";
-    style.textContent =
-      "@media print { @page { size: A4 portrait; margin: 10mm; } }";
-    document.head.appendChild(style);
-
-    document.body.classList.add(
-      "customers-print-mode",
-      "storage-locations-print-mode",
-    );
-    window.addEventListener(
-      "afterprint",
-      () => {
-        document.body.classList.remove(
-          "customers-print-mode",
-          "storage-locations-print-mode",
-        );
-        style.remove();
-      },
-      { once: true },
-    );
-    window.print();
+    setPrintOpen(true);
   }
 
   return (
@@ -948,7 +930,16 @@ export function StorageLocationsScreen({
         </FormDialog>
       ) : null}
 
-      <div class="customers-print-document" aria-hidden="true">
+      {printOpen ? (
+        <ReportOverlayShell title="Storage locations" onClose={() => setPrintOpen(false)}>
+          <DocumentPreview
+            title="Storage locations"
+            fileName="storage-locations.pdf"
+            page="list"
+            bodyClass="customers-print-mode storage-locations-print-mode"
+            sourceKey={printRows}
+          >
+            <div class="customers-print-document" aria-hidden="true">
         <header class="customers-print-header">
           <h1>Storage Location List</h1>
           <p>
@@ -982,6 +973,9 @@ export function StorageLocationsScreen({
           </tbody>
         </table>
       </div>
+          </DocumentPreview>
+        </ReportOverlayShell>
+      ) : null}
     </div>
   );
 }

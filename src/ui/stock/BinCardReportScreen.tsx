@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import type {
   BinCardConditionFilter,
   BinCardQuery,
@@ -8,7 +9,6 @@ import { getElectronApi } from "../auth/client.ts";
 import { getAuthToken } from "../auth/db.ts";
 import { ReportDocumentShell } from "../reports/ReportDocumentShell.tsx";
 import { ReportHeader } from "../reports/ReportHeader.tsx";
-import { ReportWindowSaveButton } from "../reports/ReportWindowSaveButton.tsx";
 import { isBinCardReportMovementsEmpty } from "../reports/reportEmpty.ts";
 import "../reports/StockCommitmentReport.css";
 import { formatDate } from "./stockUtils.ts";
@@ -42,30 +42,19 @@ function isBinCardQuery(value: unknown): value is BinCardQuery {
   );
 }
 
-function handlePrint(): void {
-  const style = document.createElement("style");
-  style.id = "bcr-print-portrait-style";
-  style.textContent =
-    "@media print { @page { size: A4 portrait; margin: 8mm; } }";
-  document.head.appendChild(style);
-  document.body.classList.add("scr-print-mode");
 
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode");
-      style.remove();
-    },
-    { once: true },
-  );
-  window.print();
-}
 
 function ReportDocument({ report }: { report: BinCardReport }) {
   const empty = isBinCardReportMovementsEmpty(report);
 
   return (
-    <ReportDocumentShell
+    <DocumentPreview
+        title="Bin card"
+        fileName={`bin-card-${report.productId}-${report.fromIso}-${report.toIso}.pdf`}
+        page="portrait"
+        sourceKey={report}
+      >
+      <ReportDocumentShell
       className="scr-document bcr-document"
       isEmpty={empty}
       emptyMessage="No movements in this period."
@@ -173,6 +162,7 @@ function ReportDocument({ report }: { report: BinCardReport }) {
         <p class="bcr-footnote">Quantities in {report.uom}.</p>
       )}
     </ReportDocumentShell>
+      </DocumentPreview>
   );
 }
 
@@ -282,14 +272,6 @@ export function BinCardReportScreen({
   return (
     <div class="scr-page">
       <div class="scr-toolbar no-print">
-        <button type="button" class="scr-btn" onClick={handlePrint}>
-          Print
-        </button>
-        {windowMode ? (
-          <ReportWindowSaveButton
-            fileName={`bin-card-${report.productId}-${report.fromIso}-${report.toIso}.pdf`}
-          />
-        ) : null}
       </div>
 
       {report.truncated ? (

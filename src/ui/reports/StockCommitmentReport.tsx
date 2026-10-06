@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type {
@@ -6,17 +7,13 @@ import type {
   StockCommitmentReport,
   StockCommitmentReportRow,
 } from "../../shared/reports.types.ts";
-import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
-import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import {
   HIDE_ZERO_ROWS_HINT,
   isStockCommitmentReportEmpty,
 } from "./reportEmpty.ts";
-import { printWeeklyPortraitDocument } from "./printWeeklyPortraitDocument.ts";
 import "./StockCommitmentReport.css";
-
 
 function formatKg(value: number | null | undefined): string {
   if (value == null) {
@@ -60,76 +57,6 @@ function rowClassName(row: StockCommitmentReportRow): string {
     return "scr-row scr-row-total";
   }
   return row.indent ? "scr-row scr-row-indent" : "scr-row";
-}
-
-function buildCsv(report: StockCommitmentReport): string {
-  const lines: string[] = [
-    `Company:,${report.settings.companyName}`,
-    report.settings.department ? `Department:,${report.settings.department}` : "",
-    `AS AT:,${formatDisplayDate(report.asAtIso)}`,
-    "",
-    "PRODUCT,SALES POINT,STOCK (KG),COMMITMENTS (KG),BALANCE (KG)",
-  ].filter((line) => line.length > 0);
-
-  for (const section of report.sections) {
-    for (const row of section.rows) {
-      if (row.kind === "header") {
-        lines.push(`${row.label},,,,`);
-        continue;
-      }
-      lines.push(
-        [
-          row.label,
-          row.salesPointName ?? "",
-          row.stockKg ?? "",
-          row.commitmentKg ?? "",
-          row.balanceKg ?? "",
-        ].join(","),
-      );
-    }
-    lines.push("");
-  }
-
-  if (report.looseGrandTotal) {
-    const row = report.looseGrandTotal;
-    lines.push(
-      [
-        row.label,
-        row.salesPointName ?? "",
-        row.stockKg ?? "",
-        row.commitmentKg ?? "",
-        row.balanceKg ?? "",
-      ].join(","),
-    );
-    lines.push("");
-  }
-
-  if (report.bottledSection) {
-    const bottled = report.bottledSection;
-    lines.push(`${bottled.sectionNo}. ${bottled.title}`);
-    lines.push(
-      ["", ...bottled.columns.map((column) => column.label), "TOTAL"].join(","),
-    );
-    lines.push(["UNITS", ...bottled.unitCounts, bottled.totalUnits].join(","));
-    lines.push(["LITRES", ...bottled.litres, bottled.totalLitres].join(","));
-    lines.push(["KGS", ...bottled.kgs, bottled.totalKgs].join(","));
-  }
-
-  return lines.join("\n");
-}
-
-function downloadCsv(report: StockCommitmentReport): void {
-  const blob = new Blob([buildCsv(report)], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `stock-commitment-${report.asAtIso}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
-function handlePrint(): void {
-  printWeeklyPortraitDocument();
 }
 
 function BottledSection({ section }: { section: StockCommitmentBottledSection }) {
@@ -214,7 +141,13 @@ export function StockCommitmentReportDocument({
   const empty = isStockCommitmentReportEmpty(report);
 
   return (
-    <ReportDocumentShell
+    <DocumentPreview
+        title="Stock commitment"
+        fileName={`stock-commitment-${report.asAtIso}.pdf`}
+        page="portrait-weekly"
+        sourceKey={report}
+      >
+      <ReportDocumentShell
       className="scr-document sr-stock-compact sr-stock-report wpp-pack-page weekly-report-tight"
       isEmpty={empty}
       emptyMessage="No stock or commitment quantities to display."
@@ -273,6 +206,7 @@ export function StockCommitmentReportDocument({
         <BottledSection section={report.bottledSection} />
       ) : null}
     </ReportDocumentShell>
+      </DocumentPreview>
   );
 }
 
@@ -281,15 +215,10 @@ export function StockCommitmentReportScreen({
 }: {
   windowMode?: boolean;
 }) {
+  void windowMode;
   const [report, setReport] = useState<StockCommitmentReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  async function reloadReport() {
-    const data = await getAuthenticatedReports().getStockCommitment();
-    setReport(data);
-    return data;
-  }
 
   useEffect(() => {
     let cancelled = false;
@@ -333,38 +262,6 @@ export function StockCommitmentReportScreen({
 
   return (
     <div class="scr-page">
-      <div class="scr-toolbar no-print">
-        <button type="button" class="scr-btn" onClick={handlePrint}>
-          Print
-        </button>
-        {windowMode ? (
-          <ReportWindowSaveButton fileName={`stock-commitment-${report.asAtIso}.pdf`} />
-        ) : null}
-        <button type="button" class="scr-btn scr-btn-secondary" onClick={() => downloadCsv(report)}>
-          Export CSV
-        </button>
-        <ReportCommentsEditor
-          reportId="stock-commitment-report"
-          comments={report.comments}
-          onSaved={() => void reloadReport()}
-        />
-        <button
-          type="button"
-          class="scr-btn scr-btn-secondary"
-          onClick={() => {
-            void reloadReport().catch((refreshError) => {
-              setError(
-                refreshError instanceof Error
-                  ? refreshError.message
-                  : "Failed to refresh report.",
-              );
-            });
-          }}
-        >
-          Refresh
-        </button>
-      </div>
-
       <StockCommitmentReportDocument report={report} />
     </div>
   );

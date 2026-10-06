@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import { formatDisplayDateTime } from "../../shared/formatDisplayDate.ts";
 import type { SalesBudgetWeeklyCrosstabReport } from "../../shared/reports.types.ts";
@@ -8,10 +9,9 @@ import {
   monthName,
   salesBudgetCrosstabCellKey,
 } from "../../shared/salesBudgetPhase.ts";
-import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
+import { ReportFilterGate } from "./ReportFilterGate.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
-import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import { salesBudgetWeeklyCrosstabEmptyMessage } from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 import "./SalesBudgetCrosstab.css";
@@ -21,76 +21,12 @@ interface SalesBudgetWeeklyCrosstabScreenProps {
   windowMode?: boolean;
 }
 
-function handlePrint(): void {
-  const style = document.createElement("style");
-  style.id = "sbc-print-landscape-style";
-  style.textContent = `@media print { @page { size: A4 landscape; margin: 6mm; } }`;
-  document.head.appendChild(style);
-
-  document.body.classList.add("scr-print-mode", "mdr-print-landscape");
-
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode", "mdr-print-landscape");
-      style.remove();
-    },
-    { once: true },
-  );
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      window.print();
-    });
-  });
-}
-
 export function buildQtyMap(report: SalesBudgetWeeklyCrosstabReport): Map<string, number> {
   const map = new Map<string, number>();
   for (const entry of report.qtyByCell) {
     map.set(entry.key, entry.qtyKg);
   }
   return map;
-}
-
-function buildCsv(report: SalesBudgetWeeklyCrosstabReport, qtyMap: Map<string, number>): string {
-  const monthHeaders = report.categoriesInReport.flatMap((cat) =>
-    CAL_MONTHS.map((month) => `${cat.label} ${monthName(month)}`),
-  );
-  const lines = [
-    `Company:,${report.settings.companyName}`,
-    report.settings.department ? `Department:,${report.settings.department}` : "",
-    `Calendar year:,${report.reportYear}`,
-    "",
-    ["ISO week", ...monthHeaders, "Row total"].join(","),
-  ].filter((line) => line.length > 0);
-
-  report.sortedWeeks.forEach((week, rowIndex) => {
-    const values = report.cols.map((col) => {
-      const key = salesBudgetCrosstabCellKey(week.label, col.productCatId, col.month);
-      return qtyMap.get(key) ?? 0;
-    });
-    lines.push([week.label, ...values, report.rowTotals[rowIndex] ?? 0].join(","));
-  });
-
-  lines.push(
-    ["Column totals (kg)", ...report.colTotals, report.grandTotal].join(","),
-  );
-
-  return lines.join("\n");
-}
-
-function downloadCsv(
-  report: SalesBudgetWeeklyCrosstabReport,
-  qtyMap: Map<string, number>,
-): void {
-  const blob = new Blob([buildCsv(report, qtyMap)], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `sales-budget-weekly-crosstab-${report.reportYear}.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
 }
 
 function formatGeneratedAt(iso: string): string {
@@ -107,7 +43,14 @@ export function SalesBudgetWeeklyCrosstabDocument({
   const emptyMessage = salesBudgetWeeklyCrosstabEmptyMessage(report);
 
   return (
-    <ReportDocumentShell
+    <DocumentPreview
+        title="Sales budget weekly"
+        fileName={`sales-budget-weekly-${report.reportYear}.pdf`}
+        page="landscape-tight"
+        bodyClass="mdr-print-landscape"
+        sourceKey={report}
+      >
+      <ReportDocumentShell
       className="scr-document wpp-pack-page wpp-pack-crosstab"
       isEmpty={emptyMessage !== null}
       emptyMessage={emptyMessage ?? ""}
@@ -216,6 +159,7 @@ export function SalesBudgetWeeklyCrosstabDocument({
           </table>
         </div>
     </ReportDocumentShell>
+      </DocumentPreview>
   );
 }
 
@@ -223,9 +167,9 @@ export function SalesBudgetWeeklyCrosstabScreen({
   onNavigate,
   windowMode = false,
 }: SalesBudgetWeeklyCrosstabScreenProps) {
+  void windowMode;
   const [report, setReport] = useState<SalesBudgetWeeklyCrosstabReport | null>(null);
   const [reportYear, setReportYear] = useState<number | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -256,7 +200,7 @@ export function SalesBudgetWeeklyCrosstabScreen({
     return () => {
       cancelled = true;
     };
-  }, [reportYear, reloadKey]);
+  }, [reportYear]);
 
   const qtyMap = useMemo(() => (report ? buildQtyMap(report) : new Map()), [report]);
 
@@ -273,7 +217,11 @@ export function SalesBudgetWeeklyCrosstabScreen({
   }
 
   return (
-    <div class="scr-page sbc-root" data-print-page="sales-budget-weekly-crosstab">
+    <ReportFilterGate
+      ready
+      reportId="sales-budget-weekly-crosstab"
+      className="scr-page sbc-root"
+      filters={
       <div class="sbc-toolbar no-print">
         <div class="sbc-year-picker">
           {report.yearChoices.map((year) => (
@@ -287,38 +235,16 @@ export function SalesBudgetWeeklyCrosstabScreen({
             </button>
           ))}
         </div>
-
-        <div class="scr-toolbar-actions sbc-actions">
-          <button type="button" class="scr-btn" onClick={() => handlePrint()}>
-            Print
-          </button>
-          {windowMode ? (
-            <ReportWindowSaveButton
-              fileName={`sales-budget-weekly-${report.reportYear}.pdf`}
-            />
-          ) : null}
-          <button
-            type="button"
-            class="scr-btn"
-            onClick={() => downloadCsv(report, qtyMap)}
-          >
-            Export CSV
-          </button>
-          <ReportCommentsEditor
-            reportId="sales-budget-weekly-crosstab"
-            comments={report.comments}
-            onSaved={() => setReloadKey((value) => value + 1)}
-          />
-          <button
-            type="button"
-            class="scr-btn"
-            onClick={() => setReloadKey((value) => value + 1)}
-          >
-            Refresh
-          </button>
-        </div>
       </div>
-
+      }
+    >
+      <DocumentPreview
+        title="Sales budget weekly"
+        fileName={`sales-budget-weekly-${report.reportYear}.pdf`}
+        page="landscape-tight"
+        bodyClass="mdr-print-landscape"
+        sourceKey={report}
+      >
       <ReportDocumentShell
         className="scr-document wpp-pack-page wpp-pack-crosstab"
         isEmpty={salesBudgetWeeklyCrosstabEmptyMessage(report) !== null}
@@ -450,6 +376,7 @@ export function SalesBudgetWeeklyCrosstabScreen({
             </table>
           </div>
       </ReportDocumentShell>
-    </div>
+      </DocumentPreview>
+    </ReportFilterGate>
   );
 }

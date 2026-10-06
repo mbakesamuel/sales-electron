@@ -1,15 +1,14 @@
 import { useEffect, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type {
   LooseLpoStockSummaryReport,
   LooseLpoStockSummaryRow,
 } from "../../shared/reports.types.ts";
-import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportFooter } from "./ReportFooter.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
-import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import { isLooseLpoStockSummaryReportEmpty } from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 import "./MonthlyBottledOilReport.css";
@@ -22,55 +21,11 @@ function formatKg(value: number | null | undefined): string {
   return Math.round(value).toLocaleString("en-US");
 }
 
-function handlePrint(): void {
-  document.body.classList.add("scr-print-mode");
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode");
-    },
-    { once: true },
-  );
-  window.print();
-}
-
 function rowClassName(row: LooseLpoStockSummaryRow): string {
   if (row.kind === "subtotal" || row.kind === "total") {
     return "scr-row scr-row-total";
   }
   return "scr-row";
-}
-
-function buildCsv(report: LooseLpoStockSummaryReport): string {
-  const lines = [
-    `Company:,${report.settings.companyName}`,
-    report.settings.department ? `Department:,${report.settings.department}` : "",
-    `Title:,${report.reportTitle}`,
-    "",
-    `,THIS MONTH,${report.toDateColumnLabel}`,
-  ];
-
-  for (const row of report.rows) {
-    lines.push(
-      [
-        row.label,
-        row.values.thisMonth == null ? "" : String(row.values.thisMonth),
-        row.values.toDate == null ? "" : String(row.values.toDate),
-      ].join(","),
-    );
-  }
-
-  return lines.filter((line) => line.length > 0).join("\n");
-}
-
-function downloadCsv(report: LooseLpoStockSummaryReport): void {
-  const blob = new Blob([buildCsv(report)], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `loose-lpo-stock-summary-${report.asAtIso}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }
 
 export function LooseLpoStockSummaryDocument({
@@ -81,7 +36,13 @@ export function LooseLpoStockSummaryDocument({
   const empty = isLooseLpoStockSummaryReportEmpty(report);
 
   return (
-    <ReportDocumentShell
+    <DocumentPreview
+        title="Loose LPO stock summary"
+        fileName={`loose-lpo-stock-summary-${report.asAtIso}.pdf`}
+        page="portrait"
+        sourceKey={report}
+      >
+      <ReportDocumentShell
       className="scr-document lpo-summary-document wpp-pack-page"
       isEmpty={empty}
       emptyMessage="No loose palm oil stock summary figures to display."
@@ -139,6 +100,7 @@ export function LooseLpoStockSummaryDocument({
       ) : null}
         <p class="lpo-summary-cc">CC: FIN.D, MC (P), HOMC</p>
     </ReportDocumentShell>
+      </DocumentPreview>
   );
 }
 
@@ -147,6 +109,7 @@ export function LooseLpoStockSummaryScreen({
 }: {
   windowMode?: boolean;
 }) {
+  void windowMode;
   const [report, setReport] = useState<LooseLpoStockSummaryReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -195,40 +158,6 @@ export function LooseLpoStockSummaryScreen({
 
   return (
     <div class="scr-page">
-      <div class="scr-toolbar no-print">
-        <button type="button" class="scr-btn" onClick={handlePrint}>
-          Print
-        </button>
-        {windowMode ? (
-          <ReportWindowSaveButton
-            fileName={`loose-lpo-stock-summary-${report.asAtIso}.pdf`}
-          />
-        ) : null}
-        <button
-          type="button"
-          class="scr-btn scr-btn-secondary"
-          onClick={() => downloadCsv(report)}
-        >
-          Export CSV
-        </button>
-        <ReportCommentsEditor
-          reportId="loose-lpo-stock-summary-report"
-          comments={report.comments}
-          onSaved={() => {
-            void getAuthenticatedReports().getLooseLpoStockSummary().then(setReport);
-          }}
-        />
-        <button
-          type="button"
-          class="scr-btn scr-btn-secondary"
-          onClick={() => {
-            void getAuthenticatedReports().getLooseLpoStockSummary().then(setReport);
-          }}
-        >
-          Refresh
-        </button>
-      </div>
-
       <LooseLpoStockSummaryDocument report={report} />
     </div>
   );

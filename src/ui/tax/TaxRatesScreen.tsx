@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
+import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
 import {
   formatDisplayDate as formatDate,
   formatDisplayDateTime,
@@ -253,6 +255,7 @@ interface TaxRatesScreenProps {
 }
 
 export function TaxRatesScreen({ readOnly = false }: TaxRatesScreenProps = {}) {
+  const [printOpen, setPrintOpen] = useState(false);
   const canWrite = !readOnly;
   const [rows, setRows] = useState<TaxRateRow[]>([]);
   const [schema, setSchema] = useState<TableSchema | null>(null);
@@ -531,22 +534,7 @@ export function TaxRatesScreen({ readOnly = false }: TaxRatesScreenProps = {}) {
       return;
     }
 
-    const style = document.createElement("style");
-    style.id = "tax-rates-print-page-style";
-    style.textContent =
-      "@media print { @page { size: A4 portrait; margin: 10mm; } }";
-    document.head.appendChild(style);
-
-    document.body.classList.add("customers-print-mode", "tax-rates-print-mode");
-    window.addEventListener(
-      "afterprint",
-      () => {
-        document.body.classList.remove("customers-print-mode", "tax-rates-print-mode");
-        style.remove();
-      },
-      { once: true },
-    );
-    window.print();
+    setPrintOpen(true);
   }
 
   return (
@@ -844,7 +832,16 @@ export function TaxRatesScreen({ readOnly = false }: TaxRatesScreenProps = {}) {
         </FormDialog>
       ) : null}
 
-      <div class="customers-print-document" aria-hidden="true">
+      {printOpen ? (
+        <ReportOverlayShell title="Tax rates" onClose={() => setPrintOpen(false)}>
+          <DocumentPreview
+            title="Tax rates"
+            fileName="tax-rates.pdf"
+            page="list"
+            bodyClass="customers-print-mode tax-rates-print-mode"
+            sourceKey={printRows}
+          >
+            <div class="customers-print-document" aria-hidden="true">
         <header class="customers-print-header">
           <h1>Tax Rate List</h1>
           <p>
@@ -880,6 +877,9 @@ export function TaxRatesScreen({ readOnly = false }: TaxRatesScreenProps = {}) {
           </tbody>
         </table>
       </div>
+          </DocumentPreview>
+        </ReportOverlayShell>
+      ) : null}
     </div>
   );
 }

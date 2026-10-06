@@ -1,9 +1,10 @@
 import { useEffect, useState } from "preact/hooks";
-import { createPortal } from "preact/compat";
 import { formatDisplayDate, formatDisplayDateTime } from "../../shared/formatDisplayDate.ts";
 import type { TransferPrintPayload } from "../../shared/stock.types.ts";
 import { TRANSFER_MODE_LABELS } from "../../shared/stockTransferMode.ts";
 import { getElectronApi } from "../auth/client.ts";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
+import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
 import { ReportFooter } from "../reports/ReportFooter.tsx";
 import { ReportHeader } from "../reports/ReportHeader.tsx";
 import {
@@ -20,25 +21,6 @@ interface TransferPrintViewProps {
   transferId: string;
   userId: string;
   onClose: () => void;
-}
-
-function handlePrint(): void {
-  const style = document.createElement("style");
-  style.id = "st-print-portrait-style";
-  style.textContent =
-    "@media print { @page { size: A4 portrait; margin: 8mm; } }";
-  document.head.appendChild(style);
-
-  document.body.classList.add("st-print-mode");
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("st-print-mode");
-      style.remove();
-    },
-    { once: true },
-  );
-  window.print();
 }
 
 function isIntraTransfer(transfer: TransferPrintPayload["transfer"]): boolean {
@@ -87,59 +69,32 @@ export function TransferPrintView({
     };
   }, [transferId, userId]);
 
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
-
-  let content: preact.JSX.Element;
-
   if (error) {
-    content = (
-      <div class="do-print-backdrop st-print-backdrop" onClick={onClose}>
-        <div
-          class="do-print-modal"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <p class="sales-error">{error}</p>
-          <button type="button" class="sales-btn-secondary" onClick={onClose}>
-            Close
-          </button>
-        </div>
-      </div>
+    return (
+      <ReportOverlayShell title="Stock transfer" onClose={onClose}>
+        <p class="sales-error">{error}</p>
+      </ReportOverlayShell>
     );
-  } else if (!payload) {
-    content = (
-      <div class="do-print-backdrop st-print-backdrop" onClick={onClose}>
-        <div
-          class="do-print-modal"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <p class="sales-muted">Loading print view…</p>
-        </div>
-      </div>
+  }
+
+  if (!payload) {
+    return (
+      <ReportOverlayShell title="Stock transfer" onClose={onClose}>
+        <p class="sales-muted">Loading print view…</p>
+      </ReportOverlayShell>
     );
-  } else {
-    const { transfer } = payload;
-    const intra = isIntraTransfer(transfer);
+  }
+  const { transfer } = payload;
+  const intra = isIntraTransfer(transfer);
 
-    content = (
-      <div class="do-print-backdrop st-print-backdrop" onClick={onClose}>
-        <div class="do-print-modal" onClick={(event) => event.stopPropagation()}>
-          <div class="do-print-toolbar no-print">
-            <button type="button" class="sales-btn-primary" onClick={handlePrint}>
-              Print
-            </button>
-            <button type="button" class="sales-btn-secondary" onClick={onClose}>
-              Close
-            </button>
-          </div>
-
+  return (
+    <ReportOverlayShell title="Stock transfer" onClose={onClose}>
+          <DocumentPreview
+            title="Stock transfer"
+            fileName={`stock-transfer-${transfer.transferNo}.pdf`}
+            bodyClass="st-print-mode"
+            sourceKey={payload}
+          >
           <article class="do-print-document st-print-document">
             <DocumentStatusStamp label={draftStampLabel(transfer.status)} />
             <ReportHeader
@@ -340,10 +295,7 @@ export function TransferPrintView({
               name={payload.signatoryName}
             />
           </article>
-        </div>
-      </div>
-    );
-  }
-
-  return createPortal(content, document.body);
+          </DocumentPreview>
+    </ReportOverlayShell>
+  );
 }

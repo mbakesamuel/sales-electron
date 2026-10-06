@@ -1,15 +1,12 @@
 import { useEffect, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type { CommitmentReport, CommitmentReportSection } from "../../shared/reports.types.ts";
-import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
-import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import { isCommitmentReportEmpty, HIDE_ZERO_ROWS_HINT } from "./reportEmpty.ts";
-import { printWeeklyPortraitDocument } from "./printWeeklyPortraitDocument.ts";
 import "./StockCommitmentReport.css";
-
 
 function formatQty(value: number | null | undefined): string {
   if (value == null) {
@@ -23,48 +20,6 @@ function formatQty(value: number | null | undefined): string {
     return `(${Math.abs(rounded).toLocaleString("en-US")})`;
   }
   return rounded.toLocaleString("en-US");
-}
-
-function handlePrint(): void {
-  printWeeklyPortraitDocument();
-}
-
-function buildCsv(report: CommitmentReport): string {
-  const lines: string[] = [
-    `Company:,${report.settings.companyName}`,
-    report.settings.department ? `Department:,${report.settings.department}` : "",
-    `AS AT:,${formatDisplayDate(report.asAtIso)}`,
-    "",
-  ].filter((line) => line.length > 0);
-
-  for (const section of report.sections) {
-    lines.push(`${section.sectionLetter}. ${section.title}`);
-    lines.push(["CUSTOMER", ...section.salesPointNames, "TOTAL"].join(","));
-    for (const row of section.rows) {
-      lines.push([row.label, ...row.quantities, row.rowTotal].join(","));
-    }
-    lines.push("");
-  }
-
-  if (report.salesPointNames.length > 0) {
-    lines.push("GRAND TOTAL");
-    lines.push(["", ...report.salesPointNames, "TOTAL"].join(","));
-    lines.push(
-      ["GRAND TOTAL", ...report.columnTotals, report.grandTotal].join(","),
-    );
-  }
-
-  return lines.join("\n");
-}
-
-function downloadCsv(report: CommitmentReport): void {
-  const blob = new Blob([buildCsv(report)], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `commitment-report-${report.asAtIso}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }
 
 function CommitmentSectionRows({
@@ -104,7 +59,13 @@ export function CommitmentReportDocument({ report }: { report: CommitmentReport 
   const columnCount = report.salesPointNames.length + 2;
 
   return (
-    <ReportDocumentShell
+    <DocumentPreview
+        title="Commitment report"
+        fileName={`commitment-report-${report.asAtIso}.pdf`}
+        page="portrait-weekly"
+        sourceKey={report}
+      >
+      <ReportDocumentShell
       className="scr-document sr-stock-compact cr-commitment-report wpp-pack-page weekly-report-tight"
       isEmpty={empty}
       emptyMessage="No commitment quantities to display."
@@ -155,6 +116,7 @@ export function CommitmentReportDocument({ report }: { report: CommitmentReport 
         </div>
       ) : null}
     </ReportDocumentShell>
+      </DocumentPreview>
   );
 }
 
@@ -163,6 +125,7 @@ export function CommitmentReportScreen({
 }: {
   windowMode?: boolean;
 }) {
+  void windowMode;
   const [report, setReport] = useState<CommitmentReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -209,34 +172,6 @@ export function CommitmentReportScreen({
 
   return (
     <div class="scr-page">
-      <div class="scr-toolbar no-print">
-        <button type="button" class="scr-btn" onClick={handlePrint}>
-          Print
-        </button>
-        {windowMode ? (
-          <ReportWindowSaveButton fileName={`commitment-report-${report.asAtIso}.pdf`} />
-        ) : null}
-        <button type="button" class="scr-btn scr-btn-secondary" onClick={() => downloadCsv(report)}>
-          Export CSV
-        </button>
-        <ReportCommentsEditor
-          reportId="commitment-report"
-          comments={report.comments}
-          onSaved={() => {
-            void getAuthenticatedReports().getCommitmentReport().then(setReport);
-          }}
-        />
-        <button
-          type="button"
-          class="scr-btn scr-btn-secondary"
-          onClick={() => {
-            void getAuthenticatedReports().getCommitmentReport().then(setReport);
-          }}
-        >
-          Refresh
-        </button>
-      </div>
-
       <CommitmentReportDocument report={report} />
     </div>
   );

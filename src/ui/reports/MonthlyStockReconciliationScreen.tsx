@@ -1,13 +1,12 @@
 import { useEffect, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import type {
   MonthlyStockReconciliationMatrixRow,
   MonthlyStockReconciliationReport,
 } from "../../shared/reports.types.ts";
-import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
-import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import {
   HIDE_ZERO_ROWS_HINT,
   isMonthlyStockReconciliationReportEmpty,
@@ -20,18 +19,6 @@ function formatKg(value: number | null | undefined): string {
     return "—";
   }
   return Math.round(value).toLocaleString("en-US");
-}
-
-function handlePrint(): void {
-  document.body.classList.add("scr-print-mode");
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode");
-    },
-    { once: true },
-  );
-  window.print();
 }
 
 function rowClassName(row: MonthlyStockReconciliationMatrixRow): string {
@@ -132,67 +119,6 @@ function ReportMatrix({ report }: { report: MonthlyStockReconciliationReport }) 
   );
 }
 
-function buildCsv(report: MonthlyStockReconciliationReport): string {
-  const header = ["", ...report.salesPointNames, "TOTAL"].join(",");
-
-  function pushRow(lines: string[], row: MonthlyStockReconciliationMatrixRow): void {
-    const cells = report.salesPointIds.map((id) => {
-      const value = row.valuesBySalesPointId[String(id)];
-      return value == null ? "" : String(value);
-    });
-    lines.push(
-      [row.label, ...cells, row.total == null ? "" : String(row.total)].join(","),
-    );
-  }
-
-  const lines: string[] = [
-    `Company:,${report.settings.companyName}`,
-  ];
-  if (report.settings.department) {
-    lines.push(`Department:,${report.settings.department}`);
-  }
-  lines.push(`Title:,${report.reportTitle}`, "", header);
-
-  pushRow(lines, report.openingRow);
-  lines.push(report.receptionSectionTitle);
-  for (const row of report.receptionRows) {
-    pushRow(lines, row);
-  }
-  pushRow(lines, report.totalReceptionRow);
-  pushRow(lines, report.openingPlusReceptionRow);
-
-  lines.push(report.issuesSectionTitle);
-  for (const row of report.issueRows) {
-    pushRow(lines, row);
-  }
-  pushRow(lines, report.totalIssuesRow);
-  pushRow(lines, report.calculatedStockRow);
-  pushRow(lines, report.physicalStockRow);
-  pushRow(lines, report.varianceRow);
-
-  lines.push(report.bpoSectionTitle);
-  for (const row of report.bpoRows) {
-    pushRow(lines, row);
-  }
-
-  lines.push(report.otherSectionTitle);
-  for (const row of report.otherRows) {
-    pushRow(lines, row);
-  }
-
-  return lines.join("\n");
-}
-
-function downloadCsv(report: MonthlyStockReconciliationReport): void {
-  const blob = new Blob([buildCsv(report)], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `monthly-stock-reconciliation-${report.asAtIso}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
 export function MonthlyStockReconciliationDocument({
   report,
 }: {
@@ -201,7 +127,13 @@ export function MonthlyStockReconciliationDocument({
   const empty = isMonthlyStockReconciliationReportEmpty(report);
 
   return (
-    <ReportDocumentShell
+    <DocumentPreview
+        title="Monthly stock reconciliation"
+        fileName={`monthly-stock-reconciliation-${report.asAtIso}.pdf`}
+        page="portrait"
+        sourceKey={report}
+      >
+      <ReportDocumentShell
       className="scr-document msr-document wpp-pack-page"
       isEmpty={empty}
       emptyMessage="No reconciliation figures to display."
@@ -220,6 +152,7 @@ export function MonthlyStockReconciliationDocument({
     >
       <ReportMatrix report={report} />
     </ReportDocumentShell>
+      </DocumentPreview>
   );
 }
 
@@ -228,6 +161,7 @@ export function MonthlyStockReconciliationScreen({
 }: {
   windowMode?: boolean;
 }) {
+  void windowMode;
   const [report, setReport] = useState<MonthlyStockReconciliationReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -276,44 +210,6 @@ export function MonthlyStockReconciliationScreen({
 
   return (
     <div class="scr-page">
-      <div class="scr-toolbar no-print">
-        <button type="button" class="scr-btn" onClick={handlePrint}>
-          Print
-        </button>
-        {windowMode ? (
-          <ReportWindowSaveButton
-            fileName={`monthly-stock-reconciliation-${report.asAtIso}.pdf`}
-          />
-        ) : null}
-        <button
-          type="button"
-          class="scr-btn scr-btn-secondary"
-          onClick={() => downloadCsv(report)}
-        >
-          Export CSV
-        </button>
-        <ReportCommentsEditor
-          reportId="monthly-stock-reconciliation-report"
-          comments={report.comments}
-          onSaved={() => {
-            void getAuthenticatedReports()
-              .getMonthlyStockReconciliation()
-              .then(setReport);
-          }}
-        />
-        <button
-          type="button"
-          class="scr-btn scr-btn-secondary"
-          onClick={() => {
-            void getAuthenticatedReports()
-              .getMonthlyStockReconciliation()
-              .then(setReport);
-          }}
-        >
-          Refresh
-        </button>
-      </div>
-
       <MonthlyStockReconciliationDocument report={report} />
     </div>
   );

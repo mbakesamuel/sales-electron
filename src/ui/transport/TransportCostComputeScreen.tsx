@@ -7,9 +7,9 @@ import type {
 } from "../../shared/transportCost.types.ts";
 import { getAuthToken } from "../auth/db.ts";
 import { getElectronApi } from "../auth/client.ts";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
+import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
 import "../customers/CustomersScreen.css";
-import "../reports/StockCommitmentReport.css";
-import { printPortraitDocument } from "../reports/printPortraitDocument.ts";
 import "./TransportCostComputeScreen.css";
 
 interface TransportCostComputeScreenProps {
@@ -113,6 +113,7 @@ export function TransportCostComputeScreen({
   const [actionError, setActionError] = useState<string | null>(null);
   const [computing, setComputing] = useState(false);
   const [result, setResult] = useState<TransportCostComputeResult | null>(null);
+  const [printOpen, setPrintOpen] = useState(false);
 
   const [customerId, setCustomerId] = useState("");
   const [salesPointId, setSalesPointId] = useState("");
@@ -231,7 +232,7 @@ export function TransportCostComputeScreen({
               <button
                 type="button"
                 class="customers-btn customers-btn-secondary"
-                onClick={() => printPortraitDocument()}
+                onClick={() => setPrintOpen(true)}
               >
                 <IconPrinter /> Print
               </button>
@@ -410,7 +411,7 @@ export function TransportCostComputeScreen({
                     <button
                       type="button"
                       class="customers-btn customers-btn-secondary"
-                      onClick={() => printPortraitDocument()}
+                      onClick={() => setPrintOpen(true)}
                     >
                       <IconPrinter /> Print Report
                     </button>
@@ -481,8 +482,13 @@ export function TransportCostComputeScreen({
         ) : null}
       </div>
 
-      {/* Dedicated clean print layout when printing (activated by body.scr-print-mode) */}
-      {result ? (
+      {printOpen && result ? (
+        <ReportOverlayShell title="Transportation cost" onClose={() => setPrintOpen(false)}>
+          <DocumentPreview
+            title="Transportation cost"
+            fileName={`transport-cost-${result.asAtIso}.pdf`}
+            sourceKey={result}
+          >
         <article class="scr-document tcc-print-document">
           <header class="tcc-print-header">
             <h2 class="tcc-print-title">Transportation cost</h2>
@@ -549,6 +555,8 @@ export function TransportCostComputeScreen({
             </div>
           )}
         </article>
+          </DocumentPreview>
+        </ReportOverlayShell>
       ) : null}
     </>
   );

@@ -1,4 +1,5 @@
 import logoSrc from "../../assets/logo.svg";
+import welcomeSrc from "../../assets/bg-img.jpg";
 import "./WelcomeScreen.css";
 
 interface WelcomeScreenProps {
@@ -7,16 +8,15 @@ interface WelcomeScreenProps {
 
 export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
   return (
-    <main class="welcome-screen">
-      <div class="welcome-screen-overlay" aria-hidden="true" />
-      <div class="welcome-content">
-        <img class="welcome-logo" src={logoSrc} alt="" aria-hidden="true" />
-        <h1 class="welcome-title">Welcome to CDC Palm Oil Sales</h1>
-        <p class="welcome-subtitle">Sign in to continue</p>
-        <button type="button" class="welcome-button" onClick={onContinue}>
-          Sign in
-        </button>
+    <main class="auth-screen">
+      <div class="auth-brand">
+        <img class="auth-logo" src={logoSrc} alt="" />
+        <p class="auth-company">CDC Palm Oil Sales</p>
       </div>
+      <img class="auth-welcome-image" src={welcomeSrc} alt="" />
+      <button type="button" class="auth-link" onClick={onContinue}>
+        Login
+      </button>
     </main>
   );
 }

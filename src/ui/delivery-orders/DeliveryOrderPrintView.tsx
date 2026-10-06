@@ -10,9 +10,8 @@ import { getElectronApi } from "../auth/client.ts";
 import { QrCode } from "../components/QrCode.tsx";
 import { ReportHeader } from "../reports/ReportHeader.tsx";
 import { ReportFooter } from "../reports/ReportFooter.tsx";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
-import { ReportWindowSaveButton } from "../reports/ReportWindowSaveButton.tsx";
-import { printPortraitDocument } from "../reports/printPortraitDocument.ts";
 import {
   DocumentStatusStamp,
   draftStampLabel,
@@ -126,20 +125,11 @@ export function DeliveryOrderPrintView({
 
   return (
     <ReportOverlayShell title={shellTitle} onClose={onClose}>
-      <div class="scr-page">
-        <div class="scr-toolbar no-print">
-          <div class="scr-toolbar-actions">
-            <button
-              type="button"
-              class="scr-btn"
-              onClick={() => printPortraitDocument()}
-            >
-              Print
-            </button>
-            <ReportWindowSaveButton fileName={pdfFileName} />
-          </div>
-        </div>
-
+      <DocumentPreview
+        title={shellTitle}
+        fileName={pdfFileName}
+        sourceKey={payload}
+      >
         <article class="scr-document do-print-document">
           <DocumentStatusStamp label={draftStampLabel(order.status)} />
           <ReportHeader
@@ -324,7 +314,7 @@ export function DeliveryOrderPrintView({
             </div>
           </section>
         </article>
-      </div>
+      </DocumentPreview>
     </ReportOverlayShell>
   );
 }

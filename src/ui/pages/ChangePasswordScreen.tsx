@@ -4,6 +4,7 @@ import { getElectronApi } from "../auth/client.ts";
 import { AUTH_TOKEN_KEY, type AuthUser } from "../auth/session.ts";
 import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts";
 import "./LoginScreen.css";
+import "./WelcomeScreen.css";
 
 interface ChangePasswordScreenProps {
   user: AuthUser;
@@ -85,12 +86,16 @@ export function ChangePasswordScreen({
 
   return (
     <main class="login-screen">
+      <header class="auth-heading">
+        <img class="auth-logo" src={logoSrc} alt="" />
+        <p class="auth-company">CDC Palm Oil Sales</p>
+        <h1 class="auth-title">Sales Management</h1>
+        <p class="auth-subtitle">Set a new password to continue.</p>
+      </header>
+
       <section class="login-card">
-        <div class="login-heading">
-          <img class="login-logo" src={logoSrc} alt="" aria-hidden="true" />
-          <h1>Sales Management</h1>
-        </div>
-        <p class="login-subtitle">
+        <h2 class="login-card-title">Change password</h2>
+        <p class="login-card-subtitle">
           Welcome, {user.name}. Change your temporary password to continue.
         </p>
 

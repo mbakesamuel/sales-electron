@@ -1,0 +1,7 @@
+export type PrintPage = "portrait" | "portrait-weekly" | "portrait-receipt" | "landscape" | "landscape-wide" | "landscape-tight" | "list";
+export declare function isLandscapePage(page: PrintPage): boolean;
+export declare function buildPrintDocumentHtml(bodyHtml: string, options: {
+    title: string;
+    page?: PrintPage;
+    bodyClass?: string;
+}): string;

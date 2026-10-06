@@ -1,12 +1,11 @@
 import { useEffect, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type { MonthlyBottledOilReport } from "../../shared/reports.types.ts";
-import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
-import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import { isMonthlyBottledOilReportEmpty } from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 import "./MonthlyBottledOilReport.css";
@@ -25,96 +24,18 @@ function formatAmount(value: number): string {
   return Math.round(value).toLocaleString("en-US");
 }
 
-function handlePrint(): void {
-  const style = document.createElement("style");
-  style.id = "mbo-print-landscape-style";
-  style.textContent =
-    "@media print { @page { size: A4 landscape; margin: 6mm 10mm; } }";
-  document.head.appendChild(style);
-  document.body.classList.add("scr-print-mode", "mbo-print-landscape");
-
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode", "mbo-print-landscape");
-      style.remove();
-    },
-    { once: true },
-  );
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      window.print();
-    });
-  });
-}
-
-function downloadCsv(report: MonthlyBottledOilReport): void {
-  const lines: string[] = [
-    `Company:,${report.settings.companyName}`,
-    report.settings.department ? `Department:,${report.settings.department}` : "",
-    `Financial Year:,${report.financialYear}`,
-    `Month:,${report.monthName}`,
-    `As at:,${report.asAtIso}`,
-    "",
-    [
-      "DATE",
-      "NAME/CUSTOMER",
-      "ADDRESS",
-      "1x20L",
-      "3x5L",
-      "1x15L",
-      "RECEIVED BY",
-      "AMOUNT",
-      "VEH. C. NO",
-    ].join(","),
-  ];
-
-  for (const row of report.rows) {
-    lines.push(
-      [
-        formatDisplayDate(row.dateIssued),
-        `"${row.customerName.replace(/"/g, '""')}"`,
-        `"${row.address.replace(/"/g, '""')}"`,
-        String(row.qty20L),
-        String(row.qty3x5L),
-        String(row.qty15L),
-        `"${row.receivedBy.replace(/"/g, '""')}"`,
-        String(row.amount),
-        `"${row.vehConsignmentNo.replace(/"/g, '""')}"`,
-      ].join(","),
-    );
-  }
-
-  lines.push(
-    [
-      "TOTAL",
-      "",
-      "",
-      String(report.totals.qty20L),
-      String(report.totals.qty3x5L),
-      String(report.totals.qty15L),
-      "",
-      String(report.totals.amount),
-      "",
-    ].join(","),
-  );
-
-  const csv = lines.filter((line) => line.length > 0).join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `monthly-bottled-oil-${report.financialYear}-${report.asAtIso}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
 function ReportDocument({ report }: { report: MonthlyBottledOilReport }) {
   const empty = isMonthlyBottledOilReportEmpty(report);
 
   return (
-    <ReportDocumentShell
+    <DocumentPreview
+        title="Monthly bottled oil"
+        fileName={`monthly-bottled-oil-${report.financialYear}-${report.asAtIso}.pdf`}
+        page="landscape"
+        bodyClass="mbo-print-landscape"
+        sourceKey={report}
+      >
+      <ReportDocumentShell
       className="scr-document mbo-document"
       isEmpty={empty}
       emptyMessage="No Bottle Oil Ration or Public relation sales in this period."
@@ -212,6 +133,7 @@ function ReportDocument({ report }: { report: MonthlyBottledOilReport }) {
         </div>
       </section>
     </ReportDocumentShell>
+      </DocumentPreview>
   );
 }
 
@@ -220,6 +142,7 @@ export function MonthlyBottledOilReportScreen({
 }: {
   windowMode?: boolean;
 }) {
+  void windowMode;
   const [report, setReport] = useState<MonthlyBottledOilReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -270,29 +193,7 @@ export function MonthlyBottledOilReportScreen({
 
   return (
     <div class="scr-page mbo-page">
-      <div class="scr-toolbar no-print">
-        <button type="button" class="scr-btn" onClick={handlePrint}>
-          Print
-        </button>
-        {windowMode ? (
-          <ReportWindowSaveButton
-            fileName={`monthly-bottled-oil-${report.financialYear}-${report.asAtIso}.pdf`}
-          />
-        ) : null}
-        <button
-          type="button"
-          class="scr-btn scr-btn-secondary"
-          onClick={() => downloadCsv(report)}
-        >
-          CSV
-        </button>
-        <ReportCommentsEditor
-          reportId="monthly-bottled-oil-report"
-          comments={report.comments}
-          onSaved={(comments) => setReport({ ...report, comments })}
-        />
-      </div>
-      <ReportDocument report={report} />
+            <ReportDocument report={report} />
     </div>
   );
 }

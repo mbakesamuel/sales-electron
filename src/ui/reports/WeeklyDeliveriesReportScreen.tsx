@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type {
@@ -7,18 +8,15 @@ import type {
   WeeklyDeliveriesMiscSection,
   WeeklyDeliveriesReport,
 } from "../../shared/reports.types.ts";
-import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
+import { ReportFilterGate } from "./ReportFilterGate.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
-import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import {
   HIDE_ZERO_ROWS_HINT,
   isWeeklyDeliveriesReportEmpty,
 } from "./reportEmpty.ts";
-import { printWeeklyPortraitDocument } from "./printWeeklyPortraitDocument.ts";
 import "./StockCommitmentReport.css";
 import "./SalesBudgetCrosstab.css";
-
 
 function formatQty(value: number | null | undefined): string {
   if (value == null) {
@@ -29,51 +27,6 @@ function formatQty(value: number | null | undefined): string {
   }
   const rounded = Math.round(value);
   return rounded.toLocaleString("en-US");
-}
-
-function handlePrint(): void {
-  printWeeklyPortraitDocument();
-}
-
-function buildCsv(report: WeeklyDeliveriesReport): string {
-  const lines: string[] = [
-    `Company:,${report.settings.companyName}`,
-    report.settings.department ? `Department:,${report.settings.department}` : "",
-    `Week:,${formatDisplayDate(report.weekFromIso)} - ${formatDisplayDate(report.weekToIso)}`,
-    "",
-    report.looseSection.title,
-    ["", ...report.looseSection.salesPointNames, "TOTAL"].join(","),
-  ];
-
-  for (const row of report.looseSection.rows) {
-    lines.push([row.label, ...row.quantities, row.rowTotal].join(","));
-  }
-
-  lines.push("", report.bottledSection.title);
-  lines.push(["", ...report.bottledSection.columns.map((column) => column.label), "TOTAL"].join(","));
-  lines.push(["", ...report.bottledSection.unitCounts, report.bottledSection.totalUnits].join(","));
-  lines.push(["LITRES", ...report.bottledSection.litres, ""].join(","));
-  lines.push(["KGS", ...report.bottledSection.kgs, report.bottledSection.totalKgs].join(","));
-  lines.push(`TOTAL DELIVERIES,,,${report.bottledSection.totalUnits}`);
-
-  if (report.miscSection.rows.length > 0) {
-    lines.push("", report.miscSection.title);
-    for (const row of report.miscSection.rows) {
-      lines.push(`${row.label},${row.quantityKg}`);
-    }
-  }
-
-  return lines.join("\n");
-}
-
-function downloadCsv(report: WeeklyDeliveriesReport): void {
-  const blob = new Blob([buildCsv(report)], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `weekly-deliveries-${report.weekToIso}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }
 
 function LooseSection({ section }: { section: WeeklyDeliveriesLooseSection }) {
@@ -208,7 +161,13 @@ export function WeeklyDeliveriesReportDocument({
   const empty = isWeeklyDeliveriesReportEmpty(report);
 
   return (
-    <ReportDocumentShell
+    <DocumentPreview
+        title="Weekly deliveries"
+        fileName={`weekly-deliveries-${report.weekToIso}.pdf`}
+        page="portrait-weekly"
+        sourceKey={report}
+      >
+      <ReportDocumentShell
       className="scr-document wpp-pack-page wd-weekly-deliveries weekly-report-tight"
       isEmpty={empty}
       emptyMessage="No deliveries recorded for this week."
@@ -229,6 +188,7 @@ export function WeeklyDeliveriesReportDocument({
       <BottledSection section={report.bottledSection} />
       <MiscSection section={report.miscSection} />
     </ReportDocumentShell>
+      </DocumentPreview>
   );
 }
 
@@ -237,6 +197,7 @@ export function WeeklyDeliveriesReportScreen({
 }: {
   windowMode?: boolean;
 }) {
+  void windowMode;
   const [report, setReport] = useState<WeeklyDeliveriesReport | null>(null);
   const [weekMondayIso, setWeekMondayIso] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
@@ -282,18 +243,13 @@ export function WeeklyDeliveriesReportScreen({
     return <p class="scr-status">No report data available.</p>;
   }
 
-  function reload() {
-    const monday = weekMondayIso ?? report?.weekMondayIso;
-    void getAuthenticatedReports()
-      .getWeeklyDeliveries(monday)
-      .then(setReport)
-      .catch((loadError: unknown) => {
-        setError(loadError instanceof Error ? loadError.message : "Failed to load report.");
-      });
-  }
-
   return (
-    <div class="scr-page sbc-root">
+    <ReportFilterGate
+      ready
+      reportId="sales-delivery-report"
+      className="scr-page sbc-root"
+      filters={
+        <>
       <div class="scr-toolbar no-print sbc-toolbar">
         {report.weekChoices.length > 0 ? (
           <div class="sbc-year-picker" aria-label="Week in open month">
@@ -310,34 +266,13 @@ export function WeeklyDeliveriesReportScreen({
             ))}
           </div>
         ) : null}
-        <div class="scr-toolbar-actions sbc-actions">
-          <button type="button" class="scr-btn" onClick={handlePrint}>
-            Print
-          </button>
-          {windowMode ? (
-            <ReportWindowSaveButton fileName={`weekly-deliveries-${report.weekToIso}.pdf`} />
-          ) : null}
-          <button
-            type="button"
-            class="scr-btn scr-btn-secondary"
-            onClick={() => downloadCsv(report)}
-          >
-            Export CSV
-          </button>
-          <ReportCommentsEditor
-            reportId="sales-delivery-report"
-            comments={report.comments}
-            onSaved={reload}
-          />
-          <button type="button" class="scr-btn scr-btn-secondary" onClick={reload}>
-            Refresh
-          </button>
-        </div>
       </div>
 
       {error ? <p class="scr-status scr-status-error no-print">{error}</p> : null}
-
+        </>
+      }
+    >
       <WeeklyDeliveriesReportDocument report={report} />
-    </div>
+    </ReportFilterGate>
   );
 }

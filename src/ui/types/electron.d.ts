@@ -405,11 +405,19 @@ export interface ElectronAppApi {
     alert(message: string): void;
   };
   print: {
-    exportPdf(defaultFileName?: string): Promise<
-      | { ok: true; filePath: string }
-      | { ok: false; cancelled: true }
-      | { ok: false; cancelled: false; error: string }
-    >;
+    htmlToPdf(
+      html: string,
+      options?: { landscape?: boolean },
+    ): Promise<Uint8Array>;
+    printHtml(
+      html: string,
+      options?: { landscape?: boolean },
+    ): Promise<{ ok: boolean }>;
+    printPdf(data: Uint8Array): Promise<{ ok: boolean }>;
+    savePdf(input: {
+      defaultName: string;
+      data: Uint8Array;
+    }): Promise<{ cancelled: true } | { ok: true; path: string }>;
   };
   backup: {
     getInfo(authToken: string): Promise<import("../../shared/backup.types.ts").BackupInfo>;

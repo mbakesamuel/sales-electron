@@ -1,11 +1,11 @@
 import { useEffect, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type { DailySalesMatrixReport } from "../../shared/reports.types.ts";
-import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
+import { ReportFilterGate } from "./ReportFilterGate.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
-import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import "./StockCommitmentReport.css";
 import "./SalesBudgetCrosstab.css";
 import "./DailySalesMatrixReport.css";
@@ -15,71 +15,6 @@ function formatQty(value: number): string {
     return "0";
   }
   return Math.round(value).toLocaleString("en-US");
-}
-
-function handlePrint(): void {
-  document.body.classList.add("scr-print-mode");
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode");
-    },
-    { once: true },
-  );
-  window.print();
-}
-
-function buildCsv(report: DailySalesMatrixReport): string {
-  const lines = [
-    `Company:,${report.settings.companyName}`,
-    `Month:,${report.monthLabel}`,
-    `Through:,${formatDisplayDate(report.asAtIso)}`,
-    `Collection point:,${report.salesPointLabel}`,
-    `Product:,${report.productLabel}`,
-    "",
-    "DAY,INDUSTRY,WHOLE SALE,RETAIL,STAFF/WORKER,PUB. RELATION,TRANSFER,TOTAL",
-  ];
-
-  for (const row of report.rows) {
-    lines.push(
-      [
-        row.day,
-        row.industry,
-        row.wholeSale,
-        row.retail,
-        row.cdcWorker,
-        row.staff,
-        row.trnsfr,
-        row.total,
-      ].join(","),
-    );
-  }
-
-  const totals = report.columnTotals;
-  lines.push(
-    [
-      "TOTAL",
-      totals.industry,
-      totals.wholeSale,
-      totals.retail,
-      totals.cdcWorker,
-      totals.staff,
-      totals.trnsfr,
-      totals.total,
-    ].join(","),
-  );
-
-  return lines.join("\n");
-}
-
-function downloadCsv(report: DailySalesMatrixReport): void {
-  const blob = new Blob([buildCsv(report)], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `daily-sales-matrix-${report.monthStartIso.slice(0, 7)}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }
 
 function productOptionLabel(product: {
@@ -95,7 +30,13 @@ export function DailySalesMatrixReportDocument({
   report: DailySalesMatrixReport;
 }) {
   return (
-    <ReportDocumentShell
+    <DocumentPreview
+        title="Daily sales matrix"
+        fileName={`daily-sales-matrix-${report.monthStartIso.slice(0, 7)}.pdf`}
+        page="portrait"
+        sourceKey={report}
+      >
+      <ReportDocumentShell
       className="scr-document wpp-pack-page"
       isEmpty={false}
       emptyMessage=""
@@ -157,6 +98,7 @@ export function DailySalesMatrixReportDocument({
         </table>
       </div>
     </ReportDocumentShell>
+      </DocumentPreview>
   );
 }
 
@@ -165,6 +107,7 @@ export function DailySalesMatrixReportScreen({
 }: {
   windowMode?: boolean;
 }) {
+  void windowMode;
   const [salesPointId, setSalesPointId] = useState<number | null>(null);
   const [productId, setProductId] = useState<number | null>(null);
   const [report, setReport] = useState<DailySalesMatrixReport | null>(null);
@@ -214,17 +157,13 @@ export function DailySalesMatrixReportScreen({
     return <p class="scr-status">No report data available.</p>;
   }
 
-  function reload() {
-    void getAuthenticatedReports()
-      .getDailySalesMatrix(salesPointId, productId)
-      .then(setReport)
-      .catch((loadError: unknown) => {
-        setError(loadError instanceof Error ? loadError.message : "Failed to load report.");
-      });
-  }
-
   return (
-    <div class="scr-page sbc-root">
+    <ReportFilterGate
+      ready
+      reportId="daily-sales-matrix-report"
+      className="scr-page sbc-root"
+      filters={
+        <>
       <div class="scr-toolbar no-print sbc-toolbar dsm-toolbar">      
         <div class="dsr-filters"> 
         {/* <label class="dsr-filter">
@@ -270,35 +209,13 @@ export function DailySalesMatrixReportScreen({
             </select>
           </label>
         </div>
-        <div class="scr-toolbar-actions sbc-actions">
-          <button type="button" class="scr-btn" onClick={handlePrint}>
-            Print
-          </button>
-
-          {windowMode ? (
-            <ReportWindowSaveButton
-              fileName={`daily-sales-matrix-${report.monthStartIso.slice(0, 7)}.pdf`}
-            />
-          ) : null}
-
-          <button
-            type="button"
-            class="scr-btn scr-btn-secondary"
-            onClick={() => downloadCsv(report)}
-          >
-            Export CSV
-          </button>
-          <ReportCommentsEditor
-            reportId="daily-sales-matrix-report"
-            comments={report.comments}
-            onSaved={reload}
-          />
-        </div>
       </div>
 
       {error ? <p class="scr-status scr-status-error no-print">{error}</p> : null}
-
+        </>
+      }
+    >
       <DailySalesMatrixReportDocument report={report} />
-    </div>
+    </ReportFilterGate>
   );
 }

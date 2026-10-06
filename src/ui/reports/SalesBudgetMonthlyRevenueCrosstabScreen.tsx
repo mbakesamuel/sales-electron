@@ -1,3 +1,4 @@
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { useEffect, useState } from "preact/hooks";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import { formatDisplayDateTime } from "../../shared/formatDisplayDate.ts";
@@ -7,10 +8,9 @@ import {
   formatPhasedAmountDisplay,
   monthName,
 } from "../../shared/salesBudgetPhase.ts";
-import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
+import { ReportFilterGate } from "./ReportFilterGate.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
-import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import { salesBudgetMonthlyRevenueCrosstabEmptyMessage } from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 import "./SalesBudgetCrosstab.css";
@@ -20,74 +20,8 @@ interface SalesBudgetMonthlyRevenueCrosstabScreenProps {
   windowMode?: boolean;
 }
 
-function handlePrint(): void {
-  const style = document.createElement("style");
-  style.id = "sbc-print-landscape-style";
-  style.textContent = `@media print { @page { size: A4 landscape; margin: 6mm; } }`;
-  document.head.appendChild(style);
 
-  document.body.classList.add("scr-print-mode", "mdr-print-landscape");
 
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode", "mdr-print-landscape");
-      style.remove();
-    },
-    { once: true },
-  );
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      window.print();
-    });
-  });
-}
-
-function buildCsv(report: SalesBudgetMonthlyRevenueCrosstabReport): string {
-  const header = [
-    "Budget group",
-    ...CAL_MONTHS.map((month) => monthName(month)),
-    "Total",
-  ];
-  const lines = [
-    `Company:,${report.settings.companyName}`,
-    report.settings.department ? `Department:,${report.settings.department}` : "",
-    `Calendar year:,${report.reportYear}`,
-    "",
-    header.join(","),
-  ].filter((line) => line.length > 0);
-
-  for (const row of report.rows) {
-    lines.push(
-      [
-        `"${row.label.replace(/"/g, '""')}"`,
-        ...row.cells.map((value) => value),
-        row.rowTotal,
-      ].join(","),
-    );
-  }
-
-  lines.push(
-    [
-      "Column totals (XAF)",
-      ...report.colTotals.map((value) => value),
-      report.grandTotal,
-    ].join(","),
-  );
-
-  return lines.join("\n");
-}
-
-function downloadCsv(report: SalesBudgetMonthlyRevenueCrosstabReport): void {
-  const blob = new Blob([buildCsv(report)], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `sales-budget-monthly-revenue-crosstab-${report.reportYear}.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
-}
 
 function formatGeneratedAt(iso: string): string {
   return formatDisplayDateTime(iso);
@@ -97,9 +31,9 @@ export function SalesBudgetMonthlyRevenueCrosstabScreen({
   onNavigate,
   windowMode = false,
 }: SalesBudgetMonthlyRevenueCrosstabScreenProps) {
+  void windowMode;
   const [report, setReport] = useState<SalesBudgetMonthlyRevenueCrosstabReport | null>(null);
   const [reportYear, setReportYear] = useState<number | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -130,7 +64,7 @@ export function SalesBudgetMonthlyRevenueCrosstabScreen({
     return () => {
       cancelled = true;
     };
-  }, [reportYear, reloadKey]);
+  }, [reportYear]);
 
   if (loading && !report) {
     return <p class="scr-status">Loading sales budget monthly revenue crosstab…</p>;
@@ -145,7 +79,11 @@ export function SalesBudgetMonthlyRevenueCrosstabScreen({
   }
 
   return (
-    <div class="scr-page sbc-root" data-print-page="sales-budget-monthly-revenue-crosstab">
+    <ReportFilterGate
+      ready
+      reportId="sales-budget-monthly-revenue-crosstab"
+      className="scr-page sbc-root"
+      filters={
       <div class="sbc-toolbar no-print">
         <div class="sbc-year-picker">
           {report.yearChoices.map((year) => (
@@ -159,34 +97,16 @@ export function SalesBudgetMonthlyRevenueCrosstabScreen({
             </button>
           ))}
         </div>
-
-        <div class="scr-toolbar-actions sbc-actions">
-          <button type="button" class="scr-btn" onClick={() => handlePrint()}>
-            Print
-          </button>
-          {windowMode ? (
-            <ReportWindowSaveButton
-              fileName={`sales-budget-monthly-revenue-${report.reportYear}.pdf`}
-            />
-          ) : null}
-          <button type="button" class="scr-btn" onClick={() => downloadCsv(report)}>
-            Export CSV
-          </button>
-          <ReportCommentsEditor
-            reportId="sales-budget-monthly-revenue-crosstab"
-            comments={report.comments}
-            onSaved={() => setReloadKey((value) => value + 1)}
-          />
-          <button
-            type="button"
-            class="scr-btn"
-            onClick={() => setReloadKey((value) => value + 1)}
-          >
-            Refresh
-          </button>
-        </div>
       </div>
-
+      }
+    >
+      <DocumentPreview
+        title="Sales budget monthly revenue"
+        fileName={`sales-budget-monthly-revenue-${report.reportYear}.pdf`}
+        page="landscape-tight"
+        bodyClass="mdr-print-landscape"
+        sourceKey={report}
+      >
       <ReportDocumentShell
         className="scr-document"
         isEmpty={salesBudgetMonthlyRevenueCrosstabEmptyMessage(report) !== null}
@@ -281,6 +201,7 @@ export function SalesBudgetMonthlyRevenueCrosstabScreen({
             </table>
           </div>
       </ReportDocumentShell>
-    </div>
+      </DocumentPreview>
+    </ReportFilterGate>
   );
 }

@@ -4,14 +4,15 @@
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 16px;
-  padding-top: 4px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
 }
 
 .confirm-dialog-btn-danger {
   padding: 6px 12px;
   border: none;
-  border-radius: 6px;
+  border-radius: calc(var(--radius, 0.625rem) - 2px);
   font: inherit;
   font-size: 12px;
   font-weight: 500;

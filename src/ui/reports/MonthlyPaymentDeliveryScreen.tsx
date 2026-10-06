@@ -1,10 +1,9 @@
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { useEffect, useState } from "preact/hooks";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import type { MonthlyPaymentDeliveryReport } from "../../shared/reports.types.ts";
-import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
-import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import {
   HIDE_ZERO_ROWS_HINT,
   isMonthlyPaymentDeliveryReportEmpty,
@@ -26,47 +25,7 @@ function formatMoney(value: number): string {
   return Math.round(value).toLocaleString("en-US");
 }
 
-function handlePrint(): void {
-  document.body.classList.add("scr-print-mode");
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode");
-    },
-    { once: true },
-  );
-  window.print();
-}
 
-function downloadCsv(report: MonthlyPaymentDeliveryReport): void {
-  const lines = [
-    ["WEEKS", "DATES", "PAYMENTS_KGS", "PAYMENTS_FCFA", "DELIVERIES_KGS", "DELIVERIES_FCFA"],
-    ...report.weeks.map((week) => [
-      String(week.weekIndex),
-      week.datesLabel,
-      String(Math.round(week.paymentsKg)),
-      String(Math.round(week.paymentsValue)),
-      String(Math.round(week.deliveriesKg)),
-      String(Math.round(week.deliveriesValue)),
-    ]),
-    [
-      "",
-      "TOTAL",
-      String(Math.round(report.totals.paymentsKg)),
-      String(Math.round(report.totals.paymentsValue)),
-      String(Math.round(report.totals.deliveriesKg)),
-      String(Math.round(report.totals.deliveriesValue)),
-    ],
-  ];
-  const csv = lines.map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(",")).join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `monthly-payment-delivery-${report.asAtIso}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
 
 function ReportTable({ report }: { report: MonthlyPaymentDeliveryReport }) {
   return (
@@ -129,7 +88,13 @@ function ReportDocument({ report }: { report: MonthlyPaymentDeliveryReport }) {
   const empty = isMonthlyPaymentDeliveryReportEmpty(report);
 
   return (
-    <ReportDocumentShell
+    <DocumentPreview
+        title="Monthly payment delivery"
+        fileName={`monthly-payment-delivery-${report.asAtIso}.pdf`}
+        page="portrait"
+        sourceKey={report}
+      >
+      <ReportDocumentShell
       className="scr-document mpd-document"
       isEmpty={empty}
       emptyMessage="No payment or delivery data for this month."
@@ -148,6 +113,7 @@ function ReportDocument({ report }: { report: MonthlyPaymentDeliveryReport }) {
     >
       <ReportTable report={report} />
     </ReportDocumentShell>
+      </DocumentPreview>
   );
 }
 
@@ -156,6 +122,7 @@ export function MonthlyPaymentDeliveryScreen({
 }: {
   windowMode?: boolean;
 }) {
+  void windowMode;
   const [report, setReport] = useState<MonthlyPaymentDeliveryReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -204,29 +171,7 @@ export function MonthlyPaymentDeliveryScreen({
 
   return (
     <div class="scr-page">
-      <div class="scr-toolbar no-print">
-        <button type="button" class="scr-btn" onClick={handlePrint}>
-          Print
-        </button>
-        {windowMode ? (
-          <ReportWindowSaveButton
-            fileName={`monthly-payment-delivery-${report.asAtIso}.pdf`}
-          />
-        ) : null}
-        <button
-          type="button"
-          class="scr-btn scr-btn-secondary"
-          onClick={() => downloadCsv(report)}
-        >
-          CSV
-        </button>
-        <ReportCommentsEditor
-          reportId="monthly-payment-delivery-report"
-          comments={report.comments}
-          onSaved={(comments) => setReport({ ...report, comments })}
-        />
-      </div>
-      <ReportDocument report={report} />
+            <ReportDocument report={report} />
     </div>
   );
 }

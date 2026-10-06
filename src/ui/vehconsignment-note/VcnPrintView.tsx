@@ -5,6 +5,7 @@ import {
 } from "../../shared/consignmentNoteLayout.ts";
 import type { ConsignmentPrintPayload } from "../../shared/vehicleConsignmentNotes.types.ts";
 import { getElectronApi } from "../auth/client.ts";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
 import {
   DocumentStatusStamp,
@@ -20,18 +21,6 @@ const COPY_LABELS = ["Original", "Duplicate"] as const;
 interface ConsignmentNotePrintViewProps {
   noteId: string;
   onClose: () => void;
-}
-
-function handlePrint(): void {
-  document.body.classList.add("vcn-print-mode");
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("vcn-print-mode");
-    },
-    { once: true },
-  );
-  window.print();
 }
 
 function VcnPrintDualSheet({
@@ -106,17 +95,19 @@ export function ConsignmentNotePrintView({
       ) : loading || !payload ? (
         <p class="scr-status">Loading print view…</p>
       ) : (
-        <div class="scr-page vcn-print-page">
-          <div class="scr-toolbar no-print">
-            <button type="button" class="scr-btn" onClick={handlePrint}>
-              Print
-            </button>
+        <DocumentPreview
+          title="Vehicle consignment note"
+          fileName={`consignment-note-${payload.note.consignmentNoteNo}.pdf`}
+          bodyClass="vcn-print-mode"
+          sourceKey={payload}
+        >
+          <div class="vcn-print-page">
+            <VcnPrintDualSheet
+              payload={payload}
+              layout={layoutForDisposition(payload.sale.saleDisposition)}
+            />
           </div>
-          <VcnPrintDualSheet
-            payload={payload}
-            layout={layoutForDisposition(payload.sale.saleDisposition)}
-          />
-        </div>
+        </DocumentPreview>
       )}
     </ReportOverlayShell>
   );

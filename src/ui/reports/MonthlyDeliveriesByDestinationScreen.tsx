@@ -1,10 +1,9 @@
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { useEffect, useState } from "preact/hooks";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import type { MonthlyDeliveriesByDestinationReport } from "../../shared/reports.types.ts";
-import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
-import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import {
   HIDE_ZERO_ROWS_HINT,
   isMonthlyDeliveriesByDestinationReportEmpty,
@@ -26,76 +25,7 @@ function formatPct(value: number | null): string {
   return `${value.toFixed(2)}%`;
 }
 
-function handlePrint(): void {
-  document.body.classList.add("scr-print-mode");
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode");
-    },
-    { once: true },
-  );
-  window.print();
-}
 
-function downloadCsv(report: MonthlyDeliveriesByDestinationReport): void {
-  const lines = [
-    [
-      "WEEKS",
-      "DATES",
-      "INDUSTRIES",
-      "WHOLESALES",
-      "RETAIL",
-      "CDC_WORKERS",
-      "MAKOKO_FARMS",
-      "TOTAL",
-    ],
-    ...report.weeks.map((week) => [
-      String(week.weekIndex),
-      week.datesLabel,
-      String(Math.round(week.industriesKg)),
-      String(Math.round(week.wholesalesKg)),
-      String(Math.round(week.retailKg)),
-      String(Math.round(week.cdcWorkersKg)),
-      String(Math.round(week.makokoKg)),
-      String(Math.round(week.totalKg)),
-    ]),
-    [
-      "",
-      "TOTAL",
-      String(Math.round(report.totals.industriesKg)),
-      String(Math.round(report.totals.wholesalesKg)),
-      String(Math.round(report.totals.retailKg)),
-      String(Math.round(report.totals.cdcWorkersKg)),
-      String(Math.round(report.totals.makokoKg)),
-      String(Math.round(report.totals.totalKg)),
-    ],
-    [
-      "",
-      "TOTAL %",
-      report.percentages.industriesPct == null
-        ? ""
-        : report.percentages.industriesPct.toFixed(2),
-      report.percentages.wholesalesPct == null
-        ? ""
-        : report.percentages.wholesalesPct.toFixed(2),
-      report.percentages.retailPct == null ? "" : report.percentages.retailPct.toFixed(2),
-      report.percentages.cdcWorkersPct == null
-        ? ""
-        : report.percentages.cdcWorkersPct.toFixed(2),
-      report.percentages.makokoPct == null ? "" : report.percentages.makokoPct.toFixed(2),
-      report.percentages.totalPct == null ? "" : report.percentages.totalPct.toFixed(2),
-    ],
-  ];
-  const csv = lines.map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(",")).join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `monthly-deliveries-by-destination-${report.asAtIso}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
 
 function KgCells({
   industriesKg,
@@ -177,7 +107,13 @@ function ReportDocument({ report }: { report: MonthlyDeliveriesByDestinationRepo
   const empty = isMonthlyDeliveriesByDestinationReportEmpty(report);
 
   return (
-    <ReportDocumentShell
+    <DocumentPreview
+        title="Deliveries by destination"
+        fileName={`monthly-deliveries-by-destination-${report.asAtIso}.pdf`}
+        page="portrait"
+        sourceKey={report}
+      >
+      <ReportDocumentShell
       className="scr-document mdd-document"
       isEmpty={empty}
       emptyMessage="No deliveries by destination for this period."
@@ -196,6 +132,7 @@ function ReportDocument({ report }: { report: MonthlyDeliveriesByDestinationRepo
     >
       <ReportTable report={report} />
     </ReportDocumentShell>
+      </DocumentPreview>
   );
 }
 
@@ -204,6 +141,7 @@ export function MonthlyDeliveriesByDestinationScreen({
 }: {
   windowMode?: boolean;
 }) {
+  void windowMode;
   const [report, setReport] = useState<MonthlyDeliveriesByDestinationReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -252,29 +190,7 @@ export function MonthlyDeliveriesByDestinationScreen({
 
   return (
     <div class="scr-page">
-      <div class="scr-toolbar no-print">
-        <button type="button" class="scr-btn" onClick={handlePrint}>
-          Print
-        </button>
-        {windowMode ? (
-          <ReportWindowSaveButton
-            fileName={`monthly-deliveries-by-destination-${report.asAtIso}.pdf`}
-          />
-        ) : null}
-        <button
-          type="button"
-          class="scr-btn scr-btn-secondary"
-          onClick={() => downloadCsv(report)}
-        >
-          CSV
-        </button>
-        <ReportCommentsEditor
-          reportId="monthly-deliveries-by-destination-report"
-          comments={report.comments}
-          onSaved={(comments) => setReport({ ...report, comments })}
-        />
-      </div>
-      <ReportDocument report={report} />
+            <ReportDocument report={report} />
     </div>
   );
 }

@@ -138,20 +138,6 @@ html[data-theme="dark"] .report-overlay-body .scr-status {
   color: #4b5563 !important;
 }
 
-html[data-theme="dark"] .report-overlay-panel {
-  background: #ffffff;
-  color: #111827;
-}
-
-html[data-theme="dark"] .report-overlay-body {
-  background: #ffffff;
-  color: #111827;
-}
-
-html[data-theme="dark"] .report-overlay-title {
-  color: #111827;
-}
-
 html[data-theme="dark"] .report-overlay-body .scr-page,
 html[data-theme="dark"] .report-overlay-body .sbc-root {
   color: #111827;
@@ -186,17 +172,16 @@ html[data-theme="dark"] .report-overlay-body .bwi-estimate-hint {
   color: #6b7280 !important;
 }
 
-/* Match Print (green) for all report toolbar actions under dark shell */
 html[data-theme="dark"] .scr-page .scr-btn-secondary,
 html[data-theme="dark"] .report-overlay-panel .scr-btn-secondary {
-  background: #2f7d32 !important;
-  background-color: #2f7d32 !important;
-  color: #ffffff !important;
-  border-color: #256628 !important;
+  background: var(--bg-elevated) !important;
+  background-color: var(--bg-elevated) !important;
+  color: var(--text-h) !important;
+  border-color: var(--border-strong) !important;
 }
 
 html[data-theme="dark"] .scr-page .scr-btn-secondary:hover:not(:disabled),
 html[data-theme="dark"] .report-overlay-panel .scr-btn-secondary:hover:not(:disabled) {
-  background: #256628 !important;
-  background-color: #256628 !important;
+  background: var(--bg-soft) !important;
+  background-color: var(--bg-soft) !important;
 }

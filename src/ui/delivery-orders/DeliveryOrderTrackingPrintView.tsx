@@ -2,8 +2,7 @@ import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import { ReportHeader } from "../reports/ReportHeader.tsx";
 import { ReportFooter } from "../reports/ReportFooter.tsx";
 import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
-import { ReportWindowSaveButton } from "../reports/ReportWindowSaveButton.tsx";
-import { printPortraitDocument } from "../reports/printPortraitDocument.ts";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import type { DeliveryOrderTrackPayload } from "./types.ts";
 import "../reports/StockCommitmentReport.css";
 import "./DeliveryOrderPrintView.css";
@@ -63,20 +62,11 @@ export function DeliveryOrderTrackingPrintView({
 
   return (
     <ReportOverlayShell title={shellTitle} onClose={onClose}>
-      <div class="scr-page">
-        <div class="scr-toolbar no-print">
-          <div class="scr-toolbar-actions">
-            <button
-              type="button"
-              class="scr-btn"
-              onClick={() => printPortraitDocument()}
-            >
-              Print
-            </button>
-            <ReportWindowSaveButton fileName={pdfFileName} />
-          </div>
-        </div>
-
+      <DocumentPreview
+        title={shellTitle}
+        fileName={pdfFileName}
+        sourceKey={payload}
+      >
         <article class="scr-document do-print-document">
           <ReportHeader
             companyName={payload.companyName}
@@ -306,7 +296,7 @@ export function DeliveryOrderTrackingPrintView({
             />
           </section>
         </article>
-      </div>
+      </DocumentPreview>
     </ReportOverlayShell>
   );
 }

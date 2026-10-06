@@ -1,15 +1,13 @@
 import { useEffect, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { Fragment } from "preact";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import type {
-  OtherProductSalesDeliveriesMetrics,
   OtherProductSalesDeliveriesReport,
   OtherProductSalesDeliveriesRow,
 } from "../../shared/reports.types.ts";
-import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
-import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import {
   HIDE_ZERO_ROWS_HINT,
   isOtherProductSalesDeliveriesReportEmpty,
@@ -31,102 +29,6 @@ function formatValue(value: number): string {
   return Math.round(value).toLocaleString("en-US");
 }
 
-function handlePrint(): void {
-  const style = document.createElement("style");
-  style.id = "opsd-print-landscape-style";
-  style.textContent =
-    "@media print { @page { size: A4 landscape; margin: 6mm 10mm; } }";
-  document.head.appendChild(style);
-  document.body.classList.add("scr-print-mode", "opsd-print-landscape");
-
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode", "opsd-print-landscape");
-      style.remove();
-    },
-    { once: true },
-  );
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      window.print();
-    });
-  });
-}
-
-function csvKg(value: number): string {
-  return Math.abs(value) < 0.5 ? "" : String(Math.round(value));
-}
-
-function csvValue(value: number): string {
-  return Math.abs(value) < 0.5 ? "" : String(Math.round(value));
-}
-
-function metricsCsv(metrics: OtherProductSalesDeliveriesMetrics): string[] {
-  return [
-    csvKg(metrics.paymentsKg),
-    csvValue(metrics.paymentsValue),
-    csvKg(metrics.deliveriesKg),
-    csvValue(metrics.deliveriesValue),
-  ];
-}
-
-function downloadCsv(report: OtherProductSalesDeliveriesReport): void {
-  const lines: string[] = [
-    `Company:,${report.settings.companyName}`,
-    report.settings.department ? `Department:,${report.settings.department}` : "",
-    `Financial Year:,${report.financialYear}`,
-    `Month:,${report.monthName}`,
-    `As at:,${report.asAtIso}`,
-    "",
-    [
-      "SALES POINT",
-      "PRODUCT",
-      "PAYMENTS KGS",
-      "PAYMENTS F.CFA",
-      "DELIVERIES KGS",
-      "DELIVERIES F.CFA",
-    ].join(","),
-  ];
-
-  for (const section of report.sections) {
-    for (const [index, row] of section.productRows.entries()) {
-      lines.push(
-        [
-          index === 0 ? row.salesPointLabel : "",
-          row.productLabel,
-          ...metricsCsv(row),
-        ].join(","),
-      );
-    }
-    lines.push(
-      [
-        section.subtotal.salesPointLabel,
-        "",
-        ...metricsCsv(section.subtotal),
-      ].join(","),
-    );
-  }
-
-  lines.push(
-    [
-      report.grandTotal.salesPointLabel,
-      "",
-      ...metricsCsv(report.grandTotal),
-    ].join(","),
-  );
-
-  const csv = lines.filter((line) => line.length > 0).join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `other-product-sales-deliveries-${report.financialYear}-${report.asAtIso}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
 function MetricCells({ row }: { row: OtherProductSalesDeliveriesRow }) {
   return (
     <>
@@ -142,7 +44,14 @@ function ReportDocument({ report }: { report: OtherProductSalesDeliveriesReport 
   const empty = isOtherProductSalesDeliveriesReportEmpty(report);
 
   return (
-    <ReportDocumentShell
+    <DocumentPreview
+        title="Other product sales deliveries"
+        fileName={`other-product-sales-deliveries-${report.financialYear}-${report.asAtIso}.pdf`}
+        page="landscape"
+        bodyClass="opsd-print-landscape"
+        sourceKey={report}
+      >
+      <ReportDocumentShell
       className="scr-document opsd-document"
       isEmpty={empty}
       emptyMessage="No other-product (non-LPO / non-bottled) sales in this period."
@@ -221,6 +130,7 @@ function ReportDocument({ report }: { report: OtherProductSalesDeliveriesReport 
         0 dp
       </p>
     </ReportDocumentShell>
+      </DocumentPreview>
   );
 }
 
@@ -229,6 +139,7 @@ export function OtherProductSalesDeliveriesScreen({
 }: {
   windowMode?: boolean;
 }) {
+  void windowMode;
   const [report, setReport] =
     useState<OtherProductSalesDeliveriesReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -283,29 +194,7 @@ export function OtherProductSalesDeliveriesScreen({
 
   return (
     <div class="scr-page opsd-page">
-      <div class="scr-toolbar no-print">
-        <button type="button" class="scr-btn" onClick={handlePrint}>
-          Print
-        </button>
-        {windowMode ? (
-          <ReportWindowSaveButton
-            fileName={`other-product-sales-deliveries-${report.financialYear}-${report.asAtIso}.pdf`}
-          />
-        ) : null}
-        <button
-          type="button"
-          class="scr-btn scr-btn-secondary"
-          onClick={() => downloadCsv(report)}
-        >
-          CSV
-        </button>
-        <ReportCommentsEditor
-          reportId="other-product-sales-deliveries-report"
-          comments={report.comments}
-          onSaved={(comments) => setReport({ ...report, comments })}
-        />
-      </div>
-      <ReportDocument report={report} />
+            <ReportDocument report={report} />
     </div>
   );
 }

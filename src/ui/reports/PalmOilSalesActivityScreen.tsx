@@ -1,15 +1,13 @@
 import { useEffect, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import type {
-  PalmOilSalesActivityCell,
   PalmOilSalesActivityReport,
   PalmOilSalesActivityRow,
   PalmOilSalesActivitySection,
 } from "../../shared/reports.types.ts";
-import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
-import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import { isPalmOilSalesActivityReportEmpty } from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 import "./PalmOilSalesActivityReport.css";
@@ -47,110 +45,6 @@ function formatPct(value: number | null | undefined): string {
     return "";
   }
   return `${Math.round(value)}%`;
-}
-
-function handlePrint(): void {
-  const style = document.createElement("style");
-  style.id = "posa-print-landscape-style";
-  style.textContent = `@media print { @page { size: A4 landscape; margin: 6mm 10mm; } }`;
-  document.head.appendChild(style);
-
-  document.body.classList.add("scr-print-mode", "posa-print-landscape");
-
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode", "posa-print-landscape");
-      style.remove();
-    },
-    { once: true },
-  );
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      window.print();
-    });
-  });
-}
-
-function cellCsv(cell: PalmOilSalesActivityCell): [string, string] {
-  return [
-    Math.abs(cell.tons) < 0.0005 ? "" : String(Number(cell.tons.toFixed(3))),
-    Math.abs(cell.value) < 500 ? "" : String(Math.round(cell.value / 1000)),
-  ];
-}
-
-function appendSectionCsv(lines: string[], section: PalmOilSalesActivitySection): void {
-  const monthHeaders = section.monthColumns.flatMap((column) => [
-    `${column.label} TONS`,
-    `${column.label} FCFA`,
-  ]);
-  lines.push(
-    section.title,
-    ["", ...monthHeaders, "TODATE TONS", "TODATE FCFA", "%TAGE"].join(","),
-  );
-
-  for (const row of section.rows) {
-    if (row.kind === "section") {
-      continue;
-    }
-    const monthValues = row.months.flatMap((cell) => cellCsv(cell));
-    const toDate = cellCsv(row.toDate);
-    if (row.kind === "avg_price") {
-      lines.push(
-        [
-          row.label,
-          ...row.months.flatMap((cell) => [
-            formatTons(cell.tons),
-            formatAvgPrice(cell.value),
-          ]),
-          formatTons(row.toDate.tons),
-          formatAvgPrice(row.toDate.value),
-          "",
-        ].join(","),
-      );
-      continue;
-    }
-    if (row.kind === "budget") {
-      lines.push(
-        [
-          row.label,
-          ...monthValues.map(() => ""),
-          "",
-          formatAvgPrice(row.toDate.value),
-          formatPct(row.pctTage),
-        ].join(","),
-      );
-      continue;
-    }
-    lines.push(
-      [row.label, ...monthValues, ...toDate, formatPct(row.pctTage)].join(","),
-    );
-  }
-  lines.push("");
-}
-
-function downloadCsv(report: PalmOilSalesActivityReport): void {
-  const lines: string[] = [
-    `Company:,${report.settings.companyName}`,
-    report.settings.department ? `Department:,${report.settings.department}` : "",
-    `Financial Year:,${report.financialYear}`,
-    `As at:,${report.asAtIso}`,
-    `Value unit:,000 FRS`,
-    "",
-  ];
-  appendSectionCsv(lines, report.looseOilSection);
-  appendSectionCsv(lines, report.looseAndBtldSection);
-
-  const blob = new Blob([lines.filter((line) => line.length > 0).join("\n")], {
-    type: "text/csv;charset=utf-8;",
-  });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `palm-oil-sales-activity-${report.financialYear}-${report.asAtIso}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }
 
 function ActivitySectionTable({ section }: { section: PalmOilSalesActivitySection }) {
@@ -279,7 +173,14 @@ function ReportDocument({ report }: { report: PalmOilSalesActivityReport }) {
   const empty = isPalmOilSalesActivityReportEmpty(report);
 
   return (
-    <ReportDocumentShell
+    <DocumentPreview
+        title="Palm oil sales activity"
+        fileName={`palm-oil-sales-activity-${report.financialYear}-${report.asAtIso}.pdf`}
+        page="landscape"
+        bodyClass="posa-print-landscape"
+        sourceKey={report}
+      >
+      <ReportDocumentShell
       className="scr-document posa-document"
       isEmpty={empty}
       emptyMessage="No palm oil sales activity for this year."
@@ -299,6 +200,7 @@ function ReportDocument({ report }: { report: PalmOilSalesActivityReport }) {
       <ActivitySectionTable section={report.looseAndBtldSection} />
       <p class="posa-footnote">Value in &apos;000 FRS · taxes excluded</p>
     </ReportDocumentShell>
+      </DocumentPreview>
   );
 }
 
@@ -307,6 +209,7 @@ export function PalmOilSalesActivityScreen({
 }: {
   windowMode?: boolean;
 }) {
+  void windowMode;
   const [report, setReport] = useState<PalmOilSalesActivityReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -355,29 +258,7 @@ export function PalmOilSalesActivityScreen({
 
   return (
     <div class="scr-page posa-page">
-      <div class="scr-toolbar no-print">
-        <button type="button" class="scr-btn" onClick={handlePrint}>
-          Print
-        </button>
-        {windowMode ? (
-          <ReportWindowSaveButton
-            fileName={`palm-oil-sales-activity-${report.financialYear}-${report.asAtIso}.pdf`}
-          />
-        ) : null}
-        <button
-          type="button"
-          class="scr-btn scr-btn-secondary"
-          onClick={() => downloadCsv(report)}
-        >
-          Export CSV
-        </button>
-        <ReportCommentsEditor
-          reportId="palm-oil-sales-activity-report"
-          comments={report.comments}
-          onSaved={(comments) => setReport({ ...report, comments })}
-        />
-      </div>
-
+      
       {error ? <p class="scr-status scr-status-error no-print">{error}</p> : null}
 
       <ReportDocument report={report} />

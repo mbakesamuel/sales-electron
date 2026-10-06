@@ -6,7 +6,7 @@
   flex: 1;
   min-height: 0;
   height: 100%;
-  gap: 24px;
+  gap: 16px;
   color: var(--text-h);
   font-size: 14px;
 }
@@ -30,8 +30,8 @@
 
 .stock-header h1 {
   margin: 0 0 4px;
-  font-size: 24px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 700;
   color: var(--text-h);
   letter-spacing: -0.02em;
 }
@@ -86,36 +86,37 @@
 
 /* Tabs */
 .stock-tabs {
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
+  align-self: flex-start;
   gap: 4px;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--bg-soft);
 }
 
 .stock-tab {
-  padding: 8px 12px;
-  border: 1px solid transparent;
-  border-bottom: none;
-  border-radius: 8px 8px 0 0;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 6px;
   background: transparent;
   color: var(--text-muted);
   font: inherit;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  opacity: 0.75;
 }
 
 .stock-tab:hover {
-  opacity: 1;
+  color: var(--text-h);
 }
 
 .stock-tab.is-active {
-  border-color: var(--border);
   background: var(--bg-elevated);
   color: var(--text-h);
-  font-weight: 600;
-  opacity: 1;
+  font-weight: 500;
+  box-shadow: var(--shadow);
 }
 
 /* Banners & states */

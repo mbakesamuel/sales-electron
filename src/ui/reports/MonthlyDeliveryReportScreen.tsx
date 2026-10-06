@@ -1,20 +1,18 @@
 import { useEffect, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import type {
   MonthlyDeliveryBudgetSection,
   MonthlyDeliveryReport,
 } from "../../shared/reports.types.ts";
-import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
-import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import {
   HIDE_ZERO_ROWS_HINT,
   isMonthlyDeliveryReportEmpty,
 } from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 import "./MonthlyDeliveryReport.css";
-
 
 interface MonthlyDeliveryReportScreenProps {
   half: 1 | 2;
@@ -78,140 +76,6 @@ function formatVariance(value: number): string {
   const thousands = Math.round(toThousands(value));
   const abs = Math.abs(thousands).toLocaleString("en-US");
   return thousands < 0 ? `(${abs})` : abs;
-}
-
-function handlePrint(): void {
-  const style = document.createElement("style");
-  style.id = "mdr-print-landscape-style";
-  style.textContent = `@media print { @page { size: A4 landscape; margin: 6mm 14mm; } }`;
-  document.head.appendChild(style);
-  document.body.classList.add("scr-print-mode", "mdr-print-landscape");
-
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode", "mdr-print-landscape");
-      style.remove();
-    },
-    { once: true },
-  );
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      window.print();
-    });
-  });
-}
-
-function buildCsv(report: MonthlyDeliveryReport): string {
-  const monthHeaders = report.monthColumns.flatMap((column) => [
-    `${column.label} TONS`,
-    `${column.label} VALUE (000 FCFA)`,
-  ]);
-  const lines: string[] = [
-    `Company:,${report.settings.companyName}`,
-    report.settings.department ? `Department:,${report.settings.department}` : "",
-    `Financial Year:,${report.financialYear}`,
-    `Half:,${report.half}`,
-    `Value unit:,000 FCFA`,
-    "",
-    ["", ...monthHeaders, "TODATE TONS", "TODATE VALUE (000 FCFA)"].join(","),
-  ];
-
-  for (const section of report.sections) {
-    lines.push(section.title);
-    for (const row of section.rows) {
-      const monthValues = row.months.flatMap((cell) => [
-        cell.tons,
-        Math.round(toThousands(cell.value)),
-      ]);
-      lines.push(
-        [
-          row.label,
-          ...monthValues,
-          row.toDate.tons,
-          Math.round(toThousands(row.toDate.value)),
-        ].join(","),
-      );
-    }
-    lines.push("");
-  }
-
-  function appendBudgetCsv(
-    section: MonthlyDeliveryReport["budgetSection"],
-    includeGrand: boolean,
-  ): void {
-    lines.push(section.title);
-    const header = [
-      "",
-      ...section.metrics.flatMap((metric) => [
-        `${metric.tonsLabel} ESTIMATE`,
-        `${metric.tonsLabel} ACTUAL`,
-        `${metric.valueLabel} ESTIMATE (000 FCFA)`,
-        `${metric.valueLabel} ACTUAL (000 FCFA)`,
-      ]),
-    ];
-    if (includeGrand) {
-      header.push(
-        "G.TOTAL ESTIMATE (000 FCFA)",
-        "G.TOTAL ACTUAL (000 FCFA)",
-        "variance (000 FCFA)",
-      );
-    }
-    lines.push(header.join(","));
-
-    const toDate = [
-      "TO-DATE",
-      ...section.metrics.flatMap((metric) => [
-        Math.round(metric.estimateTons),
-        metric.actualTons,
-        Math.round(toThousands(metric.estimateValue)),
-        Math.round(toThousands(metric.actualValue)),
-      ]),
-    ];
-    if (includeGrand) {
-      toDate.push(
-        Math.round(toThousands(section.grandEstimateValue)),
-        Math.round(toThousands(section.grandActualValue)),
-        Math.round(toThousands(section.variance)),
-      );
-    }
-    lines.push(toDate.join(","));
-
-    const pct = [
-      "%TAGE",
-      ...section.metrics.flatMap((metric) => [
-        "",
-        formatPct(metric.actualTons, metric.estimateTons),
-        "",
-        formatPct(metric.actualValue, metric.estimateValue),
-      ]),
-    ];
-    if (includeGrand) {
-      pct.push(
-        "",
-        formatPct(section.grandActualValue, section.grandEstimateValue),
-        "",
-      );
-    }
-    lines.push(pct.join(","));
-    lines.push("");
-  }
-
-  appendBudgetCsv(report.kernelPkBudgetSection, false);
-  appendBudgetCsv(report.budgetSection, true);
-
-  return lines.join("\n");
-}
-
-function downloadCsv(report: MonthlyDeliveryReport): void {
-  const blob = new Blob([buildCsv(report)], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `monthly-delivery-h${report.half}-${report.financialYear}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }
 
 function BudgetTable({
@@ -361,6 +225,7 @@ export function MonthlyDeliveryReportScreen({
   half,
   windowMode = false,
 }: MonthlyDeliveryReportScreenProps) {
+  void windowMode;
   const [report, setReport] = useState<MonthlyDeliveryReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -409,44 +274,13 @@ export function MonthlyDeliveryReportScreen({
 
   return (
     <div class="scr-page mdr-page">
-      <div class="scr-toolbar no-print">
-        <button type="button" class="scr-btn" onClick={handlePrint}>
-          Print
-        </button>
-        {windowMode ? (
-          <ReportWindowSaveButton
-            fileName={`monthly-delivery-h${half}-${report.asAtIso}.pdf`}
-          />
-        ) : null}
-        <button
-          type="button"
-          class="scr-btn scr-btn-secondary"
-          onClick={() => {
-            downloadCsv(report);
-          }}
-        >
-          Export CSV
-        </button>
-        <ReportCommentsEditor
-          reportId={
-            half === 1 ? "monthly-delivery-report-h1" : "monthly-delivery-report-h2"
-          }
-          comments={report.comments}
-          onSaved={() => {
-            void getAuthenticatedReports().getMonthlyDelivery(half).then(setReport);
-          }}
-        />
-        <button
-          type="button"
-          class="scr-btn scr-btn-secondary"
-          onClick={() => {
-            void getAuthenticatedReports().getMonthlyDelivery(half).then(setReport);
-          }}
-        >
-          Refresh
-        </button>
-      </div>
-
+      <DocumentPreview
+        title="Monthly delivery"
+        fileName={`monthly-delivery-h${half}-${report.asAtIso}.pdf`}
+        page="landscape-wide"
+        bodyClass="mdr-print-landscape"
+        sourceKey={report}
+      >
       <ReportDocumentShell
         className="scr-document mdr-document sr-stock-compact"
         isEmpty={isMonthlyDeliveryReportEmpty(report)}
@@ -552,6 +386,7 @@ export function MonthlyDeliveryReportScreen({
           half-scoped (Jan–Jun or Jul–Dec).
         </p>
       </ReportDocumentShell>
+      </DocumentPreview>
     </div>
   );
 }

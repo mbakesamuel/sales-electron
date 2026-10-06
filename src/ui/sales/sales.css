@@ -9,27 +9,33 @@
 }
 
 .sales-tabs {
-  display: flex;
-  gap: 8px;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-self: flex-start;
+  gap: 4px;
   flex-shrink: 0;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--bg-soft);
 }
 
 .sales-tab {
   padding: 4px 10px;
-  border: 1px solid var(--border-strong);
+  border: none;
   border-radius: 6px;
-  background: #fff;
-  color: var(--text-h);
+  background: transparent;
+  color: var(--text-muted);
   font: inherit;
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
 }
 
 .sales-tab.is-active {
-  background: var(--accent-bg);
-  border-color: var(--accent-border);
-  color: var(--accent);
-  font-weight: 600;
+  background: var(--bg-elevated);
+  color: var(--text-h);
+  font-weight: 500;
+  box-shadow: var(--shadow);
 }
 
 .sales-client,
@@ -56,6 +62,7 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--bg-elevated);
+  box-shadow: var(--shadow);
 }
 
 .sales-panel-header,

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
+import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
 import {
   formatDisplayDate as formatDate,
   formatDisplayDateTime,
@@ -304,6 +306,7 @@ interface PaymentMethodsScreenProps {
 export function PaymentMethodsScreen({
   readOnly = false,
 }: PaymentMethodsScreenProps = {}) {
+  const [printOpen, setPrintOpen] = useState(false);
   const canWrite = !readOnly;
   const [rows, setRows] = useState<PaymentMethodRow[]>([]);
   const [schema, setSchema] = useState<TableSchema | null>(null);
@@ -613,25 +616,7 @@ export function PaymentMethodsScreen({
       return;
     }
 
-    const style = document.createElement("style");
-    style.id = "payment-methods-print-page-style";
-    style.textContent =
-      "@media print { @page { size: A4 portrait; margin: 10mm; } }";
-    document.head.appendChild(style);
-
-    document.body.classList.add("customers-print-mode", "payment-methods-print-mode");
-    window.addEventListener(
-      "afterprint",
-      () => {
-        document.body.classList.remove(
-          "customers-print-mode",
-          "payment-methods-print-mode",
-        );
-        style.remove();
-      },
-      { once: true },
-    );
-    window.print();
+    setPrintOpen(true);
   }
 
   const tabs: Array<{ id: ActiveTab; label: string }> = [
@@ -955,7 +940,16 @@ export function PaymentMethodsScreen({
         </FormDialog>
       ) : null}
 
-      <div class="customers-print-document" aria-hidden="true">
+      {printOpen ? (
+        <ReportOverlayShell title="Payment methods" onClose={() => setPrintOpen(false)}>
+          <DocumentPreview
+            title="Payment methods"
+            fileName="payment-methods.pdf"
+            page="list"
+            bodyClass="customers-print-mode payment-methods-print-mode"
+            sourceKey={printRows}
+          >
+            <div class="customers-print-document" aria-hidden="true">
         <header class="customers-print-header">
           <h1>Payment Method List</h1>
           <p>
@@ -991,6 +985,9 @@ export function PaymentMethodsScreen({
           </tbody>
         </table>
       </div>
+          </DocumentPreview>
+        </ReportOverlayShell>
+      ) : null}
     </div>
   );
 }

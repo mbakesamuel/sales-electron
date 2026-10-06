@@ -260,8 +260,24 @@ contextBridge.exposeInMainWorld("api", {
     alert: (message) => ipcRenderer.sendSync("dialog:alert", message),
   },
   print: {
-    exportPdf: (defaultFileName) =>
-      ipcRenderer.invoke("print:exportPdf", defaultFileName),
+    htmlToPdf: async (html, options) => {
+      const base64 = await ipcRenderer.invoke("print:htmlToPdf", html, options);
+      if (typeof base64 !== "string" || base64.length === 0) {
+        throw new Error("PDF generation returned no data");
+      }
+      // Copy into a new ArrayBuffer. A view into Node's pooled Buffer is
+      // detached on the context bridge and blanks the PDF viewer.
+      return new Uint8Array(Buffer.from(base64, "base64"));
+    },
+    printHtml: (html, options) =>
+      ipcRenderer.invoke("print:printHtml", html, options),
+    printPdf: (data) =>
+      ipcRenderer.invoke("print:printPdf", Buffer.from(data)),
+    savePdf: (input) =>
+      ipcRenderer.invoke("print:savePdf", {
+        defaultName: input.defaultName,
+        data: Buffer.from(input.data),
+      }),
   },
   backup: {
     getInfo: (authToken) => ipcRenderer.invoke("backup:getInfo", authToken),

@@ -1,0 +1,29 @@
+.doc-preview {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  gap: 8px;
+  min-height: 0;
+}
+
+.doc-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.doc-preview-status {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted, #374151);
+}
+
+.doc-preview-capture {
+  contain: paint;
+  position: absolute;
+  width: 1100px;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}

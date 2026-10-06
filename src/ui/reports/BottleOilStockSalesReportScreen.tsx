@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type {
@@ -7,17 +8,13 @@ import type {
   BottleOilStockSalesReport,
   BottleOilStockSection,
 } from "../../shared/reports.types.ts";
-import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
-import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import {
   HIDE_ZERO_ROWS_HINT,
   isBottleOilStockSalesReportEmpty,
 } from "./reportEmpty.ts";
-import { printWeeklyPortraitDocument } from "./printWeeklyPortraitDocument.ts";
 import "./StockCommitmentReport.css";
-
 
 function formatQty(value: number | null | undefined): string {
   if (value == null) {
@@ -47,90 +44,6 @@ function formatPercent(value: number): string {
 
 function formatFcfa(value: number): string {
   return Math.round(value).toLocaleString("en-US");
-}
-
-function handlePrint(): void {
-  printWeeklyPortraitDocument();
-}
-
-function buildCsv(report: BottleOilStockSalesReport): string {
-  const lines: string[] = [
-    `Company:,${report.settings.companyName}`,
-    report.settings.department
-      ? `Department:,${report.settings.department}`
-      : "",
-    `AS AT:,${formatDisplayDate(report.asAtIso)}`,
-    "",
-    report.stockSection.title,
-    ["", ...report.stockSection.columns.map((column) => column.unitLabel)].join(
-      ",",
-    ),
-  ];
-
-  for (const row of report.stockSection.rows) {
-    lines.push([row.salesPointName, ...row.unitCounts].join(","));
-  }
-
-  lines.push("");
-  lines.push(
-    [
-      "",
-      ...report.stockSection.columns.map((column) => column.kgLabel),
-      "TOTAL (KGs)",
-    ].join(","),
-  );
-  for (const row of report.stockSection.rows) {
-    lines.push([row.salesPointName, ...row.kgCounts, row.rowTotalKg].join(","));
-  }
-
-  lines.push("", report.salesSection.title);
-  lines.push(
-    [
-      "",
-      ...report.salesSection.columns.map((column) => column.label),
-      "TOTAL (KGs)",
-    ].join(","),
-  );
-
-  for (const row of report.salesSection.rows) {
-    if (row.kind === "percentage" || row.kind === "value_percentage") {
-      lines.push(
-        [
-          row.label,
-          ...row.kgs.map(formatPercent),
-          formatPercent(row.rowTotalKg),
-        ].join(","),
-      );
-      continue;
-    }
-    if (row.kind === "value") {
-      lines.push(
-        [
-          row.label,
-          ...row.values.map(formatFcfa),
-          formatFcfa(row.rowTotalValue),
-        ].join(","),
-      );
-      continue;
-    }
-    lines.push(
-      [row.label, ...row.kgs.map(formatKg), formatKg(row.rowTotalKg)].join(","),
-    );
-  }
-
-  return lines.join("\n");
-}
-
-function downloadCsv(report: BottleOilStockSalesReport): void {
-  const blob = new Blob([buildCsv(report)], {
-    type: "text/csv;charset=utf-8;",
-  });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `bottle-oil-stock-sales-${report.asAtIso}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }
 
 function StockSection({ section }: { section: BottleOilStockSection }) {
@@ -294,7 +207,13 @@ export function BottleOilStockSalesReportDocument({
   const empty = isBottleOilStockSalesReportEmpty(report);
 
   return (
-    <ReportDocumentShell
+    <DocumentPreview
+        title="Bottle oil stock sales"
+        fileName={`bottle-oil-stock-sales-${report.asAtIso ?? new Date().toISOString().slice(0, 10)}.pdf`}
+        page="portrait-weekly"
+        sourceKey={report}
+      >
+      <ReportDocumentShell
       className="scr-document wpp-pack-page weekly-report-tight"
       isEmpty={empty}
       emptyMessage="No bottle-oil stock or sales to display."
@@ -314,6 +233,7 @@ export function BottleOilStockSalesReportDocument({
       <StockSection section={report.stockSection} />
       <SalesSection section={report.salesSection} />
     </ReportDocumentShell>
+      </DocumentPreview>
   );
 }
 
@@ -322,6 +242,7 @@ export function BottleOilStockSalesReportScreen({
 }: {
   windowMode?: boolean;
 }) {
+  void windowMode;
   const [report, setReport] = useState<BottleOilStockSalesReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -374,42 +295,6 @@ export function BottleOilStockSalesReportScreen({
 
   return (
     <div class="scr-page">
-      <div class="scr-toolbar no-print">
-        <button type="button" class="scr-btn" onClick={handlePrint}>
-          Print
-        </button>
-        {windowMode ? (
-          <ReportWindowSaveButton
-            fileName={`bottle-oil-stock-sales-${report.asAtIso ?? new Date().toISOString().slice(0, 10)}.pdf`}
-          />
-        ) : null}
-        <button
-          type="button"
-          class="scr-btn scr-btn-secondary"
-          onClick={() => downloadCsv(report)}
-        >
-          Export CSV
-        </button>
-        <ReportCommentsEditor
-          reportId="bottle-oil-stock-sales-report"
-          comments={report.comments}
-          onSaved={() => {
-            void getAuthenticatedReports().getBottleOilStockSales().then(setReport);
-          }}
-        />
-        <button
-          type="button"
-          class="scr-btn scr-btn-secondary"
-          onClick={() => {
-            void getAuthenticatedReports()
-              .getBottleOilStockSales()
-              .then(setReport);
-          }}
-        >
-          Refresh
-        </button>
-      </div>
-
       <BottleOilStockSalesReportDocument report={report} />
     </div>
   );

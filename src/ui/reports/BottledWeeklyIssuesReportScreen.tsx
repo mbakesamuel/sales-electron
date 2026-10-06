@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import type {
   BottledWeeklyEstimateBasis,
@@ -6,20 +7,17 @@ import type {
   BottledWeeklyMethodMetricRow,
 } from "../../shared/reports.types.ts";
 import { BOTTLED_WEEKLY_ESTIMATE_BASIS_OPTIONS } from "../../shared/reports.types.ts";
-import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
+import { ReportFilterGate } from "./ReportFilterGate.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportEmptyMessage } from "./ReportEmptyMessage.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
-import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import {
   HIDE_ZERO_ROWS_HINT,
   isBottledWeeklyIssuesReportEmpty,
 } from "./reportEmpty.ts";
-import { printWeeklyPortraitDocument } from "./printWeeklyPortraitDocument.ts";
 import "./StockCommitmentReport.css";
 import "./BottledWeeklyIssuesReport.css";
 import "./SalesBudgetCrosstab.css";
-
 
 const ESTIMATE_BASIS_STORAGE_KEY = "bwi-estimate-basis";
 
@@ -61,10 +59,6 @@ function formatAvgPrice(value: number | null): string {
   return Math.round(value).toLocaleString("en-US");
 }
 
-function handlePrint(): void {
-  printWeeklyPortraitDocument();
-}
-
 function mtdDisplay(row: BottledWeeklyMethodMetricRow): string {
   return row.kind === "kgs"
     ? formatQty(row.monthToDateKg)
@@ -73,99 +67,6 @@ function mtdDisplay(row: BottledWeeklyMethodMetricRow): string {
 
 function weekValueDisplay(row: BottledWeeklyMethodMetricRow): string {
   return row.kind === "kgs" ? formatFcfa(row.weekValue) : formatFcfa(row.weekTotal);
-}
-
-function buildCsv(report: BottledWeeklyIssuesReport): string {
-  const lines: string[] = [
-    `Company:,${report.settings.companyName}`,
-    report.settings.department ? `Department:,${report.settings.department}` : "",
-    report.settings.serviceName ? `Service:,${report.settings.serviceName}` : "",
-    `Title:,${report.reportTitle}`,
-    `Week:,${report.weekFromIso} to ${report.weekToIso}`,
-    `Week ESTM basis:,${report.estimateBasisLabel} (${report.estimateWeekDaysInMonth} day(s) in month)`,
-    "",
-    "DETAIL",
-    [
-      "MONTH",
-      "METHOD",
-      "METRIC",
-      ...report.detail.dayColumns.map((column) => column.label),
-      "TOTAL",
-      "VALUE FCFA",
-      "MONTH TO DATE",
-    ].join(","),
-  ];
-
-  for (const method of report.detail.methods) {
-    for (const row of method.rows) {
-      lines.push(
-        [
-          report.detail.monthLabel,
-          method.label,
-          row.label,
-          ...row.dayValues.map((value) =>
-            row.kind === "kgs" ? formatQty(value) : formatFcfa(value),
-          ),
-          row.kind === "kgs" ? formatQty(row.weekTotal) : formatFcfa(row.weekTotal),
-          weekValueDisplay(row),
-          mtdDisplay(row),
-        ].join(","),
-      );
-    }
-  }
-
-  lines.push("", "SUMMARY");
-  lines.push(
-    "ROW,WEEK KGS,WEEK FCFA,MTD KGS,MTD FCFA,YTD KGS,YTD FCFA,AVG PRICE",
-  );
-  for (const row of report.summary.rows) {
-    lines.push(
-      [
-        row.label,
-        row.id === "pct" ? formatPercent(row.week.kgs) : formatQty(row.week.kgs),
-        row.id === "pct" ? formatPercent(row.week.value) : formatFcfa(row.week.value),
-        row.id === "pct"
-          ? formatPercent(row.monthToDate.kgs)
-          : formatQty(row.monthToDate.kgs),
-        row.id === "pct"
-          ? formatPercent(row.monthToDate.value)
-          : formatFcfa(row.monthToDate.value),
-        row.id === "pct" ? formatPercent(row.yearToDate.kgs) : formatQty(row.yearToDate.kgs),
-        row.id === "pct"
-          ? formatPercent(row.yearToDate.value)
-          : formatFcfa(row.yearToDate.value),
-        formatAvgPrice(row.averagePrice),
-      ].join(","),
-    );
-  }
-
-  lines.push("", "COMPARE");
-  lines.push(
-    `METHOD,${report.compare.currentColumn.label},%,${report.compare.priorColumn.label},%`,
-  );
-  for (const row of report.compare.rows) {
-    lines.push(
-      [
-        row.label,
-        formatQty(row.currentKg),
-        formatPercent(row.currentPct),
-        formatQty(row.priorKg),
-        formatPercent(row.priorPct),
-      ].join(","),
-    );
-  }
-
-  return lines.filter((line) => line !== "").join("\n");
-}
-
-function downloadCsv(report: BottledWeeklyIssuesReport): void {
-  const blob = new Blob([buildCsv(report)], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `bottled-weekly-issues-${report.asAtIso}.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
 }
 
 export function BottledWeeklyIssuesReportDocument({
@@ -177,7 +78,13 @@ export function BottledWeeklyIssuesReportDocument({
   const empty = isBottledWeeklyIssuesReportEmpty(report);
 
   return (
-    <ReportDocumentShell
+    <DocumentPreview
+        title="Bottled weekly issues"
+        fileName={`bottled-weekly-issues-${report.weekToIso ?? report.asAtIso}.pdf`}
+        page="portrait-weekly"
+        sourceKey={report}
+      >
+      <ReportDocumentShell
       className="scr-document bwi-document wpp-pack-page weekly-report-tight"
       isEmpty={empty}
       emptyMessage="No bottled weekly issues for this period."
@@ -373,6 +280,7 @@ export function BottledWeeklyIssuesReportDocument({
         <ReportEmptyMessage message="No weekday columns in the current week window." />
       ) : null}
     </ReportDocumentShell>
+      </DocumentPreview>
   );
 }
 
@@ -381,6 +289,7 @@ export function BottledWeeklyIssuesReportScreen({
 }: {
   windowMode?: boolean;
 }) {
+  void windowMode;
   const [estimateBasis, setEstimateBasis] = useState<BottledWeeklyEstimateBasis>(
     readStoredEstimateBasis,
   );
@@ -424,20 +333,6 @@ export function BottledWeeklyIssuesReportScreen({
     setEstimateBasis(next);
   }
 
-  function reload() {
-    const monday = weekMondayIso ?? report?.weekMondayIso;
-    void getAuthenticatedReports()
-      .getBottledWeeklyIssues(estimateBasis, monday)
-      .then(setReport)
-      .catch((loadError: unknown) => {
-        setError(
-          loadError instanceof Error
-            ? loadError.message
-            : "Failed to load bottled weekly issues report.",
-        );
-      });
-  }
-
   if (loading && !report) {
     return <p class="scr-status">Loading bottled weekly issues...</p>;
   }
@@ -449,7 +344,12 @@ export function BottledWeeklyIssuesReportScreen({
       ?.hint ?? "";
 
   return (
-    <div class="scr-page sbc-root">
+    <ReportFilterGate
+      ready
+      reportId="bottled-weekly-issues-report"
+      className="scr-page sbc-root"
+      filters={
+        <>
       <div class="scr-toolbar no-print sbc-toolbar">
         {report.weekChoices.length > 0 ? (
           <div class="sbc-year-picker" aria-label="Week in open month">
@@ -484,36 +384,6 @@ export function BottledWeeklyIssuesReportScreen({
             ))}
           </select>
         </label>
-        <div class="scr-toolbar-actions sbc-actions">
-          <button type="button" class="scr-btn" onClick={handlePrint}>
-            Print
-          </button>
-          {windowMode ? (
-            <ReportWindowSaveButton
-              fileName={`bottled-weekly-issues-${report.weekToIso ?? report.asAtIso}.pdf`}
-            />
-          ) : null}
-          <button
-            type="button"
-            class="scr-btn scr-btn-secondary"
-            onClick={() => downloadCsv(report)}
-          >
-            Export CSV
-          </button>
-          <ReportCommentsEditor
-            reportId="bottled-weekly-issues-report"
-            comments={report.comments}
-            onSaved={reload}
-          />
-          <button
-            type="button"
-            class="scr-btn scr-btn-secondary"
-            disabled={loading}
-            onClick={reload}
-          >
-            Refresh
-          </button>
-        </div>
       </div>
       {error ? <p class="scr-status scr-status-error no-print">{error}</p> : null}
       <p class="bwi-estimate-hint no-print">
@@ -522,8 +392,10 @@ export function BottledWeeklyIssuesReportScreen({
           ? ` · ${report.estimateWeekDaysInMonth} day(s) of the open month in this week window.`
           : null}
       </p>
-
+        </>
+      }
+    >
       <BottledWeeklyIssuesReportDocument report={report} />
-    </div>
+    </ReportFilterGate>
   );
 }

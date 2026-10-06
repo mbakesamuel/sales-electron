@@ -1,10 +1,9 @@
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { useEffect, useState } from "preact/hooks";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import type { TransportCostReport } from "../../shared/reports.types.ts";
-import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
-import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import "./StockCommitmentReport.css";
 
 function formatKg(value: number): string {
@@ -18,50 +17,7 @@ function formatMoney(value: number | null): string {
   return Math.round(value).toLocaleString("en-US");
 }
 
-function handlePrint(): void {
-  document.body.classList.add("scr-print-mode");
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode");
-    },
-    { once: true },
-  );
-  window.print();
-}
 
-function downloadCsv(report: TransportCostReport): void {
-  const dataRows = report.rows.filter((row) => row.kind === "data");
-  const lines = [
-    ["CUSTOMER", "COLLECTION_POINT", "PRODUCT", "QTY_KG", "TRANSPORT_COST_XAF"],
-    ...dataRows.map((row) => [
-      row.customerName,
-      row.salesPointName,
-      row.productName,
-      String(Math.round(row.qtyKg)),
-      row.transportCost != null ? String(Math.round(row.transportCost)) : "",
-    ]),
-    [
-      "TOTAL",
-      "",
-      "",
-      String(Math.round(report.totals.qtyKg)),
-      report.totals.hasMissingRate
-        ? ""
-        : String(Math.round(report.totals.transportCost)),
-    ],
-  ];
-  const csv = lines
-    .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","))
-    .join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `transport-cost-${report.asAtIso}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
 
 function ReportTable({ report }: { report: TransportCostReport }) {
   const dataRows = report.rows.filter((row) => row.kind === "data");
@@ -123,7 +79,13 @@ export function TransportCostReportDocument({ report }: { report: TransportCostR
   const hasMissingRate = report.totals.hasMissingRate;
 
   return (
-    <ReportDocumentShell
+    <DocumentPreview
+        title="Transportation cost"
+        fileName={`transport-cost-${report.asAtIso}.pdf`}
+        page="portrait"
+        sourceKey={report}
+      >
+      <ReportDocumentShell
       className="scr-document"
       isEmpty={dataRows.length === 0}
       emptyMessage="No lifted quantities in the open month."
@@ -147,10 +109,12 @@ export function TransportCostReportDocument({ report }: { report: TransportCostR
       ) : null}
       <ReportTable report={report} />
     </ReportDocumentShell>
+      </DocumentPreview>
   );
 }
 
 export function TransportCostReportScreen({ windowMode = false }: { windowMode?: boolean }) {
+  void windowMode;
   const [report, setReport] = useState<TransportCostReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -181,23 +145,7 @@ export function TransportCostReportScreen({ windowMode = false }: { windowMode?:
 
   return (
     <div class="scr-page">
-      <div class="scr-toolbar no-print">
-        <button type="button" class="scr-btn" onClick={handlePrint}>
-          Print
-        </button>
-        <button type="button" class="scr-btn" onClick={() => downloadCsv(report)}>
-          CSV
-        </button>
-        {windowMode ? (
-          <ReportWindowSaveButton fileName={`transport-cost-${report.asAtIso}.pdf`} />
-        ) : null}
-        <ReportCommentsEditor
-          reportId="transport-cost-report"
-          comments={report.comments}
-          onSaved={(comments) => setReport({ ...report, comments })}
-        />
-      </div>
-      <TransportCostReportDocument report={report} />
+            <TransportCostReportDocument report={report} />
     </div>
   );
 }

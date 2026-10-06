@@ -6,9 +6,9 @@ import { getElectronApi } from "../auth/client.ts";
 import { QrCode } from "../components/QrCode.tsx";
 import { ReportHeader } from "../reports/ReportHeader.tsx";
 import { ReportFooter } from "../reports/ReportFooter.tsx";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
+import type { PrintPage } from "../print/buildPrintDocumentHtml.ts";
 import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
-import { ReportWindowSaveButton } from "../reports/ReportWindowSaveButton.tsx";
-import { printPortraitDocument } from "../reports/printPortraitDocument.ts";
 import {
   DocumentStatusStamp,
   draftStampLabel,
@@ -39,57 +39,35 @@ function DocumentPrintShell({
   title,
   pdfFileName,
   onClose,
-  onPrint,
-  pageClassName,
+  page = "portrait",
+  bodyClass,
+  sourceKey,
   children,
 }: {
   title: string;
   pdfFileName: string;
   onClose: () => void;
-  onPrint?: () => void;
-  pageClassName?: string;
+  page?: PrintPage;
+  bodyClass?: string;
+  sourceKey: unknown;
   children: ComponentChildren;
 }) {
   return (
     <ReportOverlayShell title={title} onClose={onClose}>
-      <div class={pageClassName ? `scr-page ${pageClassName}` : "scr-page"}>
-        <div class="scr-toolbar no-print">
-          <div class="scr-toolbar-actions">
-            <button
-              type="button"
-              class="scr-btn"
-              onClick={() => (onPrint ? onPrint() : printPortraitDocument())}
-            >
-              Print
-            </button>
-            <ReportWindowSaveButton fileName={pdfFileName} />
-          </div>
-        </div>
+      <DocumentPreview
+        title={title}
+        fileName={pdfFileName}
+        page={page}
+        bodyClass={bodyClass}
+        sourceKey={sourceKey}
+      >
         {children}
-      </div>
+      </DocumentPreview>
     </ReportOverlayShell>
   );
 }
 
 const CASH_RECEIPT_COPY_LABELS = ["Original", "Duplicate"] as const;
-
-function handleCashReceiptPrint(): void {
-  const style = document.createElement("style");
-  style.id = "sale-cash-print-page-style";
-  style.textContent = `@media print { @page { size: A4 portrait; margin: 8mm 8px; } }`;
-  document.head.appendChild(style);
-
-  document.body.classList.add("sale-cash-print-mode");
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("sale-cash-print-mode");
-      style.remove();
-    },
-    { once: true },
-  );
-  window.print();
-}
 
 function CashReceiptDocument({ payload }: { payload: SalePrintPayload }) {
   const { sale } = payload;
@@ -253,10 +231,13 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
         title={shellTitle}
         pdfFileName={pdfFileName}
         onClose={onClose}
-        onPrint={handleCashReceiptPrint}
-        pageClassName="sale-cash-print-page"
+        page="portrait-receipt"
+        bodyClass="sale-cash-print-mode"
+        sourceKey={payload}
       >
-        <CashReceiptDualSheet payload={payload} />
+        <div class="sale-cash-print-page">
+          <CashReceiptDualSheet payload={payload} />
+        </div>
       </DocumentPrintShell>
     );
   }
@@ -284,6 +265,7 @@ export function SalePrintView({ saleId, onClose }: SalePrintViewProps) {
       title={shellTitle}
       pdfFileName={pdfFileName}
       onClose={onClose}
+      sourceKey={payload}
     >
       <article class="scr-document sale-print-document">
         <DocumentStatusStamp label={draftStampLabel(sale.status)} />

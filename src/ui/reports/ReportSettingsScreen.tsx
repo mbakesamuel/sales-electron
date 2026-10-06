@@ -4,7 +4,35 @@ import { getAuthenticatedDb } from "../auth/db.ts";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import type { ReportSignatoryRow } from "../../shared/reports.types.ts";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
+import { getRouteLabel } from "../../shared/routeCatalog.ts";
+import { REPORT_WINDOW_ROUTE_IDS } from "../../shared/reportWindow.ts";
 import "../company-settings/CompanySettingsScreen.css";
+import "./ReportComments.css";
+
+const COMMENT_REPORT_IDS = [...REPORT_WINDOW_ROUTE_IDS]
+  .filter((reportId) => reportId !== "stock-bin-card-report")
+  .sort((left, right) => getRouteLabel(left).localeCompare(getRouteLabel(right)));
+
+function parseReportComments(raw: unknown): Record<string, string> {
+  if (typeof raw !== "string" || raw.trim().length === 0) {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+    const comments: Record<string, string> = {};
+    for (const [reportId, value] of Object.entries(parsed)) {
+      if (typeof value === "string") {
+        comments[reportId] = value;
+      }
+    }
+    return comments;
+  } catch {
+    return {};
+  }
+}
 
 interface ReportSettingsScreenProps {
   readOnly?: boolean;
@@ -26,6 +54,10 @@ export function ReportSettingsScreen({ readOnly = false }: ReportSettingsScreenP
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [signatoryBusy, setSignatoryBusy] = useState(false);
+  const [commentsByReport, setCommentsByReport] = useState<Record<string, string>>({});
+  const [commentReportId, setCommentReportId] = useState(COMMENT_REPORT_IDS[0] ?? "");
+  const [commentDraft, setCommentDraft] = useState("");
+  const [commentSaving, setCommentSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedHint, setSavedHint] = useState<string | null>(null);
 
@@ -41,6 +73,7 @@ export function ReportSettingsScreen({ readOnly = false }: ReportSettingsScreenP
       const row = (settingsResult.rows as Array<Record<string, unknown>>).find(
         (r) => String(r.id) === "default",
       );
+      setCommentsByReport(parseReportComments(row?.reportCommentsJson));
       if (!row) {
         setError("Company settings row not found. Configure App settings first.");
         setHideZeroReportRows(true);
@@ -63,6 +96,10 @@ export function ReportSettingsScreen({ readOnly = false }: ReportSettingsScreenP
   useEffect(() => {
     void reload();
   }, []);
+
+  useEffect(() => {
+    setCommentDraft(commentsByReport[commentReportId] ?? "");
+  }, [commentsByReport, commentReportId]);
 
   async function onSave() {
     if (readOnly || saving) {
@@ -88,6 +125,43 @@ export function ReportSettingsScreen({ readOnly = false }: ReportSettingsScreenP
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function onSaveComments() {
+    if (readOnly || commentSaving || commentReportId.length === 0) {
+      return;
+    }
+    setCommentSaving(true);
+    setError(null);
+    setSavedHint(null);
+    try {
+      const trimmed = commentDraft.trim();
+      const result = await getAuthenticatedReports().saveReportComments({
+        reportId: commentReportId,
+        text: trimmed.length > 0 ? trimmed : null,
+      });
+      if (result.ok === false) {
+        setError(result.error);
+        return;
+      }
+      setCommentsByReport((current) => {
+        const next = { ...current };
+        if (result.comments) {
+          next[commentReportId] = result.comments;
+        } else {
+          delete next[commentReportId];
+        }
+        return next;
+      });
+      setCommentDraft(result.comments ?? "");
+      setSavedHint("Report comments saved.");
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error ? saveError.message : "Failed to save comments.",
+      );
+    } finally {
+      setCommentSaving(false);
     }
   }
 
@@ -182,7 +256,7 @@ export function ReportSettingsScreen({ readOnly = false }: ReportSettingsScreenP
           <SlidersHorizontal size={22} aria-hidden="true" />
           <div>
             <h2>Report settings</h2>
-            <p>Display options and report footer signatory</p>
+            <p>Display options, report comments, and footer signatory</p>
           </div>
         </div>
         {!readOnly ? (
@@ -234,6 +308,59 @@ export function ReportSettingsScreen({ readOnly = false }: ReportSettingsScreenP
             </span>
           </span>
         </label>
+      </section>
+
+      <section style="padding: 8px 24px 24px; max-width: 40rem;">
+        <h3 style="margin: 0 0 8px; font-size: 16px; color: var(--text-h);">
+          Report comments
+        </h3>
+        <p style="margin: 0 0 16px; color: #64748b; font-size: 13px; line-height: 1.45;">
+          Comments print on the report when the text is not empty. Clear the text and save to
+          hide that block.
+        </p>
+        <label class="scr-comments-field" style="margin-bottom: 12px;">
+          <span>Report</span>
+          <select
+            class="company-settings-input"
+            value={commentReportId}
+            disabled={loading || readOnly || commentSaving}
+            onChange={(event) => {
+              setCommentReportId((event.currentTarget as HTMLSelectElement).value);
+              setSavedHint(null);
+            }}
+          >
+            {COMMENT_REPORT_IDS.map((reportId) => (
+              <option key={reportId} value={reportId}>
+                {getRouteLabel(reportId)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label class="scr-comments-field">
+          <span>Comments</span>
+          <textarea
+            class="company-settings-input"
+            rows={8}
+            value={commentDraft}
+            disabled={loading || readOnly || commentSaving}
+            placeholder="Enter vital comments for this report…"
+            onInput={(event) => {
+              setCommentDraft((event.currentTarget as HTMLTextAreaElement).value);
+              setSavedHint(null);
+            }}
+          />
+        </label>
+        {!readOnly ? (
+          <button
+            type="button"
+            class="company-settings-primary-btn"
+            style="margin-top: 12px;"
+            disabled={loading || commentSaving || commentReportId.length === 0}
+            onClick={() => void onSaveComments()}
+          >
+            {commentSaving ? "Saving…" : "Save comments"}
+          </button>
+        ) : null}
       </section>
 
       <section style="padding: 8px 24px 32px; max-width: 52rem;">

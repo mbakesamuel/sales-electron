@@ -1,15 +1,13 @@
 import { useEffect, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import type {
-  IndustryProductMonthlySalesCell,
   IndustryProductMonthlySalesMonthColumn,
   IndustryProductMonthlySalesReport,
   IndustryProductMonthlySalesRow,
 } from "../../shared/reports.types.ts";
-import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
-import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import {
   HIDE_ZERO_ROWS_HINT,
   isIndustryProductMonthlySalesReportEmpty,
@@ -35,37 +33,6 @@ function formatValue(value: number): string {
   return Math.round(thousands).toLocaleString("en-US");
 }
 
-function handlePrint(): void {
-  const style = document.createElement("style");
-  style.id = "ipms-print-landscape-style";
-  style.textContent =
-    "@media print { @page { size: A4 landscape; margin: 6mm 10mm; } }";
-  document.head.appendChild(style);
-  document.body.classList.add("scr-print-mode", "ipms-print-landscape");
-
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode", "ipms-print-landscape");
-      style.remove();
-    },
-    { once: true },
-  );
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      window.print();
-    });
-  });
-}
-
-function cellCsv(cell: IndustryProductMonthlySalesCell): [string, string] {
-  return [
-    Math.abs(cell.tons) < 0.0005 ? "" : String(Number(cell.tons.toFixed(3))),
-    Math.abs(cell.value) < 500 ? "" : String(Math.round(cell.value / 1000)),
-  ];
-}
-
 function buildDisplayRows(
   report: IndustryProductMonthlySalesReport,
 ): IndustryProductMonthlySalesRow[] {
@@ -73,41 +40,6 @@ function buildDisplayRows(
     ...report.sections.map((section) => section.productRow),
     report.grandTotalRow,
   ];
-}
-
-function downloadCsv(report: IndustryProductMonthlySalesReport): void {
-  const monthHeaders = [
-    ...report.monthColumnsH1,
-    ...report.monthColumnsH2,
-  ].flatMap((column) => [`${column.label} TONS`, `${column.label} VALUE`]);
-
-  const lines: string[] = [
-    `Company:,${report.settings.companyName}`,
-    report.settings.department ? `Department:,${report.settings.department}` : "",
-    `Financial Year:,${report.financialYear}`,
-    `As at:,${report.asAtIso}`,
-    `Customer category:,${report.customerCategoryLabel}`,
-    `Value unit:,000 FRS`,
-    "",
-    report.reportTitle,
-    "",
-    ["PRODUCT", ...monthHeaders, "TOTAL TONS", "TOTAL VALUE"].join(","),
-  ];
-
-  for (const row of buildDisplayRows(report)) {
-    const monthValues = row.months.flatMap((cell) => cellCsv(cell));
-    const ytd = cellCsv(row.ytd);
-    lines.push([row.label, ...monthValues, ...ytd].join(","));
-  }
-
-  const csv = lines.filter((line) => line.length > 0).join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `industry-product-monthly-sales-${report.financialYear}-${report.asAtIso}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }
 
 function MonthColumnGroup({ periodCount }: { periodCount: number }) {
@@ -200,7 +132,14 @@ function ReportDocument({ report }: { report: IndustryProductMonthlySalesReport 
   const rows = buildDisplayRows(report);
 
   return (
-    <ReportDocumentShell
+    <DocumentPreview
+        title="Industry product monthly sales"
+        fileName={`industry-product-monthly-sales-${report.financialYear}-${report.asAtIso}.pdf`}
+        page="landscape"
+        bodyClass="ipms-print-landscape"
+        sourceKey={report}
+      >
+      <ReportDocumentShell
       className="scr-document ipms-document"
       isEmpty={empty}
       emptyMessage="No Industry sales for non-LPO / non-bottled products in this period."
@@ -233,6 +172,7 @@ function ReportDocument({ report }: { report: IndustryProductMonthlySalesReport 
         </>
       )}
     </ReportDocumentShell>
+      </DocumentPreview>
   );
 }
 
@@ -241,6 +181,7 @@ export function IndustryProductMonthlySalesScreen({
 }: {
   windowMode?: boolean;
 }) {
+  void windowMode;
   const [report, setReport] = useState<IndustryProductMonthlySalesReport | null>(
     null,
   );
@@ -296,29 +237,7 @@ export function IndustryProductMonthlySalesScreen({
 
   return (
     <div class="scr-page ipms-page">
-      <div class="scr-toolbar no-print">
-        <button type="button" class="scr-btn" onClick={handlePrint}>
-          Print
-        </button>
-        {windowMode ? (
-          <ReportWindowSaveButton
-            fileName={`industry-product-monthly-sales-${report.financialYear}-${report.asAtIso}.pdf`}
-          />
-        ) : null}
-        <button
-          type="button"
-          class="scr-btn scr-btn-secondary"
-          onClick={() => downloadCsv(report)}
-        >
-          CSV
-        </button>
-        <ReportCommentsEditor
-          reportId="industry-product-monthly-sales-report"
-          comments={report.comments}
-          onSaved={(comments) => setReport({ ...report, comments })}
-        />
-      </div>
-      <ReportDocument report={report} />
+            <ReportDocument report={report} />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
-import { PanelLeft, PanelLeftClose } from "lucide-react";
+import { PanelLeft, PanelLeftClose, X } from "lucide-react";
+import logoSrc from "../../assets/logo.svg";
 import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts";
 import {
   canAccessRouteFromSnapshot,
@@ -28,6 +29,7 @@ import { CommercialServicesScreen } from "../commercial-services/CommercialServi
 import { CompanySettingsScreen } from "../company-settings/CompanySettingsScreen.tsx";
 import { DataBackupScreen } from "../organization/DataBackupScreen.tsx";
 import { SyncSettingsScreen } from "../organization/SyncSettingsScreen.tsx";
+import { ReportChromeProvider, ReportPrintButton } from "../reports/ReportChrome.tsx";
 import { ReportSettingsScreen } from "../reports/ReportSettingsScreen.tsx";
 import { StorageLocationsScreen } from "../storage-locations/StorageLocationsScreen.tsx";
 import { TaxRegimesScreen } from "../tax/TaxRegimesScreen.tsx";
@@ -55,7 +57,6 @@ import {
   canAccessStockModule,
 } from "../../shared/stockModule.ts";
 import { opensInReportWindow } from "../../shared/reportWindow.ts";
-import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
 import { ReportBody } from "../reports/reportBody.tsx";
 import {
   ReportOverlayContext,
@@ -74,7 +75,6 @@ import {
   type SchemaRouteSection,
 } from "../navigation/schemaRoutes.ts";
 import {
-  LOGOUT_ICON,
   OVERVIEW_ICON,
   getRouteIcon,
   getSectionIcon,
@@ -89,6 +89,15 @@ import { SyncStatusBadge } from "../components/SyncStatusBadge.tsx";
 import "./HomeScreen.css";
 
 const SIDEBAR_COLLAPSED_KEY = "home-sidebar-collapsed";
+const DEFAULT_COMPANY_NAME = "CDC Palm Oil Sales";
+
+function userInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0].charAt(0)}${parts[1].charAt(0)}`.toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
 
 interface HomeScreenProps {
   user: AuthUser;
@@ -160,7 +169,7 @@ function RouteContent({
   permissions,
   onPermissionsSaved,
   openCalendarMonth,
-  onOpenReportOverlay,
+  reportQuery,
   deliveryOrderLookupNo,
   onOpenDeliveryOrder,
   onOpenDeliveryOrderTracking,
@@ -170,7 +179,7 @@ function RouteContent({
   permissions: RolePermissionsSnapshot;
   onPermissionsSaved: (next: RolePermissionsSnapshot) => void;
   openCalendarMonth: number | null;
-  onOpenReportOverlay: (reportId: string) => void;
+  reportQuery?: unknown;
   deliveryOrderLookupNo?: string;
   onOpenDeliveryOrder?: (deliveryOrderNo: string) => void;
   onOpenDeliveryOrderTracking?: (deliveryOrderNo: string) => void;
@@ -405,19 +414,11 @@ function RouteContent({
     }
 
     return (
-      <div class="report-overlay-placeholder">
-        <p class="scr-status">
-          {route.label} opens in a report overlay with Print and Save PDF. If
-          you closed it, use the button below to reopen.
-        </p>
-        <button
-          type="button"
-          class="scr-btn"
-          onClick={() => onOpenReportOverlay(route.id)}
-        >
-          Open report
-        </button>
-      </div>
+      <ReportBody
+        reportId={route.id}
+        query={route.id === "stock-bin-card-report" ? reportQuery : undefined}
+        windowMode={false}
+      />
     );
   }
 
@@ -530,10 +531,7 @@ export function HomeScreen({
     sales: true,
   });
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
-  const [overlayReport, setOverlayReport] = useState<{
-    reportId: string;
-    query?: unknown;
-  } | null>(null);
+  const [reportQuery, setReportQuery] = useState<unknown>(undefined);
   const [openPostingPeriod, setOpenPostingPeriod] =
     useState<OpenPostingPeriod | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
@@ -546,6 +544,37 @@ export function HomeScreen({
     top: number;
     left: number;
   } | null>(null);
+  const [companyName, setCompanyName] = useState(DEFAULT_COMPANY_NAME);
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getElectronApi()
+      .db.queryTable({ table: "CompanySettings", limit: 50 })
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+        const row =
+          result.rows.find((item) => String(item.id) === "default") ??
+          result.rows[0];
+        if (!row) {
+          return;
+        }
+        const name = String(row.companyName ?? "").trim();
+        if (name) {
+          setCompanyName(name);
+        }
+        const logo = String(row.logoUrl ?? "").trim();
+        setCompanyLogoUrl(logo || null);
+      })
+      .catch(() => {
+        // Keep the default brand when company settings are unavailable.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const visibleSections = useMemo(() => {
     const permitted = filterSectionsForPermissions(SCHEMA_ROUTE_SECTIONS, permissions);
@@ -701,18 +730,10 @@ export function HomeScreen({
   }
 
   function openReportOverlay(reportId: string, query?: unknown) {
-    setOverlayReport({ reportId, query });
-  }
-
-  function closeReportOverlay() {
-    setOverlayReport((current) => {
-      if (current) {
-        setActiveRouteId((routeId) =>
-          routeId === current.reportId ? DEFAULT_ROUTE_ID : routeId,
-        );
-      }
-      return null;
-    });
+    setReportQuery(query);
+    setActiveRouteId(reportId);
+    setOpenSections({ reports: true });
+    closeSidebarFlyout();
   }
 
   const reportOverlayContextValue = useMemo<ReportOverlayContextValue>(
@@ -731,23 +752,11 @@ export function HomeScreen({
     if (routeId !== "delivery-order-tracking") {
       setPendingTrackingLookup("");
     }
+    if (routeId !== "stock-bin-card-report") {
+      setReportQuery(undefined);
+    }
     if (sectionId) {
       setOpenSections({ [sectionId]: true });
-    }
-    if (opensInReportWindow(routeId)) {
-      if (
-        routeId !== "monthly-delivery-report-h1" &&
-        routeId !== "monthly-delivery-report-h2"
-      ) {
-        openReportOverlay(routeId);
-      } else if (
-        isMonthlyDeliveryRouteVisible(
-          routeId,
-          openPostingPeriod?.calendarMonth ?? null,
-        )
-      ) {
-        openReportOverlay(routeId);
-      }
     }
   }
 
@@ -782,6 +791,7 @@ export function HomeScreen({
     "monthly-bottled-oil-report",
     "other-product-sales-deliveries-report",
     "palm-oil-sales-activity-report",
+    "stock-bin-card-report",
     "sales-budget-monthly-crosstab",
     "sales-budget-monthly-revenue-crosstab",
     "sales-budget-weekly-crosstab",
@@ -855,39 +865,69 @@ export function HomeScreen({
   return (
     <ReportOverlayContext.Provider value={reportOverlayContextValue}>
     <div class={`home-layout${sidebarCollapsed ? " is-sidebar-collapsed" : ""}`}>
-      <aside class="home-sidebar">
-        <div class="sidebar-header">
-          <div class="sidebar-avatar">{user.name.charAt(0).toUpperCase()}</div>
-          <div class="sidebar-user">
-            <span class="sidebar-username">{user.name}</span>
-            <span class="sidebar-role">{formatRoleLabel(user.role)}</span>
+      <header class="home-topbar no-print">
+        <div class="home-topbar-brand">
+          <img
+            class="home-topbar-logo"
+            src={companyLogoUrl || logoSrc}
+            alt=""
+          />
+          <span class="home-topbar-company">{companyName}</span>
+        </div>
+        <div class="home-topbar-actions">
+          {user.role === "ADMIN" ? <AppThemeToggle /> : null}
+          <SyncStatusBadge />
+          <div class="home-topbar-user" title={formatRoleLabel(user.role)}>
+            <div class="home-topbar-avatar">{userInitials(user.name)}</div>
+            <div class="home-topbar-user-text">
+              <span class="home-topbar-user-name">{user.name}</span>
+              <span class="home-topbar-user-meta">
+                {formatRoleLabel(user.role)} · FY{" "}
+                {openPostingPeriod?.financialYear ?? "—"}
+                {openPostingPeriod?.monthName
+                  ? ` · ${openPostingPeriod.monthName}`
+                  : ""}
+              </span>
+            </div>
           </div>
           <button
             type="button"
-            class="sidebar-collapse-toggle no-print"
-            aria-expanded={!sidebarCollapsed}
-            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            onClick={toggleSidebarCollapsed}
+            class="home-signout"
+            onClick={() => setLogoutConfirmOpen(true)}
           >
-            <SidebarIcon
-              icon={sidebarCollapsed ? PanelLeft : PanelLeftClose}
-              className="sidebar-route-icon"
-              size={18}
-            />
+            Sign out
           </button>
         </div>
+      </header>
 
+      <div class="home-body">
+      <aside class="home-sidebar">
         <nav class="sidebar-nav" aria-label="Application modules">
-          <button
-            type="button"
-            class={`sidebar-route${activeRouteId === DEFAULT_ROUTE_ID ? " is-active" : ""}`}
-            title="Overview"
-            onClick={() => selectRoute(DEFAULT_ROUTE_ID)}
-          >
-            <SidebarIcon icon={OVERVIEW_ICON} className="sidebar-route-icon" />
-            <span class="sidebar-route-label">Overview</span>
-          </button>
+          <div class="sidebar-home-row">
+            <button
+              type="button"
+              class={`sidebar-route${activeRouteId === DEFAULT_ROUTE_ID ? " is-active" : ""}`}
+              title="Overview"
+              onClick={() => selectRoute(DEFAULT_ROUTE_ID)}
+            >
+              <SidebarIcon icon={OVERVIEW_ICON} className="sidebar-route-icon" />
+              <span class="sidebar-route-label">Overview</span>
+            </button>
+            <button
+              type="button"
+              class="sidebar-collapse-toggle no-print"
+              aria-expanded={!sidebarCollapsed}
+              aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              onClick={toggleSidebarCollapsed}
+            >
+              <SidebarIcon
+                icon={sidebarCollapsed ? PanelLeft : PanelLeftClose}
+                className="sidebar-route-icon"
+                size={18}
+              />
+            </button>
+          </div>
 
           <div class="sidebar-accordion">
             {visibleSections.map((section) => {
@@ -930,16 +970,6 @@ export function HomeScreen({
             })}
           </div>
         </nav>
-
-        <button
-          type="button"
-          class="sidebar-logout"
-          title="Log out"
-          onClick={() => setLogoutConfirmOpen(true)}
-        >
-          <SidebarIcon icon={LOGOUT_ICON} className="sidebar-route-icon" />
-          <span class="sidebar-route-label">Log out</span>
-        </button>
       </aside>
 
       {sidebarCollapsed && flyoutSection && flyoutAnchor ? (
@@ -988,6 +1018,8 @@ export function HomeScreen({
         class={`home-main${
           activeRouteId === DEFAULT_ROUTE_ID
             ? " home-main--dashboard"
+            : opensInReportWindow(activeRouteId)
+              ? " home-main--report"
             : activeRouteId === "stock" ||
                 activeRouteId === "bottled-stock" ||
                 activeRouteId === "stock-validation" ||
@@ -1004,22 +1036,6 @@ export function HomeScreen({
                 : ""
         }`}
       >
-        <header class="home-topbar no-print">
-          <div class="home-topbar-period">
-            <span>
-              Open financial year:{" "}
-              <strong>{openPostingPeriod?.financialYear ?? "None"}</strong>
-            </span>
-            <span class="home-topbar-divider" aria-hidden="true" />
-            <span>
-              Open month:{" "}
-              <strong>{openPostingPeriod?.monthName ?? "None"}</strong>
-            </span>
-          </div>
-          {user.role === "ADMIN" ? <AppThemeToggle /> : null}
-          <SyncStatusBadge />
-        </header>
-
         {activeRouteId !== DEFAULT_ROUTE_ID && !customScreenRoutes.has(activeRouteId) ? (
           <header class="home-header">
             <div>
@@ -1037,51 +1053,84 @@ export function HomeScreen({
           </section>
         ) : (
           <section class="home-content">
-            <RouteContent
-              route={activeRoute}
-              user={user}
-              permissions={permissions}
-              onPermissionsSaved={onPermissionsSaved}
-              openCalendarMonth={openPostingPeriod?.calendarMonth ?? null}
-              deliveryOrderLookupNo={
-                activeRouteId === "delivery-order-tracking"
-                  ? pendingTrackingLookup
-                  : pendingDeliveryOrderLookup
-              }
-              onOpenDeliveryOrder={(deliveryOrderNo) => {
-                setPendingDeliveryOrderLookup(deliveryOrderNo);
-                setActiveRouteId("delivery-orders");
-                setOpenSections({ delivery: true });
-              }}
-              onOpenDeliveryOrderTracking={(deliveryOrderNo) => {
-                setPendingTrackingLookup(deliveryOrderNo);
-                setActiveRouteId("delivery-order-tracking");
-                setOpenSections({ delivery: true });
-              }}
-              onOpenReportOverlay={(reportId) => {
-                openReportOverlay(reportId);
-              }}
-            />
+            {opensInReportWindow(activeRouteId) ? (
+              <ReportChromeProvider>
+              <div class="report-inline">
+                <header class="report-inline-header no-print">
+                  <h2>{activeRoute.label}</h2>
+                  <div class="report-inline-actions">
+                    <ReportPrintButton />
+                    <button
+                      type="button"
+                      class="report-inline-close"
+                      onClick={() => selectRoute(DEFAULT_ROUTE_ID)}
+                    >
+                      <X size={16} aria-hidden="true" />
+                      Close
+                    </button>
+                  </div>
+                </header>
+                <div class="report-inline-body">
+                  <RouteContent
+                    route={activeRoute}
+                    user={user}
+                    permissions={permissions}
+                    onPermissionsSaved={onPermissionsSaved}
+                    openCalendarMonth={openPostingPeriod?.calendarMonth ?? null}
+                    reportQuery={reportQuery}
+                    deliveryOrderLookupNo={
+                      activeRouteId === "delivery-order-tracking"
+                        ? pendingTrackingLookup
+                        : pendingDeliveryOrderLookup
+                    }
+                    onOpenDeliveryOrder={(deliveryOrderNo) => {
+                      setPendingDeliveryOrderLookup(deliveryOrderNo);
+                      setActiveRouteId("delivery-orders");
+                      setOpenSections({ delivery: true });
+                    }}
+                    onOpenDeliveryOrderTracking={(deliveryOrderNo) => {
+                      setPendingTrackingLookup(deliveryOrderNo);
+                      setActiveRouteId("delivery-order-tracking");
+                      setOpenSections({ delivery: true });
+                    }}
+                  />
+                </div>
+              </div>
+              </ReportChromeProvider>
+            ) : (
+              <RouteContent
+                route={activeRoute}
+                user={user}
+                permissions={permissions}
+                onPermissionsSaved={onPermissionsSaved}
+                openCalendarMonth={openPostingPeriod?.calendarMonth ?? null}
+                reportQuery={reportQuery}
+                deliveryOrderLookupNo={
+                  activeRouteId === "delivery-order-tracking"
+                    ? pendingTrackingLookup
+                    : pendingDeliveryOrderLookup
+                }
+                onOpenDeliveryOrder={(deliveryOrderNo) => {
+                  setPendingDeliveryOrderLookup(deliveryOrderNo);
+                  setActiveRouteId("delivery-orders");
+                  setOpenSections({ delivery: true });
+                }}
+                onOpenDeliveryOrderTracking={(deliveryOrderNo) => {
+                  setPendingTrackingLookup(deliveryOrderNo);
+                  setActiveRouteId("delivery-order-tracking");
+                  setOpenSections({ delivery: true });
+                }}
+              />
+            )}
           </section>
         )}
 
-        <footer class="home-bottombar no-print">
-          <span>ISD 2026</span>
-        </footer>
       </main>
+      </div>
 
-      {overlayReport ? (
-        <ReportOverlayShell
-          reportId={overlayReport.reportId}
-          onClose={closeReportOverlay}
-        >
-          <ReportBody
-            reportId={overlayReport.reportId}
-            query={overlayReport.query}
-            windowMode
-          />
-        </ReportOverlayShell>
-      ) : null}
+      <footer class="home-bottombar no-print">
+        <span>© {new Date().getFullYear()} Information Systems Department</span>
+      </footer>
     </div>
     </ReportOverlayContext.Provider>
   );

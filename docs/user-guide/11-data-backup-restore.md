@@ -23,11 +23,13 @@ Packaged builds ship `app.settings.config` **next to the application `.exe`** (e
 
 ```json
 {
-  "databaseDir": "D:\\SalesData"
+  "databaseDir": "D:/sales-db"
 }
 ```
 
-- Use an **absolute** folder path. The app creates the folder if needed and opens `{databaseDir}\sales.db`.
+- Use an **absolute** folder path. Prefer **forward slashes** (`D:/sales-db`). If you use backslashes, escape them in JSON (`D:\\sales-db`). A value like `"D:\sales-db"` is invalid JSON and is ignored.
+- Edit the file **next to the application `.exe`** (packaged build). The template under `packaging/` is only copied at build time.
+- The app creates the folder if needed and opens `{databaseDir}\sales.db`.
 - Leave `"databaseDir": ""` (or omit the key) to keep the default AppData database.
 - Save the file and **restart** the application. Existing AppData data is **not** copied automatically into the new folder.
 - Automatic backup schedule settings remain in AppData even when the database directory is customized.

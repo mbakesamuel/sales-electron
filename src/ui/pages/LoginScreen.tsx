@@ -4,6 +4,7 @@ import { getElectronApi } from "../auth/client.ts";
 import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts";
 import type { AuthUser } from "../auth/session.ts";
 import "./LoginScreen.css";
+import "./WelcomeScreen.css";
 
 interface LoginScreenProps {
   onLoginSuccess: (
@@ -63,12 +64,16 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
   return (
     <main class="login-screen">
+      <header class="auth-heading">
+        <img class="auth-logo" src={logoSrc} alt="" />
+        <p class="auth-company">CDC Palm Oil Sales</p>
+        <h1 class="auth-title">Sales Management</h1>
+        <p class="auth-subtitle">Sign in to continue.</p>
+      </header>
+
       <section class="login-card">
-        <div class="login-heading">
-          <img class="login-logo" src={logoSrc} alt="" aria-hidden="true" />
-          <h1>Sales Management</h1>
-        </div>
-        <p class="login-subtitle">Sign in to continue</p>
+        <h2 class="login-card-title">Sign in</h2>
+        <p class="login-card-subtitle">Use your application account to continue.</p>
 
         <form class="login-form" onSubmit={(event) => void handleSubmit(event)}>
           <label class="login-field">

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
+import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
 import {
   formatDisplayDate as formatDate,
   formatDisplayDateTime,
@@ -263,6 +265,7 @@ interface TaxRegimesScreenProps {
 }
 
 export function TaxRegimesScreen({ readOnly = false }: TaxRegimesScreenProps = {}) {
+  const [printOpen, setPrintOpen] = useState(false);
   const canWrite = !readOnly;
   const [rows, setRows] = useState<TaxRegimeRow[]>([]);
   const [schema, setSchema] = useState<TableSchema | null>(null);
@@ -535,25 +538,7 @@ export function TaxRegimesScreen({ readOnly = false }: TaxRegimesScreenProps = {
       return;
     }
 
-    const style = document.createElement("style");
-    style.id = "tax-regimes-print-page-style";
-    style.textContent =
-      "@media print { @page { size: A4 portrait; margin: 10mm; } }";
-    document.head.appendChild(style);
-
-    document.body.classList.add("customers-print-mode", "tax-regimes-print-mode");
-    window.addEventListener(
-      "afterprint",
-      () => {
-        document.body.classList.remove(
-          "customers-print-mode",
-          "tax-regimes-print-mode",
-        );
-        style.remove();
-      },
-      { once: true },
-    );
-    window.print();
+    setPrintOpen(true);
   }
 
   return (
@@ -856,7 +841,16 @@ export function TaxRegimesScreen({ readOnly = false }: TaxRegimesScreenProps = {
         </FormDialog>
       ) : null}
 
-      <div class="customers-print-document" aria-hidden="true">
+      {printOpen ? (
+        <ReportOverlayShell title="Tax regimes" onClose={() => setPrintOpen(false)}>
+          <DocumentPreview
+            title="Tax regimes"
+            fileName="tax-regimes.pdf"
+            page="list"
+            bodyClass="customers-print-mode tax-regimes-print-mode"
+            sourceKey={printRows}
+          >
+            <div class="customers-print-document" aria-hidden="true">
         <header class="customers-print-header">
           <h1>Tax Regime List</h1>
           <p>
@@ -892,6 +886,9 @@ export function TaxRegimesScreen({ readOnly = false }: TaxRegimesScreenProps = {
           </tbody>
         </table>
       </div>
+          </DocumentPreview>
+        </ReportOverlayShell>
+      ) : null}
     </div>
   );
 }

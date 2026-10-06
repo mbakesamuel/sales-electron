@@ -1,4 +1,5 @@
 import { Fragment } from "preact";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { useEffect, useState } from "preact/hooks";
 import { getAuthenticatedFinancialYears } from "../auth/financialYears.ts";
 import { getAuthenticatedReports } from "../auth/reports.ts";
@@ -6,10 +7,9 @@ import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type { OpenPostingPeriod } from "../../shared/financialYears.types.ts";
 import type { DailySalesReport } from "../../shared/reports.types.ts";
 import { clampIsoDateToRange, utcIsoDateToday } from "../stock/stockUtils.ts";
-import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
+import { ReportFilterGate } from "./ReportFilterGate.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
-import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import { isDailySalesReportEmpty } from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 import "./SalesBudgetCrosstab.css";
@@ -24,92 +24,17 @@ function formatQty(value: number | null | undefined): string {
   return Math.round(value).toLocaleString("en-US");
 }
 
-function handlePrint(): void {
-  document.body.classList.add("scr-print-mode");
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode");
-    },
-    { once: true },
-  );
-  window.print();
-}
-
-function buildCsv(report: DailySalesReport): string {
-  const lines: string[] = [
-    `Company:,${report.settings.companyName}`,
-    `Report date:,${formatDisplayDate(report.reportDateIso)}`,
-    `Collection point:,${report.salesPointLabel}`,
-    "",
-    "SN,CUSTOMER,DO. NO.,DATE ISSUED,VEHICLE. NO,QUANTITY,DO. BALANCE",
-  ];
-
-  for (const section of report.sections) {
-    lines.push(`${section.productName},,,,,,`);
-    for (const row of section.rows) {
-      lines.push(
-        [
-          row.sn,
-          row.customerName,
-          row.deliveryOrderNo ?? "",
-          formatDisplayDate(row.dateIssuedIso),
-          row.vehicleNumber ?? "",
-          row.quantity,
-          row.doBalance ?? "",
-        ].join(","),
-      );
-    }
-    lines.push(
-      [
-        "SUBTOTAL",
-        "",
-        "",
-        "",
-        "",
-        section.subtotalQuantity,
-        section.subtotalDoBalance,
-      ].join(","),
-    );
-    lines.push("");
-  }
-
-  lines.push(
-    [
-      "GRAND TOTAL",
-      "",
-      "",
-      "",
-      "",
-      report.grandTotalQuantity,
-      report.grandTotalDoBalance,
-    ].join(","),
-  );
-  lines.push("");
-  lines.push("SUMMARY BY CUSTOMER TYPE,,,,QUANTITY,");
-  for (const row of report.summaryRows) {
-    lines.push([row.label, "", "", "", "", row.quantity].join(","));
-  }
-  lines.push(["GRAND TOTAL", "", "", "", "", report.summaryGrandTotal].join(","));
-
-  return lines.join("\n");
-}
-
-function downloadCsv(report: DailySalesReport): void {
-  const blob = new Blob([buildCsv(report)], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `daily-sales-${report.reportDateIso}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
 export function DailySalesReportDocument({ report }: { report: DailySalesReport }) {
   const empty = isDailySalesReportEmpty(report);
 
   return (
-    <ReportDocumentShell
+    <DocumentPreview
+        title="Daily sales"
+        fileName={`daily-sales-${report.reportDateIso}.pdf`}
+        page="portrait"
+        sourceKey={report}
+      >
+      <ReportDocumentShell
       className="scr-document wpp-pack-page"
       isEmpty={empty}
       emptyMessage="No validated sales for this date."
@@ -209,6 +134,7 @@ export function DailySalesReportDocument({ report }: { report: DailySalesReport 
         </table>
       </div>
     </ReportDocumentShell>
+      </DocumentPreview>
   );
 }
 
@@ -217,6 +143,7 @@ export function DailySalesReportScreen({
 }: {
   windowMode?: boolean;
 }) {
+  void windowMode;
   const [postingPeriod, setPostingPeriod] = useState<OpenPostingPeriod | null>(null);
   const [reportDateIso, setReportDateIso] = useState(() => utcIsoDateToday());
   const [salesPointId, setSalesPointId] = useState<number | null>(null);
@@ -289,17 +216,13 @@ export function DailySalesReportScreen({
     return <p class="scr-status">No report data available.</p>;
   }
 
-  function reload() {
-    void getAuthenticatedReports()
-      .getDailySales(reportDateIso, salesPointId)
-      .then(setReport)
-      .catch((loadError: unknown) => {
-        setError(loadError instanceof Error ? loadError.message : "Failed to load report.");
-      });
-  }
-
   return (
-    <div class="scr-page sbc-root">
+    <ReportFilterGate
+      ready
+      reportId="daily-sales-report"
+      className="scr-page sbc-root"
+      filters={
+        <>
       <div class="scr-toolbar no-print sbc-toolbar">
         <div class="dsr-filters">
           <label class="dsr-filter">
@@ -346,34 +269,13 @@ export function DailySalesReportScreen({
             </select>
           </label>
         </div>
-        <div class="scr-toolbar-actions sbc-actions">
-          <button type="button" class="scr-btn" onClick={handlePrint}>
-            Print
-          </button>
-          {windowMode ? (
-            <ReportWindowSaveButton fileName={`daily-sales-${report.reportDateIso}.pdf`} />
-          ) : null}
-          <button
-            type="button"
-            class="scr-btn scr-btn-secondary"
-            onClick={() => downloadCsv(report)}
-          >
-            Export CSV
-          </button>
-          <ReportCommentsEditor
-            reportId="daily-sales-report"
-            comments={report.comments}
-            onSaved={reload}
-          />
-          <button type="button" class="scr-btn scr-btn-secondary" onClick={reload}>
-            Refresh
-          </button>
-        </div>
       </div>
 
       {error ? <p class="scr-status scr-status-error no-print">{error}</p> : null}
-
+        </>
+      }
+    >
       <DailySalesReportDocument report={report} />
-    </div>
+    </ReportFilterGate>
   );
 }

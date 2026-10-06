@@ -1666,6 +1666,11 @@ export function resolveDatabaseFilePath(): string {
     mkdirSync(configured, { recursive: true });
     return path.join(configured, "sales.db");
   }
+  if (configured) {
+    console.warn(
+      `[database] databaseDir "${configured}" is not an absolute path; using userData.`,
+    );
+  }
   return path.join(app.getPath("userData"), "sales.db");
 }
 
@@ -1675,6 +1680,7 @@ export function initDatabase(): Database.Database {
   }
 
   const dbPath = resolveDatabaseFilePath();
+  console.info(`[database] Opening ${dbPath}`);
   db = new Database(dbPath);
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");

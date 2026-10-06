@@ -12,29 +12,33 @@
 }
 
 .scr-btn {
-  border: 1px solid var(--accent-hover);
-  border-radius: 8px;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius, 0.625rem) - 2px);
   background: var(--accent);
   color: var(--accent-fg);
-  padding: 8px 14px;
+  height: 32px;
+  padding: 0 12px;
   font-size: 13px;
   cursor: pointer;
 }
 
 .scr-btn-secondary {
-  background: var(--accent);
-  color: var(--accent-fg);
-  border-color: var(--accent-hover);
+  background: var(--bg-elevated);
+  color: var(--text-h);
+  border: 1px solid var(--border-strong);
 }
 
-.scr-btn:hover,
-.scr-btn-secondary:hover {
+.scr-btn:hover {
   background: var(--accent-hover);
+}
+
+.scr-btn-secondary:hover {
+  background: var(--bg-soft);
 }
 
 .scr-status {
   margin: 0;
-  color: #4b5563;
+  color: var(--text-muted);
 }
 
 .scr-status-error {

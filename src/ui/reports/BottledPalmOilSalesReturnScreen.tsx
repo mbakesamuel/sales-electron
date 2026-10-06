@@ -1,14 +1,13 @@
 import { useEffect, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import type {
   BottledPalmOilSalesReturnReport,
   BottledPalmOilSalesReturnRow,
   BottledPalmOilSalesReturnRowKind,
 } from "../../shared/reports.types.ts";
-import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
-import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import {
   HIDE_ZERO_ROWS_HINT,
   isBottledPalmOilSalesReturnReportEmpty,
@@ -67,91 +66,6 @@ function formatKg(value: number): string {
   return Math.round(value).toLocaleString("en-US");
 }
 
-function handlePrint(): void {
-  const style = document.createElement("style");
-  style.id = "bposr-print-landscape-style";
-  style.textContent =
-    "@media print { @page { size: A4 landscape; margin: 6mm 10mm; } }";
-  document.head.appendChild(style);
-  document.body.classList.add("scr-print-mode", "bposr-print-landscape");
-
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode", "bposr-print-landscape");
-      style.remove();
-    },
-    { once: true },
-  );
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      window.print();
-    });
-  });
-}
-
-function csvQty(value: number): string {
-  return Math.abs(value) < 0.0005 ? "" : String(Number(value.toFixed(3)));
-}
-
-function csvKg(value: number): string {
-  return Math.abs(value) < 0.5 ? "" : String(Math.round(value));
-}
-
-function csvAmount(value: number): string {
-  return Math.abs(value) < 0.5 ? "" : String(Math.round(value));
-}
-
-function downloadCsv(report: BottledPalmOilSalesReturnReport): void {
-  const packHeaders = report.packColumns.flatMap((column) => [
-    `${column.label} QUANTITY`,
-    `${column.label} AMOUNT WITHOUT T.`,
-  ]);
-
-  const lines: string[] = [
-    `Company:,${report.settings.companyName}`,
-    report.settings.department ? `Department:,${report.settings.department}` : "",
-    `Financial Year:,${report.financialYear}`,
-    `Month:,${report.monthName}`,
-    `As at:,${report.asAtIso}`,
-    "",
-    ["", ...packHeaders, "TOTAL IN KGS", "GRAND TOTAL IN FCFA"].join(","),
-  ];
-
-  for (const row of report.rows) {
-    if (row.kind === "section") {
-      lines.push(row.label);
-      continue;
-    }
-
-    const showAmount = AMOUNT_KINDS.has(row.kind);
-    const showTotalKg = TOTAL_KG_KINDS.has(row.kind);
-    const packQtyAsKg = PACK_QTY_AS_KG_KINDS.has(row.kind);
-    const packValues = row.packs.flatMap((cell) => [
-      packQtyAsKg ? csvKg(cell.qty) : csvQty(cell.qty),
-      showAmount ? csvAmount(cell.amount) : "",
-    ]);
-    lines.push(
-      [
-        row.label,
-        ...packValues,
-        showTotalKg ? csvKg(row.totalKg) : "",
-        showAmount ? csvAmount(row.grandTotalFcfa) : "",
-      ].join(","),
-    );
-  }
-
-  const csv = lines.filter((line) => line.length > 0).join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `bottled-palm-oil-sales-return-${report.financialYear}-${report.asAtIso}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
 function rowClassName(row: BottledPalmOilSalesReturnRow): string | undefined {
   if (row.kind === "section") {
     return "scr-row-header";
@@ -167,7 +81,14 @@ function ReportDocument({ report }: { report: BottledPalmOilSalesReturnReport })
   const empty = isBottledPalmOilSalesReturnReportEmpty(report);
 
   return (
-    <ReportDocumentShell
+    <DocumentPreview
+        title="Bottled palm oil sales return"
+        fileName={`bottled-palm-oil-sales-return-${report.financialYear}-${report.asAtIso}.pdf`}
+        page="landscape"
+        bodyClass="bposr-print-landscape"
+        sourceKey={report}
+      >
+      <ReportDocumentShell
       className="scr-document bposr-document"
       isEmpty={empty}
       emptyMessage="No bottled palm oil sales or returns for this period."
@@ -248,6 +169,7 @@ function ReportDocument({ report }: { report: BottledPalmOilSalesReturnReport })
       </div>
       <p class="bposr-footnote">Value without taxes · amounts in FCFA</p>
     </ReportDocumentShell>
+      </DocumentPreview>
   );
 }
 
@@ -256,6 +178,7 @@ export function BottledPalmOilSalesReturnScreen({
 }: {
   windowMode?: boolean;
 }) {
+  void windowMode;
   const [report, setReport] = useState<BottledPalmOilSalesReturnReport | null>(
     null,
   );
@@ -311,29 +234,7 @@ export function BottledPalmOilSalesReturnScreen({
 
   return (
     <div class="scr-page bposr-page">
-      <div class="scr-toolbar no-print">
-        <button type="button" class="scr-btn" onClick={handlePrint}>
-          Print
-        </button>
-        {windowMode ? (
-          <ReportWindowSaveButton
-            fileName={`bottled-palm-oil-sales-return-${report.financialYear}-${report.asAtIso}.pdf`}
-          />
-        ) : null}
-        <button
-          type="button"
-          class="scr-btn scr-btn-secondary"
-          onClick={() => downloadCsv(report)}
-        >
-          CSV
-        </button>
-        <ReportCommentsEditor
-          reportId="bottled-palm-oil-sales-return-report"
-          comments={report.comments}
-          onSaved={(comments) => setReport({ ...report, comments })}
-        />
-      </div>
-      <ReportDocument report={report} />
+            <ReportDocument report={report} />
     </div>
   );
 }

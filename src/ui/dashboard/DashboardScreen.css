@@ -193,8 +193,9 @@
 .dash-tile {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: var(--shadow);
 }
 
 .dash-tile--clear {

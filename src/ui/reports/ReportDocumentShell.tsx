@@ -3,7 +3,6 @@ import { ReportAttributionFooter } from "./ReportAttributionFooter.tsx";
 import { ReportCommentsSection } from "./ReportCommentsSection.tsx";
 import { ReportEmptyMessage } from "./ReportEmptyMessage.tsx";
 import { ReportFooter } from "./ReportFooter.tsx";
-import { ReportWatermark } from "./ReportWatermark.tsx";
 
 export function ReportDocumentShell({
   className = "scr-document",
@@ -33,7 +32,6 @@ export function ReportDocumentShell({
   if (isEmpty) {
     return (
       <div class={`${className} scr-document-empty`}>
-        <ReportWatermark />
         <ReportEmptyMessage message={emptyMessage} hint={emptyHint} />
         <ReportAttributionFooter />
       </div>
@@ -42,7 +40,6 @@ export function ReportDocumentShell({
 
   return (
     <div class={className}>
-      <ReportWatermark />
       {header}
       {children}
       {showComments ? <ReportCommentsSection comments={comments} /> : null}

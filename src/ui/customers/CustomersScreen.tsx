@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
+import { ReportOverlayShell } from "../reports/ReportOverlayShell.tsx";
 import {
   formatDisplayDate as formatDate,
   formatDisplayDateTime,
@@ -306,6 +308,7 @@ interface CustomersScreenProps {
 export function CustomersScreen({
   readOnly = false,
 }: CustomersScreenProps = {}) {
+  const [printOpen, setPrintOpen] = useState(false);
   const canWrite = !readOnly;
   const [rows, setRows] = useState<CustomerRow[]>([]);
   const [schema, setSchema] = useState<TableSchema | null>(null);
@@ -652,15 +655,7 @@ export function CustomersScreen({
       return;
     }
 
-    document.body.classList.add("customers-print-mode");
-    window.addEventListener(
-      "afterprint",
-      () => {
-        document.body.classList.remove("customers-print-mode");
-      },
-      { once: true },
-    );
-    window.print();
+    setPrintOpen(true);
   }
 
   function SortIcon({ col }: { col: SortKey }) {
@@ -1049,7 +1044,16 @@ export function CustomersScreen({
         </FormDialog>
       ) : null}
 
-      <div class="customers-print-document" aria-hidden="true">
+      {printOpen ? (
+        <ReportOverlayShell title="Customer List" onClose={() => setPrintOpen(false)}>
+          <DocumentPreview
+            title="Customer List"
+            fileName="customers.pdf"
+            page="list"
+            bodyClass="customers-print-mode"
+            sourceKey={printRowsList}
+          >
+            <div class="customers-print-document" aria-hidden="true">
         <header class="customers-print-header">
           <h1>Customer List</h1>
           {printServiceName ? (
@@ -1094,6 +1098,9 @@ export function CustomersScreen({
           </tbody>
         </table>
       </div>
+          </DocumentPreview>
+        </ReportOverlayShell>
+      ) : null}
     </div>
   );
 }

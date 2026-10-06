@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type {
@@ -7,10 +8,9 @@ import type {
   RevenueTaxesReport,
   RevenueTaxesTotals,
 } from "../../shared/reports.types.ts";
-import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
+import { ReportFilterGate } from "./ReportFilterGate.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
-import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import { isRevenueTaxesReportEmpty } from "./reportEmpty.ts";
 import "./StockCommitmentReport.css";
 import "./SalesBudgetCrosstab.css";
@@ -21,80 +21,6 @@ function formatMoney(value: number): string {
     return "0";
   }
   return Math.round(value).toLocaleString("en-US");
-}
-
-function handlePrint(): void {
-  const style = document.createElement("style");
-  style.id = "rtr-print-landscape-style";
-  style.textContent =
-    "@media print { @page { size: A4 landscape; margin: 6mm 10mm; } }";
-  document.head.appendChild(style);
-  document.body.classList.add("scr-print-mode", "rtr-print-landscape");
-
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode", "rtr-print-landscape");
-      style.remove();
-    },
-    { once: true },
-  );
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      window.print();
-    });
-  });
-}
-
-function downloadCsv(report: RevenueTaxesReport): void {
-  const lines: string[] = [
-    `Company:,${report.settings.companyName}`,
-    `Period:,${report.periodLabel}`,
-    `Collection point:,${report.salesPointLabel}`,
-    `Basis:,Validated invoices by date issued (taxes excluded from net)`,
-    "",
-    "SUMMARY",
-    `Invoices:,${report.totals.invoiceCount}`,
-    `Net revenue:,${Math.round(report.totals.netAmount)}`,
-    `VAT collected:,${Math.round(report.totals.vatAmount)}`,
-    `Sales tax collected:,${Math.round(report.totals.salesTaxAmount)}`,
-    `Gross:,${Math.round(report.totals.grossAmount)}`,
-    "",
-    report.period === "year"
-      ? "BY MONTH,INVOICES,NET,VAT,SALES TAX,GROSS"
-      : "BY DAY,INVOICES,NET,VAT,SALES TAX,GROSS",
-    ...report.byPeriod.map((row) =>
-      [
-        row.label,
-        row.invoiceCount,
-        Math.round(row.netAmount),
-        Math.round(row.vatAmount),
-        Math.round(row.salesTaxAmount),
-        Math.round(row.grossAmount),
-      ].join(","),
-    ),
-    "",
-    "BY SALES POINT,INVOICES,NET,VAT,SALES TAX,GROSS",
-    ...report.bySalesPoint.map((row) =>
-      [
-        row.label,
-        row.invoiceCount,
-        Math.round(row.netAmount),
-        Math.round(row.vatAmount),
-        Math.round(row.salesTaxAmount),
-        Math.round(row.grossAmount),
-      ].join(","),
-    ),
-  ];
-
-  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `revenue-taxes-${report.period}-${report.asAtIso}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }
 
 function RevenueTaxesColumnGroup() {
@@ -193,7 +119,14 @@ function ReportDocument({ report }: { report: RevenueTaxesReport }) {
   const empty = isRevenueTaxesReportEmpty(report);
 
   return (
-    <ReportDocumentShell
+    <DocumentPreview
+        title="Revenue taxes"
+        fileName={`revenue-taxes-${report.period}-${report.asAtIso}.pdf`}
+        page="landscape"
+        bodyClass="rtr-print-landscape"
+        sourceKey={report}
+      >
+      <ReportDocumentShell
       className="scr-document rtr-document"
       isEmpty={empty}
       emptyMessage="No validated invoices in this period."
@@ -225,6 +158,7 @@ function ReportDocument({ report }: { report: RevenueTaxesReport }) {
         emptyLabel="No collection-point breakdown for this period."
       />
     </ReportDocumentShell>
+      </DocumentPreview>
   );
 }
 
@@ -233,6 +167,7 @@ export function RevenueTaxesReportScreen({
 }: {
   windowMode?: boolean;
 }) {
+  void windowMode;
   const [period, setPeriod] = useState<RevenueTaxesPeriod>("month");
   const [salesPointId, setSalesPointId] = useState<number | null>(null);
   const [report, setReport] = useState<RevenueTaxesReport | null>(null);
@@ -287,7 +222,12 @@ export function RevenueTaxesReportScreen({
   }
 
   return (
-    <div class="scr-page sbc-root">
+    <ReportFilterGate
+      ready
+      reportId="revenue-taxes-report"
+      className="scr-page sbc-root"
+      filters={
+        <>
       <div class="scr-toolbar no-print sbc-toolbar">
         <div class="dsr-filters">
           <label class="dsr-filter">
@@ -323,32 +263,13 @@ export function RevenueTaxesReportScreen({
             </select>
           </label>
         </div>
-        <div class="scr-toolbar-actions sbc-actions">
-          <button type="button" class="scr-btn" onClick={handlePrint}>
-            Print
-          </button>
-          {windowMode ? (
-            <ReportWindowSaveButton
-              fileName={`revenue-taxes-${report.period}-${report.asAtIso}.pdf`}
-            />
-          ) : null}
-          <button
-            type="button"
-            class="scr-btn scr-btn-secondary"
-            onClick={() => downloadCsv(report)}
-          >
-            CSV
-          </button>
-          <ReportCommentsEditor
-            reportId="revenue-taxes-report"
-            comments={report.comments}
-            onSaved={(comments) => setReport({ ...report, comments })}
-          />
-        </div>
       </div>
       {loading ? <p class="scr-status no-print">Refreshing…</p> : null}
       {error ? <p class="scr-status scr-status-error no-print">{error}</p> : null}
+        </>
+      }
+    >
       <ReportDocument report={report} />
-    </div>
+    </ReportFilterGate>
   );
 }

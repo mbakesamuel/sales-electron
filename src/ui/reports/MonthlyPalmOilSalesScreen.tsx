@@ -1,16 +1,14 @@
 import { useEffect, useState } from "preact/hooks";
+import { DocumentPreview } from "../print/DocumentPreview.tsx";
 import { getAuthenticatedReports } from "../auth/reports.ts";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type {
-  MonthlyPalmOilSalesCell,
   MonthlyPalmOilSalesMonthColumn,
   MonthlyPalmOilSalesReport,
   MonthlyPalmOilSalesRow,
 } from "../../shared/reports.types.ts";
-import { ReportCommentsEditor } from "./ReportCommentsEditor.tsx";
 import { ReportDocumentShell } from "./ReportDocumentShell.tsx";
 import { ReportHeader } from "./ReportHeader.tsx";
-import { ReportWindowSaveButton } from "./ReportWindowSaveButton.tsx";
 import {
   HIDE_ZERO_ROWS_HINT,
   isMonthlyPalmOilSalesReportEmpty,
@@ -35,73 +33,6 @@ function formatValue(value: number): string {
     return "";
   }
   return Math.round(thousands).toLocaleString("en-US");
-}
-
-function handlePrint(): void {
-  const style = document.createElement("style");
-  style.id = "mpos-print-landscape-style";
-  style.textContent =
-    "@media print { @page { size: A4 landscape; margin: 6mm 10mm; } }";
-  document.head.appendChild(style);
-  document.body.classList.add("scr-print-mode", "mpos-print-landscape");
-
-  window.addEventListener(
-    "afterprint",
-    () => {
-      document.body.classList.remove("scr-print-mode", "mpos-print-landscape");
-      style.remove();
-    },
-    { once: true },
-  );
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      window.print();
-    });
-  });
-}
-
-function cellCsv(cell: MonthlyPalmOilSalesCell): [string, string] {
-  return [
-    Math.abs(cell.tons) < 0.0005 ? "" : String(Number(cell.tons.toFixed(3))),
-    Math.abs(cell.value) < 500 ? "" : String(Math.round(cell.value / 1000)),
-  ];
-}
-
-function downloadCsv(report: MonthlyPalmOilSalesReport): void {
-  const monthHeaders = [
-    ...report.monthColumnsH1,
-    ...report.monthColumnsH2,
-  ].flatMap((column) => [`${column.label} TONS`, `${column.label} VALUE`]);
-
-  const lines: string[] = [
-    `Company:,${report.settings.companyName}`,
-    report.settings.department ? `Department:,${report.settings.department}` : "",
-    `Financial Year:,${report.financialYear}`,
-    `As at:,${report.asAtIso}`,
-    `Value unit:,000 FRS`,
-    "",
-    ["", ...monthHeaders, "TOTAL TONS", "TOTAL VALUE"].join(","),
-  ];
-
-  for (const row of report.rows) {
-    if (row.kind === "section") {
-      lines.push(row.label);
-      continue;
-    }
-    const monthValues = row.months.flatMap((cell) => cellCsv(cell));
-    const ytd = cellCsv(row.ytd);
-    lines.push([row.label, ...monthValues, ...ytd].join(","));
-  }
-
-  const csv = lines.filter((line) => line.length > 0).join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `monthly-palm-oil-sales-${report.financialYear}-${report.asAtIso}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }
 
 function MonthColumnGroup({ periodCount }: { periodCount: number }) {
@@ -210,7 +141,14 @@ function ReportDocument({ report }: { report: MonthlyPalmOilSalesReport }) {
   const empty = isMonthlyPalmOilSalesReportEmpty(report);
 
   return (
-    <ReportDocumentShell
+    <DocumentPreview
+        title="Monthly palm oil sales"
+        fileName={`monthly-palm-oil-sales-${report.financialYear}-${report.asAtIso}.pdf`}
+        page="landscape"
+        bodyClass="mpos-print-landscape"
+        sourceKey={report}
+      >
+      <ReportDocumentShell
       className="scr-document mpos-document"
       isEmpty={empty}
       emptyMessage="No palm oil sales for this month."
@@ -251,6 +189,7 @@ function ReportDocument({ report }: { report: MonthlyPalmOilSalesReport }) {
       />
       <p class="mpos-footnote">Value in &apos;000 FRS · taxes excluded</p>
     </ReportDocumentShell>
+      </DocumentPreview>
   );
 }
 
@@ -259,6 +198,7 @@ export function MonthlyPalmOilSalesScreen({
 }: {
   windowMode?: boolean;
 }) {
+  void windowMode;
   const [report, setReport] = useState<MonthlyPalmOilSalesReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -309,29 +249,7 @@ export function MonthlyPalmOilSalesScreen({
 
   return (
     <div class="scr-page">
-      <div class="scr-toolbar no-print">
-        <button type="button" class="scr-btn" onClick={handlePrint}>
-          Print
-        </button>
-        {windowMode ? (
-          <ReportWindowSaveButton
-            fileName={`monthly-palm-oil-sales-${report.financialYear}-${report.asAtIso}.pdf`}
-          />
-        ) : null}
-        <button
-          type="button"
-          class="scr-btn scr-btn-secondary"
-          onClick={() => downloadCsv(report)}
-        >
-          CSV
-        </button>
-        <ReportCommentsEditor
-          reportId="monthly-palm-oil-sales-report"
-          comments={report.comments}
-          onSaved={(comments) => setReport({ ...report, comments })}
-        />
-      </div>
-      <ReportDocument report={report} />
+            <ReportDocument report={report} />
     </div>
   );
 }
