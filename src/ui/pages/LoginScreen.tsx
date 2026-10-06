@@ -65,9 +65,7 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   return (
     <main class="login-screen">
       <header class="auth-heading">
-        <img class="auth-logo" src={logoSrc} alt="" />
-        <p class="auth-company">CDC Palm Oil Sales</p>
-        <h1 class="auth-title">Sales Management</h1>
+        <h1 class="auth-title">Sales Management Application</h1>
         <p class="auth-subtitle">Sign in to continue.</p>
       </header>
 
