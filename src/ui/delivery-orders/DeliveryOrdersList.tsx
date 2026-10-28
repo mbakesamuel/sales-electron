@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
+import type { AuthUser } from "../auth/session.ts";
 import { getElectronApi } from "../auth/client.ts";
 import type {
   DeliveryOrdersListFilters,
@@ -9,6 +10,7 @@ import type {
 import "../sales/sales.css";
 
 interface DeliveryOrdersListProps {
+  user: AuthUser;
   onOpenOrder: (deliveryOrderNo: string) => void;
   onOpenScreen?: () => void;
 }
@@ -31,27 +33,48 @@ function IconChevronRight() {
   );
 }
 
-export function DeliveryOrdersList({ onOpenOrder, onOpenScreen }: DeliveryOrdersListProps) {
+export function DeliveryOrdersList({
+  user,
+  onOpenOrder,
+  onOpenScreen,
+}: DeliveryOrdersListProps) {
   const [filters, setFilters] = useState<DeliveryOrdersListFilters>({
+    userId: user.id,
     q: "",
     period: "month",
     salesPointId: null,
   });
   const [draftQ, setDraftQ] = useState("");
   const [salesPoints, setSalesPoints] = useState<DeliveryOrdersSalesPointOption[]>([]);
+  const [scopedSalesPointId, setScopedSalesPointId] = useState<number | null>(
+    null,
+  );
   const [result, setResult] = useState<DeliveryOrdersListResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
 
   useEffect(() => {
+    setFilters((current) => ({ ...current, userId: user.id }));
+  }, [user.id]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadOptions() {
       try {
-        const options = await getElectronApi().deliveryOrders.getFormOptions();
+        const options = await getElectronApi().deliveryOrders.getFormOptions(
+          user.id,
+        );
         if (!cancelled) {
           setSalesPoints(options.salesPoints);
+          setScopedSalesPointId(options.scopedSalesPointId);
+          if (options.scopedSalesPointId != null) {
+            setFilters((current) => ({
+              ...current,
+              salesPointId: options.scopedSalesPointId,
+            }));
+          }
         }
       } catch {
         // Options are best-effort; list can still load without them.
@@ -63,7 +86,7 @@ export function DeliveryOrdersList({ onOpenOrder, onOpenScreen }: DeliveryOrders
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [user.id]);
 
   useEffect(() => {
     setPage(1);
@@ -176,6 +199,7 @@ export function DeliveryOrdersList({ onOpenOrder, onOpenScreen }: DeliveryOrders
           <span>Collection point</span>
           <select
             value={filters.salesPointId == null ? "" : String(filters.salesPointId)}
+            disabled={scopedSalesPointId != null}
             onChange={(event) => {
               const value = (event.currentTarget as HTMLSelectElement).value;
               setFilters((current) => ({

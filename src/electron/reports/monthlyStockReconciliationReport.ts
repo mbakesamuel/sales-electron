@@ -25,8 +25,9 @@ import {
   PALM_OIL_KG_PER_LITRE,
   detectBottledPack,
   loadProducts,
-  loadSalesPoints,
+  loadSalesPointsForUser,
   nowIso,
+  reportScopedSalesPointId,
   type ProductRow,
   type SalesPointRow,
 } from "./shared.js";
@@ -342,7 +343,8 @@ export function getMonthlyStockReconciliationReport(
   const { asAtIso, period } = resolveReportAsAt();
   const settings = loadReportCompanySettings(userId, asAtIso);
   const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
-  const salesPoints = loadSalesPoints();
+  const salesPoints = loadSalesPointsForUser(userId);
+  const scopedSalesPointId = reportScopedSalesPointId(userId);
   const products = loadProducts();
   const monthStartIso = period.startDate;
   const openingAsOfIso = dayBeforeIso(monthStartIso);
@@ -350,8 +352,8 @@ export function getMonthlyStockReconciliationReport(
     `${period.monthName} ${period.financialYear}`.toUpperCase();
   const reportTitle = `STOCK RECONCILIATION FOR ${monthLabel} (IN KGS)`;
 
-  const saleLines = loadLpoSaleLines(monthStartIso, asAtIso);
-  const receiptLines = loadLpoReceiptLines(monthStartIso, asAtIso);
+  const saleLines = loadLpoSaleLines(monthStartIso, asAtIso, scopedSalesPointId);
+  const receiptLines = loadLpoReceiptLines(monthStartIso, asAtIso, scopedSalesPointId);
 
   const priorOpeningValues = sumLpoBySalesPoint(
     salesPoints,

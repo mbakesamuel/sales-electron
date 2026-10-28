@@ -16,7 +16,13 @@ import {
   mapCategoryToMatrixColumn,
   resolveDailyCustomerCategory,
 } from "./dailySalesShared.js";
-import { loadProducts, loadSalesPoints, nowIso } from "./shared.js";
+import {
+  loadProducts,
+  loadSalesPointsForUser,
+  nowIso,
+  reportScopedSalesPointId,
+  resolveReportSalesPointId,
+} from "./shared.js";
 
 const ROUTE_ID = "daily-sales-matrix-report";
 
@@ -96,14 +102,12 @@ export function getDailySalesMatrixReport(
   const effectiveEndIso = asAtIso < monthEndIso ? asAtIso : monthEndIso;
   const daysInMonth = daysInCalendarMonth(monthStartIso);
 
-  const selectedSalesPointId =
-    salesPointId != null && Number.isFinite(Number(salesPointId))
-      ? Number(salesPointId)
-      : null;
+  const scopedSalesPointId = reportScopedSalesPointId(userId);
+  const selectedSalesPointId = resolveReportSalesPointId(userId, salesPointId);
   const selectedProductId =
     productId != null && Number.isFinite(Number(productId)) ? Number(productId) : null;
 
-  const salesPointOptions = loadSalesPoints();
+  const salesPointOptions = loadSalesPointsForUser(userId);
   const productOptions = loadProducts()
     .map((product) => ({
       id: product.productId,
@@ -173,6 +177,7 @@ export function getDailySalesMatrixReport(
     asAtIso: effectiveEndIso,
     monthLabel: `${period.monthName} ${period.financialYear}`,
     selectedSalesPointId,
+    scopedSalesPointId,
     salesPointLabel: resolveSalesPointLabel(selectedSalesPointId, salesPointOptions),
     salesPointOptions,
     selectedProductId,

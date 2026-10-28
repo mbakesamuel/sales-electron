@@ -3,7 +3,6 @@ import type {
   StockReceiveQueueRow,
   StorageLocationOption,
 } from "../../shared/stock.types.js";
-import { canReceiveStockTransfers } from "../../shared/roles.js";
 import {
   assertAction,
 } from "../auth/permissions/service.js";
@@ -32,19 +31,12 @@ function getActor(userId: string): {
   return row;
 }
 
-function assertCanListReceiveQueue(role: string): void {
-  if (!canReceiveStockTransfers(role)) {
-    throw new Error("You do not have permission to receive stock transfers.");
-  }
-}
-
 /**
  * Pending inter-site bottled transfers dispatched to the actor's collection point.
  */
 export function listReceiveQueue(userId: string): StockReceiveQueuePage {
   const actor = getActor(userId);
   assertAction(actor.role, "receive_stock_transfers");
-  assertCanListReceiveQueue(actor.role);
 
   const db = getDatabase();
   const scoped = actor.salesPointId;

@@ -1461,7 +1461,7 @@ export function TransfersTab(props: TransfersTabProps) {
         />
       ) : null}
 
-      {reviewDetail ? (
+      {reviewDetail && !printOpen ? (
         <DocDialog
           title={`Review transfer ${reviewDetail.transferNo}`}
           wide

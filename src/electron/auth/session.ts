@@ -29,6 +29,8 @@ interface UserRow {
   passwordHash: string | null;
   passwordPlain: string | null;
   commercialServiceId: string | null;
+  salesPointId: number | null;
+  salesPointName: string | null;
   mustChangePassword: number;
 }
 
@@ -45,6 +47,11 @@ function mapUser(row: UserRow): AuthUser {
     name: row.name,
     role: row.role,
     commercialServiceId: row.commercialServiceId ?? null,
+    salesPointId:
+      row.salesPointId == null || !Number.isFinite(Number(row.salesPointId))
+        ? null
+        : Number(row.salesPointId),
+    salesPointName: row.salesPointName?.trim() ? row.salesPointName : null,
     mustChangePassword: row.mustChangePassword === 1,
   };
 }
@@ -68,10 +75,12 @@ function verifyUserPassword(row: UserRow, password: string): boolean {
 function loadUserById(db: Database.Database, userId: string): UserRow | undefined {
   return db
     .prepare(
-      `SELECT id, username, name, role, isActive, passwordHash, passwordPlain,
-              commercialServiceId, mustChangePassword
-       FROM User
-       WHERE id = ?
+      `SELECT u.id, u.username, u.name, u.role, u.isActive, u.passwordHash, u.passwordPlain,
+              u.commercialServiceId, u.salesPointId, sp.name AS salesPointName,
+              u.mustChangePassword
+       FROM User u
+       LEFT JOIN SalesPoint sp ON sp.id = u.salesPointId
+       WHERE u.id = ?
        LIMIT 1`,
     )
     .get(userId) as UserRow | undefined;
@@ -91,10 +100,12 @@ export function login(
 
   const user = db
     .prepare(
-      `SELECT id, username, name, role, isActive, passwordHash, passwordPlain,
-              commercialServiceId, mustChangePassword
-       FROM User
-       WHERE lower(username) = ?
+      `SELECT u.id, u.username, u.name, u.role, u.isActive, u.passwordHash, u.passwordPlain,
+              u.commercialServiceId, u.salesPointId, sp.name AS salesPointName,
+              u.mustChangePassword
+       FROM User u
+       LEFT JOIN SalesPoint sp ON sp.id = u.salesPointId
+       WHERE lower(u.username) = ?
        LIMIT 1`,
     )
     .get(normalizedUsername) as UserRow | undefined;
@@ -136,9 +147,11 @@ export function getAuthSession(token: string): AuthSession | null {
   const row = db
     .prepare(
       `SELECT u.id, u.username, u.name, u.role, u.isActive, u.commercialServiceId,
+              u.salesPointId, sp.name AS salesPointName,
               u.mustChangePassword, u.passwordHash, u.passwordPlain
        FROM AuthSession s
        INNER JOIN User u ON u.id = s.userId
+       LEFT JOIN SalesPoint sp ON sp.id = u.salesPointId
        WHERE s.tokenHash = ?
          AND s.expiresAt > datetime('now')
        LIMIT 1`,

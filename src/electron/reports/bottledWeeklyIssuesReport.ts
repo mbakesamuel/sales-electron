@@ -19,6 +19,8 @@ import {
   loadProducts,
   nowIso,
   parseQty,
+  reportScopedSalesPointId,
+  salesPointFilterSql,
   sum,
   type ProductRow,
 } from "./shared.js";
@@ -169,7 +171,12 @@ function classifyMethod(
   return "CASH";
 }
 
-function loadBottledIssueLines(fromIso: string, toIso: string): SaleIssueLine[] {
+function loadBottledIssueLines(
+  fromIso: string,
+  toIso: string,
+  salesPointId?: number | null,
+): SaleIssueLine[] {
+  const sp = salesPointFilterSql("s.salesPointId", salesPointId);
   return getDatabase()
     .prepare(
       `SELECT s.id AS saleId, s.dateIssued, s.saleDisposition, sl.productId,
@@ -181,9 +188,9 @@ function loadBottledIssueLines(fromIso: string, toIso: string): SaleIssueLine[] 
        WHERE s.status = 'VALIDATED'
          AND COALESCE(pc.isBottled, 0) = 1
          AND s.dateIssued >= ?
-         AND s.dateIssued <= ?`,
+         AND s.dateIssued <= ?${sp.clause}`,
     )
-    .all(fromIso, toIso)
+    .all(fromIso, toIso, ...sp.params)
     .map((row) => ({
       saleId: String((row as { saleId: string }).saleId),
       dateIssued: String((row as { dateIssued: string }).dateIssued).slice(0, 10),
@@ -683,8 +690,9 @@ export function getBottledWeeklyIssuesReport(
   const priorMonthToIso = `${priorYear}-${String(period.calendarMonth).padStart(2, "0")}-${String(priorDay).padStart(2, "0")}`;
 
   const products = loadProducts();
+  const scopedSalesPointId = reportScopedSalesPointId(userId);
   const rangeFromIso = yearFromIso < priorMonthFromIso ? yearFromIso : priorMonthFromIso;
-  const allLines = loadBottledIssueLines(rangeFromIso, asAtIso);
+  const allLines = loadBottledIssueLines(rangeFromIso, asAtIso, scopedSalesPointId);
   const saleIds = [...new Set(allLines.map((line) => line.saleId))];
   const paymentShares = loadPaymentShares(saleIds);
 

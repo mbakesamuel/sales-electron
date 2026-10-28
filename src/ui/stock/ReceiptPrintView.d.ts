@@ -5,5 +5,5 @@ interface ReceiptPrintViewProps {
     userId: string;
     onClose: () => void;
 }
-export declare function ReceiptPrintView({ receiptId, userId, onClose, }: ReceiptPrintViewProps): import("preact").VNode<any>;
+export declare function ReceiptPrintView({ receiptId, userId, onClose, }: ReceiptPrintViewProps): import("preact").JSX.Element;
 export {};

@@ -28,6 +28,8 @@ export interface DeliveryOrdersFormOptions {
     products: DeliveryOrdersProductOption[];
     salesPoints: DeliveryOrdersSalesPointOption[];
     paymentMethods: DeliveryOrdersPaymentMethodOption[];
+    /** When set, the signed-in user is locked to this collection point. */
+    scopedSalesPointId: number | null;
     companyName: string;
     vatRateDecimal: string;
     /** Company setting: system assigns DO-year-###### on create when true. */
@@ -155,9 +157,11 @@ export interface PendingDeliveryOrderRow {
 }
 export type DeliveryOrdersListPeriod = "month" | "year" | "all";
 export interface DeliveryOrdersListFilters {
+    /** Required for collection-point scoping of list results. */
+    userId?: string;
     q?: string;
     period?: DeliveryOrdersListPeriod;
-    /** When set, only DOs for this sales point. Null/undefined = all. */
+    /** When set, only DOs for this sales point. Null/undefined = all (unless user is scoped). */
     salesPointId?: number | null;
 }
 export interface DeliveryOrdersListRow {
@@ -332,8 +336,8 @@ export type TransferDeliveryOrderBalanceResult = {
     error: string;
 };
 export interface DeliveryOrdersApi {
-    getFormOptions(): Promise<DeliveryOrdersFormOptions>;
-    loadByNo(deliveryOrderNo: string): Promise<LoadedDeliveryOrderView | null>;
+    getFormOptions(userId?: string): Promise<DeliveryOrdersFormOptions>;
+    loadByNo(deliveryOrderNo: string, userId?: string): Promise<LoadedDeliveryOrderView | null>;
     loadPrintById(orderId: number): Promise<DeliveryOrderPrintPayload | null>;
     trackByNo(deliveryOrderNo: string): Promise<DeliveryOrderTrackPayload | null>;
     transferBalance(input: TransferDeliveryOrderBalanceInput): Promise<TransferDeliveryOrderBalanceResult>;
@@ -366,7 +370,7 @@ export interface DeliveryOrdersApi {
         salesPointId: number;
         productId: number;
     }): Promise<StockOnHandPreviewResult>;
-    listValidationQueue(): Promise<ValidationQueuePage>;
+    listValidationQueue(userId?: string): Promise<ValidationQueuePage>;
     validateMany(payload: {
         orderIds: number[];
         userId: string;

@@ -25,6 +25,13 @@ import type {
   TestConnectionResult,
 } from "../../shared/sync.types.js";
 
+function isIdempotentPushConflict(errorMessage: string | null | undefined): boolean {
+  if (!errorMessage) {
+    return false;
+  }
+  return /duplicate key|unique constraint|already exists/i.test(errorMessage);
+}
+
 function upsertTableRows(
   db: Database.Database,
   tableName: string,
@@ -357,12 +364,27 @@ export class SyncService extends EventEmitter {
     }
 
     if (result.errors && result.errors.length > 0) {
+      const duplicateIds: number[] = [];
+      const realErrors: typeof result.errors = [];
       for (const err of result.errors) {
-        markOutboxItemFailed(db, err.outboxId, err.error);
+        // Server already has the row (e.g. receipt_no unique). Treat as synced
+        // so auto-sync stops retrying and flooding the console.
+        if (isIdempotentPushConflict(err.error)) {
+          duplicateIds.push(err.outboxId);
+        } else {
+          markOutboxItemFailed(db, err.outboxId, err.error);
+          realErrors.push(err);
+        }
       }
-      console.error("Push batch item errors:", result.errors);
-      const firstErr = result.errors[0]?.error || "Server rejected item in push batch.";
-      throw new Error(`Push batch error: ${firstErr}`);
+      if (duplicateIds.length > 0) {
+        markOutboxItemsSynced(db, duplicateIds);
+      }
+      if (realErrors.length > 0) {
+        console.error("Push batch item errors:", realErrors);
+        const firstErr =
+          realErrors[0]?.error || "Server rejected item in push batch.";
+        throw new Error(`Push batch error: ${firstErr}`);
+      }
     }
 
     if (!result.ok) {

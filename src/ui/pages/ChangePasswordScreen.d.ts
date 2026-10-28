@@ -1,6 +1,7 @@
 import { type AuthUser } from "../auth/session.ts";
 import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts";
 import "./LoginScreen.css";
+import "./WelcomeScreen.css";
 interface ChangePasswordScreenProps {
     user: AuthUser;
     onPasswordChanged: (user: AuthUser, permissions: RolePermissionsSnapshot) => void;

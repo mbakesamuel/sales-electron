@@ -35,8 +35,8 @@ contextBridge.exposeInMainWorld("api", {
     listValidationQueue: (userId) =>
       ipcRenderer.invoke("sales:listValidationQueue", userId),
     validateMany: (payload) => ipcRenderer.invoke("sales:validateMany", payload),
-    loadSaleByInvoiceNo: (invoiceNo) =>
-      ipcRenderer.invoke("sales:loadSaleByInvoiceNo", invoiceNo),
+    loadSaleByInvoiceNo: (invoiceNo, userId) =>
+      ipcRenderer.invoke("sales:loadSaleByInvoiceNo", invoiceNo, userId),
     createSale: (input) => ipcRenderer.invoke("sales:createSale", input),
     validateSale: (payload) => ipcRenderer.invoke("sales:validateSale", payload),
     cancelValidatedSale: (payload) =>
@@ -71,9 +71,10 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("vehicleConsignmentNotes:validateMany", payload),
   },
   deliveryOrders: {
-    getFormOptions: () => ipcRenderer.invoke("deliveryOrders:getFormOptions"),
-    loadByNo: (deliveryOrderNo) =>
-      ipcRenderer.invoke("deliveryOrders:loadByNo", deliveryOrderNo),
+    getFormOptions: (userId) =>
+      ipcRenderer.invoke("deliveryOrders:getFormOptions", userId),
+    loadByNo: (deliveryOrderNo, userId) =>
+      ipcRenderer.invoke("deliveryOrders:loadByNo", deliveryOrderNo, userId),
     loadPrintById: (orderId) =>
       ipcRenderer.invoke("deliveryOrders:loadPrintById", orderId),
     trackByNo: (deliveryOrderNo) =>
@@ -93,7 +94,8 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("deliveryOrders:previewUnitPrice", payload),
     previewStockOnHand: (payload) =>
       ipcRenderer.invoke("deliveryOrders:previewStockOnHand", payload),
-    listValidationQueue: () => ipcRenderer.invoke("deliveryOrders:listValidationQueue"),
+    listValidationQueue: (userId) =>
+      ipcRenderer.invoke("deliveryOrders:listValidationQueue", userId),
     validateMany: (payload) => ipcRenderer.invoke("deliveryOrders:validateMany", payload),
   },
   carryForward: {

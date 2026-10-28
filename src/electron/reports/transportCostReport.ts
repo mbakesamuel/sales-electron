@@ -8,7 +8,7 @@ import {
   loadReportComments,
   loadReportCompanySettings,
 } from "../reports/companySettings.js";
-import { nowIso } from "../reports/shared.js";
+import { nowIso, reportScopedSalesPointId } from "../reports/shared.js";
 import { loadLiftedSaleLines } from "../transport/liftedQuantities.js";
 import {
   assertTransportCostReportPolicyConfigured,
@@ -46,8 +46,13 @@ export function getTransportCostReport(userId?: string | null): TransportCostRep
     moliweSalesPointId,
   );
 
+  const scopedSalesPointId = reportScopedSalesPointId(userId);
   const liftedLines = filterLiftedLinesForTransportCostPolicy(
-    loadLiftedSaleLines(period.startDate, asAtIso),
+    loadLiftedSaleLines(
+      period.startDate,
+      asAtIso,
+      scopedSalesPointId != null ? { salesPointId: scopedSalesPointId } : {},
+    ),
     transportCostMoliweOnlyPolicy,
     moliweSalesPointId,
   );

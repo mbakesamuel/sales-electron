@@ -11,7 +11,12 @@ import {
   loadReportComments,
   loadReportCompanySettings,
 } from "./companySettings.js";
-import { nowIso, parseQty } from "./shared.js";
+import {
+  nowIso,
+  parseQty,
+  reportScopedSalesPointId,
+  salesPointFilterSql,
+} from "./shared.js";
 
 const ROUTE_ID = "other-product-sales-deliveries-report";
 
@@ -71,7 +76,12 @@ function withRoundedKg(
   };
 }
 
-function loadSaleLines(fromIso: string, toIso: string): SaleLineRecord[] {
+function loadSaleLines(
+  fromIso: string,
+  toIso: string,
+  salesPointId?: number | null,
+): SaleLineRecord[] {
+  const sp = salesPointFilterSql("s.salesPointId", salesPointId);
   return getDatabase()
     .prepare(
       `SELECT s.salesPointId,
@@ -86,9 +96,9 @@ function loadSaleLines(fromIso: string, toIso: string): SaleLineRecord[] {
        LEFT JOIN SalesPoint sp ON sp.id = s.salesPointId
        WHERE s.status = 'VALIDATED'
          AND s.dateIssued >= ?
-         AND s.dateIssued <= ?`,
+         AND s.dateIssued <= ?${sp.clause}`,
     )
-    .all(fromIso, toIso)
+    .all(fromIso, toIso, ...sp.params)
     .map((row) => ({
       salesPointId:
         (row as { salesPointId: number | null }).salesPointId == null
@@ -114,7 +124,8 @@ export function getOtherProductSalesDeliveriesReport(
   const monthLabel = `${period.monthName} ${period.financialYear}`.toUpperCase();
   const reportTitle = `OTHER PRODUCT SALES AND DELIVERIES FOR ${monthLabel}`;
 
-  const lines = loadSaleLines(monthStartIso, asAtIso).filter(
+  const scopedSalesPointId = reportScopedSalesPointId(userId);
+  const lines = loadSaleLines(monthStartIso, asAtIso, scopedSalesPointId).filter(
     (line) =>
       line.isBottled !== 1 &&
       !isLooseLpoReportProduct({

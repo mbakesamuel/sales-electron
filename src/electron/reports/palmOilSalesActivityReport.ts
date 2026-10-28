@@ -23,7 +23,13 @@ import {
   type PalmOilActivityCategoryId,
   type PalmOilSaleLineRecord,
 } from "./palmOilSalesShared.js";
-import { loadProducts, nowIso, sum, type ProductRow } from "./shared.js";
+import {
+  loadProducts,
+  nowIso,
+  reportScopedSalesPointId,
+  sum,
+  type ProductRow,
+} from "./shared.js";
 
 const ROUTE_ID = "palm-oil-sales-activity-report";
 
@@ -288,11 +294,14 @@ export function getPalmOilSalesActivityReport(userId: string): PalmOilSalesActiv
   const yearToIso = `${financialYear}-12-31`;
   const currentMonth = calendarMonthFromIso(asAtIso);
   const products = loadProducts();
+  const scopedSalesPointId = reportScopedSalesPointId(userId);
   const { mainProductCatId, bottledProductCatId } = loadMainAndBottledCategoryIds();
 
-  const allLines = loadPalmOilSaleLines(yearFromIso, yearToIso).filter(
-    (line) => line.dateIssued <= asAtIso,
-  );
+  const allLines = loadPalmOilSaleLines(
+    yearFromIso,
+    yearToIso,
+    scopedSalesPointId,
+  ).filter((line) => line.dateIssued <= asAtIso);
 
   const palmOilLines = allLines.filter(
     (line) => line.isBottled === 1 || line.isLooseLpo,

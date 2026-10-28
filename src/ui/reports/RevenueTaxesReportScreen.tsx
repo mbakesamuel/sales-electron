@@ -187,6 +187,9 @@ export function RevenueTaxesReportScreen({
         );
         if (!cancelled) {
           setReport(data);
+          if (data.scopedSalesPointId != null) {
+            setSalesPointId(data.scopedSalesPointId);
+          }
         }
       } catch (loadError) {
         if (!cancelled) {
@@ -248,13 +251,15 @@ export function RevenueTaxesReportScreen({
             <span>Collection point</span>
             <select
               value={salesPointId == null ? "" : String(salesPointId)}
-              disabled={loading}
+              disabled={loading || report.scopedSalesPointId != null}
               onChange={(event) => {
                 const value = (event.currentTarget as HTMLSelectElement).value;
                 setSalesPointId(value ? Number.parseInt(value, 10) : null);
               }}
             >
-              <option value="">All collection points</option>
+              {report.scopedSalesPointId == null ? (
+                <option value="">All collection points</option>
+              ) : null}
               {report.salesPointOptions.map((point) => (
                 <option key={point.id} value={String(point.id)}>
                   {point.name}

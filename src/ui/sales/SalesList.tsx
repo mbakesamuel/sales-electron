@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 import { formatDisplayDate } from "../../shared/formatDisplayDate.ts";
 import type { SaleProductMode } from "../../shared/sales.types.ts";
 import type { SalesModuleVariant } from "../../shared/salesModule.ts";
+import type { AuthUser } from "../auth/session.ts";
 import { getElectronApi } from "../auth/client.ts";
 import { SalePrintView } from "./SalePrintView.tsx";
 import type { SalesListFilters, SalesListResult } from "./types.ts";
 
 interface SalesListProps {
+  user: AuthUser;
   variant?: SalesModuleVariant;
   listTitle?: string;
   productMode: SaleProductMode;
@@ -33,6 +35,7 @@ function IconChevronRight() {
 }
 
 export function SalesList({
+  user,
   variant = "loose",
   listTitle,
   productMode,
@@ -41,11 +44,12 @@ export function SalesList({
 }: SalesListProps) {
   const filters = useMemo<SalesListFilters>(
     () => ({
+      userId: user.id,
       q: "",
       period: "month",
       productMode,
     }),
-    [productMode],
+    [user.id, productMode],
   );
   const [appliedFilters, setAppliedFilters] = useState<SalesListFilters>(filters);
   const [draftQ, setDraftQ] = useState("");
@@ -63,9 +67,10 @@ export function SalesList({
   useEffect(() => {
     setAppliedFilters((current) => ({
       ...current,
+      userId: user.id,
       productMode,
     }));
-  }, [productMode]);
+  }, [user.id, productMode]);
 
   useEffect(() => {
     setPage(1);

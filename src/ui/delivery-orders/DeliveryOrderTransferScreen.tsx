@@ -79,10 +79,10 @@ export function DeliveryOrderTransferScreen({
 
   useEffect(() => {
     void getElectronApi()
-      .deliveryOrders.getFormOptions()
+      .deliveryOrders.getFormOptions(user.id)
       .then(setOptions)
       .catch(() => setOptions(null));
-  }, []);
+  }, [user.id]);
 
   const destinationPoints = useMemo(() => {
     if (!options || !payload) {

@@ -10,6 +10,11 @@
   background: var(--shell-main, var(--bg, #fff));
 }
 
+.report-overlay-backdrop.is-elevated {
+  position: fixed;
+  z-index: 130;
+}
+
 .report-overlay-panel {
   display: flex;
   flex: 1;

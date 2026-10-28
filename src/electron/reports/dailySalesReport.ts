@@ -14,7 +14,12 @@ import {
   resolveDailyCustomerCategory,
   type DailyCustomerCategory,
 } from "./dailySalesShared.js";
-import { loadSalesPoints, nowIso } from "./shared.js";
+import {
+  loadSalesPointsForUser,
+  nowIso,
+  reportScopedSalesPointId,
+  resolveReportSalesPointId,
+} from "./shared.js";
 
 function normalizeReportDate(value: string): string | null {
   const trimmed = value.trim();
@@ -115,11 +120,9 @@ export function getDailySalesReport(
     throw new Error("Invalid report date.");
   }
 
-  const selectedSalesPointId =
-    salesPointId != null && Number.isFinite(Number(salesPointId))
-      ? Number(salesPointId)
-      : null;
-  const salesPointOptions = loadSalesPoints();
+  const scopedSalesPointId = reportScopedSalesPointId(userId);
+  const selectedSalesPointId = resolveReportSalesPointId(userId, salesPointId);
+  const salesPointOptions = loadSalesPointsForUser(userId);
   const salesPointLabel =
     selectedSalesPointId == null
       ? "ALL SALES POINTS"
@@ -226,6 +229,7 @@ export function getDailySalesReport(
     settings: loadReportCompanySettings(userId, normalizedDate),
     reportDateIso: normalizedDate,
     selectedSalesPointId,
+    scopedSalesPointId,
     salesPointLabel,
     generatedAtIso: nowIso(),
     sections,

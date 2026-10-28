@@ -29,10 +29,17 @@ export interface OutstandingCommitmentAsOf {
 export function loadOutstandingCommitmentsAsOf(
   db: Database.Database,
   asAtDateIso: string,
-  options?: { hideZero?: boolean },
+  options?: { hideZero?: boolean; salesPointId?: number | null },
 ): OutstandingCommitmentAsOf[] {
   const asAt = asAtDateIso.slice(0, 10);
   const hideZero = options?.hideZero ?? false;
+  const salesPointId =
+    options?.salesPointId != null && Number.isFinite(Number(options.salesPointId))
+      ? Number(options.salesPointId)
+      : null;
+  const salesPointClause =
+    salesPointId != null ? " AND d.salesPointId = ?" : "";
+  const salesPointParams = salesPointId != null ? [salesPointId] : [];
 
   const rows = db
     .prepare(
@@ -46,9 +53,9 @@ export function loadOutstandingCommitmentsAsOf(
        INNER JOIN Product p ON p.productId = dd.productId
        LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
        WHERE d.status = 'VALIDATED'
-         AND substr(d.dateIssued, 1, 10) <= ?`,
+         AND substr(d.dateIssued, 1, 10) <= ?${salesPointClause}`,
     )
-    .all(asAt) as Array<{
+    .all(asAt, ...salesPointParams) as Array<{
     customerId: number;
     customerName: string;
     salesPointId: number;
@@ -116,9 +123,13 @@ export function loadOutstandingCommitmentsAsOf(
 export function loadCommitmentMetricsAsOf(
   db: Database.Database,
   asAtDateIso: string,
+  options?: { salesPointId?: number | null },
 ): Array<{ salesPointId: number; productId: number; qty: number }> {
   const totals = new Map<string, number>();
-  for (const row of loadOutstandingCommitmentsAsOf(db, asAtDateIso, { hideZero: true })) {
+  for (const row of loadOutstandingCommitmentsAsOf(db, asAtDateIso, {
+    hideZero: true,
+    salesPointId: options?.salesPointId,
+  })) {
     const key = `${row.salesPointId}:${row.productId}`;
     totals.set(key, (totals.get(key) ?? 0) + row.qty);
   }

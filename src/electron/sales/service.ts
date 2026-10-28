@@ -36,6 +36,11 @@ import {
 } from "../../shared/taxRules.js";
 import { isLooseLpoProduct } from "../../shared/looseLpoProduct.js";
 import { assertRouteWrite, assertAction, canPerformAction, canWriteRoute } from "../auth/permissions/service.js";
+import {
+  collectionPointScopeError,
+  filterByCollectionPointScope,
+  getUserCollectionPointId,
+} from "../auth/collectionPointScope.js";
 import { getDatabase } from "../db/index.js";
 import {
   listActiveSalesPoints,
@@ -515,7 +520,11 @@ export function getSalesFormOptions(userId: string): SalesFormOptions {
     )
     .all() as SalesFormOptions["paymentMethods"];
 
-  const salesPoints = listActiveSalesPoints(db, 200);
+  const scopedSalesPointId = getUserCollectionPointId(userId);
+  const salesPoints = filterByCollectionPointScope(
+    listActiveSalesPoints(db, 200),
+    scopedSalesPointId,
+  );
 
   const storageLocations = db
     .prepare(
@@ -528,10 +537,13 @@ export function getSalesFormOptions(userId: string): SalesFormOptions {
            SELECT 1 FROM SalesPoint sp
            WHERE sp.id = sl.salesPointId AND COALESCE(sp.isActive, 1) = 1
          )
+         ${scopedSalesPointId == null ? "" : "AND sl.salesPointId = ?"}
        ORDER BY sl.salesPointId ASC, l.locationName ASC
        LIMIT 1000`,
     )
-    .all() as Array<{
+    .all(
+      ...(scopedSalesPointId == null ? [] : [scopedSalesPointId]),
+    ) as Array<{
     id: number;
     salesPointId: number;
     name: string;
@@ -593,6 +605,7 @@ export function getSalesFormOptions(userId: string): SalesFormOptions {
     paymentMethods,
     salesPoints,
     storageLocations: mappedLocations,
+    scopedSalesPointId,
     vatRateDecimal: companyVatRate,
     companyName: company?.companyName ?? "Sales Electron",
     botaSalesPointId: botaSalesPoint?.id ?? null,
@@ -803,7 +816,10 @@ export function validateManySales(
   return { ok: true, validated, errors };
 }
 
-export function loadSaleByInvoiceNo(invoiceNo: string): LoadedSaleView | null {
+export function loadSaleByInvoiceNo(
+  invoiceNo: string,
+  userId?: string,
+): LoadedSaleView | null {
   const trimmed = invoiceNo.trim();
   if (!trimmed) {
     return null;
@@ -826,6 +842,16 @@ export function loadSaleByInvoiceNo(invoiceNo: string): LoadedSaleView | null {
 
   if (!sale) {
     return null;
+  }
+
+  if (userId) {
+    const scopeError = collectionPointScopeError(
+      userId,
+      sale.salesPointId == null ? null : Number(sale.salesPointId),
+    );
+    if (scopeError) {
+      return null;
+    }
   }
 
   const lines = db
@@ -917,6 +943,15 @@ export function listSales(filters: SalesListFilters = {}): SalesListResult {
   const period = filters.period ?? "month";
   const params: unknown[] = [];
   const whereParts: string[] = [];
+
+  const scopedSalesPointId =
+    typeof filters.userId === "string" && filters.userId.trim()
+      ? getUserCollectionPointId(filters.userId.trim())
+      : null;
+  if (scopedSalesPointId != null) {
+    whereParts.push(`s.salesPointId = ?`);
+    params.push(scopedSalesPointId);
+  }
 
   if (q) {
     whereParts.push(`s.invoiceNo LIKE ?`);
@@ -1041,6 +1076,11 @@ export function createSale(input: CreateSaleInput): SaveSaleResult {
     if (!spCheck.ok) {
       return { ok: false, error: spCheck.error };
     }
+  }
+
+  const scopeError = collectionPointScopeError(input.userId, input.salesPointId);
+  if (scopeError) {
+    return { ok: false, error: scopeError };
   }
 
   const validateImmediately = Boolean(input.validateImmediately);
@@ -1674,6 +1714,14 @@ export function validateSale(saleId: string, userId: string): SaleMutationResult
     return { ok: false, error: "Sale not found." };
   }
 
+  const validateScopeError = collectionPointScopeError(
+    userId,
+    existing.salesPointId,
+  );
+  if (validateScopeError) {
+    return { ok: false, error: validateScopeError };
+  }
+
   if (existing.status === "VALIDATED") {
     return { ok: true };
   }
@@ -1760,6 +1808,14 @@ export function cancelValidatedSale(
 
   if (!existing) {
     return { ok: false, error: "Sale not found." };
+  }
+
+  const cancelScopeError = collectionPointScopeError(
+    userId,
+    existing.salesPointId,
+  );
+  if (cancelScopeError) {
+    return { ok: false, error: cancelScopeError };
   }
 
   if (existing.status !== "VALIDATED") {
@@ -1854,6 +1910,14 @@ export function deleteSale(saleId: string, userId: string): SaleMutationResult {
 
   if (!existing) {
     return { ok: false, error: "Sale not found." };
+  }
+
+  const deleteScopeError = collectionPointScopeError(
+    userId,
+    existing.salesPointId,
+  );
+  if (deleteScopeError) {
+    return { ok: false, error: deleteScopeError };
   }
 
   try {

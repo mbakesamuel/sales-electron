@@ -6,7 +6,12 @@ import { getDatabase } from "../db/index.js";
 import { loadStockBalancesAsOf } from "../stock/asOfBalance.js";
 import { loadStockIntakeOilGrouping } from "../stock/productStorage.js";
 import { getSludgeOilPoolProductId } from "../stock/stockIntakeMigration.js";
-import { parseQty, type ProductRow, type SalesPointRow } from "./shared.js";
+import {
+  parseQty,
+  salesPointFilterSql,
+  type ProductRow,
+  type SalesPointRow,
+} from "./shared.js";
 import { parseLocalIso, toIsoDate } from "./weekChoices.js";
 
 export interface LpoSaleLineRecord {
@@ -83,7 +88,12 @@ function buildLpoReportProductIds(products: ProductRow[]): Set<number> {
   return ids;
 }
 
-export function loadLpoSaleLines(fromIso: string, toIso: string): LpoSaleLineRecord[] {
+export function loadLpoSaleLines(
+  fromIso: string,
+  toIso: string,
+  salesPointId?: number | null,
+): LpoSaleLineRecord[] {
+  const sp = salesPointFilterSql("s.salesPointId", salesPointId);
   return getDatabase()
     .prepare(
       `SELECT s.salesPointId, s.saleDisposition, ct.code AS customerTypeCode, ct.name AS customerTypeName,
@@ -97,9 +107,9 @@ export function loadLpoSaleLines(fromIso: string, toIso: string): LpoSaleLineRec
        LEFT JOIN CustomerTypeDefinition ct ON ct.id = c.customerTypeId
        WHERE s.status = 'VALIDATED'
          AND s.dateIssued >= ?
-         AND s.dateIssued <= ?`,
+         AND s.dateIssued <= ?${sp.clause}`,
     )
-    .all(fromIso, toIso)
+    .all(fromIso, toIso, ...sp.params)
     .map((row) => ({
       salesPointId: (row as { salesPointId: number | null }).salesPointId,
       saleDisposition: (row as { saleDisposition: string | null }).saleDisposition,
@@ -116,7 +126,12 @@ export function loadLpoSaleLines(fromIso: string, toIso: string): LpoSaleLineRec
     }));
 }
 
-export function loadLpoReceiptLines(fromIso: string, toIso: string): LpoReceiptLineRecord[] {
+export function loadLpoReceiptLines(
+  fromIso: string,
+  toIso: string,
+  salesPointId?: number | null,
+): LpoReceiptLineRecord[] {
+  const sp = salesPointFilterSql("r.salesPointId", salesPointId);
   return getDatabase()
     .prepare(
       `SELECT r.salesPointId, r.supplierLabel, l.productId, p.productName, p.productCode,
@@ -127,9 +142,9 @@ export function loadLpoReceiptLines(fromIso: string, toIso: string): LpoReceiptL
        LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
        WHERE r.status = 'POSTED'
          AND substr(r.receivedAt, 1, 10) >= ?
-         AND substr(r.receivedAt, 1, 10) <= ?`,
+         AND substr(r.receivedAt, 1, 10) <= ?${sp.clause}`,
     )
-    .all(fromIso, toIso)
+    .all(fromIso, toIso, ...sp.params)
     .map((row) => ({
       salesPointId: (row as { salesPointId: number }).salesPointId,
       supplierLabel: String((row as { supplierLabel: string }).supplierLabel),
@@ -169,6 +184,8 @@ export function sumCarryForwardLpoInRange(
 ): Record<string, number | null> {
   const lpoProductIds = buildLpoReportProductIds(products);
   const values = zeroValues(salesPoints);
+  // When the caller already narrowed salesPoints to one CP, still load all
+  // carry-forward rows and only accumulate into visible sales-point keys.
   const rows = getDatabase()
     .prepare(
       `SELECT a.salesPointId, l.productId, l.deltaQty

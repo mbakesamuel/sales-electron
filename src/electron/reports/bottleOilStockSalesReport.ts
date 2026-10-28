@@ -14,8 +14,10 @@ import {
   PALM_OIL_KG_PER_LITRE,
   detectBottledPack,
   loadProducts,
-  loadSalesPoints,
+  loadSalesPointsForUser,
   nowIso,
+  reportScopedSalesPointId,
+  salesPointFilterSql,
   parseQty,
   sum,
   type ProductRow,
@@ -204,7 +206,12 @@ interface BottledSaleLine {
   lineNet: number;
 }
 
-function loadBottledSaleLines(salesFromIso: string, salesToIso: string): BottledSaleLine[] {
+function loadBottledSaleLines(
+  salesFromIso: string,
+  salesToIso: string,
+  salesPointId?: number | null,
+): BottledSaleLine[] {
+  const sp = salesPointFilterSql("s.salesPointId", salesPointId);
   return getDatabase()
     .prepare(
       `SELECT s.dateIssued, sl.productId,
@@ -216,9 +223,9 @@ function loadBottledSaleLines(salesFromIso: string, salesToIso: string): Bottled
        WHERE s.status = 'VALIDATED'
          AND COALESCE(pc.isBottled, 0) = 1
          AND s.dateIssued >= ?
-         AND s.dateIssued <= ?`,
+         AND s.dateIssued <= ?${sp.clause}`,
     )
-    .all(salesFromIso, salesToIso)
+    .all(salesFromIso, salesToIso, ...sp.params)
     .map((row) => ({
       dateIssued: String((row as { dateIssued: string }).dateIssued),
       productId: (row as { productId: number }).productId,
@@ -240,13 +247,14 @@ function buildSalesSection(
   salesFromIso: string,
   salesToIso: string,
   hideZero: boolean,
+  salesPointId?: number | null,
 ): BottleOilSalesSection {
   const bottledProducts = products.filter((product) => product.isBottled === 1);
   const productPackById = new Map(
     bottledProducts.map((product) => [product.productId, packIdForProduct(product)]),
   );
   const columns = SALES_COLUMNS.map(({ id, label }) => ({ id, label }));
-  const saleLines = loadBottledSaleLines(salesFromIso, salesToIso);
+  const saleLines = loadBottledSaleLines(salesFromIso, salesToIso, salesPointId);
 
   const fromDate = new Date(`${salesFromIso}T00:00:00`);
   const toDate = new Date(`${salesToIso}T00:00:00`);
@@ -364,7 +372,8 @@ export function getBottleOilStockSalesReport(
   const { asAtIso, period } = resolveReportAsAt();
   const settings = loadReportCompanySettings(userId, asAtIso);
   const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
-  const salesPoints = loadSalesPoints();
+  const salesPoints = loadSalesPointsForUser(userId);
+  const scopedSalesPointId = reportScopedSalesPointId(userId);
   const products = loadProducts();
 
   const balances = loadBottledStockBalances(asAtIso);
@@ -376,7 +385,13 @@ export function getBottleOilStockSalesReport(
     asAtIso,
     generatedAtIso: nowIso(),
     stockSection: buildStockSection(salesPoints, products, balances, asAtIso, hideZero),
-    salesSection: buildSalesSection(products, salesFromIso, salesToIso, hideZero),
+    salesSection: buildSalesSection(
+      products,
+      salesFromIso,
+      salesToIso,
+      hideZero,
+      scopedSalesPointId,
+    ),
     comments: loadReportComments("bottle-oil-stock-sales-report"),
   };
 }

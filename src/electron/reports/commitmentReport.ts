@@ -12,8 +12,9 @@ import {
 import { loadReportCompanySettings, loadReportDisplaySettings, loadReportComments } from "./companySettings.js";
 import {
   loadProducts,
-  loadSalesPoints,
+  loadSalesPointsForUser,
   nowIso,
+  reportScopedSalesPointId,
   sum,
   type ProductRow,
   type SalesPointRow,
@@ -137,10 +138,13 @@ export function getCommitmentReport(userId?: string | null): CommitmentReport {
   const { asAtIso } = resolveReportAsAt();
   const settings = loadReportCompanySettings(userId, asAtIso);
   const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
-  const salesPoints = loadSalesPoints();
+  const salesPoints = loadSalesPointsForUser(userId);
   const categories = loadCategories();
   const products = loadProducts();
-  const commitments = loadOutstandingCommitmentsAsOf(getDatabase(), asAtIso, { hideZero });
+  const commitments = loadOutstandingCommitmentsAsOf(getDatabase(), asAtIso, {
+    hideZero,
+    salesPointId: reportScopedSalesPointId(userId),
+  });
 
   const sections: CommitmentReportSection[] = [];
   let sectionIndex = 0;

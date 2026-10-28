@@ -640,7 +640,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
         </table>
       </div>
 
-      {reviewDetail ? (
+      {reviewDetail && !printOpen ? (
         <DocDialog
           title={`Review receipt ${reviewDetail.receiptNo}`}
           wide

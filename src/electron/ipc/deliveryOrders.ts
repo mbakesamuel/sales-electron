@@ -37,18 +37,30 @@ import { trackDeliveryOrderByNo } from "../deliveryOrders/track.js";
 import { transferDeliveryOrderBalance } from "../deliveryOrders/transfer.js";
 
 export function registerDeliveryOrdersHandlers(): void {
-  ipcMain.handle("deliveryOrders:getFormOptions", (): DeliveryOrdersFormOptions => {
-    return getDeliveryOrdersFormOptions();
-  });
+  ipcMain.handle(
+    "deliveryOrders:getFormOptions",
+    (_event, userId?: string): DeliveryOrdersFormOptions => {
+      return getDeliveryOrdersFormOptions(
+        typeof userId === "string" ? userId : undefined,
+      );
+    },
+  );
 
   ipcMain.handle(
     "deliveryOrders:loadByNo",
-    (_event, deliveryOrderNo: string): LoadedDeliveryOrderView | null => {
+    (
+      _event,
+      deliveryOrderNo: string,
+      userId?: string,
+    ): LoadedDeliveryOrderView | null => {
       if (typeof deliveryOrderNo !== "string") {
         return null;
       }
 
-      return loadDeliveryOrderByNo(deliveryOrderNo);
+      return loadDeliveryOrderByNo(
+        deliveryOrderNo,
+        typeof userId === "string" ? userId : undefined,
+      );
     },
   );
 
@@ -182,9 +194,14 @@ export function registerDeliveryOrdersHandlers(): void {
     },
   );
 
-  ipcMain.handle("deliveryOrders:listValidationQueue", (): ValidationQueuePage => {
-    return listValidationQueue();
-  });
+  ipcMain.handle(
+    "deliveryOrders:listValidationQueue",
+    (_event, userId?: string): ValidationQueuePage => {
+      return listValidationQueue(
+        typeof userId === "string" ? userId : undefined,
+      );
+    },
+  );
 
   ipcMain.handle(
     "deliveryOrders:validateMany",

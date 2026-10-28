@@ -84,6 +84,7 @@ export function SalesScreen({
         />
       ) : (
         <SalesList
+          user={user}
           variant={variant}
           listTitle={listTitle}
           productMode={saleProductModeForVariant(variant)}

@@ -10,7 +10,12 @@ import {
   loadReportComments,
   loadReportCompanySettings,
 } from "./companySettings.js";
-import { nowIso, parseQty } from "./shared.js";
+import {
+  nowIso,
+  parseQty,
+  reportScopedSalesPointId,
+  salesPointFilterSql,
+} from "./shared.js";
 import { buildWeekChoices } from "./weekChoices.js";
 
 const ROUTE_ID = "monthly-deliveries-by-destination-report";
@@ -117,7 +122,12 @@ function pct(part: number, whole: number): number | null {
   return (part / whole) * 100;
 }
 
-function loadValidatedNonBottledSaleLines(fromIso: string, toIso: string): SaleLineRecord[] {
+function loadValidatedNonBottledSaleLines(
+  fromIso: string,
+  toIso: string,
+  salesPointId?: number | null,
+): SaleLineRecord[] {
+  const sp = salesPointFilterSql("s.salesPointId", salesPointId);
   return getDatabase()
     .prepare(
       `SELECT s.dateIssued, s.saleDisposition,
@@ -135,9 +145,9 @@ function loadValidatedNonBottledSaleLines(fromIso: string, toIso: string): SaleL
        WHERE s.status = 'VALIDATED'
          AND s.dateIssued >= ?
          AND s.dateIssued <= ?
-         AND COALESCE(pc.isBottled, 0) = 0`,
+         AND COALESCE(pc.isBottled, 0) = 0${sp.clause}`,
     )
-    .all(fromIso, toIso)
+    .all(fromIso, toIso, ...sp.params)
     .map((row) => ({
       dateIssued: String((row as { dateIssued: string }).dateIssued).slice(0, 10),
       saleDisposition: (row as { saleDisposition: string | null }).saleDisposition,
@@ -150,13 +160,14 @@ function loadValidatedNonBottledSaleLines(fromIso: string, toIso: string): SaleL
 }
 
 export function getMonthlyDeliveriesByDestinationReport(
-  _userId?: string,
+  userId?: string,
 ): MonthlyDeliveriesByDestinationReport {
   const { asAtIso, period } = resolveReportAsAt();
   const monthStartIso = period.startDate;
   const monthEndIso = period.endDate;
-  const settings = loadReportCompanySettings(undefined, asAtIso);
+  const settings = loadReportCompanySettings(userId, asAtIso);
   const comments = loadReportComments(ROUTE_ID);
+  const scopedSalesPointId = reportScopedSalesPointId(userId);
 
   const weekChoices = buildWeekChoices(monthStartIso, monthEndIso, asAtIso);
   const weeks: MonthlyDeliveriesByDestinationWeekRow[] = weekChoices.map((week, index) => ({
@@ -167,7 +178,11 @@ export function getMonthlyDeliveriesByDestinationReport(
     ...emptyKgRow(),
   }));
 
-  const lines = loadValidatedNonBottledSaleLines(monthStartIso, asAtIso);
+  const lines = loadValidatedNonBottledSaleLines(
+    monthStartIso,
+    asAtIso,
+    scopedSalesPointId,
+  );
   for (const line of lines) {
     const week = weeks.find(
       (row) => line.dateIssued >= row.weekFromIso && line.dateIssued <= row.weekToIso,

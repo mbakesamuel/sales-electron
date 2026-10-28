@@ -55,6 +55,8 @@ export interface SalesFormOptions {
     paymentMethods: SalesPaymentMethodOption[];
     salesPoints: SalesPointOption[];
     storageLocations: StorageLocationOption[];
+    /** When set, the signed-in user is locked to this collection point. */
+    scopedSalesPointId: number | null;
     vatRateDecimal: string;
     companyName: string;
     botaSalesPointId: number | null;
@@ -319,6 +321,8 @@ export interface SalePrintPayload {
 }
 export type SalesListPeriod = "month" | "year" | "all";
 export interface SalesListFilters {
+    /** Required for collection-point scoping of list results. */
+    userId?: string;
     q?: string;
     period?: SalesListPeriod;
     productMode?: SaleProductMode;
@@ -354,7 +358,7 @@ export interface SalesApi {
         userId: string;
         saleIds: string[];
     }): Promise<SalesValidateManyResult>;
-    loadSaleByInvoiceNo(invoiceNo: string): Promise<LoadedSaleView | null>;
+    loadSaleByInvoiceNo(invoiceNo: string, userId?: string): Promise<LoadedSaleView | null>;
     createSale(input: CreateSaleInput): Promise<SaveSaleResult>;
     validateSale(payload: {
         saleId: string;

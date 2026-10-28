@@ -238,14 +238,18 @@ export function DeliveryOrdersClient({
     async function bootstrap() {
       try {
         const [formOptions, period] = await Promise.all([
-          getElectronApi().deliveryOrders.getFormOptions(),
+          getElectronApi().deliveryOrders.getFormOptions(user.id),
           getAuthenticatedFinancialYears().getOpenPostingPeriod(),
         ]);
         setOptions(formOptions);
         setPostingPeriod(period);
         setDateIssued((current) => clampDateToPeriod(current, period));
         setCustomerId("");
-        setSalesPointId("");
+        setSalesPointId(
+          formOptions.scopedSalesPointId != null
+            ? String(formOptions.scopedSalesPointId)
+            : "",
+        );
         setLines(formOptions.products.length > 0 ? [emptyLine()] : []);
       } catch (error) {
         setLoadError(
@@ -257,7 +261,7 @@ export function DeliveryOrdersClient({
     }
 
     void bootstrap();
-  }, []);
+  }, [user.id]);
 
   useEffect(() => {
     if (initialLookupNo.trim()) {
@@ -475,7 +479,11 @@ export function DeliveryOrdersClient({
     setCustomerId("");
     setDateIssued(todayIsoDate());
     setOrderRef("");
-    setSalesPointId("");
+    setSalesPointId(
+      options.scopedSalesPointId != null
+        ? String(options.scopedSalesPointId)
+        : "",
+    );
     setLines(options.products.length > 0 ? [emptyLine()] : []);
     setPayments([]);
     setAllowAutoUnitPrice(true);
@@ -483,6 +491,13 @@ export function DeliveryOrdersClient({
     setBanner(null);
     setPrintOpen(false);
   }
+
+  useEffect(() => {
+    if (!options || !isFormEditable || options.scopedSalesPointId == null) {
+      return;
+    }
+    setSalesPointId(String(options.scopedSalesPointId));
+  }, [options, isFormEditable]);
 
   async function loadOrder(
     rawNo?: string,
@@ -498,7 +513,7 @@ export function DeliveryOrdersClient({
     setBanner(null);
 
     try {
-      const data = await getElectronApi().deliveryOrders.loadByNo(no);
+      const data = await getElectronApi().deliveryOrders.loadByNo(no, user.id);
       if (!data) {
         if (notFoundMode === "error") {
           setBanner({ type: "error", text: "Delivery order not found." });
@@ -1003,7 +1018,9 @@ export function DeliveryOrdersClient({
               <span>Collection point</span>
               <select
                 value={salesPointId}
-                disabled={!isFormEditable}
+                disabled={
+                  !isFormEditable || options.scopedSalesPointId != null
+                }
                 onChange={(event) =>
                   setSalesPointId(
                     (event.currentTarget as HTMLSelectElement).value,

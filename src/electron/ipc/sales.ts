@@ -95,12 +95,15 @@ export function registerSalesHandlers(): void {
 
   ipcMain.handle(
     "sales:loadSaleByInvoiceNo",
-    (_event, invoiceNo: string): LoadedSaleView | null => {
+    (_event, invoiceNo: string, userId?: string): LoadedSaleView | null => {
       if (typeof invoiceNo !== "string") {
         return null;
       }
 
-      return loadSaleByInvoiceNo(invoiceNo);
+      return loadSaleByInvoiceNo(
+        invoiceNo,
+        typeof userId === "string" ? userId : undefined,
+      );
     },
   );
 

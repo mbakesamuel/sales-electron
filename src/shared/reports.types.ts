@@ -589,6 +589,8 @@ export interface DailySalesReport {
   settings: ReportCompanySettings;
   reportDateIso: string;
   selectedSalesPointId: number | null;
+  /** Assigned CP when the actor is scoped; locks the UI filter. */
+  scopedSalesPointId: number | null;
   salesPointLabel: string;
   generatedAtIso: string;
   sections: DailySalesReportProductSection[];
@@ -618,6 +620,8 @@ export interface DailySalesMatrixReport {
   asAtIso: string;
   monthLabel: string;
   selectedSalesPointId: number | null;
+  /** Assigned CP when the actor is scoped; locks the UI filter. */
+  scopedSalesPointId: number | null;
   salesPointLabel: string;
   salesPointOptions: Array<{ id: number; name: string }>;
   selectedProductId: number | null;
@@ -897,6 +901,8 @@ export interface RevenueTaxesReport {
   monthName: string;
   financialYear: number;
   salesPointId: number | null;
+  /** Assigned CP when the actor is scoped; locks the UI filter. */
+  scopedSalesPointId: number | null;
   salesPointLabel: string;
   salesPointOptions: RevenueTaxesSalesPointOption[];
   reportTitle: string;

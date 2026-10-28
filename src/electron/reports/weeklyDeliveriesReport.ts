@@ -13,8 +13,10 @@ import {
   PALM_OIL_KG_PER_LITRE,
   detectBottledPack,
   loadProducts,
-  loadSalesPoints,
+  loadSalesPointsForUser,
   nowIso,
+  reportScopedSalesPointId,
+  salesPointFilterSql,
   parseQty,
   sum,
   type ProductRow,
@@ -82,7 +84,12 @@ function resolveLooseCategoryId(
   return "ration";
 }
 
-function loadSaleLines(weekFromIso: string, weekToIso: string): SaleLineRecord[] {
+function loadSaleLines(
+  weekFromIso: string,
+  weekToIso: string,
+  salesPointId?: number | null,
+): SaleLineRecord[] {
+  const sp = salesPointFilterSql("s.salesPointId", salesPointId);
   return getDatabase()
     .prepare(
       `SELECT s.salesPointId, s.saleDisposition, ct.code AS customerTypeCode, ct.name AS customerTypeName,
@@ -96,9 +103,9 @@ function loadSaleLines(weekFromIso: string, weekToIso: string): SaleLineRecord[]
        LEFT JOIN CustomerTypeDefinition ct ON ct.id = c.customerTypeId
        WHERE s.status = 'VALIDATED'
          AND s.dateIssued >= ?
-         AND s.dateIssued <= ?`,
+         AND s.dateIssued <= ?${sp.clause}`,
     )
-    .all(weekFromIso, weekToIso)
+    .all(weekFromIso, weekToIso, ...sp.params)
     .map((row) => ({
       salesPointId: (row as { salesPointId: number | null }).salesPointId,
       saleDisposition: (row as { saleDisposition: string | null }).saleDisposition,
@@ -271,7 +278,8 @@ export function getWeeklyDeliveriesReport(
   const { asAtIso, period } = resolveReportAsAt();
   const settings = loadReportCompanySettings(userId, asAtIso);
   const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
-  const salesPoints = loadSalesPoints();
+  const salesPoints = loadSalesPointsForUser(userId);
+  const scopedSalesPointId = reportScopedSalesPointId(userId);
   const products = loadProducts();
 
   const weekChoices = buildWeekChoices(period.startDate, period.endDate, asAtIso);
@@ -291,7 +299,11 @@ export function getWeeklyDeliveriesReport(
       } satisfies WeeklyDeliveriesWeekChoice;
     })();
 
-  const saleLines = loadSaleLines(selected.weekFromIso, selected.weekToIso);
+  const saleLines = loadSaleLines(
+    selected.weekFromIso,
+    selected.weekToIso,
+    scopedSalesPointId,
+  );
 
   return {
     settings,

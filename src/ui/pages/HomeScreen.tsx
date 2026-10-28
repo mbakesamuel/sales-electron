@@ -877,12 +877,21 @@ export function HomeScreen({
         <div class="home-topbar-actions">
           {user.role === "ADMIN" ? <AppThemeToggle /> : null}
           <SyncStatusBadge />
-          <div class="home-topbar-user" title={formatRoleLabel(user.role)}>
+          <div
+            class="home-topbar-user"
+            title={
+              user.salesPointName
+                ? `${formatRoleLabel(user.role)} · ${user.salesPointName}`
+                : formatRoleLabel(user.role)
+            }
+          >
             <div class="home-topbar-avatar">{userInitials(user.name)}</div>
             <div class="home-topbar-user-text">
               <span class="home-topbar-user-name">{user.name}</span>
               <span class="home-topbar-user-meta">
-                {formatRoleLabel(user.role)} · FY{" "}
+                {formatRoleLabel(user.role)}
+                {user.salesPointName ? ` · ${user.salesPointName}` : ""}
+                {" · FY "}
                 {openPostingPeriod?.financialYear ?? "—"}
                 {openPostingPeriod?.monthName
                   ? ` · ${openPostingPeriod.monthName}`

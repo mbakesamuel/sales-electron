@@ -12,7 +12,13 @@ import {
   loadReportComments,
   loadReportCompanySettings,
 } from "./companySettings.js";
-import { nowIso, parseQty, sum } from "./shared.js";
+import {
+  nowIso,
+  parseQty,
+  reportScopedSalesPointId,
+  salesPointFilterSql,
+  sum,
+} from "./shared.js";
 
 const ROUTE_ID = "industry-product-monthly-sales-report";
 
@@ -105,7 +111,12 @@ function buildMonthColumns(
   return columns;
 }
 
-function loadSaleLines(yearFromIso: string, yearToIso: string): SaleLineRecord[] {
+function loadSaleLines(
+  yearFromIso: string,
+  yearToIso: string,
+  salesPointId?: number | null,
+): SaleLineRecord[] {
+  const sp = salesPointFilterSql("s.salesPointId", salesPointId);
   return getDatabase()
     .prepare(
       `SELECT s.dateIssued, s.saleDisposition,
@@ -122,9 +133,9 @@ function loadSaleLines(yearFromIso: string, yearToIso: string): SaleLineRecord[]
        LEFT JOIN CustomerTypeDefinition ct ON ct.id = c.customerTypeId
        WHERE s.status = 'VALIDATED'
          AND s.dateIssued >= ?
-         AND s.dateIssued <= ?`,
+         AND s.dateIssued <= ?${sp.clause}`,
     )
-    .all(yearFromIso, yearToIso)
+    .all(yearFromIso, yearToIso, ...sp.params)
     .map((row) => ({
       dateIssued: String((row as { dateIssued: string }).dateIssued).slice(0, 10),
       saleDisposition: (row as { saleDisposition: string | null }).saleDisposition,
@@ -152,8 +163,9 @@ export function getIndustryProductMonthlySalesReport(
   const yearToIso = `${financialYear}-12-31`;
   const settings = loadReportCompanySettings(userId, asAtIso);
   const comments = loadReportComments(ROUTE_ID);
+  const scopedSalesPointId = reportScopedSalesPointId(userId);
 
-  const lines = loadSaleLines(yearFromIso, yearToIso).filter(
+  const lines = loadSaleLines(yearFromIso, yearToIso, scopedSalesPointId).filter(
     (line) =>
       line.dateIssued <= asAtIso &&
       line.isBottled !== 1 &&

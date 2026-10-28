@@ -4,6 +4,7 @@ import {
   PALM_OIL_KG_PER_LITRE,
   detectBottledPack,
   parseQty,
+  salesPointFilterSql,
   type ProductRow,
 } from "./shared.js";
 
@@ -125,7 +126,9 @@ export function resolvePalmOilActivityCategoryId(
 export function loadPalmOilSaleLines(
   yearFromIso: string,
   yearToIso: string,
+  salesPointId?: number | null,
 ): PalmOilSaleLineRecord[] {
+  const sp = salesPointFilterSql("s.salesPointId", salesPointId);
   return getDatabase()
     .prepare(
       `SELECT s.dateIssued, s.saleDisposition,
@@ -143,9 +146,9 @@ export function loadPalmOilSaleLines(
        LEFT JOIN CustomerTypeDefinition ct ON ct.id = c.customerTypeId
        WHERE s.status = 'VALIDATED'
          AND s.dateIssued >= ?
-         AND s.dateIssued <= ?`,
+         AND s.dateIssued <= ?${sp.clause}`,
     )
-    .all(yearFromIso, yearToIso)
+    .all(yearFromIso, yearToIso, ...sp.params)
     .map((row) => {
       const productName = String((row as { productName: string }).productName);
       const productCode = (row as { productCode: string | null }).productCode;

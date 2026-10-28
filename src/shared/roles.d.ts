@@ -14,12 +14,21 @@ export declare const SENIOR_SALES_SUPERVISOR_ROLE_ID = "SENIOR_SALES_SUPERVISOR"
 export declare const STATISTICS_CLERK_ROLE_ID = "STATISTICS_CLERK";
 export declare function isStoreKeeperRole(role: string): boolean;
 export declare function isStatisticsClerkRole(role: string): boolean;
-/** Roles that may draft, dispatch, and post location moves. */
-export declare function canInitiateStockTransfers(role: string): boolean;
-/** Roles that may receive dispatched inter-site transfers (Bottled Stock screen only). */
-export declare function canReceiveStockTransfers(role: string): boolean;
-/** Company-wide transfer operators bypass collection-point scope on initiate. */
-export declare function bypassesTransferInitiateScope(role: string): boolean;
+/**
+ * @deprecated Prefer Role permissions actions
+ * `draft_stock_transfers` / `post_stock_transfers` / `direct_post_stock_transfers`.
+ * Kept for any external callers; always returns true so UI matrix is authoritative.
+ */
+export declare function canInitiateStockTransfers(_role: string): boolean;
+/**
+ * @deprecated Prefer Role permission action `receive_stock_transfers`.
+ */
+export declare function canReceiveStockTransfers(_role: string): boolean;
+/**
+ * @deprecated Collection-point scope is driven by User.salesPointId
+ * (unassigned = company-wide). Role id bypass is no longer used.
+ */
+export declare function bypassesTransferInitiateScope(_role: string): boolean;
 export declare function isSupervisorOverviewRole(role: string): boolean;
 export declare const SYSTEM_ROLE_LABELS: Record<SystemUserRole, string>;
 /** @deprecated Prefer SYSTEM_ROLE_LABELS or Role.label from the database. */

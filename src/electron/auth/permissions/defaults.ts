@@ -170,7 +170,7 @@ function buildDefaultActionMatrix(): Record<string, ActionMatrix> {
     post_stock_receipts: true,
     draft_stock_transfers: true,
     post_stock_transfers: true,
-    // Receive is Store Keeper / Bottled Stock only (see canReceiveStockTransfers).
+    // Receive is granted per role in Role permissions (Store Keeper by default).
     receive_stock_transfers: false,
     draft_stock_adjustments: true,
     post_stock_adjustments: true,

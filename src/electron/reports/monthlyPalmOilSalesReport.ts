@@ -17,7 +17,7 @@ import {
   resolveMonthlyPalmOilDestinationId,
   type MonthlyPalmOilDestinationId,
 } from "./palmOilSalesShared.js";
-import { loadProducts, nowIso, sum } from "./shared.js";
+import { loadProducts, nowIso, reportScopedSalesPointId, sum } from "./shared.js";
 
 const ROUTE_ID = "monthly-palm-oil-sales-report";
 
@@ -97,19 +97,22 @@ function makeDataRow(
 }
 
 export function getMonthlyPalmOilSalesReport(
-  _userId?: string,
+  userId?: string,
 ): MonthlyPalmOilSalesReport {
   const { asAtIso, period } = resolveReportAsAt();
   const financialYear = period.financialYear;
   const yearFromIso = `${financialYear}-01-01`;
   const yearToIso = `${financialYear}-12-31`;
-  const settings = loadReportCompanySettings(undefined, asAtIso);
+  const settings = loadReportCompanySettings(userId, asAtIso);
   const comments = loadReportComments(ROUTE_ID);
   const products = loadProducts();
+  const scopedSalesPointId = reportScopedSalesPointId(userId);
 
-  const lines = loadPalmOilSaleLines(yearFromIso, yearToIso).filter(
-    (line) => line.dateIssued <= asAtIso,
-  );
+  const lines = loadPalmOilSaleLines(
+    yearFromIso,
+    yearToIso,
+    scopedSalesPointId,
+  ).filter((line) => line.dateIssued <= asAtIso);
 
   const destinationMonths = new Map<MonthlyPalmOilDestinationId, MonthlyPalmOilSalesCell[]>();
   for (const row of LPO_DESTINATION_ROWS) {

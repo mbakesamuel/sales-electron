@@ -1,6 +1,7 @@
 import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts";
 import type { AuthUser } from "../auth/session.ts";
 import "./LoginScreen.css";
+import "./WelcomeScreen.css";
 interface LoginScreenProps {
     onLoginSuccess: (user: AuthUser, token: string, permissions: RolePermissionsSnapshot, sessionIdleTimeoutMinutes: number) => void;
 }

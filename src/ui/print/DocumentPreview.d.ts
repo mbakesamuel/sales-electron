@@ -1,4 +1,4 @@
-import { type ComponentChildren } from "preact";
+import type { ComponentChildren } from "preact";
 import { type PrintPage } from "./buildPrintDocumentHtml.ts";
 import "./DocumentPreview.css";
 export declare function DocumentPreview({ title, fileName, page, bodyClass, sourceKey, children, }: {

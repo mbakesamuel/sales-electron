@@ -28,11 +28,6 @@ import {
   type TransferMode,
 } from "../../shared/stockTransferMode.js";
 import {
-  bypassesTransferInitiateScope,
-  canInitiateStockTransfers,
-  canReceiveStockTransfers,
-} from "../../shared/roles.js";
-import {
   assertAction,
   assertRouteWrite,
   canAccessRoute,
@@ -191,31 +186,16 @@ function assertSalesPointScope(
 }
 
 function assertTransferInitiateSalesPointScope(
-  actor: { role: string; salesPointId: number | null },
+  actor: { salesPointId: number | null },
   salesPointId: number,
 ): void {
-  if (bypassesTransferInitiateScope(actor.role)) {
-    return;
-  }
+  // Scope follows User.salesPointId. Leave collection point empty on the user
+  // for company-wide operators; manage draft/post/receive in Role permissions.
   assertSalesPointScope(actor, salesPointId);
 }
 
-function assertCanInitiateStockTransfer(actor: { role: string }): void {
-  if (!canInitiateStockTransfers(actor.role)) {
-    throw new Error(
-      "Store Keepers can only receive incoming transfers at their collection point.",
-    );
-  }
-}
-
 function assertCanPostOrReceiveStockTransfer(actor: { role: string }): void {
-  if (
-    !canPerformAction(actor.role, "post_stock_transfers") &&
-    !canPerformAction(actor.role, "receive_stock_transfers")
-  ) {
-    throw new Error("You do not have permission to receive stock transfers.");
-  }
-  if (!canReceiveStockTransfers(actor.role)) {
+  if (!canPerformAction(actor.role, "receive_stock_transfers")) {
     throw new Error("You do not have permission to receive stock transfers.");
   }
 }
@@ -489,19 +469,13 @@ export function getStockBootstrap(
   const canPostReceipts =
     caps.canWriteReceipts && canPerformAction(role, "post_stock_receipts");
   const canDraftTransfers =
-    caps.canWriteTransfers &&
-    canPerformAction(role, "draft_stock_transfers") &&
-    canInitiateStockTransfers(role);
+    caps.canWriteTransfers && canPerformAction(role, "draft_stock_transfers");
   const canPostTransfers =
-    caps.canWriteTransfers &&
-    canPerformAction(role, "post_stock_transfers") &&
-    canInitiateStockTransfers(role);
+    caps.canWriteTransfers && canPerformAction(role, "post_stock_transfers");
   const canReceiveTransfers =
     productFilter === "bottled" &&
     caps.canWriteTransfers &&
-    (canPerformAction(role, "post_stock_transfers") ||
-      canPerformAction(role, "receive_stock_transfers")) &&
-    canReceiveStockTransfers(role);
+    canPerformAction(role, "receive_stock_transfers");
   const canInitiateTransfers = canDraftTransfers || canPostTransfers;
   const canDispatchTransfers = canPostTransfers;
   const canCancelTransfers = canPostTransfers;
@@ -514,8 +488,7 @@ export function getStockBootstrap(
     caps.canWriteReceipts && canPerformAction(role, "direct_post_stock_receipts");
   const canDirectPostTransfers =
     caps.canWriteTransfers &&
-    canPerformAction(role, "direct_post_stock_transfers") &&
-    canInitiateStockTransfers(role);
+    canPerformAction(role, "direct_post_stock_transfers");
 
   const salesPoints = db
     .prepare(
@@ -2153,7 +2126,6 @@ export function saveTransfer(input: SaveTransferInput): StockMutationResult {
     const uiProductFilter = normalizeStockProductFilter(input.productFilter);
     const postImmediately = Boolean(input.postImmediately);
     assertStockModuleWrite(actor.role, uiProductFilter, "stock-transfers");
-    assertCanInitiateStockTransfer(actor);
     if (postImmediately) {
       if (input.id) {
         return {
@@ -2422,7 +2394,6 @@ export function postInternalTransfer(
     const actor = getActor(userId);
     const productFilter = normalizeStockProductFilter(productFilterInput);
     assertStockModuleWrite(actor.role, productFilter, "stock-transfers");
-    assertCanInitiateStockTransfer(actor);
     assertAction(actor.role, "post_stock_transfers");
     const db = getDatabase();
 
@@ -2459,7 +2430,6 @@ export function dispatchTransfer(
     const actor = getActor(userId);
     const productFilter = normalizeStockProductFilter(productFilterInput);
     assertStockModuleWrite(actor.role, productFilter, "stock-transfers");
-    assertCanInitiateStockTransfer(actor);
     assertAction(actor.role, "post_stock_transfers");
     const db = getDatabase();
 
@@ -2967,7 +2937,6 @@ function cancelStockDocument(
       }
 
       if (kind === "TRANSFER") {
-        assertCanInitiateStockTransfer(actor);
         const existing = db
           .prepare(`SELECT id, status, fromSalesPointId FROM StockTransfer WHERE id = ?`)
           .get(documentId) as { id: string; status: string; fromSalesPointId: number } | undefined;

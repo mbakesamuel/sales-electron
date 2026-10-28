@@ -19,7 +19,7 @@ export function ValidationQueueClient({ user, onOpenOrder }: ValidationQueueClie
   );
 
   async function refresh() {
-    setPage(await getElectronApi().deliveryOrders.listValidationQueue());
+    setPage(await getElectronApi().deliveryOrders.listValidationQueue(user.id));
   }
 
   useEffect(() => {

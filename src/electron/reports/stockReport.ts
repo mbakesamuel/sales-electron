@@ -15,8 +15,8 @@ import {
   PALM_OIL_KG_PER_LITRE,
   detectBottledPack,
   loadProducts,
-  loadSalesPoints,
-  loadStorageLocations,
+  loadSalesPointsForUser,
+  loadStorageLocationsForUser,
   nowIso,
   parseQty,
   sum,
@@ -517,8 +517,8 @@ export function getStockReport(userId?: string | null): StockReport {
   const { asAtIso } = resolveReportAsAt();
   const settings = loadReportCompanySettings(userId, asAtIso);
   const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
-  const salesPoints = loadSalesPoints();
-  const storageLocations = loadStorageLocations();
+  const salesPoints = loadSalesPointsForUser(userId);
+  const storageLocations = loadStorageLocationsForUser(userId);
   const products = loadProducts();
   const balances = loadStockBalances(asAtIso);
   const categories = sortCategoriesForReport(loadCategories()).filter((category) =>

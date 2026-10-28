@@ -6,5 +6,5 @@ interface TransferPrintViewProps {
     userId: string;
     onClose: () => void;
 }
-export declare function TransferPrintView({ transferId, userId, onClose, }: TransferPrintViewProps): import("preact").VNode<any>;
+export declare function TransferPrintView({ transferId, userId, onClose, }: TransferPrintViewProps): import("preact").JSX.Element;
 export {};

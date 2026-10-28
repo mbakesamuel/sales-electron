@@ -34,27 +34,28 @@ export function isStatisticsClerkRole(role: string): boolean {
   return role === STATISTICS_CLERK_ROLE_ID;
 }
 
-/** Roles that may draft, dispatch, and post location moves. */
-export function canInitiateStockTransfers(role: string): boolean {
-  return (
-    role === STATISTICS_CLERK_ROLE_ID ||
-    role === SENIOR_SALES_SUPERVISOR_ROLE_ID ||
-    role === JNR_SALES_SUP_ROLE_ID ||
-    role === "MANAGER" ||
-    role === "ADMIN"
-  );
+/**
+ * @deprecated Prefer Role permissions actions
+ * `draft_stock_transfers` / `post_stock_transfers` / `direct_post_stock_transfers`.
+ * Kept for any external callers; always returns true so UI matrix is authoritative.
+ */
+export function canInitiateStockTransfers(_role: string): boolean {
+  return true;
 }
 
-/** Roles that may receive dispatched inter-site transfers (Bottled Stock screen only). */
-export function canReceiveStockTransfers(role: string): boolean {
-  return role === STORE_KEEPER_ROLE_ID || role === "ADMIN";
+/**
+ * @deprecated Prefer Role permission action `receive_stock_transfers`.
+ */
+export function canReceiveStockTransfers(_role: string): boolean {
+  return true;
 }
 
-/** Company-wide transfer operators bypass collection-point scope on initiate. */
-export function bypassesTransferInitiateScope(role: string): boolean {
-  return (
-    role === STATISTICS_CLERK_ROLE_ID || role === "MANAGER" || role === "ADMIN"
-  );
+/**
+ * @deprecated Collection-point scope is driven by User.salesPointId
+ * (unassigned = company-wide). Role id bypass is no longer used.
+ */
+export function bypassesTransferInitiateScope(_role: string): boolean {
+  return false;
 }
 
 export function isSupervisorOverviewRole(role: string): boolean {

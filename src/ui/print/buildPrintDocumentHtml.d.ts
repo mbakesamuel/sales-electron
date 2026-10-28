@@ -4,4 +4,5 @@ export declare function buildPrintDocumentHtml(bodyHtml: string, options: {
     title: string;
     page?: PrintPage;
     bodyClass?: string;
+    forPdf?: boolean;
 }): string;

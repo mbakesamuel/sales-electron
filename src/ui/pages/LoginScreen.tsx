@@ -1,5 +1,4 @@
 import { useState } from "preact/hooks";
-import logoSrc from "../../assets/logo.svg";
 import { getElectronApi } from "../auth/client.ts";
 import type { RolePermissionsSnapshot } from "../../shared/permissions.types.ts";
 import type { AuthUser } from "../auth/session.ts";

@@ -648,7 +648,13 @@ export function SalesClient({
         );
         setCustomerId("");
         setInvoiceCustomerName("");
-        setSalesPointId("");
+        setSalesPointId(
+          formOptions.scopedSalesPointId != null
+            ? String(formOptions.scopedSalesPointId)
+            : isBottleVariant && formOptions.botaSalesPointId != null
+              ? String(formOptions.botaSalesPointId)
+              : "",
+        );
         setLines([]);
         setPayments([{ paymentMethodId: "", amount: "0", ...emptyPaymentExtras() }]);
       } catch (error) {
@@ -661,7 +667,7 @@ export function SalesClient({
     }
 
     void bootstrap();
-  }, []);
+  }, [user.id, isBottleVariant]);
 
   useEffect(() => {
     if (initialInvoiceNo.trim()) {
@@ -810,11 +816,16 @@ export function SalesClient({
   }, [options, isFormEditable, isBottleVariant, saleDisposition]);
 
   useEffect(() => {
-    if (!options || !isFormEditable || !isBottleVariant) {
+    if (!options || !isFormEditable) {
       return;
     }
 
-    if (options.botaSalesPointId != null) {
+    if (options.scopedSalesPointId != null) {
+      setSalesPointId(String(options.scopedSalesPointId));
+      return;
+    }
+
+    if (isBottleVariant && options.botaSalesPointId != null) {
       setSalesPointId(String(options.botaSalesPointId));
     }
   }, [options, isFormEditable, isBottleVariant]);
@@ -923,9 +934,11 @@ export function SalesClient({
     setCustomerId("");
     setInvoiceCustomerName("");
     setSalesPointId(
-      isBottleVariant && options.botaSalesPointId != null
-        ? String(options.botaSalesPointId)
-        : "",
+      options.scopedSalesPointId != null
+        ? String(options.scopedSalesPointId)
+        : isBottleVariant && options.botaSalesPointId != null
+          ? String(options.botaSalesPointId)
+          : "",
     );
     setSaleProductMode(defaultProductMode);
     setSaleDisposition("NORMAL");
@@ -1080,7 +1093,10 @@ export function SalesClient({
     setBanner(null);
 
     try {
-      const sale = await getElectronApi().sales.loadSaleByInvoiceNo(invoice);
+      const sale = await getElectronApi().sales.loadSaleByInvoiceNo(
+        invoice,
+        user.id,
+      );
       if (!sale) {
         if (notFoundMode === "error") {
           setBanner({ type: "error", text: "Invoice not found." });
@@ -1814,6 +1830,7 @@ export function SalesClient({
                 value={salesPointId}
                 disabled={
                   !isFormEditable ||
+                  options.scopedSalesPointId != null ||
                   (isBottleVariant && options.botaSalesPointId != null)
                 }
                 onChange={(event) => {

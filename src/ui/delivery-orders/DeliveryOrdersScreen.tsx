@@ -81,6 +81,7 @@ export function DeliveryOrdersScreen({
 
       {view === "list" ? (
         <DeliveryOrdersList
+          user={user}
           onOpenOrder={openOrder}
           onOpenScreen={
             canUseScreen

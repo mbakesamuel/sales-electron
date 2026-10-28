@@ -15,6 +15,8 @@ import {
   loadProducts,
   nowIso,
   parseQty,
+  reportScopedSalesPointId,
+  salesPointFilterSql,
   type ProductRow,
 } from "./shared.js";
 import { buildWeekChoices } from "./weekChoices.js";
@@ -60,7 +62,9 @@ function bottledLineKg(
 function loadValidatedSaleLines(
   fromIso: string,
   toIso: string,
+  salesPointId?: number | null,
 ): SaleLineRecord[] {
+  const sp = salesPointFilterSql("s.salesPointId", salesPointId);
   return getDatabase()
     .prepare(
       `SELECT s.dateIssued, sl.productId,
@@ -72,9 +76,9 @@ function loadValidatedSaleLines(
        LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
        WHERE s.status = 'VALIDATED'
          AND s.dateIssued >= ?
-         AND s.dateIssued <= ?`,
+         AND s.dateIssued <= ?${sp.clause}`,
     )
-    .all(fromIso, toIso)
+    .all(fromIso, toIso, ...sp.params)
     .map((row) => ({
       dateIssued: String((row as { dateIssued: string }).dateIssued).slice(
         0,
@@ -108,6 +112,7 @@ export function getMonthlyPaymentDeliveryReport(
   const settings = loadReportCompanySettings(userId, asAtIso);
   const comments = loadReportComments(ROUTE_ID);
   const products = loadProducts();
+  const scopedSalesPointId = reportScopedSalesPointId(userId);
   const productById = new Map(
     products.map((product) => [product.productId, product]),
   );
@@ -126,7 +131,11 @@ export function getMonthlyPaymentDeliveryReport(
     }),
   );
 
-  const lines = loadValidatedSaleLines(monthStartIso, asAtIso);
+  const lines = loadValidatedSaleLines(
+    monthStartIso,
+    asAtIso,
+    scopedSalesPointId,
+  );
   for (const line of lines) {
     const week = weeks.find(
       (row) =>

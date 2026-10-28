@@ -106,6 +106,7 @@ export function SalesValidationScreen({ user }: SalesValidationScreenProps) {
     try {
       const detail = await getElectronApi().sales.loadSaleByInvoiceNo(
         row.invoiceNo,
+        user.id,
       );
       if (!detail) {
         setMessage({ type: "error", text: "Invoice not found." });

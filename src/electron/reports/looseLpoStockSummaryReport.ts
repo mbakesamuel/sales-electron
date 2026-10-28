@@ -15,7 +15,12 @@ import {
   loadReportComments,
   loadReportCompanySettings,
 } from "./companySettings.js";
-import { loadProducts, loadSalesPoints, nowIso } from "./shared.js";
+import {
+  loadProducts,
+  loadSalesPointsForUser,
+  nowIso,
+  reportScopedSalesPointId,
+} from "./shared.js";
 import type {
   LooseLpoStockSummaryColumnPair,
   LooseLpoStockSummaryRow,
@@ -56,7 +61,8 @@ export function getLooseLpoStockSummaryReport(
 ): LooseLpoStockSummaryReport {
   const { asAtIso, period } = resolveReportAsAt();
   const settings = loadReportCompanySettings(userId, asAtIso);
-  const salesPoints = loadSalesPoints();
+  const salesPoints = loadSalesPointsForUser(userId);
+  const scopedSalesPointId = reportScopedSalesPointId(userId);
   const products = loadProducts();
   const monthStartIso = period.startDate;
   const monthLabel =
@@ -77,10 +83,14 @@ export function getLooseLpoStockSummaryReport(
   ).financialMonth;
   const toDateColumnLabel = `TO DATE ${monthIndexInFy} MONTH`;
 
-  const monthSaleLines = loadLpoSaleLines(monthStartIso, asAtIso);
-  const monthReceiptLines = loadLpoReceiptLines(monthStartIso, asAtIso);
-  const ytdSaleLines = loadLpoSaleLines(fyStartIso, asAtIso);
-  const ytdReceiptLines = loadLpoReceiptLines(fyStartIso, asAtIso);
+  const monthSaleLines = loadLpoSaleLines(monthStartIso, asAtIso, scopedSalesPointId);
+  const monthReceiptLines = loadLpoReceiptLines(
+    monthStartIso,
+    asAtIso,
+    scopedSalesPointId,
+  );
+  const ytdSaleLines = loadLpoSaleLines(fyStartIso, asAtIso, scopedSalesPointId);
+  const ytdReceiptLines = loadLpoReceiptLines(fyStartIso, asAtIso, scopedSalesPointId);
 
   const openingThisMonth = computeCompanyLpoOpening(
     salesPoints,

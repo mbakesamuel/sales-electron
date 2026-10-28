@@ -11,6 +11,8 @@ interface ReportOverlayShellProps {
   title?: string;
   /** Report PDF pane: Print plus Close with an X. Other documents keep the outline Close only. */
   preview?: boolean;
+  /** Portal to document.body above stock/form modals (z-index 130). */
+  elevated?: boolean;
   onClose: () => void;
   children: ComponentChildren;
 }
@@ -19,6 +21,7 @@ export function ReportOverlayShell({
   reportId,
   title,
   preview = false,
+  elevated = false,
   onClose,
   children,
 }: ReportOverlayShellProps) {
@@ -28,10 +31,14 @@ export function ReportOverlayShell({
     title ?? (reportId != null ? getRouteLabel(reportId) : "Report");
 
   useEffect(() => {
+    if (elevated) {
+      setHost(document.body);
+      return;
+    }
     const node = anchorRef.current;
     const next = node?.closest(".home-content") ?? node?.closest(".home-main");
     setHost(next instanceof HTMLElement ? next : null);
-  }, []);
+  }, [elevated]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -44,7 +51,11 @@ export function ReportOverlayShell({
   }, [onClose]);
 
   const panel = (
-    <div class="report-overlay-backdrop" role="region" aria-label={displayTitle}>
+    <div
+      class={`report-overlay-backdrop${elevated ? " is-elevated" : ""}`}
+      role="region"
+      aria-label={displayTitle}
+    >
       <div class="report-overlay-panel">
         <div class="report-overlay-toolbar no-print">
           <h2 class="report-overlay-title">{displayTitle}</h2>

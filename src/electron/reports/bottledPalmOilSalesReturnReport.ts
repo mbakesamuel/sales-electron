@@ -18,6 +18,8 @@ import {
   loadProducts,
   nowIso,
   parseQty,
+  reportScopedSalesPointId,
+  salesPointFilterSql,
   type ProductRow,
 } from "./shared.js";
 import { getDatabase } from "../db/index.js";
@@ -182,7 +184,12 @@ function receptionLabel(supplierLabel: string): string {
   return `RECEPTION FROM ${trimmed}`;
 }
 
-function loadReceiptLines(fromIso: string, toIso: string): ReceiptLineRecord[] {
+function loadReceiptLines(
+  fromIso: string,
+  toIso: string,
+  salesPointId?: number | null,
+): ReceiptLineRecord[] {
+  const sp = salesPointFilterSql("r.salesPointId", salesPointId);
   return getDatabase()
     .prepare(
       `SELECT r.supplierLabel, l.productId,
@@ -193,9 +200,9 @@ function loadReceiptLines(fromIso: string, toIso: string): ReceiptLineRecord[] {
        LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
        WHERE r.status = 'POSTED'
          AND substr(r.receivedAt, 1, 10) >= ?
-         AND substr(r.receivedAt, 1, 10) <= ?`,
+         AND substr(r.receivedAt, 1, 10) <= ?${sp.clause}`,
     )
-    .all(fromIso, toIso)
+    .all(fromIso, toIso, ...sp.params)
     .map((row) => ({
       supplierLabel: String((row as { supplierLabel: string }).supplierLabel),
       productId: (row as { productId: number }).productId,
@@ -204,7 +211,12 @@ function loadReceiptLines(fromIso: string, toIso: string): ReceiptLineRecord[] {
     }));
 }
 
-function loadSaleLines(fromIso: string, toIso: string): SaleLineRecord[] {
+function loadSaleLines(
+  fromIso: string,
+  toIso: string,
+  salesPointId?: number | null,
+): SaleLineRecord[] {
+  const sp = salesPointFilterSql("s.salesPointId", salesPointId);
   return getDatabase()
     .prepare(
       `SELECT s.saleDisposition, sl.productId,
@@ -215,9 +227,9 @@ function loadSaleLines(fromIso: string, toIso: string): SaleLineRecord[] {
        LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
        WHERE s.status = 'VALIDATED'
          AND s.dateIssued >= ?
-         AND s.dateIssued <= ?`,
+         AND s.dateIssued <= ?${sp.clause}`,
     )
-    .all(fromIso, toIso)
+    .all(fromIso, toIso, ...sp.params)
     .map((row) => {
       const qtyUnitsRaw = (row as { qtyUnits: string | null }).qtyUnits;
       const qtyKg = parseQty((row as { qtyKg: string }).qtyKg);
@@ -234,6 +246,7 @@ function loadSaleLines(fromIso: string, toIso: string): SaleLineRecord[] {
 function sumSellableBottledPacks(
   products: ProductRow[],
   asOfIso: string,
+  salesPointId?: number | null,
 ): BottledPalmOilSalesReturnCell[] {
   const bottledById = new Map(
     products
@@ -243,6 +256,9 @@ function sumSellableBottledPacks(
   const packs = emptyPacks();
   for (const row of loadStockBalancesAsOf(getDatabase(), asOfIso)) {
     if (row.condition !== "SELLABLE") {
+      continue;
+    }
+    if (salesPointId != null && row.salesPointId !== salesPointId) {
       continue;
     }
     const product = bottledById.get(row.productId);
@@ -262,6 +278,7 @@ function sumCarryForwardBottledPacks(
   products: ProductRow[],
   fromIso: string,
   toIso: string,
+  salesPointId?: number | null,
 ): BottledPalmOilSalesReturnCell[] {
   const bottledById = new Map(
     products
@@ -269,6 +286,7 @@ function sumCarryForwardBottledPacks(
       .map((product) => [product.productId, product]),
   );
   const packs = emptyPacks();
+  const sp = salesPointFilterSql("a.salesPointId", salesPointId);
   const rows = getDatabase()
     .prepare(
       `SELECT l.productId, l.deltaQty
@@ -277,9 +295,12 @@ function sumCarryForwardBottledPacks(
        WHERE a.sourceKind = 'CARRY_FORWARD'
          AND a.status = 'POSTED'
          AND substr(a.occurredAt, 1, 10) >= ?
-         AND substr(a.occurredAt, 1, 10) <= ?`,
+         AND substr(a.occurredAt, 1, 10) <= ?${sp.clause}`,
     )
-    .all(fromIso, toIso) as Array<{ productId: number; deltaQty: string }>;
+    .all(fromIso, toIso, ...sp.params) as Array<{
+    productId: number;
+    deltaQty: string;
+  }>;
 
   for (const row of rows) {
     const product = bottledById.get(row.productId);
@@ -369,19 +390,29 @@ export function getBottledPalmOilSalesReturnReport(
   const settings = loadReportCompanySettings(userId, asAtIso);
   const comments = loadReportComments(ROUTE_ID);
   const products = loadProducts();
+  const scopedSalesPointId = reportScopedSalesPointId(userId);
   const monthStartIso = period.startDate;
   const openingAsOfIso = dayBeforeIso(monthStartIso);
   const monthLabel = `${period.monthName} ${period.financialYear}`.toUpperCase();
   const reportTitle = `BOTTLED PALM OIL SALES RETURN FOR THE MONTH OF ${monthLabel} (VALUE WITHOUT TAXES)`;
 
-  const receiptLines = loadReceiptLines(monthStartIso, asAtIso);
-  const saleLines = loadSaleLines(monthStartIso, asAtIso);
+  const receiptLines = loadReceiptLines(
+    monthStartIso,
+    asAtIso,
+    scopedSalesPointId,
+  );
+  const saleLines = loadSaleLines(monthStartIso, asAtIso, scopedSalesPointId);
 
-  const priorPacks = sumSellableBottledPacks(products, openingAsOfIso);
+  const priorPacks = sumSellableBottledPacks(
+    products,
+    openingAsOfIso,
+    scopedSalesPointId,
+  );
   const carryForwardPacks = sumCarryForwardBottledPacks(
     products,
     monthStartIso,
     asAtIso,
+    scopedSalesPointId,
   );
   const bfPacks = emptyPacks();
   for (let index = 0; index < bfPacks.length; index += 1) {

@@ -11,6 +11,10 @@ export interface AuthUser {
   name: string;
   role: string;
   commercialServiceId: string | null;
+  /** Assigned collection point id when set on the user record. */
+  salesPointId: number | null;
+  /** Display name for salesPointId. */
+  salesPointName: string | null;
   mustChangePassword: boolean;
 }
 

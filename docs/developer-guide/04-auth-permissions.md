@@ -43,7 +43,9 @@ Defaults: [`src/electron/auth/permissions/defaults.ts`](../../src/electron/auth/
 | `draft_stock_receipts` | Create / edit / delete draft receipts |
 | `post_stock_receipts` | Post receipts and cancel posted receipts |
 | `draft_stock_transfers` | Create / edit / delete draft transfers |
-| `post_stock_transfers` | Dispatch, post location moves, receive, cancel posted transfers |
+| `post_stock_transfers` | Dispatch, post location moves, cancel posted transfers |
+| `receive_stock_transfers` | Receive incoming inter-site transfers (Bottled Stock) |
+| `direct_post_stock_transfers` | Create + post transfer in one step |
 | `draft_stock_adjustments` | Create / edit / delete draft adjustments |
 | `post_stock_adjustments` | Post adjustments (including reclassify) and cancel posted adjustments |
 
@@ -52,6 +54,8 @@ UI screens check route access for navigation; mutation handlers should also enfo
 Supervisor Overview roles: `SENIOR_SALES_SUPERVISOR` and custom `JNR_SALES_SUP` via `isSupervisorOverviewRole()` in `src/shared/roles.ts`. Store Keeper Overview: `isStoreKeeperRole()`.
 
 Stock document buttons require route **write** on `stock-receipts` / `stock-transfers` / `stock-adjustments` **and** the matching draft or post action (see `getStockBootstrap` in [`src/electron/stock/service.ts`](../../src/electron/stock/service.ts)).
+
+Assigned collection point (`User.salesPointId`) also scopes **operational reports** the same way as sales/DOs: generators use `reportScopedSalesPointId` / `loadSalesPointsForUser` / `salesPointFilterSql` in [`src/electron/reports/shared.ts`](../../src/electron/reports/shared.ts). Scoped users only see their CP (dropdowns lock on Daily Sales, Matrix, Revenue & Taxes). Sales-budget crosstabs stay company-wide (no CP dimension).
 
 ## Role permissions UI
 

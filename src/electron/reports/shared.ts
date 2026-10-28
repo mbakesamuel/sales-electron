@@ -1,5 +1,9 @@
 import type { BottledPackColumn } from "../../shared/reports.types.js";
 import { isStorageLocationEffectivelySellable } from "../../shared/storageLocationSellability.js";
+import {
+  filterByCollectionPointScope,
+  getUserCollectionPointId,
+} from "../auth/collectionPointScope.js";
 import { getDatabase } from "../db/index.js";
 
 export const PALM_OIL_KG_PER_LITRE = 0.85;
@@ -52,6 +56,44 @@ export function loadSalesPoints(): SalesPointRow[] {
     .all() as SalesPointRow[];
 }
 
+/** Sales points visible to the actor (assigned CP only when scoped). */
+export function loadSalesPointsForUser(userId?: string | null): SalesPointRow[] {
+  const scopedId =
+    userId != null && userId !== "" ? getUserCollectionPointId(userId) : null;
+  return filterByCollectionPointScope(loadSalesPoints(), scopedId);
+}
+
+/**
+ * Effective report collection-point filter.
+ * Scoped users are forced to their assigned CP (UI "all"/other ids ignored).
+ * Unscoped users keep the optional requested filter (`null` = all).
+ */
+export function resolveReportSalesPointId(
+  userId: string | null | undefined,
+  requested?: number | null,
+): number | null {
+  if (userId != null && userId !== "") {
+    const scoped = getUserCollectionPointId(userId);
+    if (scoped != null) {
+      return scoped;
+    }
+  }
+  if (requested != null && Number.isFinite(Number(requested))) {
+    return Number(requested);
+  }
+  return null;
+}
+
+/** Actor's assigned CP id, or null when unscoped / anonymous. */
+export function reportScopedSalesPointId(
+  userId?: string | null,
+): number | null {
+  if (userId == null || userId === "") {
+    return null;
+  }
+  return getUserCollectionPointId(userId);
+}
+
 export function loadStorageLocations(): StorageLocationRow[] {
   return getDatabase()
     .prepare(
@@ -74,6 +116,32 @@ export function loadStorageLocations(): StorageLocationRow[] {
         effectivelySellable: isStorageLocationEffectivelySellable({ isActive }),
       };
     });
+}
+
+/** Storage locations for the actor's collection point when scoped. */
+export function loadStorageLocationsForUser(
+  userId?: string | null,
+): StorageLocationRow[] {
+  const scopedId = reportScopedSalesPointId(userId);
+  const locations = loadStorageLocations();
+  if (scopedId == null) {
+    return locations;
+  }
+  return locations.filter((row) => row.salesPointId === scopedId);
+}
+
+/**
+ * Append `AND <column> = ?` when scopedOrRequested is set.
+ * Returns `{ clause, params }` to merge into prepared statements.
+ */
+export function salesPointFilterSql(
+  column: string,
+  salesPointId: number | null | undefined,
+): { clause: string; params: number[] } {
+  if (salesPointId != null && Number.isFinite(Number(salesPointId))) {
+    return { clause: ` AND ${column} = ?`, params: [Number(salesPointId)] };
+  }
+  return { clause: "", params: [] };
 }
 
 export function loadProducts(): ProductRow[] {

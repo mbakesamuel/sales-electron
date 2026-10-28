@@ -17,13 +17,13 @@ import { loadStockBalancesAsOf } from "../stock/asOfBalance.js";
 import { getSludgeOilPoolProductId } from "../stock/stockIntakeMigration.js";
 import { loadCommitmentMetricsAsOf } from "./commitmentAsOf.js";
 import { loadReportCompanySettings, loadReportDisplaySettings, loadReportComments } from "./companySettings.js";
+import {
+  loadSalesPointsForUser,
+  reportScopedSalesPointId,
+  type SalesPointRow,
+} from "./shared.js";
 
 const PALM_OIL_KG_PER_LITRE = 0.85;
-
-interface SalesPointRow {
-  id: number;
-  name: string;
-}
 
 interface CategoryRow {
   productCatId: number;
@@ -62,12 +62,6 @@ function sum(values: Array<number | null | undefined>): number {
   return values.reduce<number>((total, value) => total + (value ?? 0), 0);
 }
 
-function loadSalesPoints(): SalesPointRow[] {
-  return getDatabase()
-    .prepare(`SELECT id, name FROM SalesPoint ORDER BY name ASC`)
-    .all() as SalesPointRow[];
-}
-
 function loadCategories(): CategoryRow[] {
   return getDatabase()
     .prepare(
@@ -103,8 +97,11 @@ function loadStockMetrics(asAtIso: string): MetricRow[] {
   });
 }
 
-function loadCommitmentMetrics(asAtIso: string): MetricRow[] {
-  return loadCommitmentMetricsAsOf(getDatabase(), asAtIso);
+function loadCommitmentMetrics(
+  asAtIso: string,
+  salesPointId?: number | null,
+): MetricRow[] {
+  return loadCommitmentMetricsAsOf(getDatabase(), asAtIso, { salesPointId });
 }
 
 function metricForProductAtSalesPoint(
@@ -450,11 +447,12 @@ export function getStockCommitmentReport(
   const { asAtIso } = resolveReportAsAt();
   const settings = loadReportCompanySettings(userId, asAtIso);
   const { hideZeroReportRows: hideZero } = loadReportDisplaySettings();
-  const salesPoints = loadSalesPoints();
+  const salesPoints = loadSalesPointsForUser(userId);
+  const scopedSalesPointId = reportScopedSalesPointId(userId);
   const categories = loadCategories();
   const products = loadProducts();
   const stockMetrics = loadStockMetrics(asAtIso);
-  const commitmentMetrics = loadCommitmentMetrics(asAtIso);
+  const commitmentMetrics = loadCommitmentMetrics(asAtIso, scopedSalesPointId);
 
   const looseCategories = categories.filter((category) => category.isBottled !== 1);
   const bottledCategory = categories.find((category) => category.isBottled === 1) ?? null;

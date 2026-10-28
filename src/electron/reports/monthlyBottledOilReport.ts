@@ -10,7 +10,13 @@ import {
   loadReportComments,
   loadReportCompanySettings,
 } from "./companySettings.js";
-import { detectBottledPack, nowIso, parseQty } from "./shared.js";
+import {
+  detectBottledPack,
+  nowIso,
+  parseQty,
+  reportScopedSalesPointId,
+  salesPointFilterSql,
+} from "./shared.js";
 
 const ROUTE_ID = "monthly-bottled-oil-report";
 
@@ -47,7 +53,12 @@ function emptyTotals(): MonthlyBottledOilReportTotals {
   };
 }
 
-function loadSaleHeaders(fromIso: string, toIso: string): SaleHeaderRecord[] {
+function loadSaleHeaders(
+  fromIso: string,
+  toIso: string,
+  salesPointId?: number | null,
+): SaleHeaderRecord[] {
+  const sp = salesPointFilterSql("s.salesPointId", salesPointId);
   return getDatabase()
     .prepare(
       `SELECT s.id AS saleId,
@@ -66,10 +77,10 @@ function loadSaleHeaders(fromIso: string, toIso: string): SaleHeaderRecord[] {
          AND COALESCE(s.saleProductMode, 'LOOSE') = 'BOTTLE'
          AND s.saleDisposition IN ('RATION', 'PUBLIC_RELATION')
          AND s.dateIssued >= ?
-         AND s.dateIssued <= ?
+         AND s.dateIssued <= ?${sp.clause}
        ORDER BY s.dateIssued ASC, s.invoiceNo ASC`,
     )
-    .all(fromIso, toIso)
+    .all(fromIso, toIso, ...sp.params)
     .map((row) => {
       const r = row as {
         saleId: string;
@@ -135,8 +146,9 @@ export function getMonthlyBottledOilReport(
   const monthStartIso = period.startDate;
   const monthName = period.monthName;
   const reportTitle = "BOTTLED OIL MONTHLY REPORT";
+  const scopedSalesPointId = reportScopedSalesPointId(userId);
 
-  const headers = loadSaleHeaders(monthStartIso, asAtIso);
+  const headers = loadSaleHeaders(monthStartIso, asAtIso, scopedSalesPointId);
   const linesBySale = new Map<string, SaleLinePackRecord[]>();
   for (const line of loadSaleLines(headers.map((h) => h.saleId))) {
     const list = linesBySale.get(line.saleId) ?? [];

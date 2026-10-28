@@ -12,7 +12,12 @@ import {
   loadReportComments,
   loadReportCompanySettings,
 } from "./companySettings.js";
-import { loadSalesPoints, nowIso } from "./shared.js";
+import {
+  loadSalesPointsForUser,
+  nowIso,
+  reportScopedSalesPointId,
+  resolveReportSalesPointId,
+} from "./shared.js";
 
 const ROUTE_ID = "revenue-taxes-report";
 
@@ -209,10 +214,8 @@ export function getRevenueTaxesReport(
   const { asAtIso, period: posting } = resolveReportAsAt();
   const selectedPeriod: RevenueTaxesPeriod =
     period === "year" ? "year" : "month";
-  const selectedSalesPointId =
-    salesPointId != null && Number.isFinite(Number(salesPointId))
-      ? Number(salesPointId)
-      : null;
+  const scopedSalesPointId = reportScopedSalesPointId(userId);
+  const selectedSalesPointId = resolveReportSalesPointId(userId, salesPointId);
 
   const fromIso =
     selectedPeriod === "year"
@@ -222,9 +225,9 @@ export function getRevenueTaxesReport(
 
   const settings = loadReportCompanySettings(userId, asAtIso);
   const comments = loadReportComments(ROUTE_ID);
-  const salesPointOptions: RevenueTaxesSalesPointOption[] = loadSalesPoints().map(
-    (point) => ({ id: point.id, name: point.name }),
-  );
+  const salesPointOptions: RevenueTaxesSalesPointOption[] = loadSalesPointsForUser(
+    userId,
+  ).map((point) => ({ id: point.id, name: point.name }));
   const salesPointLabel =
     selectedSalesPointId == null
       ? "All collection points"
@@ -254,6 +257,7 @@ export function getRevenueTaxesReport(
     monthName: posting.monthName,
     financialYear: posting.financialYear,
     salesPointId: selectedSalesPointId,
+    scopedSalesPointId,
     salesPointLabel,
     salesPointOptions,
     reportTitle,
