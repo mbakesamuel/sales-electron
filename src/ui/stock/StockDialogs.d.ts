@@ -10,11 +10,13 @@ export type StockDialogMessage = {
 interface DocDialogProps {
     title: string;
     wide?: boolean;
+    /** Grow to content; avoid an inner vertical scrollbar when the form fits the viewport. */
+    fitContent?: boolean;
     message?: StockDialogMessage;
     onClose: () => void;
     children: ComponentChildren;
 }
-export declare function DocDialog({ title, wide, message, onClose, children, }: DocDialogProps): import("preact").VNode<any>;
+export declare function DocDialog({ title, wide, fitContent, message, onClose, children, }: DocDialogProps): import("preact").VNode<any>;
 interface ConfirmDialogProps {
     title: string;
     description: string;

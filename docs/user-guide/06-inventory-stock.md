@@ -5,24 +5,24 @@ Sidebar section: **Stock**.
 | Sidebar item | Purpose |
 |--------------|---------|
 | **Opening Stock balances** | Opening / carried-forward on-hand quantities |
-| **Stock** | Main inventory workspace (loose + bottled when your role has Stock write) |
+| **Stock** | Main inventory workspace for **loose / bulk** products only |
 | **Bottle Stock** | Bottled-only workspace (Store Keepers see this remapped as **Stock** when they lack main Stock) |
-| **Receive transfers** | Receive dispatched inter-site transfers at your collection point |
+| **Receive transfers** | Receive dispatched inter-site transfers (legacy / exceptional path) |
 | **Stock validation** | Validate draft receipts, transfers, adjustments (including carry-forward) |
 
 ## Stock hub (**Stock**)
 
-**Stock → Stock** opens the inventory workspace with tabs:
+**Stock → Stock** opens the **loose-products** inventory workspace with tabs:
 
 | Tab | Purpose |
 |-----|---------|
 | **On hand** | Live balances by product and storage location. |
 | **Movements** | Ledger of quantity changes. |
-| **Receipts** | Goods in. |
+| **Receipts** | Goods in (mill-attached collection points). |
 | **Transfers** | Move between storage locations / collection points. |
 | **Adjustments** | Manual corrections (including carry-forward stock postings tagged as such). |
 
-Users with write on both **Stock** and **Bottle Stock** (for example Statistics clerk) see a **unified** Stock screen that lists loose and bottled products together. Transfer, receipt, and adjustment documents still contain either loose or bottled lines only — not both on one document.
+Bottled palm oil is **not** managed on this screen. Use **Bottle Stock** for bottled reception, bin card, and adjustments.
 
 Core ideas:
 
@@ -40,15 +40,15 @@ All posting dates must fall in the **open financial month**.
 
 ## Bottle Stock
 
-**Stock → Bottle Stock** is the bottled-products workspace. Tabs:
+**Stock → Bottle Stock** is the bottled-products workspace (typically **Bota**). Tabs:
 
 | Tab | Purpose |
 |-----|---------|
 | **Bin card** | Bottled ledger filters (default tab) |
-| **Transfers** | Bottled transfers |
+| **Stock Reception** | Capture bottled stock arriving at Bota (source document: **Veh. Cons. #**) |
 | **Adjustments** | Bottled adjustments |
 
-**On hand**, **Movements**, and **Receipts** are not shown on Bottle Stock (use main **Stock** for those when you have access). Store Keepers typically use Bottle Stock only (sidebar label **Stock** when main Stock is hidden) plus **Receive transfers**.
+Primary inbound path: enter a **Stock Reception** with the vehicle consignment note number, post to **Bottle Oil Store**, then sell via Bottle Oil Sales. Inter-site transfer receive remains available as a fallback but is not the normal Bottle Oil replenishment flow.
 
 ## Opening Stock balances (carry-forward stock)
 
@@ -72,7 +72,7 @@ Screen: **Stock → Receive transfers**.
 
 Shows **dispatched** transfers destined for your collection point that are awaiting receive. Open a row, assign destination storage locations, and **Receive**. Stock posts according to **App settings → Stock transfers → Use receive date for stock posting**.
 
-**Store Keepers** use this as their primary inbound path (receive-only; they do not draft or dispatch). The Bottle Oil Overview **Pending receive** tile navigates here.
+Still available for exceptional inter-site moves. For normal Bottle Oil replenishment at Bota, use **Bottle Stock → Stock Reception** instead.
 
 ## Stock validation
 

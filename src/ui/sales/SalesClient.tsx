@@ -95,6 +95,35 @@ function dispositionPaymentMethodName(
   return null;
 }
 
+/** Document serial label on the invoice form, by disposition. */
+function dispositionSerialLabel(
+  dispositionChosen: boolean,
+  disposition: SaleDisposition,
+): string {
+  if (!dispositionChosen) {
+    return "Invoice #";
+  }
+  if (disposition === "RATION" || disposition === "PUBLIC_RELATION") {
+    return "Veh. Cons. #";
+  }
+  if (disposition === "RETAIL") {
+    return "Cash Receipt #";
+  }
+  return "Invoice #";
+}
+
+function dispositionSerialPlaceholder(
+  dispositionChosen: boolean,
+  disposition: SaleDisposition,
+  autoGenerate: boolean,
+): string {
+  if (!dispositionChosen) {
+    return "Select disposition first";
+  }
+  const label = dispositionSerialLabel(true, disposition).replace(" #", " No.");
+  return autoGenerate ? `${label} (or leave blank)` : label;
+}
+
 function cashOnlyPaymentMethods(
   methods: SalesPaymentMethodOption[],
 ): SalesPaymentMethodOption[] {
@@ -1768,13 +1797,15 @@ export function SalesClient({
                 <label class="sales-checkbox">
                   <input
                     type="checkbox"
-                    checked={saleDisposition === "NORMAL"}
+                    checked={dispositionChosen && saleDisposition === "NORMAL"}
                     disabled={!canEditDisposition}
                     onChange={(event) => {
                       if ((event.currentTarget as HTMLInputElement).checked) {
                         setSaleDisposition("NORMAL");
+                        setDispositionChosen(true);
+                      } else if (saleDisposition === "NORMAL") {
+                        setDispositionChosen(false);
                       }
-                      setDispositionChosen(true);
                     }}
                   />
                   Normal
@@ -1783,15 +1814,15 @@ export function SalesClient({
                   <label class="sales-checkbox">
                     <input
                       type="checkbox"
-                      checked={saleDisposition === "RATION"}
+                      checked={dispositionChosen && saleDisposition === "RATION"}
                       disabled={!canEditDisposition}
                       onChange={(event) => {
-                        setSaleDisposition(
-                          (event.currentTarget as HTMLInputElement).checked
-                            ? "RATION"
-                            : "NORMAL",
-                        );
-                        setDispositionChosen(true);
+                        if ((event.currentTarget as HTMLInputElement).checked) {
+                          setSaleDisposition("RATION");
+                          setDispositionChosen(true);
+                        } else if (saleDisposition === "RATION") {
+                          setDispositionChosen(false);
+                        }
                       }}
                     />
                     Ration
@@ -1801,15 +1832,18 @@ export function SalesClient({
                   <label class="sales-checkbox">
                     <input
                       type="checkbox"
-                      checked={saleDisposition === "PUBLIC_RELATION"}
+                      checked={
+                        dispositionChosen &&
+                        saleDisposition === "PUBLIC_RELATION"
+                      }
                       disabled={!canEditDisposition}
                       onChange={(event) => {
-                        setSaleDisposition(
-                          (event.currentTarget as HTMLInputElement).checked
-                            ? "PUBLIC_RELATION"
-                            : "NORMAL",
-                        );
-                        setDispositionChosen(true);
+                        if ((event.currentTarget as HTMLInputElement).checked) {
+                          setSaleDisposition("PUBLIC_RELATION");
+                          setDispositionChosen(true);
+                        } else if (saleDisposition === "PUBLIC_RELATION") {
+                          setDispositionChosen(false);
+                        }
                       }}
                     />
                     Public relation
@@ -1819,15 +1853,15 @@ export function SalesClient({
                   <label class="sales-checkbox">
                     <input
                       type="checkbox"
-                      checked={saleDisposition === "RETAIL"}
+                      checked={dispositionChosen && saleDisposition === "RETAIL"}
                       disabled={!canEditDisposition}
                       onChange={(event) => {
-                        setSaleDisposition(
-                          (event.currentTarget as HTMLInputElement).checked
-                            ? "RETAIL"
-                            : "NORMAL",
-                        );
-                        setDispositionChosen(true);
+                        if ((event.currentTarget as HTMLInputElement).checked) {
+                          setSaleDisposition("RETAIL");
+                          setDispositionChosen(true);
+                        } else if (saleDisposition === "RETAIL") {
+                          setDispositionChosen(false);
+                        }
                       }}
                     />
                     Retail (below 3000 kg, no DO)
@@ -1842,17 +1876,12 @@ export function SalesClient({
               {!isBottleVariant && isSpecialDisposition ? (
                 <p class="sales-hint">Limited to Loose Palm Oil.</p>
               ) : null}
-              {!isBottleVariant && saleDisposition === "RETAIL" ? (
-                <p class="sales-hint">
-                  Retail invoice: invoice-only customer (no directory); no
-                  delivery order; each line must be below 3000 kg. Price uses the
-                  Retail schedule.
-                </p>
-              ) : null}
             </div>
 
-            <label class="sales-field sales-field-span-full sales-invoice-no-field">
-              <span>Invoice #</span>
+            <label class="sales-field sales-invoice-no-field">
+              <span>
+                {dispositionSerialLabel(dispositionChosen, saleDisposition)}
+              </span>
               {saleId ? (
                 <div class="sales-invoice-no">{invoiceNo}</div>
               ) : (
@@ -1861,13 +1890,11 @@ export function SalesClient({
                   inputMode={autoGenerateInvoiceNo ? "text" : "numeric"}
                   pattern={autoGenerateInvoiceNo ? undefined : "\\d*"}
                   value={invoiceNo}
-                  placeholder={
-                    !dispositionChosen
-                      ? "Select disposition first"
-                      : autoGenerateInvoiceNo
-                        ? "Invoice No. (or leave blank)"
-                        : "Invoice No."
-                  }
+                  placeholder={dispositionSerialPlaceholder(
+                    dispositionChosen,
+                    saleDisposition,
+                    autoGenerateInvoiceNo,
+                  )}
                   disabled={!canEnterInvoiceNo}
                   onInput={(event) =>
                     setInvoiceNo(
@@ -1964,146 +1991,144 @@ export function SalesClient({
                 </label>
               ) : null}
             </div>
+            </div>
 
-            <label
-              class={`sales-field${showDeliveryOrders ? " sales-field-span-2" : " sales-field-span-full"}`}
+            <div
+              class={`sales-invoice-balance-row sales-field-span-full${
+                showDeliveryOrders
+                  ? " sales-invoice-balance-row--2"
+                  : " sales-invoice-balance-row--1"
+              }${!isFormEditable ? " sales-form-locked" : ""}`}
             >
-              <span>Customer</span>
-              {isInvoiceOnlyCustomer ? (
-                <>
-                  <input
-                    type="text"
-                    value={invoiceCustomerName}
-                    disabled={!isFormEditable}
-                    placeholder="Customer name on invoice"
-                    onInput={(event) =>
-                      setInvoiceCustomerName(
-                        (event.currentTarget as HTMLInputElement).value,
-                      )
-                    }
-                  />
-                  <span class="sales-hint">
-                    Invoice-only customer · VAT exempt
-                  </span>
-                </>
-              ) : (
-                <>
-                  <select
-                    value={customerId}
-                    disabled={!isFormEditable}
-                    onChange={(event) =>
-                      setCustomerId(
-                        (event.currentTarget as HTMLSelectElement).value,
-                      )
-                    }
-                  >
-                    <option value="">Select customer</option>
-                    {options.customers.map((item) => (
-                      <option key={item.id} value={String(item.id)}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
-                  {isBottleVariant ? (
+              <label class="sales-field">
+                <span>Customer</span>
+                {isInvoiceOnlyCustomer ? (
+                  <>
+                    <input
+                      type="text"
+                      value={invoiceCustomerName}
+                      disabled={!isFormEditable}
+                      placeholder="Customer name on invoice"
+                      onInput={(event) =>
+                        setInvoiceCustomerName(
+                          (event.currentTarget as HTMLInputElement).value,
+                        )
+                      }
+                    />
                     <span class="sales-hint">
-                      Directory customer required (App settings)
+                      Invoice-only customer · VAT exempt
                     </span>
-                  ) : options.customers.length === 0 ? (
-                    <span class="sales-hint">
-                      No directory customers — use Retail, Ration, or Public
-                      relation, or add customers / enable unregistered customer
-                      in App settings.
-                    </span>
-                  ) : null}
-                 {/*  <span class="sales-hint">
-                    Regime: {customer?.taxRegimeName ?? "—"}
-                    {!skipTax && taxProfile?.vatApplies
-                      ? " · VAT applies"
-                      : " · VAT exempt"}
-                    {!skipTax && taxProfile
-                      ? ` · Sales tax ${(taxProfile.salesTaxRate * 100).toFixed(0)}%`
-                      : ""}
-                  </span> */}
-                </>
-              )}
-            </label>
+                  </>
+                ) : (
+                  <>
+                    <select
+                      value={customerId}
+                      disabled={!isFormEditable}
+                      onChange={(event) =>
+                        setCustomerId(
+                          (event.currentTarget as HTMLSelectElement).value,
+                        )
+                      }
+                    >
+                      <option value="">Select customer</option>
+                      {options.customers.map((item) => (
+                        <option key={item.id} value={String(item.id)}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                    {isBottleVariant ? (
+                      <span class="sales-hint">
+                        Directory customer required (App settings)
+                      </span>
+                    ) : options.customers.length === 0 ? (
+                      <span class="sales-hint">
+                        No directory customers — use Retail, Ration, or Public
+                        relation, or add customers / enable unregistered customer
+                        in App settings.
+                      </span>
+                    ) : null}
+                  </>
+                )}
+              </label>
 
-            {showDeliveryOrders ? (
-              <label class="sales-field sales-field-span-2 sales-field-do">
-                <span>Delivery order no. (optional)</span>
-                <div class="sales-do-row">
-                  <input
-                    type="text"
-                    value={deliveryOrderNo}
-                    disabled={!isFormEditable}
-                    placeholder="DO-2026-000001"
-                    onInput={(event) => {
-                      setDeliveryOrderNo(
-                        (event.currentTarget as HTMLInputElement).value,
-                      );
-                      setDoLinePrefill(null);
-                    }}
-                  />
-                  {isFormEditable ? (
-                    <>
-                      <button
-                        type="button"
-                        class="sales-btn-secondary sales-do-btn"
-                        disabled={
-                          busy !== null ||
-                          !isFormEditable ||
-                          !deliveryOrderNo.trim()
-                        }
-                        onClick={() => void lookupDo()}
-                      >
-                        {busy === "do-lookup" ? "…" : "Lookup"}
-                      </button>
-                      {availableDos.length > 0 ? (
+              {showDeliveryOrders ? (
+                <label class="sales-field sales-field-do">
+                  <span>Delivery order no. (optional)</span>
+                  <div class="sales-do-row">
+                    <input
+                      type="text"
+                      value={deliveryOrderNo}
+                      disabled={!isFormEditable}
+                      placeholder="DO-2026-000001"
+                      onInput={(event) => {
+                        setDeliveryOrderNo(
+                          (event.currentTarget as HTMLInputElement).value,
+                        );
+                        setDoLinePrefill(null);
+                      }}
+                    />
+                    {isFormEditable ? (
+                      <>
                         <button
                           type="button"
                           class="sales-btn-secondary sales-do-btn"
-                          disabled={busy !== null || !isFormEditable}
-                          onClick={() => setDoPickerOpen((open) => !open)}
-                        >
-                          Pick DO {doPickerOpen ? "▴" : "▾"}
-                        </button>
-                      ) : null}
-                    </>
-                  ) : null}
-                </div>
-                {doPickerOpen && availableDos.length > 0 ? (
-                  <ul class="sales-do-picker">
-                    {availableDos.map((row) => (
-                      <li key={`${row.deliveryOrderNo}:${row.productId}`}>
-                        <button
-                          type="button"
-                          disabled={busy !== null || !isFormEditable}
-                          onClick={() =>
-                            void selectDeliveryOrder(
-                              row.deliveryOrderNo,
-                              row.productId,
-                            )
+                          disabled={
+                            busy !== null ||
+                            !isFormEditable ||
+                            !deliveryOrderNo.trim()
                           }
+                          onClick={() => void lookupDo()}
                         >
-                          <strong>
-                            {row.isCarryForward ? "CF · " : ""}
-                            {row.deliveryOrderNo}
-                            {row.isCarryForward && row.sourceDocumentNo
-                              ? ` · orig ${row.sourceDocumentNo}`
-                              : ""}
-                          </strong>
-                          <span>
-                            {row.productName} · {formatDisplayDate(row.dateIssued)} ·{" "}
-                            {row.balanceKg} kg left
-                            {row.isCarryForward ? " · carry-forward" : ""}
-                          </span>
+                          {busy === "do-lookup" ? "…" : "Lookup"}
                         </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </label>
-            ) : null}
+                        {availableDos.length > 0 ? (
+                          <button
+                            type="button"
+                            class="sales-btn-secondary sales-do-btn"
+                            disabled={busy !== null || !isFormEditable}
+                            onClick={() => setDoPickerOpen((open) => !open)}
+                          >
+                            Pick DO {doPickerOpen ? "▴" : "▾"}
+                          </button>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </div>
+                  {doPickerOpen && availableDos.length > 0 ? (
+                    <ul class="sales-do-picker">
+                      {availableDos.map((row) => (
+                        <li key={`${row.deliveryOrderNo}:${row.productId}`}>
+                          <button
+                            type="button"
+                            disabled={busy !== null || !isFormEditable}
+                            onClick={() =>
+                              void selectDeliveryOrder(
+                                row.deliveryOrderNo,
+                                row.productId,
+                              )
+                            }
+                          >
+                            <strong>
+                              {row.isCarryForward ? "CF · " : ""}
+                              {row.deliveryOrderNo}
+                              {row.isCarryForward && row.sourceDocumentNo
+                                ? ` · orig ${row.sourceDocumentNo}`
+                                : ""}
+                            </strong>
+                            <span>
+                              {row.productName} ·{" "}
+                              {formatDisplayDate(row.dateIssued)} ·{" "}
+                              {row.balanceKg} kg left
+                              {row.isCarryForward ? " · carry-forward" : ""}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </label>
+              ) : null}
             </div>
           </div>
         </div>
@@ -2343,9 +2368,13 @@ export function SalesClient({
               const isTraite = method?.kind === "TRAITE";
               const isBankTransfer = method?.kind === "BANK_TRANSFER";
               const bankEnabled = isCheque || isBankTransfer || isTraite;
-              const gridClass = isTraite
-                ? "sales-payment-grid sales-payment-grid--cols-6"
-                : "sales-payment-grid sales-payment-grid--cols-4";
+              // Bottle Oil / special disposition: Cash (or locked method) + amount only.
+              const simplePaymentRow = isBottleMode || isSpecialDisposition;
+              const gridClass = simplePaymentRow
+                ? "sales-payment-grid sales-payment-grid--cols-2"
+                : isTraite
+                  ? "sales-payment-grid sales-payment-grid--cols-6"
+                  : "sales-payment-grid sales-payment-grid--cols-4";
 
               return (
                 <div class="sales-payment-row" key={index}>
@@ -2402,7 +2431,7 @@ export function SalesClient({
                       )}
                     </label>
 
-                    {isTraite ? (
+                    {!simplePaymentRow && isTraite ? (
                       <>
                         <label class="sales-field">
                           <span>Trait no #</span>
@@ -2492,7 +2521,9 @@ export function SalesClient({
                           )}
                         </label>
                       </>
-                    ) : (
+                    ) : null}
+
+                    {!simplePaymentRow && !isTraite ? (
                       <label class="sales-field">
                         <span>Cheque #</span>
                         {isReadOnly ? (
@@ -2522,37 +2553,39 @@ export function SalesClient({
                           />
                         )}
                       </label>
-                    )}
+                    ) : null}
 
-                    <label class="sales-field">
-                      <span>Bank</span>
-                      {isReadOnly ? (
-                        <div class="sales-payment-value">
-                          {payment.bank ?? "—"}
-                        </div>
-                      ) : (
-                        <input
-                          type="text"
-                          value={payment.bank ?? ""}
-                          disabled={!isFormEditable || !bankEnabled}
-                          placeholder={bankEnabled ? "Bank name" : "—"}
-                          onInput={(event) =>
-                            setPayments((current) =>
-                              current.map((item, i) =>
-                                i === index
-                                  ? {
-                                      ...item,
-                                      bank: (
-                                        event.currentTarget as HTMLInputElement
-                                      ).value,
-                                    }
-                                  : item,
-                              ),
-                            )
-                          }
-                        />
-                      )}
-                    </label>
+                    {!simplePaymentRow ? (
+                      <label class="sales-field">
+                        <span>Bank</span>
+                        {isReadOnly ? (
+                          <div class="sales-payment-value">
+                            {payment.bank ?? "—"}
+                          </div>
+                        ) : (
+                          <input
+                            type="text"
+                            value={payment.bank ?? ""}
+                            disabled={!isFormEditable || !bankEnabled}
+                            placeholder={bankEnabled ? "Bank name" : "—"}
+                            onInput={(event) =>
+                              setPayments((current) =>
+                                current.map((item, i) =>
+                                  i === index
+                                    ? {
+                                        ...item,
+                                        bank: (
+                                          event.currentTarget as HTMLInputElement
+                                        ).value,
+                                      }
+                                    : item,
+                                ),
+                              )
+                            }
+                          />
+                        )}
+                      </label>
+                    ) : null}
                   </div>
 
                   {isFormEditable && !isBottleMode && !isSpecialDisposition ? (

@@ -41,14 +41,14 @@ export declare function getVisibleStockTabs(snapshot: RolePermissionsSnapshot): 
 export declare function getVisibleStockTabsForVariant(snapshot: RolePermissionsSnapshot, variant: StockModuleVariant): StockTabId[];
 export declare function normalizeStockProductFilter(value: unknown): StockProductFilter;
 /**
- * Main Stock screen variant: unified (loose + bottled) whenever the role can
- * write the stock module. Bottled-only roles (e.g. Store Keeper) open the
- * bottled-stock route instead (`routeVariant === "bottled"`).
- *
- * Stock Write also authorizes bottled document mutations on the main screen;
- * Bottled Stock Write remains for bottled-only keepers.
+ * Main Stock screen is loose/bulk only. Bottled ops live on Bottle Stock
+ * (`routeVariant === "bottled"`).
  */
-export declare function resolveStockModuleVariant(snapshot: RolePermissionsSnapshot, routeVariant: "bulk" | "bottled"): StockModuleVariant;
-/** Bottled-only users (e.g. Store Keeper) use bottled stock; dual-write roles use unified all on Stock route. */
+export declare function resolveStockModuleVariant(_snapshot: RolePermissionsSnapshot, routeVariant: "bulk" | "bottled"): StockModuleVariant;
+/**
+ * Bottled-only users (e.g. Store Keeper) use bottled stock.
+ * Main Stock writers default to bulk; bottled filter is honored when the
+ * Bottle Stock screen requests it.
+ */
 export declare function resolveStockProductFilterFromAccess(bulkAccess: RouteAccess, bottledAccess: RouteAccess, requested?: StockProductFilter | null, _bottledCapabilityAccess?: RouteAccess | null): StockProductFilter;
 export declare function resolveStockProductFilterFromSnapshot(snapshot: RolePermissionsSnapshot, requested?: StockProductFilter | null): StockProductFilter;

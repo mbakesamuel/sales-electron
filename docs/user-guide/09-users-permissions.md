@@ -22,8 +22,8 @@ Default route access is defined per role (admins can change the matrix):
 | **MANAGER** | Most routes write (not user admin); validate sales/DOs/consignments/booklets; can cancel validated DOs and validated sales invoices. Commercial Overview. |
 | **SENIOR_SALES_SUPERVISOR** | Operations, customers, inventory read/write; validate sales/DOs/consignments. **Supervisor Overview** (queues + stock). |
 | **JNR_SALES_SUP** (junior sales supervisor) | Custom/manageable role (may already exist in production DBs). Shares **Supervisor Overview** with senior supervisors when granted matching routes. |
-| **STATISTICS_CLERK** | Broad **read** on operations, budgets, reports, and financial/tax screens; **write** on **Stock**, **Bottle Stock**, **Opening Stock balances**, and **Register Commitments** for company-wide transfers (bulk + bottled) and carry-forward entry. Primary transfer operator — draft, dispatch, and location moves across all collection points. Carry-forward saves stay pending until a supervisor validates them. No validate actions by default. Commercial Overview. |
-| **STORE_KEEPER** | **Bottle Stock** (including **Bin card** and printable bin card report) and Bottle Oil sales at their assigned collection point; **Receive transfers** (receive-only; cannot draft or dispatch). Selected reports; **Bottle Oil Overview** with **Pending receive**. Cannot validate by default. |
+| **STATISTICS_CLERK** | Broad **read** on operations, budgets, reports, and financial/tax screens; **write** on **Stock** (loose), **Bottle Stock**, **Opening Stock balances**, and **Register Commitments**. Primary loose-stock transfer operator. Carry-forward saves stay pending until a supervisor validates them. No validate actions by default. Commercial Overview. |
+| **STORE_KEEPER** | **Bottle Stock** (Bin card, **Stock Reception**, Adjustments) and Bottle Oil sales at their assigned collection point (typically Bota). Draft/post bottled stock receptions with **Veh. Cons. #**. Selected reports; **Bottle Oil Overview**. Cannot validate by default. |
 
 ## Route access vs actions
 
@@ -74,7 +74,7 @@ After changing the matrix, affected users must **log out and sign in again** for
 | Route | Sidebar / behaviour | None | Read | Write |
 |-------|---------------------|------|------|-------|
 | `stock` | **Stock** (unified when write) | Hidden | View | Draft/post stock documents (plus actions) |
-| `bottled-stock` | **Bottle Stock** (Store Keeper nav may show as **Stock**) | Hidden | View bottled tabs | Bottled transfers/adjustments; **Bin card** tab |
+| `bottled-stock` | **Bottle Stock** (Store Keeper nav may show as **Stock**) | Hidden | View bottled tabs | Stock Reception, Adjustments, Bin card |
 | `receive-transfers` | **Receive transfers** | Hidden | View queue | Receive dispatched transfers (also needs receive action) |
 | `stock-validation` | **Stock validation** | Hidden | View queue | Validate when action granted |
 | `carry-forward-stock` | **Opening Stock balances** | Hidden | View | Batch-set opening quantities (clerks submit drafts; supervisors with validate post immediately) |

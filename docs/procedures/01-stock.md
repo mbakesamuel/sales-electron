@@ -55,31 +55,26 @@ Sidebar section: **Stock**. Reference: [Inventory and stock](../user-guide/06-in
 
 ---
 
-### P-ST-03 Stock — create and post a Receipt
+### P-ST-03 Stock — create and post a Receipt (loose)
 
 **Path:** Stock → Stock → **Receipts**  
 **Who:** Statistics clerk / supervisor with draft and/or post receipt actions  
-**Before you start:** Open month; mill-attached collection point; products and locations exist
+**Before you start:** Open month; mill-attached collection point; loose products and locations exist
 
-1. Open **Stock → Stock → Receipts**.
-2. Set the view filter if shown (**Loose**, **Bottled**, or **All**) so the products you need appear.
-3. Click **New receipt**.
-4. Enter **Receipt number** if auto-generate is off (App settings → Stock document numbering); otherwise the system assigns a number on save.
-5. Select **Collection point** (only mill-attached points are offered for new receipts).
-6. Set **Received date** in the open month; optional supplier / notes.
-7. Confirm **Bottled products** checkbox:
-   - Locked **on** when the Stock view is **Bottled**.
-   - Locked **off** when the view is **Loose**.
-   - Editable when the view is **All**.
-8. Add lines: product, quantity, storage location.
-9. Save:
-   - **Save as draft** (or equivalent draft action) if you cannot post directly.
+1. Open **Stock → Stock → Receipts** (loose products only).
+2. Click **New Reception**.
+3. Enter **Receipt number** if auto-generate is off (App settings → Stock document numbering); otherwise the system assigns a number on save.
+4. Select **Collection point** (only mill-attached points are offered for new loose receipts).
+5. Set **Received date** in the open month; enter **Supplier Mill** / notes as required.
+6. Add lines: product, quantity, storage location.
+7. Save:
+   - **Save as draft** if you cannot post directly.
    - **Post** / direct-post if your role has post or direct-post receipt rights.
-10. If saved as draft, a supervisor completes **P-ST-09**.
+8. If saved as draft, a supervisor completes **P-ST-09**.
 
-**Check:** Receipt appears in the list as **POSTED** (or **DRAFT** awaiting validation). **On hand** increases for those products/locations after post.
+**Check:** Receipt appears as **POSTED** (or **DRAFT**). **On hand** increases after post.
 
-**If it fails:** Empty product list — set filter to **All** or **Bottled** and ensure `receiptProducts` loaded (restart app after upgrades); location mixing; closed month; missing draft/post actions on Role permissions.
+**If it fails:** Location mixing; closed month; missing draft/post actions; collection point not mill-attached. For bottled oil use **P-ST-07** instead.
 
 ---
 
@@ -143,20 +138,24 @@ Sidebar section: **Stock**. Reference: [Inventory and stock](../user-guide/06-in
 
 ---
 
-### P-ST-07 Bottle Stock — Transfers and Adjustments
+### P-ST-07 Bottle Stock — Stock Reception and Adjustments
 
-**Path:** Stock → Bottle Stock → **Transfers** or **Adjustments**  
+**Path:** Stock → Bottle Stock → **Stock Reception** or **Adjustments**  
 **Who:** Store Keeper / bottled stock writers  
-**Before you start:** Same as hub transfers/adjustments, bottled products only
+**Before you start:** Open month; Bota (or scoped) collection point; Bottle Oil Store location; bottled products
 
-1. Open **Bottle Stock**.
-2. Use **Transfers** or **Adjustments** tab (On hand / Movements / Receipts are not on this workspace).
-3. Follow the same create → draft/post or dispatch pattern as **P-ST-04** / **P-ST-05**, limited to bottled products.
-4. For inbound inter-site bottled transfers, prefer **P-ST-08**.
+1. Open **Bottle Stock** (Store Keepers may see it remapped as **Stock**).
+2. Open **Stock Reception**.
+3. Click **New Reception**.
+4. Enter **Veh. Cons. #** (vehicle consignment note / waybill number — required).
+5. Confirm collection point (usually Bota / your scoped point) and received date in the open month.
+6. Add bottled product lines into **Bottle Oil Store** (default location).
+7. Save as draft and **Post**, or post per your receipt actions.
+8. Use **Adjustments** for corrections; use **Bin card** to verify movements.
 
-**Check:** Document appears in the Bottle Stock list; On hand on main Stock (if you have it) or store operations reflect the change after post/receive.
+**Check:** Reception listed as **POSTED**; bin card / on-hand for the bottled SKU increases; Bottle Oil Sales can deduct from Bottle Oil Store.
 
-**If it fails:** Trying to receipt on Bottle Stock (use main **Stock → Receipts** or a role with Stock write); receive-only users cannot dispatch.
+**If it fails:** Missing draft/post receipt actions on Store Keeper; closed month; no Bottle Oil Store location; trying to use main Stock for bottled receipt (main Stock is loose-only).
 
 ---
 

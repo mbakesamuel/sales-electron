@@ -986,9 +986,8 @@ function loadReceipts(
   productFilter: StockProductFilter,
 ): ReceiptListRow[] {
   const db = getDatabase();
-  // Stock (bulk) screen owns all receipts (bottled + other). Bottled variant has no receipts tab.
-  const filterByProduct = productFilter === "bottled";
-  const bottledFlag = 1;
+  // Main Stock = bulk receipts only; Bottle Stock = bottled receipts only.
+  const bottledFlag = productFilter === "bottled" ? 1 : 0;
   const productExists = `EXISTS (
     SELECT 1 FROM StockReceiptLine rl
     JOIN Product rp ON rp.productId = rl.productId
@@ -998,23 +997,6 @@ function loadReceipts(
 
   const rows = (() => {
     if (scopedSalesPointId) {
-      if (filterByProduct) {
-        return db
-          .prepare(
-            `SELECT r.id, r.receiptNo, r.salesPointId, sp.name AS salesPointName,
-                    r.receivedAt, r.supplierLabel, r.status, r.postedAt, r.createdAt,
-                    cu.name AS createdByName, pu.name AS postedByName
-             FROM StockReceipt r
-             JOIN SalesPoint sp ON sp.id = r.salesPointId
-             JOIN User cu ON cu.id = r.createdByUserId
-             LEFT JOIN User pu ON pu.id = r.postedByUserId
-             WHERE r.salesPointId = ?
-               AND ${productExists}
-             ORDER BY r.receivedAt DESC, r.createdAt DESC
-             LIMIT 100`,
-          )
-          .all(scopedSalesPointId, bottledFlag) as Array<Record<string, unknown>>;
-      }
       return db
         .prepare(
           `SELECT r.id, r.receiptNo, r.salesPointId, sp.name AS salesPointName,
@@ -1025,26 +1007,11 @@ function loadReceipts(
            JOIN User cu ON cu.id = r.createdByUserId
            LEFT JOIN User pu ON pu.id = r.postedByUserId
            WHERE r.salesPointId = ?
+             AND ${productExists}
            ORDER BY r.receivedAt DESC, r.createdAt DESC
            LIMIT 100`,
         )
-        .all(scopedSalesPointId) as Array<Record<string, unknown>>;
-    }
-    if (filterByProduct) {
-      return db
-        .prepare(
-          `SELECT r.id, r.receiptNo, r.salesPointId, sp.name AS salesPointName,
-                  r.receivedAt, r.supplierLabel, r.status, r.postedAt, r.createdAt,
-                  cu.name AS createdByName, pu.name AS postedByName
-           FROM StockReceipt r
-           JOIN SalesPoint sp ON sp.id = r.salesPointId
-           JOIN User cu ON cu.id = r.createdByUserId
-           LEFT JOIN User pu ON pu.id = r.postedByUserId
-           WHERE ${productExists}
-           ORDER BY r.receivedAt DESC, r.createdAt DESC
-           LIMIT 100`,
-        )
-        .all(bottledFlag) as Array<Record<string, unknown>>;
+        .all(scopedSalesPointId, bottledFlag) as Array<Record<string, unknown>>;
     }
     return db
       .prepare(
@@ -1055,27 +1022,24 @@ function loadReceipts(
          JOIN SalesPoint sp ON sp.id = r.salesPointId
          JOIN User cu ON cu.id = r.createdByUserId
          LEFT JOIN User pu ON pu.id = r.postedByUserId
+         WHERE ${productExists}
          ORDER BY r.receivedAt DESC, r.createdAt DESC
          LIMIT 100`,
       )
-      .all() as Array<Record<string, unknown>>;
+      .all(bottledFlag) as Array<Record<string, unknown>>;
   })();
 
   return rows.map((row) => {
-    const lines = filterByProduct
-      ? (db
-          .prepare(
-            `SELECT rl.qty
-             FROM StockReceiptLine rl
-             JOIN Product p ON p.productId = rl.productId
-             LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
-             WHERE rl.receiptId = ?
-               AND ${productFilterSql("pc")}`,
-          )
-          .all(String(row.id), bottledFlag) as Array<{ qty: string }>)
-      : (db
-          .prepare(`SELECT qty FROM StockReceiptLine WHERE receiptId = ?`)
-          .all(String(row.id)) as Array<{ qty: string }>);
+    const lines = db
+      .prepare(
+        `SELECT rl.qty
+         FROM StockReceiptLine rl
+         JOIN Product p ON p.productId = rl.productId
+         LEFT JOIN ProductCat pc ON pc.productCatId = p.productCatId
+         WHERE rl.receiptId = ?
+           AND ${productFilterSql("pc")}`,
+      )
+      .all(String(row.id), bottledFlag) as Array<{ qty: string }>;
     return {
       id: String(row.id),
       receiptNo: String(row.receiptNo),
@@ -1901,8 +1865,13 @@ export function saveReceipt(input: SaveReceiptInput): StockMutationResult {
     const actor = getActor(input.userId);
     const uiProductFilter = normalizeStockProductFilter(input.productFilter);
     const postImmediately = Boolean(input.postImmediately);
-    // Receipts are owned by the Stock screen (bulk); require stock write for bottled or other.
-    assertRouteWrite(actor.role, STOCK_MODULE_ROUTE_ID);
+    const db = getDatabase();
+    const mutationFilter = resolveMutationProductFilter(
+      db,
+      uiProductFilter,
+      input.lines.map((line) => line.productId),
+    );
+    assertStockModuleWrite(actor.role, mutationFilter, "stock-receipts");
     if (postImmediately) {
       if (input.id) {
         return {
@@ -1916,31 +1885,38 @@ export function saveReceipt(input: SaveReceiptInput): StockMutationResult {
     }
     assertSalesPointScope(actor, input.salesPointId);
 
-    const spCheck = requireActiveSalesPoint(getDatabase(), input.salesPointId);
+    const spCheck = requireActiveSalesPoint(db, input.salesPointId);
     if (!spCheck.ok) {
       return { ok: false, error: spCheck.error };
     }
 
     if (!input.supplierLabel.trim()) {
-      return { ok: false, error: "Supplier label is required." };
+      return {
+        ok: false,
+        error:
+          mutationFilter === "bottled"
+            ? "Veh. Cons. # is required."
+            : "Supplier label is required.",
+      };
     }
     if (input.lines.length === 0) {
       return { ok: false, error: "Add at least one line." };
     }
 
-    const db = getDatabase();
-
-    const millAttached = db
-      .prepare(
-        `SELECT COALESCE(attachedToMill, 0) AS attachedToMill
-         FROM SalesPoint WHERE id = ?`,
-      )
-      .get(input.salesPointId) as { attachedToMill: number } | undefined;
-    if (!millAttached || millAttached.attachedToMill !== 1) {
-      return {
-        ok: false,
-        error: "Collection point must be attached to a mill for stock receipts.",
-      };
+    // Loose receipts stay mill-attached; bottled reception is allowed at Bota.
+    if (mutationFilter !== "bottled") {
+      const millAttached = db
+        .prepare(
+          `SELECT COALESCE(attachedToMill, 0) AS attachedToMill
+           FROM SalesPoint WHERE id = ?`,
+        )
+        .get(input.salesPointId) as { attachedToMill: number } | undefined;
+      if (!millAttached || millAttached.attachedToMill !== 1) {
+        return {
+          ok: false,
+          error: "Collection point must be attached to a mill for stock receipts.",
+        };
+      }
     }
 
     const receivedAtDate = normalizeIsoDateInput(input.receivedAt);
@@ -1958,11 +1934,7 @@ export function saveReceipt(input: SaveReceiptInput): StockMutationResult {
         productId: line.productId,
         storageLocationId: line.storageLocationId ?? null,
       })),
-      resolveMutationProductFilter(
-        db,
-        uiProductFilter,
-        lines.map((line) => line.productId),
-      ),
+      mutationFilter,
     );
 
     const tx = db.transaction(() => {
@@ -2084,7 +2056,7 @@ export function postReceipt(
   try {
     const actor = getActor(userId);
     const productFilter = normalizeStockProductFilter(productFilterInput);
-    assertRouteWrite(actor.role, STOCK_MODULE_ROUTE_ID);
+    assertStockModuleWrite(actor.role, productFilter, "stock-receipts");
     assertAction(actor.role, "post_stock_receipts");
     const db = getDatabase();
 
@@ -2882,11 +2854,7 @@ function cancelStockDocument(
         : kind === "TRANSFER"
           ? "post_stock_transfers"
           : "post_stock_adjustments";
-    if (kind === "RECEIPT") {
-      assertRouteWrite(actor.role, STOCK_MODULE_ROUTE_ID);
-    } else {
-      assertStockModuleWrite(actor.role, productFilter, routeId);
-    }
+    assertStockModuleWrite(actor.role, productFilter, routeId);
     const db = getDatabase();
 
     const tx = db.transaction(() => {

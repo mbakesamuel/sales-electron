@@ -156,16 +156,29 @@ export function loadProducts(): ProductRow[] {
     .all() as ProductRow[];
 }
 
+/**
+ * Classify bottled SKUs into pack columns used by stock/sales reports.
+ * Order matters: "15L" contains the substring "5L", so 1x15 must be matched
+ * before the 3x5 / 5L carton rule.
+ */
 export function detectBottledPack(product: Pick<ProductRow, "productName" | "productCode">): BottledPackColumn {
-  const text = `${product.productName} ${product.productCode ?? ""}`.toUpperCase();
+  const raw = `${product.productName} ${product.productCode ?? ""}`.toUpperCase();
+  // Collapse spaces and normalize carton spelling so "1L X 15 CRTN" / "3 X 5L CTN" match.
+  const text = raw.replace(/\s+/g, "").replace(/CRTN/g, "CTN").replace(/CARTON/g, "CTN");
   if (text.includes("20L") || text.includes("JUG")) {
     return { id: "jug20", label: "1X20L JUG", units: 0, litresPerUnit: 20 };
   }
+  // 1x15L carton (must run before 5L — "15L".includes("5L") === true).
+  if (
+    text.includes("15L") ||
+    text.includes("1X15") ||
+    text.includes("1LX15") ||
+    text.includes("15X1")
+  ) {
+    return { id: "carton15", label: "1X15L CTN", units: 0, litresPerUnit: 15 };
+  }
   if (text.includes("3X5") || (text.includes("5L") && text.includes("CTN"))) {
     return { id: "carton5", label: "3X5L CTN", units: 0, litresPerUnit: 15 };
-  }
-  if (text.includes("15L")) {
-    return { id: "carton15", label: "1X15L CTN", units: 0, litresPerUnit: 15 };
   }
   if (text.includes("1L")) {
     return { id: "unit1", label: "1L BOTTLE", units: 0, litresPerUnit: 1 };

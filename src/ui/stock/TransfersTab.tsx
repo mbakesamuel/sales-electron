@@ -147,11 +147,6 @@ export function TransfersTab(props: TransfersTabProps) {
     transferReceiveUsesDocumentDate,
     loosePalmOilAllowInterSalesPointTransfer,
   } = props;
-  const receiveOnlyMode =
-    !props.canDraft &&
-    !props.canDirectPost &&
-    !props.canDispatch &&
-    props.canReceive;
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [formMode, setFormMode] = useState<FormTransferMode>("inter");
@@ -1010,12 +1005,13 @@ export function TransfersTab(props: TransfersTabProps) {
         <DocDialog
           title={editingId ? "Edit transfer" : "New transfer"}
           wide
+          fitContent
           message={!pendingCancel && !receiveDetail && !reviewDetail ? modalMessage : null}
           onClose={closeFormModal}
         >
           <form
             onSubmit={(event) => void onSave(event, false)}
-            class="stock-form"
+            class="stock-form stock-form-transfer"
           >
             {!autoGenerateTransferNo && !editingId ? (
               <label class="stock-form-row">
@@ -1048,9 +1044,9 @@ export function TransfersTab(props: TransfersTabProps) {
                 </span>
               </label>
             ) : null}
-            <div class="stock-form-row">
+            <div class="stock-form-endpoints">
               <span class="stock-form-label">Transfer type</span>
-              <div class="stock-form-control-wrap">
+              <span class="stock-form-control-wrap">
                 <select
                   class="stock-form-control"
                   value={formMode}
@@ -1064,15 +1060,30 @@ export function TransfersTab(props: TransfersTabProps) {
                   <option value="inter">Between collection points</option>
                   <option value="intra">Within collection point</option>
                 </select>
-              </div>
+              </span>
+              <span class="stock-form-label">
+                {formMode === "intra" ? "Move date" : "Date"}
+              </span>
+              <span class="stock-form-control-wrap">
+                <input
+                  type="date"
+                  class="stock-form-control"
+                  value={dispatchedAt}
+                  min={postingPeriod?.startDate}
+                  max={postingPeriod?.endDate}
+                  disabled={!postingPeriod}
+                  onInput={(event) =>
+                    setDispatchedAt(
+                      clampIsoDateToRange(
+                        (event.currentTarget as HTMLInputElement).value,
+                        postingPeriod,
+                      ),
+                    )
+                  }
+                  required
+                />
+              </span>
             </div>
-            {formMode === "inter" ? (
-              <p class="stock-form-hint">
-                Between collection points: bottled products only. Loose Palm Oil
-                requires the company setting or use{" "}
-                <strong>Within collection point</strong>.
-              </p>
-            ) : null}
 
             {formMode === "inter" ? (
               <div class="stock-form-endpoints">
@@ -1146,40 +1157,6 @@ export function TransfersTab(props: TransfersTabProps) {
               </label>
             )}
 
-            <label class="stock-form-row">
-              <span class="stock-form-label">
-                {formMode === "intra" ? "Move date" : "Date"}
-              </span>
-              <span class="stock-form-control-wrap">
-                <input
-                  type="date"
-                  class="stock-form-control"
-                  value={dispatchedAt}
-                  min={postingPeriod?.startDate}
-                  max={postingPeriod?.endDate}
-                  disabled={!postingPeriod}
-                  onInput={(event) =>
-                    setDispatchedAt(
-                      clampIsoDateToRange(
-                        (event.currentTarget as HTMLInputElement).value,
-                        postingPeriod,
-                      ),
-                    )
-                  }
-                  required
-                />
-                {/*  {!postingPeriod ? (
-                  <span class="stock-form-hint">
-                    Open a financial month to set the move date.
-                  </span>
-                ) : (
-                  <span class="stock-form-hint">
-                    Open month: {postingPeriod.monthName}{" "}
-                    {postingPeriod.financialYear}
-                  </span>
-                )} */}
-              </span>
-            </label>
             <label class="stock-form-row">
               <span class="stock-form-label">Description</span>
               <span class="stock-form-control-wrap">

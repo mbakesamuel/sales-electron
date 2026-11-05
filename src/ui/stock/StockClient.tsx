@@ -49,15 +49,6 @@ const TAB_DEFINITIONS: {
   { id: "adjustments", stockTabId: "adjustments", label: "Adjustments" },
 ];
 
-const PRODUCT_VIEW_OPTIONS: ReadonlyArray<{
-  id: StockProductFilter;
-  label: string;
-}> = [
-  { id: "bulk", label: "Loose" },
-  { id: "bottled", label: "Bottled" },
-  { id: "all", label: "All" },
-];
-
 interface StockClientProps {
   bootstrap: StockBootstrap;
   user: AuthUser;
@@ -75,10 +66,12 @@ export function StockClient({
   permissions,
   variant,
   viewFilter,
-  showProductToggle,
-  onViewFilterChange,
+  showProductToggle: _showProductToggle,
+  onViewFilterChange: _onViewFilterChange,
   onRefresh,
 }: StockClientProps) {
+  void _showProductToggle;
+  void _onViewFilterChange;
   const productFilter = viewFilter;
   const visibleTabs = useMemo((): VisibleTab[] => {
     const allowedStockTabs = getVisibleStockTabsForVariant(permissions, variant);
@@ -87,7 +80,7 @@ export function StockClient({
       const binCardTab: VisibleTab = { id: "bin-card", label: "Bin card" };
       const documentTabs = TAB_DEFINITIONS.filter((tab) => {
         if (
-          tab.id === "receipts" ||
+          tab.id === "transfers" ||
           tab.id === "on-hand" ||
           tab.id === "movements"
         ) {
@@ -97,7 +90,7 @@ export function StockClient({
       }).map((tab) => ({
         id: tab.id,
         stockTabId: tab.stockTabId,
-        label: tab.label,
+        label: tab.id === "receipts" ? "Stock Reception" : tab.label,
       }));
       return [binCardTab, ...documentTabs];
     }
@@ -168,15 +161,11 @@ export function StockClient({
   const title =
     variant === "bottled"
       ? "Stock Management - Bottled Products"
-      : variant === "all"
-        ? "Stock Management"
-        : "Stock Management - Loose Products/Others";
+      : "Stock Management - Loose Products/Others";
   const subtitle =
     variant === "bottled"
-      ? "Bin card ledger, transfers, and adjustments for bottled products."
-      : variant === "all"
-        ? "On-hand quantities, receipts, transfers, and adjustments for loose and bottled products."
-        : "On-hand quantities, receipts, transfers and adjustments as reported by Production.";
+      ? "Bin card ledger, stock reception, and adjustments for bottled products at Bota."
+      : "On-hand quantities, receipts, transfers and adjustments as reported by Production.";
 
   return (
     <div class="stock-screen">
@@ -209,34 +198,6 @@ export function StockClient({
             </button>
           ))}
         </nav>
-
-        {showProductToggle ? (
-          <div
-            class="stock-product-toggle"
-            role="group"
-            aria-label="Product view"
-          >
-            {PRODUCT_VIEW_OPTIONS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                class={`stock-product-toggle-btn${
-                  viewFilter === option.id ? " is-active" : ""
-                }`}
-                aria-pressed={viewFilter === option.id}
-                onClick={() => {
-                  if (viewFilter === option.id) {
-                    return;
-                  }
-                  setBanner(null);
-                  onViewFilterChange(option.id);
-                }}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        ) : null}
       </div>
 
       <div class="stock-tab-panel">

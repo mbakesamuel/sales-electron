@@ -129,8 +129,119 @@ export interface SaleStockLineInput {
 }
 
 /**
+ * Soft hold from other PENDING invoices for the same collection point /
+ * stock product / storage location. Does not write movements — physical
+ * stock still moves only on validation.
+ */
+export function getPendingSaleHoldQty(
+  db: Database.Database,
+  args: {
+    salesPointId: number;
+    /** Already-resolved stock product id (oil grouping applied). */
+    productId: number;
+    storageLocationId: number | null;
+    isBottleMode: boolean;
+    excludeSaleId?: string | null;
+  },
+): number {
+  const groupingEnabled = loadStockIntakeOilGrouping(db);
+  const rows = (
+    args.excludeSaleId
+      ? db
+          .prepare(
+            `SELECT s.id AS saleId,
+                    s.saleProductMode AS saleProductMode,
+                    sl.productId AS productId,
+                    sl.qtyKg AS qtyKg,
+                    sl.qtyUnits AS qtyUnits,
+                    sl.storageLocationId AS storageLocationId
+             FROM Sale s
+             INNER JOIN SaleLine sl ON sl.saleId = s.id
+             WHERE s.status = 'PENDING'
+               AND s.salesPointId = ?
+               AND s.id != ?`,
+          )
+          .all(args.salesPointId, args.excludeSaleId)
+      : db
+          .prepare(
+            `SELECT s.id AS saleId,
+                    s.saleProductMode AS saleProductMode,
+                    sl.productId AS productId,
+                    sl.qtyKg AS qtyKg,
+                    sl.qtyUnits AS qtyUnits,
+                    sl.storageLocationId AS storageLocationId
+             FROM Sale s
+             INNER JOIN SaleLine sl ON sl.saleId = s.id
+             WHERE s.status = 'PENDING'
+               AND s.salesPointId = ?`,
+          )
+          .all(args.salesPointId)
+  ) as Array<{
+    saleId: string;
+    saleProductMode: string | null;
+    productId: number;
+    qtyKg: string;
+    qtyUnits: string | null;
+    storageLocationId: number | null;
+  }>;
+
+  let total = 0;
+  for (const row of rows) {
+    const rowIsBottle = row.saleProductMode === "BOTTLE";
+    if (rowIsBottle !== args.isBottleMode) {
+      continue;
+    }
+
+    const stockProductId = resolveStockProductId(
+      db,
+      row.productId,
+      groupingEnabled,
+    );
+    if (stockProductId !== args.productId) {
+      continue;
+    }
+
+    const rawQty = args.isBottleMode
+      ? (row.qtyUnits ?? row.qtyKg)
+      : row.qtyKg;
+    const qty = parseQty(rawQty);
+    if (qty <= 0) {
+      continue;
+    }
+
+    const omitsStorage = productOmitsStorageLocationById(db, stockProductId);
+    let locationId: number | null;
+    if (omitsStorage) {
+      locationId = null;
+    } else {
+      try {
+        locationId = resolveSaleLineStorageLocation(
+          db,
+          args.salesPointId,
+          stockProductId,
+          row.storageLocationId,
+          args.isBottleMode,
+        );
+      } catch {
+        // Skip lines that cannot resolve a location (misconfigured CP).
+        continue;
+      }
+    }
+
+    if ((locationId ?? null) !== (args.storageLocationId ?? null)) {
+      continue;
+    }
+
+    total += qty;
+  }
+
+  return total;
+}
+
+/**
  * Ensures each sale line is covered by sellable stock as of dateIssued
- * at the resolved storage location (running reservation within the sale).
+ * at the resolved storage location (running reservation within the sale),
+ * after soft-reserving qty held by other PENDING invoices.
  */
 export function assertSaleLinesStockAsOf(
   db: Database.Database,
@@ -171,7 +282,7 @@ export function assertSaleLinesStockAsOf(
 
     const key = `${stockProductId}:${storageLocationId ?? "null"}`;
     const alreadyReserved = reserved.get(key) ?? 0;
-    const available = getSellableBalanceAsOf(
+    const asOfQty = getSellableBalanceAsOf(
       db,
       args.salesPointId,
       stockProductId,
@@ -179,6 +290,14 @@ export function assertSaleLinesStockAsOf(
       asOf,
       args.excludeSaleId,
     );
+    const pendingHold = getPendingSaleHoldQty(db, {
+      salesPointId: args.salesPointId,
+      productId: stockProductId,
+      storageLocationId,
+      isBottleMode: args.isBottleMode,
+      excludeSaleId: args.excludeSaleId,
+    });
+    const available = asOfQty - pendingHold;
     const remaining = available - alreadyReserved;
 
     if (remaining + 0.000001 < qty) {
@@ -204,14 +323,18 @@ export function assertSaleLinesStockAsOf(
 
       const asOfLabel = formatDisplayDate(asOf);
       const availableQty = Math.max(0, remaining);
+      const holdNote =
+        pendingHold > 0.000001
+          ? ` (${formatQty(pendingHold)} held by pending invoices)`
+          : "";
       if (availableQty <= 0.000001) {
         throw new InsufficientStockError(
-          `No stock for ${productLabel} at ${locationLabel} on ${asOfLabel}. ` +
-            `Receive stock first, or choose another location.`,
+          `No stock for ${productLabel} at ${locationLabel} on ${asOfLabel}${holdNote}. ` +
+            `Receive stock first, choose another location, or wait for pending invoices to be validated or deleted.`,
         );
       }
       throw new InsufficientStockError(
-        `Not enough stock for ${productLabel} at ${locationLabel} on ${asOfLabel}. ` +
+        `Not enough stock for ${productLabel} at ${locationLabel} on ${asOfLabel}${holdNote}. ` +
           `Only ${formatQty(availableQty)} available, but ${formatQty(qty)} is required.`,
       );
     }

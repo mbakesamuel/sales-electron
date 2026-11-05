@@ -59,9 +59,17 @@ import {
 import { loadTaxRatesAsOf } from "../tax/resolveRates.js";
 import { enqueueOutboxItem, serializeSaleForSync } from "../sync/syncOutbox.js";
 import { getSellableBalanceAsOf } from "../stock/asOfBalance.js";
-import { assertSaleLinesStockAsOf, deductStockForValidatedSale, reverseStockForValidatedSale, productOmitsStorageLocationById, resolveSaleLineStorageLocation } from "../stock/sales.js";
+import {
+  assertSaleLinesStockAsOf,
+  deductStockForValidatedSale,
+  getPendingSaleHoldQty,
+  reverseStockForValidatedSale,
+  productOmitsStorageLocationById,
+  resolveSaleLineStorageLocation,
+} from "../stock/sales.js";
 import {
   loadLoosePalmOilRequireSalesTank,
+  productIsBottledById,
   productIsLoosePalmOilById,
   productRequiresSalesTankForLooseSale,
   resolveStockProductId,
@@ -352,12 +360,14 @@ function getInvoiceOnlyTaxRegimeId(db: ReturnType<typeof getDatabase>): string |
 /**
  * Active sales-point storage locations for a product (SELLABLE condition qty > 0).
  * When asOfDateIso is set, balances are reconstructed from movements through that date.
+ * Qty shown is physical sellable minus soft holds from other PENDING invoices.
  * PKCP/PKP → []. LPO + require-sales-tank setting → sales tanks only. Else any location.
  */
 export function listStorageLocationsWithBalance(
   salesPointId: number,
   productId: number,
   asOfDateIso?: string | null,
+  excludeSaleId?: string | null,
 ): SalesStorageLocationBalanceOption[] {
   if (!Number.isFinite(salesPointId) || !Number.isFinite(productId)) {
     return [];
@@ -369,10 +379,22 @@ export function listStorageLocationsWithBalance(
     return [];
   }
 
+  const isBottleMode = productIsBottledById(db, productId);
   const requireSalesTank = productRequiresSalesTankForLooseSale(db, stockProductId);
   const salesTankSql = requireSalesTank
     ? " AND COALESCE(sl.isSalesTank, 0) = 1"
     : "";
+
+  function availableQty(locationId: number, physical: number): number {
+    const pendingHold = getPendingSaleHoldQty(db, {
+      salesPointId,
+      productId: stockProductId,
+      storageLocationId: locationId,
+      isBottleMode,
+      excludeSaleId: excludeSaleId ?? null,
+    });
+    return physical - pendingHold;
+  }
 
   const asOf = asOfDateIso?.trim().slice(0, 10) || null;
   if (asOf) {
@@ -391,7 +413,16 @@ export function listStorageLocationsWithBalance(
       .map((location) => ({
         id: location.id,
         name: location.name,
-        qty: getSellableBalanceAsOf(db, salesPointId, stockProductId, location.id, asOf),
+        qty: availableQty(
+          location.id,
+          getSellableBalanceAsOf(
+            db,
+            salesPointId,
+            stockProductId,
+            location.id,
+            asOf,
+          ),
+        ),
       }))
       .filter((row) => row.qty > QTY_EPS);
   }
@@ -419,7 +450,7 @@ export function listStorageLocationsWithBalance(
     .map((row) => ({
       id: row.id,
       name: row.name,
-      qty: parseQty(row.qty),
+      qty: availableQty(row.id, parseQty(row.qty)),
     }))
     .filter((row) => row.qty > QTY_EPS);
 }

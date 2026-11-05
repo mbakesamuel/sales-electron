@@ -132,9 +132,14 @@ export function registerReportsHandlers(): void {
       _event,
       authToken: string,
       hideZero?: unknown,
+      asAtIso?: unknown,
     ): BottleOilStockSalesReport => {
       const user = requireAuthUser(authToken);
-      return getBottleOilStockSalesReport(user.id, parseHideZero(hideZero));
+      const asAt =
+        typeof asAtIso === "string" && /^\d{4}-\d{2}-\d{2}$/.test(asAtIso.trim())
+          ? asAtIso.trim().slice(0, 10)
+          : null;
+      return getBottleOilStockSalesReport(user.id, parseHideZero(hideZero), asAt);
     },
   );
 

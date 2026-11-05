@@ -18,6 +18,7 @@ import { getSludgeOilPoolProductId } from "../stock/stockIntakeMigration.js";
 import { loadCommitmentMetricsAsOf } from "./commitmentAsOf.js";
 import { loadReportCompanySettings, loadReportComments } from "./companySettings.js";
 import {
+  detectBottledPack,
   loadSalesPointsForUser,
   reportScopedSalesPointId,
   type SalesPointRow,
@@ -360,23 +361,6 @@ function assignSectionNumbers(
       ),
     };
   });
-}
-
-function detectBottledPack(product: ProductRow): BottledPackColumn {
-  const text = `${product.productName} ${product.productCode ?? ""}`.toUpperCase();
-  if (text.includes("20L") || text.includes("JUG")) {
-    return { id: "jug20", label: "1X20L JUG", units: 0, litresPerUnit: 20 };
-  }
-  if (text.includes("3X5") || (text.includes("5L") && text.includes("CTN"))) {
-    return { id: "carton5", label: "3X5L CTN", units: 0, litresPerUnit: 15 };
-  }
-  if (text.includes("15L")) {
-    return { id: "carton15", label: "1X15L CTN", units: 0, litresPerUnit: 15 };
-  }
-  if (text.includes("1L")) {
-    return { id: "unit1", label: "1L BOTTLE", units: 0, litresPerUnit: 1 };
-  }
-  return { id: "other", label: "OTHER", units: 0, litresPerUnit: 1 };
 }
 
 const BOTTLED_PACK_ORDER = ["jug20", "carton5", "carton15", "unit1", "other"] as const;

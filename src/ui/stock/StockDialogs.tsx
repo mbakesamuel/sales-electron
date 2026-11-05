@@ -26,6 +26,8 @@ function DialogMessageBanner({ message }: { message: StockDialogMessage }) {
 interface DocDialogProps {
   title: string;
   wide?: boolean;
+  /** Grow to content; avoid an inner vertical scrollbar when the form fits the viewport. */
+  fitContent?: boolean;
   message?: StockDialogMessage;
   onClose: () => void;
   children: ComponentChildren;
@@ -34,6 +36,7 @@ interface DocDialogProps {
 export function DocDialog({
   title,
   wide = false,
+  fitContent = false,
   message = null,
   onClose,
   children,
@@ -66,7 +69,9 @@ export function DocDialog({
         onClick={onClose}
       />
       <div
-        class={`stock-modal-panel${wide ? " stock-modal-panel-wide" : ""}`}
+        class={`stock-modal-panel${wide ? " stock-modal-panel-wide" : ""}${
+          fitContent ? " stock-modal-panel-fit" : ""
+        }`}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div class="stock-modal-header">

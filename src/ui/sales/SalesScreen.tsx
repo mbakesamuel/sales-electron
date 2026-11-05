@@ -45,7 +45,7 @@ export function SalesScreen({
   }
 
   const listTitle =
-    variant === "bottled" ? "Bottle Oil invoices" : "Sales invoices";
+    variant === "bottled" ? "Bottle Oil Sales" : "Sales invoices";
   const formTitle =
     variant === "bottled" ? "Bottle Oil invoice" : "Invoice details";
 

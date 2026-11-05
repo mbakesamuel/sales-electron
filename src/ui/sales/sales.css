@@ -445,6 +445,12 @@
   gap: inherit;
   align-items: stretch;
   min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.sales-invoice-balance-row--1 {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .sales-invoice-balance-row--2 {
@@ -453,6 +459,16 @@
 
 .sales-invoice-balance-row--3 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.sales-invoice-grid > .sales-invoice-balance-row.sales-field-span-full {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.sales-invoice-grid > .sales-invoice-balance-row--2 > .sales-field {
+  min-width: 0;
+  width: 100%;
 }
 
 .sales-invoice-details-fields {
@@ -464,16 +480,48 @@
   min-width: 0;
 }
 
-.sales-invoice-grid > .sales-invoice-no-field {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
+/* Sit in the last grid column so the control keeps a full cell width. */
+.sales-invoice-grid > .sales-field.sales-invoice-no-field,
+.sales-client-compact .sales-invoice-grid > .sales-field.sales-invoice-no-field,
+.form-dialog-panel.sales-form-dialog-panel
+  .sales-invoice-grid
+  > .sales-field.sales-invoice-no-field {
+  grid-column: -2 / -1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  height: auto;
+  min-width: 0;
+  width: 100%;
 }
 
-.sales-invoice-grid > .sales-invoice-no-field input,
-.sales-invoice-grid > .sales-invoice-no-field .sales-invoice-no {
+.sales-invoice-grid > .sales-field.sales-invoice-no-field > span:first-child {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  margin: 0;
+}
+
+.sales-invoice-grid > .sales-field.sales-invoice-no-field input,
+.sales-invoice-grid > .sales-field.sales-invoice-no-field .sales-invoice-no,
+.sales-invoice-grid
+  > .sales-field.sales-invoice-no-field
+  input:not([type="checkbox"]),
+.form-dialog-panel.sales-form-dialog-panel
+  .sales-invoice-grid
+  > .sales-field.sales-invoice-no-field
+  input:not([type="checkbox"]) {
   width: 100%;
-  max-width: 16rem;
+  max-width: none;
+  min-width: 0;
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+.sales-invoice-grid > .sales-field.sales-invoice-no-field .sales-invoice-no {
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
 }
 
 .sales-invoice-grid-2 {
@@ -919,10 +967,12 @@
 }
 
 .sales-items-table-wrap {
+  width: 100%;
   border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
   background: var(--bg-elevated);
+  box-sizing: border-box;
 }
 
 .sales-items-panel-tall .sales-items-table-wrap {
@@ -930,7 +980,9 @@
 }
 
 .sales-items-table {
+  width: 100%;
   margin: 0;
+  table-layout: fixed;
 }
 
 .sales-items-table thead th {
@@ -1031,6 +1083,10 @@
   gap: 14px 16px;
   align-items: stretch;
   min-width: 0;
+}
+
+.sales-payment-grid--cols-2 {
+  --sales-payment-cols: 2;
 }
 
 .sales-payment-grid--cols-3 {
@@ -1465,21 +1521,21 @@
 
 /* Modal hosting the sales create/view form over the invoice list. */
 .form-dialog-panel.sales-form-dialog-panel {
-  width: min(72vw, 860px);
-  max-width: 94vw;
-  height: min(80vh, 820px);
-  max-height: 82vh;
+  width: min(60vw, 700px);
+  max-width: 92vw;
+  height: min(70vh, 620px);
+  max-height: 74vh;
   display: flex;
   flex-direction: column;
 }
 
 .form-dialog-panel.sales-form-dialog-panel > .form-dialog-header {
   flex-shrink: 0;
-  padding: 8px 12px;
+  padding: 6px 10px;
 }
 
 .form-dialog-panel.sales-form-dialog-panel .form-dialog-title {
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .form-dialog-panel.sales-form-dialog-panel .form-dialog-close {
@@ -1492,39 +1548,156 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  padding: 6px 14px 10px;
-  gap: 6px;
-  --sales-modal-gap-y: 6px;
-  --sales-modal-gap-x: 10px;
-  --sales-modal-panel-pad-y: 6px;
-  --sales-modal-panel-pad-x: 10px;
-  --sales-modal-control-h: 34px;
-  --sales-modal-font: 13px;
-  --sales-modal-label-font: 12px;
+  padding: 4px 10px 8px;
+  gap: 4px;
+  --sales-control-height: 28px;
+  --sales-modal-gap-y: 4px;
+  --sales-modal-gap-x: 8px;
+  --sales-modal-panel-pad-y: 4px;
+  --sales-modal-panel-pad-x: 8px;
+  --sales-modal-control-h: 28px;
+  --sales-modal-font: 12px;
+  --sales-modal-label-font: 11px;
 }
 
 .form-dialog-panel.sales-form-dialog-panel .sales-panel {
-  padding: 8px 10px;
+  padding: 6px 8px;
   flex-shrink: 0;
+  border-radius: 8px;
 }
 
-.form-dialog-panel.sales-form-dialog-panel .sales-items-panel,
+.form-dialog-panel.sales-form-dialog-panel .sales-items-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-items-panel .sales-items-table-wrap {
+  width: 100%;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-items-panel .sales-items-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-items-panel-tall .sales-items-table-wrap {
+  min-height: 12rem;
+  max-height: 18rem;
+  overflow: auto;
+}
+
 .form-dialog-panel.sales-form-dialog-panel .sales-payments-panel {
-  flex: 0 1 auto;
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
   min-height: 0;
 }
 
+.form-dialog-panel.sales-form-dialog-panel .sales-payments-form {
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow-y: visible;
+  gap: 4px;
+  --sales-control-height: var(--sales-modal-control-h);
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-payment-row {
+  align-items: stretch;
+  gap: 8px;
+  padding-bottom: 4px;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-payment-grid {
+  gap: 4px 10px;
+  align-items: end;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-payment-grid--cols-2 {
+  max-width: 28rem;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-payment-grid .sales-field {
+  gap: 2px;
+  height: auto;
+  font-size: var(--sales-modal-font);
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-payment-value {
+  height: var(--sales-modal-control-h);
+  min-height: var(--sales-modal-control-h);
+  flex: 0 0 var(--sales-modal-control-h);
+  padding: 0 8px;
+  font-size: var(--sales-modal-font);
+  line-height: calc(var(--sales-modal-control-h) - 2px);
+  border-radius: 6px;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-payment-remove {
+  height: var(--sales-modal-control-h);
+  padding: 0 10px;
+  font-size: 12px;
+}
+
 .form-dialog-panel.sales-form-dialog-panel .sales-invoice-header,
-.form-dialog-panel.sales-form-dialog-panel .sales-section-header {
-  margin-bottom: 4px;
+.form-dialog-panel.sales-form-dialog-panel .sales-section-header,
+.form-dialog-panel.sales-form-dialog-panel .sales-panel-header {
+  margin-bottom: 2px;
+  gap: 8px;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-invoice-header h2,
+.form-dialog-panel.sales-form-dialog-panel .sales-section-header h3,
+.form-dialog-panel.sales-form-dialog-panel .sales-panel-header h3 {
+  font-size: 13px;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-muted {
+  font-size: 11px;
+  line-height: 1.3;
 }
 
 .form-dialog-panel.sales-form-dialog-panel .sales-field {
-  gap: 3px;
+  gap: 2px;
 }
 
-.form-dialog-panel.sales-form-dialog-panel .sales-invoice-grid {
+.form-dialog-panel.sales-form-dialog-panel .sales-field > span:first-child,
+.form-dialog-panel.sales-form-dialog-panel .sales-label {
+  font-size: var(--sales-modal-label-font);
+  line-height: 1.2;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-invoice-form,
+.form-dialog-panel.sales-form-dialog-panel .sales-payments-form {
+  --sales-control-height: 28px;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-invoice-grid,
+.form-dialog-panel.sales-form-dialog-panel .sales-client-compact .sales-invoice-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px 8px;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-invoice-details-fields,
+.form-dialog-panel.sales-form-dialog-panel .sales-client-compact .sales-invoice-details-fields {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-invoice-options {
   gap: 6px 10px;
+  padding: 4px 6px;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-checkbox-group {
+  gap: 4px 8px;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-checkbox-group legend,
+.form-dialog-panel.sales-form-dialog-panel .sales-checkbox {
+  font-size: var(--sales-modal-label-font);
 }
 
 .form-dialog-panel.sales-form-dialog-panel .sales-invoice-grid .sales-field input:not([type="checkbox"]),
@@ -1537,54 +1710,82 @@
 .form-dialog-panel.sales-form-dialog-panel .sales-field select {
   height: var(--sales-modal-control-h);
   min-height: var(--sales-modal-control-h);
-  padding: 6px 12px;
+  flex: 0 0 var(--sales-modal-control-h);
+  padding: 0 8px;
   font-size: var(--sales-modal-font);
+  line-height: calc(var(--sales-modal-control-h) - 2px);
+  border-radius: 6px;
   box-sizing: border-box;
 }
 
-.form-dialog-panel.sales-form-dialog-panel .sales-hint {
-  font-size: 11px;
-  line-height: 1.3;
-  margin-top: 2px;
+.form-dialog-panel.sales-form-dialog-panel .sales-hint,
+.form-dialog-panel.sales-form-dialog-panel .sales-checkbox-hint {
+  font-size: 10px;
+  line-height: 1.25;
+  margin-top: 1px;
 }
 
-.form-dialog-panel.sales-form-dialog-panel .sales-line-card {
-  padding: 8px 10px;
-}
-
-.form-dialog-panel.sales-form-dialog-panel .sales-line-card > .sales-field {
+.form-dialog-panel.sales-form-dialog-panel .sales-banner {
+  padding: 6px 8px;
+  font-size: 12px;
   margin-bottom: 4px;
 }
 
+.form-dialog-panel.sales-form-dialog-panel .sales-table th,
+.form-dialog-panel.sales-form-dialog-panel .sales-table td {
+  padding: 4px 6px;
+  font-size: 12px;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-items-empty {
+  padding: 10px 8px !important;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-line-card {
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-line-card > .sales-field {
+  margin-bottom: 2px;
+}
+
 .form-dialog-panel.sales-form-dialog-panel .sales-lines-list {
-  gap: 6px;
+  gap: 4px;
 }
 
 .form-dialog-panel.sales-form-dialog-panel .sales-line-grid {
-  gap: 6px 10px;
+  gap: 4px 8px;
 }
 
 .form-dialog-panel.sales-form-dialog-panel .sales-totals-row {
-  margin-top: 6px;
-  gap: 10px;
-  font-size: 12px;
+  margin-top: 4px;
+  gap: 8px;
+  font-size: 11px;
 }
 
 .form-dialog-panel.sales-form-dialog-panel .sales-actions {
   flex-shrink: 0;
-  gap: 8px;
+  gap: 6px;
   margin-top: auto;
   justify-content: flex-end;
   position: sticky;
   bottom: 0;
   z-index: 2;
-  padding: 8px 0 2px;
+  padding: 6px 0 2px;
   background: var(--bg-elevated);
 }
 
 .form-dialog-panel.sales-form-dialog-panel .sales-btn-primary,
 .form-dialog-panel.sales-form-dialog-panel .sales-btn-secondary,
 .form-dialog-panel.sales-form-dialog-panel .sales-btn-danger {
-  padding: 6px 12px;
-  font-size: 13px;
+  padding: 4px 10px;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.form-dialog-panel.sales-form-dialog-panel .sales-invoice-header-controls .sales-btn-secondary {
+  height: 26px;
+  padding: 0 8px;
+  font-size: 12px;
 }

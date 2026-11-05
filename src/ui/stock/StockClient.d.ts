@@ -14,5 +14,5 @@ interface StockClientProps {
     onViewFilterChange: (next: StockProductFilter) => void;
     onRefresh: () => void | Promise<void>;
 }
-export declare function StockClient({ bootstrap, user, permissions, variant, viewFilter, showProductToggle, onViewFilterChange, onRefresh, }: StockClientProps): import("preact").JSX.Element;
+export declare function StockClient({ bootstrap, user, permissions, variant, viewFilter, showProductToggle: _showProductToggle, onViewFilterChange: _onViewFilterChange, onRefresh, }: StockClientProps): import("preact").JSX.Element;
 export {};

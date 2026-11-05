@@ -46,7 +46,7 @@ Sidebar section: **Sales**. Reference: [Sales invoices](../user-guide/04-sales-i
 
 **Path:** Sales → Invoicing → **New invoice** (modal)  
 **Who:** Sales clerk with write on sales  
-**Before you start:** Open month; validated DO with remaining kg (**P-DO-04**); sellable stock as of invoice date; booklet serial or auto-generate on; non-cash payment method configured
+**Before you start:** Open month; validated DO with remaining kg (**P-DO-04**); available stock as of invoice date (on-hand minus other pending invoices); booklet serial or auto-generate on; non-cash payment method configured
 
 1. Open **Sales → Invoicing** (invoice list).
 2. Click **New invoice**. In the modal, enter **Booklet serial no.** unless auto-generate invoice numbers is on.
@@ -61,9 +61,9 @@ Sidebar section: **Sales**. Reference: [Sales invoices](../user-guide/04-sales-i
 9. Confirm payment method (cheque / traite / bank transfer — **Cash is hidden** on loose) and locked amount = invoice total. Complete traite/cheque fields if shown.
 10. **Save as pending** (or **Validate invoice** if you have direct validate).
 
-**Check:** Invoice saved; appears on **Invoice list** for the open month. After validation (**P-SA-06**), stock deducts and DO remaining drops on **P-DO-06**.
+**Check:** Invoice saved; appears on **Invoice list** for the open month; its qty soft-reserves available stock for other new invoices. After validation (**P-SA-06**), stock deducts and DO remaining drops on **P-DO-06**.
 
-**If it fails:** Pick DO empty — DO not validated, wrong customer/point, or zero remaining; insufficient stock as of invoice date; serial duplicate / not in active booklet; payment total mismatch.
+**If it fails:** Pick DO empty — DO not validated, wrong customer/point, or zero remaining; insufficient available stock as of invoice date (including qty held by other pending invoices); serial duplicate / not in active booklet; payment total mismatch.
 
 ---
 
@@ -116,9 +116,9 @@ Sidebar section: **Sales**. Reference: [Sales invoices](../user-guide/04-sales-i
 3. Validate individually or in bulk.
 4. Optionally open the invoice from Invoicing and use **Validate invoice** there.
 
-**Check:** Status **VALIDATED**; stock deducted as of invoice date; DO lifts update; consignment-eligible sales can proceed to **P-SA-08**.
+**Check:** Status **VALIDATED**; stock deducted as of invoice date; pending hold released into a real SALE movement; DO lifts update; consignment-eligible sales can proceed to **P-SA-08**.
 
-**If it fails:** Insufficient stock as of invoice date; action missing; already validated/cancelled.
+**If it fails:** Insufficient available stock as of invoice date (on-hand already used by later receipts/issues or other pending invoices); action missing; already validated/cancelled.
 
 ---
 
@@ -126,7 +126,7 @@ Sidebar section: **Sales**. Reference: [Sales invoices](../user-guide/04-sales-i
 
 **Path:** Sales → Bottle Oil sales → **New Bottle Oil invoice** (modal)  
 **Who:** Store Keeper / bottle-oil writers  
-**Before you start:** Open month; Cash payment method; bottled stock available; App settings for registered customers / Ration as needed
+**Before you start:** Open month; Cash payment method; available bottled stock (on-hand minus other pending Bottle Oil invoices); App settings for registered customers / Ration as needed
 
 1. Open **Sales → Bottle Oil sales** (invoice list) and click **New Bottle Oil invoice**.
 2. Enter booklet serial unless auto-generate is on.
@@ -141,7 +141,7 @@ Sidebar section: **Sales**. Reference: [Sales invoices](../user-guide/04-sales-i
 
 **Check:** Invoice/receipt saved; after validation, bottled stock reduces; print shows receipt wording and QR.
 
-**If it fails:** No Cash method; Ration hidden by App settings; stock short as of date.
+**If it fails:** No Cash method; Ration hidden by App settings; available stock short as of date (including pending holds).
 
 ---
 

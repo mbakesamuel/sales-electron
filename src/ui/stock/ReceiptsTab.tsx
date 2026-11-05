@@ -70,12 +70,10 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
     viewProductFilter = "all",
     stockIntakeOilGrouping = false,
   } = props;
-  const bottledLocked =
-    viewProductFilter === "bulk" || viewProductFilter === "bottled";
-  const lockedBottled = viewProductFilter === "bottled";
+  const isBottleReception = viewProductFilter === "bottled";
+  const bottledProducts = isBottleReception;
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [bottledProducts, setBottledProducts] = useState(lockedBottled);
   const [receiptNo, setReceiptNo] = useState("");
   const [salesPointId, setSalesPointId] = useState<string>(
     scopedSalesPointId != null ? String(scopedSalesPointId) : "",
@@ -132,6 +130,10 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
   }
 
   const receiptSalesPoints = useMemo(() => {
+    // Bottle reception at Bota: any active collection point (typically scoped).
+    if (isBottleReception) {
+      return salesPoints;
+    }
     const millAttached = salesPoints.filter((sp) => sp.attachedToMill);
     if (!salesPointId) {
       return millAttached;
@@ -147,7 +149,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
       }
     }
     return millAttached;
-  }, [salesPoints, salesPointId]);
+  }, [salesPoints, salesPointId, isBottleReception]);
 
   useEffect(() => {
     let cancelled = false;
@@ -175,8 +177,6 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
 
   function resetForm() {
     setEditingId(null);
-    const nextBottled = bottledLocked ? lockedBottled : false;
-    setBottledProducts(nextBottled);
     setReceiptNo("");
     const sp = scopedSalesPointId != null ? String(scopedSalesPointId) : "";
     setSalesPointId(sp);
@@ -190,7 +190,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
         storageLocationId: defaultReceiptLocationId(
           storageLocations,
           sp,
-          nextBottled,
+          bottledProducts,
         ),
       },
     ]);
@@ -210,38 +210,6 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
   }
 
   const modalProducts = products.filter((p) => p.isBottled === bottledProducts);
-
-  function onBottledProductsChange(next: boolean) {
-    setBottledProducts(next);
-    const defLoc = defaultReceiptLocationId(
-      storageLocations,
-      salesPointId,
-      next,
-    );
-    setLines((prev) =>
-      prev.map((line) => {
-        const cleared = !line.productId
-          ? line
-          : (() => {
-              const product = products.find(
-                (p) => String(p.productId) === line.productId,
-              );
-              if (product && product.isBottled === next) {
-                return line;
-              }
-              return { ...line, productId: "" };
-            })();
-        return { ...cleared, storageLocationId: defLoc };
-      }),
-    );
-  }
-
-  useEffect(() => {
-    if (!bottledLocked) {
-      return;
-    }
-    onBottledProductsChange(lockedBottled);
-  }, [bottledLocked, lockedBottled]);
 
   function onSalesPointChange(nextId: string) {
     setSalesPointId(nextId);
@@ -420,7 +388,6 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
     setSalesPointId(String(detail.salesPointId));
     setSupplierLabel(detail.supplierLabel);
     setReceiptNo(detail.receiptNo);
-    setBottledProducts(productFilterForDetail(detail) === "bottled");
     const rawDate =
       detail.receivedAtIso.length > 10
         ? detail.receivedAtIso.slice(0, 10)
@@ -509,7 +476,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
     <section class="stock-section">
       <div class="stock-section-header">
         <div>
-          <h2>Stock receipts</h2>
+          <h2>{isBottleReception ? "Stock Reception" : "Stock receipts"}</h2>
         </div>
         <div class="stock-header-actions">
           {props.canPost ? (
@@ -552,10 +519,10 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
         <table class="stock-table">
           <thead>
             <tr>
-              <th>Consignment Note #</th>
+              <th>Receipt #</th>
               <th>Date</th>
               <th>Collection point</th>
-              <th>Supplier</th>
+              <th>{isBottleReception ? "Veh. Cons. #" : "Supplier"}</th>
               <th class="stock-num">Total qty</th>
               <th>Status</th>
               <th class="stock-actions-col">Actions</th>
@@ -565,7 +532,9 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={7} class="stock-empty-cell">
-                  No receipts recorded yet.
+                  No{" "}
+                  {isBottleReception ? "bottle receptions" : "receipts"}{" "}
+                  recorded yet.
                   {props.canDraft ? (
                     <>
                       {" "}
@@ -643,7 +612,9 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
               <ReviewKeyValue label="Receipt Date">
                 {formatDate(reviewDetail.receivedAtIso)}
               </ReviewKeyValue>
-              <ReviewKeyValue label="Mill">
+              <ReviewKeyValue
+                label={isBottleReception ? "Veh. Cons. #" : "Mill"}
+              >
                 {reviewDetail.supplierLabel}
               </ReviewKeyValue>
               <ReviewKeyValue label="Drafted by">
@@ -768,7 +739,7 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
             </label>
             {!autoGenerateReceiptNo && !editingId ? (
               <label class="stock-form-row">
-                <span class="stock-form-label">Consignment Note #</span>
+                <span class="stock-form-label">Receipt number</span>
                 <input
                   class="stock-form-control stock-mono"
                   value={receiptNo}
@@ -795,7 +766,9 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
             ) : null}
 
             <label class="stock-form-row">
-              <span class="stock-form-label">Supplier Mill</span>
+              <span class="stock-form-label">
+                {isBottleReception ? "Veh. Cons. #" : "Supplier Mill"}
+              </span>
               <input
                 class="stock-form-control"
                 value={supplierLabel}
@@ -804,7 +777,11 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
                     (event.currentTarget as HTMLInputElement).value,
                   )
                 }
-                placeholder="E.g IU Mondoni"
+                placeholder={
+                  isBottleReception
+                    ? "Vehicle consignment note number"
+                    : "E.g IU Mondoni"
+                }
                 required
               />
             </label>
@@ -832,33 +809,6 @@ export function ReceiptsTab(props: ReceiptsTabProps) {
               </label>
             ) : null}
 
-            <label class="stock-form-row stock-form-row-checkbox">
-              <span class="stock-form-label">Product type</span>
-              <span class="stock-form-control-wrap">
-                <label class="stock-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={bottledProducts}
-                    disabled={bottledLocked}
-                    onChange={(event) =>
-                      onBottledProductsChange(
-                        (event.currentTarget as HTMLInputElement).checked,
-                      )
-                    }
-                  />
-                  Bottled products
-                </label>
-                <span class="stock-form-hint">
-                  {bottledLocked
-                    ? viewProductFilter === "bottled"
-                      ? "Locked to bottled by the Stock product view."
-                      : "Locked to loose products by the Stock product view."
-                    : bottledProducts
-                      ? "Line products are limited to bottled items."
-                      : "Line products are limited to other (non-bottled) items, including Palm Kernel / Cake (no storage location)."}
-                </span>
-              </span>
-            </label>
             <label class="stock-form-row">
               <span class="stock-form-label">Description</span>
               <input

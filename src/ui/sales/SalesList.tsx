@@ -77,11 +77,11 @@ export function SalesList({
   const [page, setPage] = useState(1);
   const isBottled = variant === "bottled";
   const title =
-    listTitle ?? (isBottled ? "Bottle Oil invoices" : "Sales invoices");
+    listTitle ?? (isBottled ? "Bottle Oil Sales" : "Sales invoices");
   const qtyHeader = isBottled ? "Qty (units)" : "Qty (kg)";
   const colCount = isBottled ? 9 : 10;
   const newInvoiceLabel = isBottled
-    ? "New Bottle Oil invoice"
+    ? "New Sales"
     : "New invoice";
 
   useEffect(() => {

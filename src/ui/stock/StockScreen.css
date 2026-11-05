@@ -537,6 +537,19 @@ textarea.stock-form-control:focus,
   max-width: 56rem;
 }
 
+.stock-modal-panel-fit {
+  max-height: none;
+}
+
+.stock-modal-panel-fit .stock-modal-header {
+  padding: 12px 16px 0;
+}
+
+.stock-modal-panel-fit .stock-modal-body {
+  padding: 8px 16px 12px;
+  overflow-y: visible;
+}
+
 .stock-confirm-panel {
   max-width: 28rem;
 }
@@ -599,6 +612,26 @@ textarea.stock-form-control:focus,
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.stock-form-transfer {
+  gap: 8px;
+}
+
+.stock-form-transfer .stock-transfer-signature-col {
+  gap: 8px;
+}
+
+.stock-form-transfer .stock-line-editor {
+  padding: 8px 10px;
+}
+
+.stock-form-transfer .stock-line-editor-header {
+  margin-bottom: 6px;
+}
+
+.stock-form-transfer .stock-modal-actions {
+  margin-top: 8px;
 }
 
 .stock-form-row {
